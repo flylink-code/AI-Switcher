@@ -59,10 +59,7 @@ pub fn read_opencode_config_at(path: &Path) -> AppResult<Value> {
         Err(err) => return Err(AppError::Io(format!("读取 OpenCode 配置失败: {err}"))),
     };
     let value: Value = json5::from_str(&content).map_err(|e| {
-        AppError::Config(format!(
-            "无法解析 OpenCode 配置: {}: {e}",
-            path.display()
-        ))
+        AppError::Config(format!("无法解析 OpenCode 配置: {}: {e}", path.display()))
     })?;
     if !value.is_object() {
         return Err(AppError::Config(format!(
@@ -206,7 +203,11 @@ fn remove_managed_providers(providers: &mut Map<String, Value>) -> Vec<String> {
 }
 
 fn clear_dangling_managed_model(config: &mut Value, removed_keys: &[String]) {
-    let Some(model_ref) = config.get("model").and_then(Value::as_str).map(str::to_string) else {
+    let Some(model_ref) = config
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
         return;
     };
     let Some((provider_id, _)) = split_model_ref(&model_ref) else {
@@ -220,10 +221,7 @@ fn clear_dangling_managed_model(config: &mut Value, removed_keys: &[String]) {
 }
 
 /// 将 AI-Switcher 中全部 OpenCode 供应商同步写入配置（多供应商并存，无需切换）。
-pub fn apply_all_providers_at(
-    path: &Path,
-    entries: &[(Provider, Vec<String>)],
-) -> AppResult<()> {
+pub fn apply_all_providers_at(path: &Path, entries: &[(Provider, Vec<String>)]) -> AppResult<()> {
     let _guard = lock_opencode_config()?;
     let mut config = read_opencode_config_at(path)?;
     ensure_provider_object(&mut config);
@@ -440,7 +438,10 @@ fn read_live_providers_at(path: &Path) -> AppResult<Vec<OpenCodeLiveProvider>> {
     let Some(providers) = config.get("provider").and_then(Value::as_object) else {
         return Ok(Vec::new());
     };
-    let current_ref = config.get("model").and_then(Value::as_str).and_then(split_model_ref);
+    let current_ref = config
+        .get("model")
+        .and_then(Value::as_str)
+        .and_then(split_model_ref);
 
     let mut result = Vec::new();
     for (provider_id, value) in providers {
@@ -540,9 +541,9 @@ pub fn apply_permission_mode_at(path: &Path, mode: &str) -> AppResult<String> {
     let normalized = parse_opencode_permission_mode(mode)?;
     let _guard = lock_opencode_config()?;
     let mut config = read_opencode_config_at(path)?;
-    let root = config.as_object_mut().ok_or_else(|| {
-        AppError::Config("OpenCode 配置文件根节点必须是 JSON 对象".into())
-    })?;
+    let root = config
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config("OpenCode 配置文件根节点必须是 JSON 对象".into()))?;
     let permission = root
         .entry("permission".to_string())
         .or_insert_with(|| Value::Object(Map::new()));
@@ -786,7 +787,10 @@ mod tests {
         assert_eq!(model["variants"]["high"]["reasoningEffort"], "high");
         assert_eq!(model["limit"]["context"], 200_000);
         assert_eq!(model["limit"]["output"], 32_000);
-        assert_eq!(value["models"]["mini"]["variants"]["low"]["reasoningEffort"], "low");
+        assert_eq!(
+            value["models"]["mini"]["variants"]["low"]["reasoningEffort"],
+            "low"
+        );
     }
 
     #[test]
@@ -806,23 +810,47 @@ mod tests {
         let mut provider = test_provider(ProtocolType::OpenAiChat);
         provider.model_context_window = None;
         let value = managed_provider_value(&provider, &[]);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["context"],
+            200_000
+        );
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["output"],
+            32_000
+        );
 
         provider.model_context_window = Some(0);
         let value = managed_provider_value(&provider, &[]);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["context"],
+            200_000
+        );
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["output"],
+            32_000
+        );
 
         provider.model_context_window = Some(128_000);
         let value = managed_provider_value(&provider, &[]);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["context"],
+            200_000
+        );
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["output"],
+            32_000
+        );
 
         provider.model_context_window = Some(8_000);
         let value = managed_provider_value(&provider, &[]);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["context"],
+            200_000
+        );
+        assert_eq!(
+            value["models"]["claude-sonnet-5"]["limit"]["output"],
+            32_000
+        );
     }
 
     #[test]
@@ -835,8 +863,12 @@ mod tests {
         )
         .expect("seed");
 
-        apply_provider_at(&path, &test_provider(ProtocolType::Anthropic), &["gpt-5.5".into()])
-            .expect("apply");
+        apply_provider_at(
+            &path,
+            &test_provider(ProtocolType::Anthropic),
+            &["gpt-5.5".into()],
+        )
+        .expect("apply");
 
         let config = read_opencode_config_at(&path).expect("reload");
         let key = managed_key();
@@ -908,7 +940,10 @@ mod tests {
 
         let config = read_opencode_config_at(&path).expect("reload");
         assert_eq!(config["theme"], "dark");
-        assert!(config["provider"]["my-own"].is_object(), "用户自有 provider 必须保留");
+        assert!(
+            config["provider"]["my-own"].is_object(),
+            "用户自有 provider 必须保留"
+        );
         assert!(config["provider"][managed_key()].is_object());
         assert_eq!(config["model"], "my-own/model-x");
     }
@@ -959,7 +994,10 @@ mod tests {
         let path = temp.path().join("opencode.json");
         for malformed in ["[]", "42", "\"oops\""] {
             std::fs::write(&path, malformed).expect("write");
-            assert!(read_opencode_config_at(&path).is_err(), "must reject: {malformed}");
+            assert!(
+                read_opencode_config_at(&path).is_err(),
+                "must reject: {malformed}"
+            );
         }
     }
 
@@ -1005,7 +1043,10 @@ mod tests {
         let config = read_opencode_config_at(&path).expect("reload");
         assert!(config["provider"].get(MANAGED_PROVIDER_ID).is_none());
         assert!(config["provider"].get("aisw-p1").is_none());
-        assert_eq!(config["model"], "my-own/model-x", "用户自己的 model 引用必须保留");
+        assert_eq!(
+            config["model"], "my-own/model-x",
+            "用户自己的 model 引用必须保留"
+        );
     }
 
     #[test]
@@ -1038,7 +1079,9 @@ mod tests {
         )
         .expect("write");
 
-        let live = read_current_live_provider_at(&path).expect("read").expect("some");
+        let live = read_current_live_provider_at(&path)
+            .expect("read")
+            .expect("some");
         assert_eq!(live.base_url, "https://acme.test/v1");
         assert_eq!(live.auth_token, "sk-acme");
         assert_eq!(live.model, "gpt-5.5");
@@ -1051,7 +1094,9 @@ mod tests {
 
         apply_provider_at(&path, &test_provider(ProtocolType::Anthropic), &[]).expect("apply");
 
-        assert!(read_current_live_provider_at(&path).expect("read").is_none());
+        assert!(read_current_live_provider_at(&path)
+            .expect("read")
+            .is_none());
     }
 
     #[test]
@@ -1083,14 +1128,21 @@ mod tests {
         .expect("write");
 
         let providers = read_live_providers_at(&path).expect("read");
-        assert_eq!(providers.len(), 2, "托管项与无 baseURL 项必须跳过: {providers:?}");
+        assert_eq!(
+            providers.len(),
+            2,
+            "托管项与无 baseURL 项必须跳过: {providers:?}"
+        );
 
         let acme = providers.iter().find(|p| p.id == "acme").expect("acme");
         assert_eq!(acme.name, "Acme 网关");
         assert_eq!(acme.base_url, "https://acme.test/v1");
         assert_eq!(acme.auth_token, "sk-acme");
         assert_eq!(acme.protocol_type, ProtocolType::OpenAiChat);
-        assert_eq!(acme.models, vec!["gpt-5.5".to_string(), "gpt-5.5-mini".to_string()]);
+        assert_eq!(
+            acme.models,
+            vec!["gpt-5.5".to_string(), "gpt-5.5-mini".to_string()]
+        );
         assert_eq!(acme.current_model.as_deref(), Some("gpt-5.5"));
 
         let beta = providers.iter().find(|p| p.id == "beta").expect("beta");
@@ -1121,7 +1173,10 @@ mod tests {
         let providers = read_live_providers_at(&path).expect("read");
         let acme = &providers[0];
         assert_eq!(acme.current_model.as_deref(), Some("gpt-5.5-fast"));
-        assert!(acme.models.iter().any(|m| m == "gpt-5.5-fast"), "当前模型必须并入 models");
+        assert!(
+            acme.models.iter().any(|m| m == "gpt-5.5-fast"),
+            "当前模型必须并入 models"
+        );
     }
 
     #[test]
@@ -1283,13 +1338,19 @@ mod tests {
             "type": "local", "command": ["npx", "-y", "srv"], "environment": {"K": "v"}
         }))
         .expect("local");
-        assert_eq!(local, json!({"command": "npx", "args": ["-y", "srv"], "env": {"K": "v"}}));
+        assert_eq!(
+            local,
+            json!({"command": "npx", "args": ["-y", "srv"], "env": {"K": "v"}})
+        );
 
         let remote = mcp_entry_from_opencode(&json!({
             "type": "remote", "url": "https://x.test/mcp", "headers": {"A": "b"}
         }))
         .expect("remote");
-        assert_eq!(remote, json!({"type": "http", "url": "https://x.test/mcp", "headers": {"A": "b"}}));
+        assert_eq!(
+            remote,
+            json!({"type": "http", "url": "https://x.test/mcp", "headers": {"A": "b"}})
+        );
 
         assert!(mcp_entry_from_opencode(&json!({"type": "unknown"})).is_none());
     }

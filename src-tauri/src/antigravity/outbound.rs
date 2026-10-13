@@ -334,9 +334,8 @@ fn chain_for_probe(proxy_url: &str) -> AppResult<super::exit_hop::ChainConfig> {
     super::exit_hop::parse_proxy_endpoint(proxy_url)?;
     let cached = read_cache();
     let first = first_hop(&cached)?;
-    super::exit_hop::chain_from_parts(true, proxy_url, first)?.ok_or_else(|| {
-        AppError::Config("检测链式代理出口IP需要填写主机和端口".into())
-    })
+    super::exit_hop::chain_from_parts(true, proxy_url, first)?
+        .ok_or_else(|| AppError::Config("检测链式代理出口IP需要填写主机和端口".into()))
 }
 
 fn write_cache(cached: CachedSettings) {
@@ -416,9 +415,7 @@ fn first_hop(cached: &CachedSettings) -> AppResult<super::exit_hop::FirstHop> {
         OutboundProxyMode::Direct => Ok(super::exit_hop::FirstHop::Direct),
         OutboundProxyMode::System => {
             let url = system_proxy::outbound_proxy_url().ok_or_else(|| {
-                AppError::Config(
-                    "未检测到系统代理，无法经过出站代理使用链式代理出口IP".into(),
-                )
+                AppError::Config("未检测到系统代理，无法经过出站代理使用链式代理出口IP".into())
             })?;
             Ok(super::exit_hop::FirstHop::Proxy(
                 super::exit_hop::parse_proxy_endpoint(&url)?,
@@ -476,8 +473,8 @@ fn parse_exit_entries(
     if url.is_empty() {
         return (Vec::new(), list_json.is_none());
     }
-    let enabled = legacy_enabled
-        .is_some_and(|value| value == "1" || value.eq_ignore_ascii_case("true"));
+    let enabled =
+        legacy_enabled.is_some_and(|value| value == "1" || value.eq_ignore_ascii_case("true"));
     (
         normalize_exit_entries(vec![ExitProxyEntry {
             id: "exit-legacy".into(),
@@ -961,7 +958,8 @@ mod tests {
         assert_eq!(entries[0].id, "exit-legacy");
         assert_eq!(entries[0].name, EXIT_DEFAULT_NAME);
         assert!(entries[0].enabled);
-        let (again, migrated_again) = parse_exit_entries(Some("[]"), Some("1"), Some("socks5://old"));
+        let (again, migrated_again) =
+            parse_exit_entries(Some("[]"), Some("1"), Some("socks5://old"));
         assert!(!migrated_again);
         assert!(again.is_empty());
     }

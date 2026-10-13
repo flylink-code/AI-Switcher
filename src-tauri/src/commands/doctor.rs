@@ -38,7 +38,12 @@ pub struct DoctorCheck {
 }
 
 impl DoctorCheck {
-    fn new(id: impl Into<String>, label: impl Into<String>, ok: bool, detail: impl Into<String>) -> Self {
+    fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        ok: bool,
+        detail: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             label: label.into(),
@@ -239,17 +244,27 @@ pub async fn repair_doctor_check(
         }
         "codex_catalog" => {
             let catalog = if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
-                let pairs = crate::commands::providers::load_gateway_pairs(&state, ProviderTarget::Codex)?;
+                let pairs =
+                    crate::commands::providers::load_gateway_pairs(&state, ProviderTarget::Codex)?;
                 if pairs.is_empty() {
-                    return Err(AppError::Config("没有 Codex 供应商，无法重建 model catalog".into()));
+                    return Err(AppError::Config(
+                        "没有 Codex 供应商，无法重建 model catalog".into(),
+                    ));
                 }
-                let hide_official = crate::catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
-                crate::catalog::build_catalog_with(crate::catalog::CatalogStyle::Codex, &pairs, hide_official)
+                let hide_official =
+                    crate::catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
+                crate::catalog::build_catalog_with(
+                    crate::catalog::CatalogStyle::Codex,
+                    &pairs,
+                    hide_official,
+                )
             } else {
                 let provider = state
                     .db
                     .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::Codex))?
-                    .ok_or_else(|| AppError::Config("没有当前 Codex 供应商，无法重建 model catalog".into()))?;
+                    .ok_or_else(|| {
+                        AppError::Config("没有当前 Codex 供应商，无法重建 model catalog".into())
+                    })?;
                 let extra = state
                     .db
                     .with_conn(|conn| {
@@ -422,8 +437,9 @@ fn check_codex_config() -> DoctorCheck {
         );
     }
     match fs::read_to_string(&path).and_then(|text| {
-        text.parse::<DocumentMut>()
-            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error.to_string()))
+        text.parse::<DocumentMut>().map_err(|error| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, error.to_string())
+        })
     }) {
         Ok(doc) => {
             let provider = doc
@@ -464,7 +480,12 @@ fn check_codex_auth() -> DoctorCheck {
 fn check_codex_model_catalog() -> DoctorCheck {
     let path = get_codex_config_path();
     let Ok(text) = fs::read_to_string(&path) else {
-        return DoctorCheck::new("codex_catalog", "Codex model catalog", true, "无 config.toml，跳过");
+        return DoctorCheck::new(
+            "codex_catalog",
+            "Codex model catalog",
+            true,
+            "无 config.toml，跳过",
+        );
     };
     let Ok(doc) = text.parse::<DocumentMut>() else {
         return DoctorCheck::new(

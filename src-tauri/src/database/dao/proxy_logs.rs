@@ -68,7 +68,10 @@ pub fn list_gateway_route_logs(
         conditions.push("l.target_app = ?".to_string());
         params.push(Box::new(target.clone()));
     } else {
-        conditions.push("(l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))".to_string());
+        conditions.push(
+            "(l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))"
+                .to_string(),
+        );
     }
 
     if let Some(status) = filters
@@ -455,9 +458,16 @@ pub struct LogMaintenancePreview {
     pub delete_by_limit: i64,
 }
 
-pub fn preview_proxy_log_maintenance(conn: &Connection, retention_days: u32, max_rows: u32) -> AppResult<LogMaintenancePreview> {
-    let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650)))).timestamp_millis();
-    let total_rows: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| row.get(0))?;
+pub fn preview_proxy_log_maintenance(
+    conn: &Connection,
+    retention_days: u32,
+    max_rows: u32,
+) -> AppResult<LogMaintenancePreview> {
+    let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650))))
+        .timestamp_millis();
+    let total_rows: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| {
+        row.get(0)
+    })?;
     let delete_by_age: i64 = conn.query_row(
         "SELECT COUNT(*) FROM proxy_request_logs WHERE created_at < ?",
         params![cutoff],
@@ -465,14 +475,29 @@ pub fn preview_proxy_log_maintenance(conn: &Connection, retention_days: u32, max
     )?;
     let remaining = total_rows - delete_by_age;
     let delete_by_limit = (remaining - i64::from(max_rows.max(100))).max(0);
-    Ok(LogMaintenancePreview { total_rows, delete_by_age, delete_by_limit })
+    Ok(LogMaintenancePreview {
+        total_rows,
+        delete_by_age,
+        delete_by_limit,
+    })
 }
 
-pub fn maintain_proxy_logs(conn: &Connection, retention_days: u32, max_rows: u32, vacuum: bool) -> AppResult<LogMaintenanceResult> {
-    let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650)))).timestamp_millis();
+pub fn maintain_proxy_logs(
+    conn: &Connection,
+    retention_days: u32,
+    max_rows: u32,
+    vacuum: bool,
+) -> AppResult<LogMaintenanceResult> {
+    let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650))))
+        .timestamp_millis();
     let tx = conn.unchecked_transaction()?;
-    let by_age = tx.execute("DELETE FROM proxy_request_logs WHERE created_at < ?", params![cutoff])? as i64;
-    let count: i64 = tx.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| row.get(0))?;
+    let by_age = tx.execute(
+        "DELETE FROM proxy_request_logs WHERE created_at < ?",
+        params![cutoff],
+    )? as i64;
+    let count: i64 = tx.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| {
+        row.get(0)
+    })?;
     let by_limit = if count > i64::from(max_rows.max(100)) {
         tx.execute(
             "DELETE FROM proxy_request_logs WHERE id IN (
@@ -480,7 +505,9 @@ pub fn maintain_proxy_logs(conn: &Connection, retention_days: u32, max_rows: u32
              )",
             params![count - i64::from(max_rows.max(100))],
         )? as i64
-    } else { 0 };
+    } else {
+        0
+    };
     tx.commit()?;
     let integrity: String = conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
     if vacuum {
@@ -995,7 +1022,10 @@ pub fn stable_proxy_usage_id(
     hasher.update(cache_creation_input_tokens.to_string().as_bytes());
     hasher.update(b"|");
     hasher.update(output_tokens.to_string().as_bytes());
-    format!("session:{target_app}:{provider_id}:hash:{}", hex::encode(hasher.finalize()))
+    format!(
+        "session:{target_app}:{provider_id}:hash:{}",
+        hex::encode(hasher.finalize())
+    )
 }
 
 pub fn extract_usage_envelope_id(value: &serde_json::Value) -> Option<String> {
@@ -1081,8 +1111,7 @@ pub(crate) const ROW_COST_SQL: &str = "\
     + COALESCE(l.cache_creation_input_tokens, 0) * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0 \
     + COALESCE(l.output_tokens, 0) * COALESCE(p.output_price_per_million, 0) / 1000000.0";
 
-const PRICING_CURRENCY_SQL: &str =
-    "UPPER(COALESCE(NULLIF(TRIM(p.currency), ''), 'USD'))";
+const PRICING_CURRENCY_SQL: &str = "UPPER(COALESCE(NULLIF(TRIM(p.currency), ''), 'USD'))";
 
 pub fn get_usage_summary_for_target(
     conn: &Connection,
@@ -1101,21 +1130,27 @@ pub fn get_usage_summary_for_target(
            AND (:target_app IS NULL OR l.target_app = :target_app)
            {EFFECTIVE_USAGE_FILTER};"
     );
-    let (request_count, successful_request_count, input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens) =
-        conn.query_row(
-            &tokens_sql,
-            named_params! { ":since": since, ":target_app": target_app },
-            |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, i64>(4)?,
-                    row.get::<_, i64>(5)?,
-                ))
-            },
-        )?;
+    let (
+        request_count,
+        successful_request_count,
+        input_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        output_tokens,
+    ) = conn.query_row(
+        &tokens_sql,
+        named_params! { ":since": since, ":target_app": target_app },
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+            ))
+        },
+    )?;
 
     let costs_sql = format!(
         "SELECT {PRICING_CURRENCY_SQL},
@@ -1172,7 +1207,12 @@ pub fn get_usage_by_provider_for_target(
     since: i64,
     target_app: Option<&str>,
 ) -> AppResult<Vec<UsageBreakdown>> {
-    usage_breakdown(conn, since, target_app, "COALESCE(l.provider_name, 'Unknown')")
+    usage_breakdown(
+        conn,
+        since,
+        target_app,
+        "COALESCE(l.provider_name, 'Unknown')",
+    )
 }
 
 pub fn get_usage_by_provider_model_for_target(
@@ -1195,17 +1235,20 @@ pub fn get_usage_by_provider_model_for_target(
          GROUP BY COALESCE(l.provider_name, 'Unknown'), COALESCE(l.model, 'Unknown');"
     );
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
-        Ok(UsageProviderModelGroup {
-            provider: row.get(0)?,
-            model: row.get(1)?,
-            request_count: row.get(2)?,
-            input_tokens: row.get(3)?,
-            cache_read_input_tokens: row.get(4)?,
-            cache_creation_input_tokens: row.get(5)?,
-            output_tokens: row.get(6)?,
-        })
-    })?;
+    let rows = stmt.query_map(
+        named_params! { ":since": since, ":target_app": target_app },
+        |row| {
+            Ok(UsageProviderModelGroup {
+                provider: row.get(0)?,
+                model: row.get(1)?,
+                request_count: row.get(2)?,
+                input_tokens: row.get(3)?,
+                cache_read_input_tokens: row.get(4)?,
+                cache_creation_input_tokens: row.get(5)?,
+                output_tokens: row.get(6)?,
+            })
+        },
+    )?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
@@ -1246,21 +1289,32 @@ fn usage_breakdown(
     }
     let mut stmt = conn.prepare(&sql)?;
     let mut grouped: HashMap<String, Acc> = HashMap::new();
-    let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, i64>(3)?,
-            row.get::<_, i64>(4)?,
-            row.get::<_, i64>(5)?,
-            row.get::<_, f64>(6)?,
-            row.get::<_, String>(7)?,
-        ))
-    })?;
+    let rows = stmt.query_map(
+        named_params! { ":since": since, ":target_app": target_app },
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, f64>(6)?,
+                row.get::<_, String>(7)?,
+            ))
+        },
+    )?;
     for row in rows {
-        let (key, request_count, input_tokens, cache_read, cache_write, output_tokens, cost, currency) =
-            row?;
+        let (
+            key,
+            request_count,
+            input_tokens,
+            cache_read,
+            cache_write,
+            output_tokens,
+            cost,
+            currency,
+        ) = row?;
         let acc = grouped.entry(key).or_insert_with(|| Acc {
             request_count: 0,
             input_tokens: 0,
@@ -1313,7 +1367,9 @@ pub fn get_usage_trend_for_target(
     granularity: TrendGranularity,
 ) -> AppResult<Vec<UsageTrendPoint>> {
     let bucket = match granularity {
-        TrendGranularity::Day => "strftime('%Y-%m-%d', l.created_at / 1000, 'unixepoch', 'localtime')",
+        TrendGranularity::Day => {
+            "strftime('%Y-%m-%d', l.created_at / 1000, 'unixepoch', 'localtime')"
+        }
         TrendGranularity::Hour => {
             "strftime('%Y-%m-%d %H:00', l.created_at / 1000, 'unixepoch', 'localtime')"
         }
@@ -1343,21 +1399,32 @@ pub fn get_usage_trend_for_target(
     }
     let mut stmt = conn.prepare(&sql)?;
     let mut grouped: HashMap<String, Acc> = HashMap::new();
-    let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, i64>(3)?,
-            row.get::<_, i64>(4)?,
-            row.get::<_, i64>(5)?,
-            row.get::<_, f64>(6)?,
-            row.get::<_, String>(7)?,
-        ))
-    })?;
+    let rows = stmt.query_map(
+        named_params! { ":since": since, ":target_app": target_app },
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, f64>(6)?,
+                row.get::<_, String>(7)?,
+            ))
+        },
+    )?;
     for row in rows {
-        let (date, request_count, input_tokens, cache_read, cache_write, output_tokens, cost, currency) =
-            row?;
+        let (
+            date,
+            request_count,
+            input_tokens,
+            cache_read,
+            cache_write,
+            output_tokens,
+            cost,
+            currency,
+        ) = row?;
         let acc = grouped.entry(date).or_insert_with(|| Acc {
             request_count: 0,
             input_tokens: 0,
@@ -1437,10 +1504,15 @@ pub fn save_model_pricing(conn: &Connection, pricing: &ModelPricing) -> AppResul
              batch_output_price_per_million = excluded.batch_output_price_per_million,
              currency = excluded.currency, source_url = '', effective_date = '', is_default = 0;",
         params![
-            pricing.model, pricing.provider, pricing.input_price_per_million,
-            pricing.cache_read_price_per_million, pricing.cache_write_price_per_million,
-            pricing.output_price_per_million, pricing.batch_input_price_per_million,
-            pricing.batch_output_price_per_million, pricing.currency,
+            pricing.model,
+            pricing.provider,
+            pricing.input_price_per_million,
+            pricing.cache_read_price_per_million,
+            pricing.cache_write_price_per_million,
+            pricing.output_price_per_million,
+            pricing.batch_input_price_per_million,
+            pricing.batch_output_price_per_million,
+            pricing.currency,
         ],
     )?;
     Ok(())
@@ -1715,8 +1787,8 @@ pub(crate) fn classify_route_reason_mode(reason: &str) -> Option<&'static str> {
 
 fn resolve_route_mode_id(key: &str) -> Option<&'static str> {
     match key {
-        "default" | "background" | "plan" | "think" | "edit" | "long_context"
-        | "web_search" | "vision" | "image_gen" => Some(match key {
+        "default" | "background" | "plan" | "think" | "edit" | "long_context" | "web_search"
+        | "vision" | "image_gen" => Some(match key {
             "default" => "default",
             "background" => "background",
             "plan" => "plan",
@@ -1830,11 +1902,13 @@ pub fn list_route_mode_usage_stats(
     }
     let mut out: Vec<RouteModeUsageRow> = merged
         .into_iter()
-        .map(|(mode_id, (request_count, estimated_cost))| RouteModeUsageRow {
-            mode_id,
-            request_count,
-            estimated_cost,
-        })
+        .map(
+            |(mode_id, (request_count, estimated_cost))| RouteModeUsageRow {
+                mode_id,
+                request_count,
+                estimated_cost,
+            },
+        )
         .collect();
     out.sort_by(|a, b| a.mode_id.cmp(&b.mode_id));
     Ok(out)
@@ -2007,13 +2081,11 @@ pub fn list_upstream_daily_usage_stats(
     let mut grouped: HashMap<String, UpstreamAcc> = HashMap::new();
     for row in rows {
         let (upstream_id, count, successful_count, cost, currency) = row?;
-        let entry = grouped
-            .entry(upstream_id)
-            .or_insert_with(|| UpstreamAcc {
-                request_count: 0,
-                successful_request_count: 0,
-                costs_by_currency: HashMap::new(),
-            });
+        let entry = grouped.entry(upstream_id).or_insert_with(|| UpstreamAcc {
+            request_count: 0,
+            successful_request_count: 0,
+            costs_by_currency: HashMap::new(),
+        });
         entry.request_count += count;
         entry.successful_request_count += successful_count;
         if cost.abs() > f64::EPSILON {
@@ -2136,9 +2208,7 @@ mod tests {
             )?;
             assert_eq!(count, 1);
             let hop: String = conn.query_row(
-                &format!(
-                    "SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
-                ),
+                &format!("SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"),
                 [],
                 |row| row.get(0),
             )?;
@@ -2198,9 +2268,7 @@ mod tests {
             )?;
             update_proxy_log_hop(conn, &inner, Some("req_kiro"), Some("kiro"))?;
             let hop: String = conn.query_row(
-                &format!(
-                    "SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
-                ),
+                &format!("SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"),
                 [],
                 |row| row.get(0),
             )?;
@@ -2691,8 +2759,25 @@ mod tests {
                 DATA_SOURCE_PROXY,
                 None,
             )?;
-            update_proxy_log_route(conn, &log1, None, None, 0, None, Some("up_test"), None, None)?;
-            update_proxy_log_stream_outcome(conn, &log1, "midstream_error", Some(100), Some("stream_drop"), None)?;
+            update_proxy_log_route(
+                conn,
+                &log1,
+                None,
+                None,
+                0,
+                None,
+                Some("up_test"),
+                None,
+                None,
+            )?;
+            update_proxy_log_stream_outcome(
+                conn,
+                &log1,
+                "midstream_error",
+                Some(100),
+                Some("stream_drop"),
+                None,
+            )?;
 
             // Request 2: 200 OK, but error_category set
             let log2 = insert_proxy_log_with_source(
@@ -2718,7 +2803,17 @@ mod tests {
                 DATA_SOURCE_PROXY,
                 None,
             )?;
-            update_proxy_log_route(conn, &log2, None, None, 0, None, Some("up_test"), None, None)?;
+            update_proxy_log_route(
+                conn,
+                &log2,
+                None,
+                None,
+                0,
+                None,
+                Some("up_test"),
+                None,
+                None,
+            )?;
 
             // Request 3: 200 OK, truly successful
             let log3 = insert_proxy_log_with_source(
@@ -2744,7 +2839,17 @@ mod tests {
                 DATA_SOURCE_PROXY,
                 None,
             )?;
-            update_proxy_log_route(conn, &log3, None, None, 0, None, Some("up_test"), None, None)?;
+            update_proxy_log_route(
+                conn,
+                &log3,
+                None,
+                None,
+                0,
+                None,
+                Some("up_test"),
+                None,
+                None,
+            )?;
             update_proxy_log_stream_outcome(conn, &log3, "complete", Some(100), None, None)?;
 
             let stats = list_upstream_daily_usage_stats(conn, now)?;
@@ -2892,7 +2997,17 @@ mod tests {
                 DATA_SOURCE_PROXY,
                 None,
             )?;
-            update_proxy_log_route(conn, &log, None, None, 0, None, Some("up_custom"), None, None)?;
+            update_proxy_log_route(
+                conn,
+                &log,
+                None,
+                None,
+                0,
+                None,
+                Some("up_custom"),
+                None,
+                None,
+            )?;
 
             let stats = list_upstream_daily_usage_stats(conn, now)?;
             assert_eq!(stats.len(), 1);
@@ -3322,19 +3437,17 @@ mod tests {
             )?;
 
             // Row 2: claude_code, 429, plan mode, claude-3-5-haiku, provider Bedrock, upstream up_bedrock with structured attempts_json
-            let log2_attempts = vec![
-                ProxyRequestAttempt::new(
-                    0,
-                    Some("up_bedrock".to_string()),
-                    Some("Bedrock".to_string()),
-                    "claude-3-5-haiku".to_string(),
-                    Some(429),
-                    45,
-                    Some("rate_limit".to_string()),
-                    Some("Rate limit exceeded".to_string()),
-                    false,
-                ),
-            ];
+            let log2_attempts = vec![ProxyRequestAttempt::new(
+                0,
+                Some("up_bedrock".to_string()),
+                Some("Bedrock".to_string()),
+                "claude-3-5-haiku".to_string(),
+                Some(429),
+                45,
+                Some("rate_limit".to_string()),
+                Some("Rate limit exceeded".to_string()),
+                false,
+            )];
             let log2_attempts_json = serde_json::to_string(&log2_attempts).unwrap();
 
             let log2 = insert_proxy_log_with_source(
@@ -3434,7 +3547,14 @@ mod tests {
                 DATA_SOURCE_PROXY,
                 None,
             )?;
-            update_proxy_log_stream_outcome(conn, &log4, "midstream_error", Some(500), Some("stream_drop"), None)?;
+            update_proxy_log_stream_outcome(
+                conn,
+                &log4,
+                "midstream_error",
+                Some(500),
+                Some("stream_drop"),
+                None,
+            )?;
             update_proxy_log_hop(conn, &log4, Some("corr_4"), Some("smart_gateway"))?;
             update_proxy_log_route(
                 conn,
@@ -3502,7 +3622,10 @@ mod tests {
                 0,
             )?;
             assert_eq!(cc.total, 3);
-            assert!(cc.data.iter().all(|r| r.id == "log_gw_1" || r.id == "log_gw_2" || r.id == "log_gw_5"));
+            assert!(cc
+                .data
+                .iter()
+                .all(|r| r.id == "log_gw_1" || r.id == "log_gw_2" || r.id == "log_gw_5"));
 
             let codex = list_gateway_route_logs(
                 conn,
@@ -3514,7 +3637,10 @@ mod tests {
                 0,
             )?;
             assert_eq!(codex.total, 2);
-            assert!(codex.data.iter().all(|r| r.id == "log_gw_3" || r.id == "log_gw_4"));
+            assert!(codex
+                .data
+                .iter()
+                .all(|r| r.id == "log_gw_3" || r.id == "log_gw_4"));
 
             // 3. Status filter: success (excludes midstream_error and cancelled)
             let succ = list_gateway_route_logs(
@@ -3649,9 +3775,17 @@ mod tests {
             assert_eq!(kw_sec.total, 0);
 
             // 12. attempts_json returned in GatewayRouteLog and parses correctly
-            let row2 = all.data.iter().find(|r| r.id == "log_gw_2").expect("log_gw_2 present");
-            assert!(row2.attempts_json.is_some(), "attempts_json must be returned on GatewayRouteLog");
-            let parsed_attempts: Vec<ProxyRequestAttempt> = serde_json::from_str(row2.attempts_json.as_deref().unwrap()).unwrap();
+            let row2 = all
+                .data
+                .iter()
+                .find(|r| r.id == "log_gw_2")
+                .expect("log_gw_2 present");
+            assert!(
+                row2.attempts_json.is_some(),
+                "attempts_json must be returned on GatewayRouteLog"
+            );
+            let parsed_attempts: Vec<ProxyRequestAttempt> =
+                serde_json::from_str(row2.attempts_json.as_deref().unwrap()).unwrap();
             assert_eq!(parsed_attempts.len(), 1);
             assert_eq!(parsed_attempts[0].model, "claude-3-5-haiku");
             assert_eq!(parsed_attempts[0].status_code, Some(429));

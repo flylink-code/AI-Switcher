@@ -23,7 +23,11 @@ pub struct PreparedRequest {
     pub stream: bool,
 }
 
-pub fn prepare(protocol: WireProtocol, incoming: &Value, account: &KiroAccount) -> Result<PreparedRequest, String> {
+pub fn prepare(
+    protocol: WireProtocol,
+    incoming: &Value,
+    account: &KiroAccount,
+) -> Result<PreparedRequest, String> {
     let client_model = incoming
         .get("model")
         .and_then(|item| item.as_str())
@@ -31,7 +35,10 @@ pub fn prepare(protocol: WireProtocol, incoming: &Value, account: &KiroAccount) 
         .trim()
         .to_string();
     let backend_model = map_model(&client_model).ok_or_else(|| "模型名无效".to_string())?;
-    let stream = incoming.get("stream").and_then(|item| item.as_bool()).unwrap_or(protocol == WireProtocol::Anthropic);
+    let stream = incoming
+        .get("stream")
+        .and_then(|item| item.as_bool())
+        .unwrap_or(protocol == WireProtocol::Anthropic);
     let (history, current, tools) = match protocol {
         WireProtocol::Anthropic => anthropic_turns(incoming, &backend_model)?,
         WireProtocol::OpenAiChat => openai_chat_turns(incoming, &backend_model)?,
@@ -58,7 +65,10 @@ pub fn prepare(protocol: WireProtocol, incoming: &Value, account: &KiroAccount) 
             context.insert("tools".to_string(), Value::Array(tools));
         }
         if !current.tool_results.is_empty() {
-            context.insert("toolResults".to_string(), Value::Array(current.tool_results));
+            context.insert(
+                "toolResults".to_string(),
+                Value::Array(current.tool_results),
+            );
         }
     }
     if !current.images.is_empty() {
@@ -91,7 +101,10 @@ struct CurrentTurn {
     images: Vec<Value>,
 }
 
-fn anthropic_turns(incoming: &Value, model: &str) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
+fn anthropic_turns(
+    incoming: &Value,
+    model: &str,
+) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
     let tools = incoming
         .get("tools")
         .and_then(|item| item.as_array())
@@ -111,7 +124,10 @@ fn anthropic_turns(incoming: &Value, model: &str) -> Result<(Vec<Value>, Current
     Ok((history, current, tools))
 }
 
-fn openai_chat_turns(incoming: &Value, model: &str) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
+fn openai_chat_turns(
+    incoming: &Value,
+    model: &str,
+) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
     let tools = incoming
         .get("tools")
         .and_then(|item| item.as_array())
@@ -132,7 +148,10 @@ fn openai_chat_turns(incoming: &Value, model: &str) -> Result<(Vec<Value>, Curre
     Ok((history, current, tools))
 }
 
-fn responses_turns(incoming: &Value, model: &str) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
+fn responses_turns(
+    incoming: &Value,
+    model: &str,
+) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
     if let Some(input) = incoming.get("input").and_then(|item| item.as_str()) {
         return Ok((
             Vec::new(),
@@ -147,7 +166,10 @@ fn responses_turns(incoming: &Value, model: &str) -> Result<(Vec<Value>, Current
     let mut messages = Vec::new();
     if let Some(items) = incoming.get("input").and_then(|item| item.as_array()) {
         for item in items {
-            let role = item.get("role").and_then(|role| role.as_str()).unwrap_or("user");
+            let role = item
+                .get("role")
+                .and_then(|role| role.as_str())
+                .unwrap_or("user");
             let content = text_of(item.get("content")).unwrap_or_default();
             messages.push(json!({"role": role, "content": content}));
         }
@@ -178,7 +200,10 @@ fn turns_from_messages(
 }
 
 fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Value> {
-    let role = message.get("role").and_then(|role| role.as_str()).unwrap_or("user");
+    let role = message
+        .get("role")
+        .and_then(|role| role.as_str())
+        .unwrap_or("user");
     if role == "assistant" {
         let content = text_of(message.get("content")).unwrap_or_default();
         let tool_uses = if anthropic {
@@ -235,7 +260,10 @@ fn text_of(content: Option<&Value>) -> Option<String> {
     let blocks = content.as_array()?;
     let mut text = String::new();
     for block in blocks {
-        let kind = block.get("type").and_then(|item| item.as_str()).unwrap_or("");
+        let kind = block
+            .get("type")
+            .and_then(|item| item.as_str())
+            .unwrap_or("");
         if kind == "text" || kind.is_empty() {
             if let Some(piece) = block.get("text").and_then(|item| item.as_str()) {
                 if !text.is_empty() {
@@ -401,11 +429,15 @@ fn kiro_reasoning_requested(incoming: &Value, model_id: &str) -> bool {
 }
 
 fn extra_fields(incoming: &Value, backend_model: &str) -> Option<Value> {
-    if !model_supports_kiro_reasoning(backend_model) || !kiro_reasoning_requested(incoming, backend_model)
+    if !model_supports_kiro_reasoning(backend_model)
+        || !kiro_reasoning_requested(incoming, backend_model)
     {
         return None;
     }
-    let effort = if incoming.pointer("/thinking/type").and_then(|item| item.as_str()) == Some("adaptive")
+    let effort = if incoming
+        .pointer("/thinking/type")
+        .and_then(|item| item.as_str())
+        == Some("adaptive")
         || backend_model.contains("opus-4.6")
     {
         "high"
@@ -467,7 +499,11 @@ impl CollectedReply {
                     .and_then(|item| item.as_str())
                     .unwrap_or("tool")
                     .to_string();
-                let name = payload.get("name").and_then(|item| item.as_str()).unwrap_or("").to_string();
+                let name = payload
+                    .get("name")
+                    .and_then(|item| item.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let input = match payload.get("input") {
                     Some(Value::String(text)) => text.clone(),
                     Some(other) if !other.is_null() => other.to_string(),
@@ -484,8 +520,14 @@ impl CollectedReply {
             }
             "metadataEvent" => {
                 if let Some(usage) = payload.get("tokenUsage") {
-                    self.input_tokens = usage.get("uncachedInputTokens").and_then(|item| item.as_i64()).unwrap_or(self.input_tokens);
-                    self.output_tokens = usage.get("outputTokens").and_then(|item| item.as_i64()).unwrap_or(self.output_tokens);
+                    self.input_tokens = usage
+                        .get("uncachedInputTokens")
+                        .and_then(|item| item.as_i64())
+                        .unwrap_or(self.input_tokens);
+                    self.output_tokens = usage
+                        .get("outputTokens")
+                        .and_then(|item| item.as_i64())
+                        .unwrap_or(self.output_tokens);
                     self.cache_read = usage
                         .get("cacheReadInputTokens")
                         .and_then(|item| item.as_i64())
@@ -514,7 +556,8 @@ pub fn anthropic_message(client_model: &str, reply: &CollectedReply) -> Value {
         content.push(json!({"type": "text", "text": reply.text}));
     }
     for tool in &reply.tools {
-        let input = serde_json::from_str::<Value>(&tool.input).unwrap_or_else(|_| json!({"raw": tool.input}));
+        let input = serde_json::from_str::<Value>(&tool.input)
+            .unwrap_or_else(|_| json!({"raw": tool.input}));
         content.push(json!({
             "type": "tool_use",
             "id": tool.id,
@@ -541,7 +584,10 @@ pub fn anthropic_message(client_model: &str, reply: &CollectedReply) -> Value {
 
 pub fn anthropic_sse(client_model: &str, reply: &CollectedReply) -> String {
     let message = anthropic_message(client_model, reply);
-    let id = message.get("id").and_then(|item| item.as_str()).unwrap_or("msg");
+    let id = message
+        .get("id")
+        .and_then(|item| item.as_str())
+        .unwrap_or("msg");
     let mut out = String::new();
     push_sse(
         &mut out,
@@ -572,7 +618,11 @@ pub fn anthropic_sse(client_model: &str, reply: &CollectedReply) -> String {
             "content_block_delta",
             &json!({"type":"content_block_delta","index": index, "delta": {"type":"thinking_delta","thinking": reply.thinking}}),
         );
-        push_sse(&mut out, "content_block_stop", &json!({"type":"content_block_stop","index": index}));
+        push_sse(
+            &mut out,
+            "content_block_stop",
+            &json!({"type":"content_block_stop","index": index}),
+        );
         index += 1;
     }
     if !reply.text.is_empty() {
@@ -586,7 +636,11 @@ pub fn anthropic_sse(client_model: &str, reply: &CollectedReply) -> String {
             "content_block_delta",
             &json!({"type":"content_block_delta","index": index, "delta": {"type":"text_delta","text": reply.text}}),
         );
-        push_sse(&mut out, "content_block_stop", &json!({"type":"content_block_stop","index": index}));
+        push_sse(
+            &mut out,
+            "content_block_stop",
+            &json!({"type":"content_block_stop","index": index}),
+        );
         index += 1;
     }
     for tool in &reply.tools {
@@ -600,10 +654,18 @@ pub fn anthropic_sse(client_model: &str, reply: &CollectedReply) -> String {
             "content_block_delta",
             &json!({"type":"content_block_delta","index": index, "delta": {"type":"input_json_delta","partial_json": tool.input}}),
         );
-        push_sse(&mut out, "content_block_stop", &json!({"type":"content_block_stop","index": index}));
+        push_sse(
+            &mut out,
+            "content_block_stop",
+            &json!({"type":"content_block_stop","index": index}),
+        );
         index += 1;
     }
-    let stop = if reply.tools.is_empty() { "end_turn" } else { "tool_use" };
+    let stop = if reply.tools.is_empty() {
+        "end_turn"
+    } else {
+        "tool_use"
+    };
     push_sse(
         &mut out,
         "message_delta",
@@ -691,8 +753,16 @@ pub fn responses_json(client_model: &str, reply: &CollectedReply) -> Value {
 pub fn responses_sse(client_model: &str, reply: &CollectedReply) -> String {
     let response = responses_json(client_model, reply);
     let mut out = String::new();
-    push_sse(&mut out, "response.output_text.delta", &json!({"type":"response.output_text.delta","delta": reply.text}));
-    push_sse(&mut out, "response.completed", &json!({"type":"response.completed","response": response}));
+    push_sse(
+        &mut out,
+        "response.output_text.delta",
+        &json!({"type":"response.output_text.delta","delta": reply.text}),
+    );
+    push_sse(
+        &mut out,
+        "response.completed",
+        &json!({"type":"response.completed","response": response}),
+    );
     out
 }
 
@@ -754,12 +824,19 @@ mod tests {
             prepared.body["additionalModelRequestFields"]["output_config"]["effort"],
             "high"
         );
-        assert!(prepared.body["additionalModelRequestFields"].get("outputConfig").is_none());
+        assert!(prepared.body["additionalModelRequestFields"]
+            .get("outputConfig")
+            .is_none());
     }
 
     #[test]
     fn unsupported_models_omit_additional_model_request_fields() {
-        for model in ["claude-haiku-4.5", "claude-sonnet-4.5", "claude-sonnet-5.5", "glm-5"] {
+        for model in [
+            "claude-haiku-4.5",
+            "claude-sonnet-4.5",
+            "claude-sonnet-5.5",
+            "glm-5",
+        ] {
             let incoming = json!({
                 "model": model,
                 "thinking": {"type": "enabled", "budget_tokens": 8000},

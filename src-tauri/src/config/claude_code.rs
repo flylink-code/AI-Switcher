@@ -77,10 +77,7 @@ pub fn apply_provider_to_settings(provider: &Provider) -> AppResult<()> {
 /// Activate `provider` in Claude Code by pointing it at the local proxy.
 /// `ANTHROPIC_BASE_URL` becomes `http://127.0.0.1:port`; the proxy injects the
 /// real upstream key and maps the model name.
-pub fn apply_provider_to_settings_via_proxy(
-    provider: &Provider,
-    proxy_port: u16,
-) -> AppResult<()> {
+pub fn apply_provider_to_settings_via_proxy(provider: &Provider, proxy_port: u16) -> AppResult<()> {
     apply_provider_to_settings_via_proxy_at(
         provider,
         proxy_port,
@@ -156,7 +153,11 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
     {
         let env = ensure_env_object(&mut settings)?;
         remove_managed_keys(env);
-        set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
+        set_str(
+            env,
+            "ANTHROPIC_BASE_URL",
+            &format!("http://127.0.0.1:{proxy_port}"),
+        );
         let token = proxy_auth_token(provider, catalog_discovery)?;
         set_str(env, "ANTHROPIC_AUTH_TOKEN", &token);
         if catalog_discovery {
@@ -268,10 +269,7 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         .unwrap_or("")
         .to_string();
     let env_model = |model_key: &str, name_key: Option<&str>| {
-        let model = env
-            .get(model_key)
-            .and_then(Value::as_str)
-            .unwrap_or("");
+        let model = env.get(model_key).and_then(Value::as_str).unwrap_or("");
         let display_name = name_key
             .and_then(|key| env.get(key))
             .and_then(Value::as_str)
@@ -437,7 +435,8 @@ pub fn read_agent_settings_at(path: &Path) -> AppResult<ClaudeCodeAgentSettings>
     let settings = read_or_init_settings_at(path)?;
     let env = settings.get("env").and_then(Value::as_object);
     let teams_enabled = env.is_some_and(|env| env_flag_enabled(env, ENV_AGENT_TEAMS));
-    let subagent_model_force = env.is_some_and(|env| env_flag_enabled(env, ENV_SUBAGENT_MODEL_FORCE));
+    let subagent_model_force =
+        env.is_some_and(|env| env_flag_enabled(env, ENV_SUBAGENT_MODEL_FORCE));
     let auto_mode_server = auto_mode_server_enabled(env);
     let teammate_mode = settings
         .get(KEY_TEAMMATE_MODE)
@@ -500,12 +499,10 @@ fn auto_mode_server_enabled(env: Option<&Map<String, Value>>) -> bool {
     };
     match env.get(ENV_AUTO_MODE_SERVER) {
         None => true,
-        Some(Value::String(value)) => {
-            !matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "0" | "false" | "off" | "no"
-            )
-        }
+        Some(Value::String(value)) => !matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "0" | "false" | "off" | "no"
+        ),
         Some(Value::Bool(false)) => false,
         Some(Value::Number(n)) => n.as_i64() != Some(0),
         _ => true,
@@ -564,7 +561,9 @@ fn ensure_permissions_object(settings: &mut Value) -> AppResult<&mut Map<String,
     settings
         .get_mut("permissions")
         .and_then(Value::as_object_mut)
-        .ok_or_else(|| AppError::Config("Claude Code settings.json 的 permissions 不是对象".to_string()))
+        .ok_or_else(|| {
+            AppError::Config("Claude Code settings.json 的 permissions 不是对象".to_string())
+        })
 }
 
 /// Ensure `settings.env` is an object and return a mutable reference to it.
@@ -723,7 +722,7 @@ fn backup_settings(path: &std::path::Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::{ProviderKind, ProviderTarget, ProtocolType};
+    use crate::provider::{ProtocolType, ProviderKind, ProviderTarget};
     use serde_json::json;
     use std::fs;
     use tempfile::tempdir;
@@ -800,11 +799,17 @@ mod tests {
         let env = written.get("env").unwrap().as_object().unwrap();
 
         // New provider values present.
-        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert_eq!(
+            env["ANTHROPIC_BASE_URL"],
+            "https://api.deepseek.com/anthropic"
+        );
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
         assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
         assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "deepseek-sonnet");
-        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"], "deepseek-sonnet");
+        assert_eq!(
+            env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"],
+            "deepseek-sonnet"
+        );
         assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "deepseek-opus");
         assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"], "deepseek-opus");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "deepseek-haiku");
@@ -830,15 +835,16 @@ mod tests {
         fs::write(&path, json!({"model": "default", "env": {}}).to_string()).unwrap();
 
         apply_provider_to_settings_at(&sample_provider(), &path).unwrap();
-        let after_apply: Value =
-            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let after_apply: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert!(after_apply["env"]["ANTHROPIC_BASE_URL"].is_string());
 
         clear_provider_from_settings_at(&path).unwrap();
-        let after_clear: Value =
-            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let after_clear: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = after_clear.get("env").unwrap().as_object().unwrap();
-        assert!(env.keys().all(|k| !k.starts_with("ANTHROPIC_")), "anthropic keys remain");
+        assert!(
+            env.keys().all(|k| !k.starts_with("ANTHROPIC_")),
+            "anthropic keys remain"
+        );
         assert!(!env.contains_key("CLAUDE_CODE_SUBAGENT_MODEL"));
         assert_eq!(after_clear["model"], "default", "top-level key preserved");
     }
@@ -851,7 +857,10 @@ mod tests {
         apply_provider_to_settings_at(&sample_provider(), &path).unwrap();
         assert!(path.exists());
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert_eq!(
+            written["env"]["ANTHROPIC_BASE_URL"],
+            "https://api.deepseek.com/anthropic"
+        );
     }
 
     #[test]
@@ -872,9 +881,9 @@ mod tests {
         )
         .unwrap();
 
-        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path, false, None).unwrap();
-        let written: Value =
-            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path, false, None)
+            .unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = written["env"].as_object().unwrap();
 
         assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15821");
@@ -882,7 +891,10 @@ mod tests {
         assert!(!env.contains_key("CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"));
         assert!(!env.contains_key("ANTHROPIC_MODEL"));
         assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "claude-sonnet-5");
-        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"], "deepseek-sonnet");
+        assert_eq!(
+            env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"],
+            "deepseek-sonnet"
+        );
         assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "claude-opus-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"], "deepseek-opus");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
@@ -898,18 +910,27 @@ mod tests {
     fn catalog_proxy_mode_enables_gateway_model_discovery() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
-        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_828, &path, true, Some("claude.ag.gemini-3.7-flash")).unwrap();
-        let written: Value =
-            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        apply_provider_to_settings_via_proxy_at(
+            &sample_provider(),
+            15_828,
+            &path,
+            true,
+            Some("claude.ag.gemini-3.7-flash"),
+        )
+        .unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = written["env"].as_object().unwrap();
-        assert_eq!(
-            env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"],
-            "1"
-        );
+        assert_eq!(env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"], "1");
         assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15828");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
-        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
-        assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
+        assert_eq!(
+            env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"],
+            "claude-haiku-4-5"
+        );
+        assert_eq!(
+            env["CLAUDE_CODE_SUBAGENT_MODEL"],
+            "claude.ag.gemini-3.7-flash"
+        );
         assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
         assert_eq!(env["ANTHROPIC_API_KEY"], "sk-deepseek");
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
@@ -924,7 +945,10 @@ mod tests {
         apply_provider_to_settings_at(&sample_provider(), &path).unwrap();
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = written["env"].as_object().unwrap();
-        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert_eq!(
+            env["ANTHROPIC_BASE_URL"],
+            "https://api.deepseek.com/anthropic"
+        );
         assert!(!env.contains_key("CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"));
         assert_ne!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15828");
     }
@@ -933,22 +957,13 @@ mod tests {
     fn catalog_proxy_clears_leftover_opusplan_and_writes_auto_model() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
-        fs::write(
-            &path,
-            json!({ "model": "opusplan", "env": {} }).to_string(),
-        )
-        .unwrap();
+        fs::write(&path, json!({ "model": "opusplan", "env": {} }).to_string()).unwrap();
 
         let mut provider = sample_provider();
         provider.api_key = "gwt_shared_token".into();
         provider.model = "auto".into();
         apply_provider_to_settings_via_proxy_at_with_opusplan(
-            &provider,
-            15_828,
-            &path,
-            true,
-            None,
-            true,
+            &provider, 15_828, &path, true, None, true,
         )
         .unwrap();
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
@@ -1038,7 +1053,10 @@ mod tests {
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written["permissions"]["defaultMode"], "acceptEdits");
         assert_eq!(written["permissions"]["allow"][0], "Edit");
-        assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert_eq!(
+            written["env"]["ANTHROPIC_BASE_URL"],
+            "https://api.deepseek.com/anthropic"
+        );
     }
 
     #[test]
@@ -1054,7 +1072,10 @@ mod tests {
     fn read_permission_default_mode_falls_back_for_missing_or_unknown() {
         let dir = tempdir().unwrap();
         let missing = dir.path().join("absent.json");
-        assert_eq!(read_permission_default_mode_at(&missing).unwrap(), "default");
+        assert_eq!(
+            read_permission_default_mode_at(&missing).unwrap(),
+            "default"
+        );
 
         let path = dir.path().join("settings.json");
         fs::write(
@@ -1121,7 +1142,10 @@ mod tests {
         )
         .unwrap();
         let cleared: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(!cleared["env"].as_object().unwrap().contains_key(ENV_AGENT_TEAMS));
+        assert!(!cleared["env"]
+            .as_object()
+            .unwrap()
+            .contains_key(ENV_AGENT_TEAMS));
         assert!(!cleared["env"]
             .as_object()
             .unwrap()
@@ -1134,7 +1158,11 @@ mod tests {
     fn apply_agent_settings_writes_auto_mode_server_zero_then_removes_key() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
-        fs::write(&path, json!({ "env": { "ENABLE_TOOL_SEARCH": "true" } }).to_string()).unwrap();
+        fs::write(
+            &path,
+            json!({ "env": { "ENABLE_TOOL_SEARCH": "true" } }).to_string(),
+        )
+        .unwrap();
 
         let off = apply_agent_settings_at(
             &path,
@@ -1198,7 +1226,10 @@ mod tests {
         assert_eq!(env[ENV_SUBAGENT_MODEL_FORCE], "1");
         assert_eq!(env[ENV_AUTO_MODE_SERVER], "0");
         assert_eq!(written[KEY_TEAMMATE_MODE], "in-process");
-        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert_eq!(
+            env["ANTHROPIC_BASE_URL"],
+            "https://api.deepseek.com/anthropic"
+        );
         assert!(!MANAGED_ENV_KEYS.contains(&ENV_AGENT_TEAMS));
         assert!(!MANAGED_ENV_KEYS.contains(&ENV_SUBAGENT_MODEL_FORCE));
         assert!(!MANAGED_ENV_KEYS.contains(&ENV_AUTO_MODE_SERVER));

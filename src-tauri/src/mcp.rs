@@ -197,9 +197,9 @@ fn write_mcp_map(path: &Path, servers: &Map<String, Value>) -> AppResult<()> {
         backup_file_named(path, &stem, MCP_BACKUP_KEEP)?;
     }
 
-    let obj = value.as_object_mut().ok_or_else(|| {
-        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
-    })?;
+    let obj = value
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config(format!("{} 无法写成 JSON 对象", path.display())))?;
     if servers.is_empty() {
         obj.remove("mcpServers");
     } else {
@@ -253,8 +253,8 @@ pub fn get_desktop_connector_status(servers: &[McpServer]) -> AppResult<McpDeskt
         .count();
     let live_desktop_servers = read_desktop_mcp_servers()?.len();
     let extension_artifacts = collect_extension_artifacts(base);
-    let conflict_likely =
-        !extension_artifacts.is_empty() && (managed_desktop_servers > 0 || live_desktop_servers > 0);
+    let conflict_likely = !extension_artifacts.is_empty()
+        && (managed_desktop_servers > 0 || live_desktop_servers > 0);
     let message = if conflict_likely {
         Some(
             "检测到 Claude Desktop Connectors / 扩展包（.mcpb/.dxt）与 JSON mcpServers 可能并存。官方扩展与手写 mcpServers 可能互相覆盖或导致工具不可见；本应用不会复刻 Connectors UI，建议只保留一侧来源。"
@@ -357,7 +357,9 @@ mod tests {
         let code = enabled_map(&servers, McpTarget::ClaudeCode);
         let desktop = enabled_map(&servers, McpTarget::ClaudeDesktop);
         assert!(code.contains_key("a") && code.contains_key("c") && !code.contains_key("b"));
-        assert!(desktop.contains_key("b") && desktop.contains_key("c") && !desktop.contains_key("a"));
+        assert!(
+            desktop.contains_key("b") && desktop.contains_key("c") && !desktop.contains_key("a")
+        );
     }
 
     #[test]
@@ -384,7 +386,11 @@ mod tests {
     fn write_empty_map_removes_key() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("cfg.json");
-        fs::write(&path, json!({"mcpServers": {"a": {}}, "keep": 1}).to_string()).unwrap();
+        fs::write(
+            &path,
+            json!({"mcpServers": {"a": {}}, "keep": 1}).to_string(),
+        )
+        .unwrap();
 
         write_mcp_map(&path, &Map::new()).unwrap();
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();

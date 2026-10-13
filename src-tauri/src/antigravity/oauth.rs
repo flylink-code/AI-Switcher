@@ -11,8 +11,8 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use super::account::{
-    ensure_oauth_configured, store, AntigravityAccount, AntigravityAccountPublic,
-    AntigravityToken, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET,
+    ensure_oauth_configured, store, AntigravityAccount, AntigravityAccountPublic, AntigravityToken,
+    OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET,
 };
 use crate::error::{AppError, AppResult};
 

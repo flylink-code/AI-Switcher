@@ -489,9 +489,7 @@ mod tests {
         drop(file);
 
         let db = Database::memory().unwrap();
-        let inserted = db
-            .with_conn(|conn| sync_one_file(conn, &session))
-            .unwrap();
+        let inserted = db.with_conn(|conn| sync_one_file(conn, &session)).unwrap();
         assert_eq!(inserted.0, 2);
         assert_eq!(inserted.1, 1);
 
@@ -525,9 +523,7 @@ mod tests {
         assert_eq!(rows[1].2, 15);
         assert_eq!(rows[1].3, 2);
 
-        let second = db
-            .with_conn(|conn| sync_one_file(conn, &session))
-            .unwrap();
+        let second = db.with_conn(|conn| sync_one_file(conn, &session)).unwrap();
         assert_eq!(second, (0, 0));
     }
 }

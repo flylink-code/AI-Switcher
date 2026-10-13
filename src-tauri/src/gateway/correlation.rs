@@ -38,8 +38,8 @@ pub fn resolve(
 ) -> Correlation {
     let id = header_value(headers, REQUEST_ID_HEADER)
         .unwrap_or_else(|| format!("req_{}", Uuid::new_v4().simple()));
-    let target_app = header_value(headers, TARGET_APP_HEADER)
-        .or_else(|| fallback_target.map(str::to_string));
+    let target_app =
+        header_value(headers, TARGET_APP_HEADER).or_else(|| fallback_target.map(str::to_string));
     Correlation {
         id,
         target_app,

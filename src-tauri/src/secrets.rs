@@ -32,9 +32,14 @@ fn keyring_service() -> String {
         .map(|home| home.to_string_lossy().into_owned())
         .unwrap_or_else(|| {
             static SCOPE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-            SCOPE.get_or_init(|| uuid::Uuid::new_v4().to_string()).clone()
+            SCOPE
+                .get_or_init(|| uuid::Uuid::new_v4().to_string())
+                .clone()
         });
-    format!("{TEST_KEYRING_SERVICE}.{:x}", Sha256::digest(scope.as_bytes()))
+    format!(
+        "{TEST_KEYRING_SERVICE}.{:x}",
+        Sha256::digest(scope.as_bytes())
+    )
 }
 
 fn entry(account: &str) -> AppResult<keyring::Entry> {
@@ -95,7 +100,10 @@ pub(crate) mod test_credentials {
     impl Credential {
         pub(crate) fn new(secret: &str) -> Self {
             let account = format!("aisw_unit_{}", uuid::Uuid::new_v4().simple());
-            keys().lock().unwrap().insert(account.clone(), secret.to_string());
+            keys()
+                .lock()
+                .unwrap()
+                .insert(account.clone(), secret.to_string());
             Self(account)
         }
 
@@ -124,7 +132,9 @@ mod tests {
         let credential = test_credentials::Credential::new("synthetic-key");
         let reference = credential.reference();
         assert_eq!(
-            crate::database::dao::materialize_api_key(&reference).unwrap().as_deref(),
+            crate::database::dao::materialize_api_key(&reference)
+                .unwrap()
+                .as_deref(),
             Some("synthetic-key")
         );
         assert!(crate::database::dao::materialize_api_key("synthetic-key").is_err());

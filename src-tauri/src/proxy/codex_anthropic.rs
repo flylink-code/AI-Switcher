@@ -17,7 +17,9 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
         .ok_or_else(|| AppError::Config("Responses 请求缺少 input 字段".to_string()))?;
     let messages = responses_input_to_messages(input)?;
     if messages.is_empty() {
-        return Err(AppError::Config("Responses 请求未包含可转换的消息".to_string()));
+        return Err(AppError::Config(
+            "Responses 请求未包含可转换的消息".to_string(),
+        ));
     }
 
     let max_tokens = body
@@ -45,7 +47,10 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
     copy_if_present(body, &mut result, "temperature");
     copy_if_present(body, &mut result, "top_p");
     if let Some(tools) = body.get("tools").and_then(Value::as_array) {
-        let converted: Vec<Value> = tools.iter().filter_map(responses_tool_to_anthropic).collect();
+        let converted: Vec<Value> = tools
+            .iter()
+            .filter_map(responses_tool_to_anthropic)
+            .collect();
         if !converted.is_empty() {
             result["tools"] = Value::Array(converted);
         }
@@ -85,10 +90,18 @@ pub fn anthropic_response_to_responses(body: &Value) -> Value {
 
     let mut output = Vec::new();
     let mut text_parts = Vec::new();
-    for block in body.get("content").and_then(Value::as_array).into_iter().flatten() {
+    for block in body
+        .get("content")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
         match block.get("type").and_then(Value::as_str) {
             Some("text") => {
-                if let Some(text) = block.get("text").and_then(Value::as_str).filter(|text| !text.is_empty())
+                if let Some(text) = block
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .filter(|text| !text.is_empty())
                 {
                     text_parts.push(json!({"type": "output_text", "text": text}));
                 }
@@ -166,13 +179,19 @@ fn anthropic_error_to_responses(body: &Value) -> Value {
 }
 
 fn anthropic_usage_to_responses(usage: &Value) -> Value {
-    let input_tokens = usage.get("input_tokens").and_then(Value::as_i64).unwrap_or(0);
+    let input_tokens = usage
+        .get("input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let cache_read = usage
         .get("cache_read_input_tokens")
         .and_then(Value::as_i64)
         .unwrap_or(0);
     let total_input = input_tokens.saturating_add(cache_read);
-    let output_tokens = usage.get("output_tokens").and_then(Value::as_i64).unwrap_or(0);
+    let output_tokens = usage
+        .get("output_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let mut result = json!({
         "input_tokens": total_input,
         "output_tokens": output_tokens,
@@ -186,7 +205,9 @@ fn anthropic_usage_to_responses(usage: &Value) -> Value {
 
 fn responses_input_to_messages(input: &Value) -> AppResult<Vec<Value>> {
     match input {
-        Value::String(text) if !text.is_empty() => Ok(vec![json!({"role": "user", "content": text})]),
+        Value::String(text) if !text.is_empty() => {
+            Ok(vec![json!({"role": "user", "content": text})])
+        }
         Value::Array(items) => {
             let mut messages = Vec::new();
             let mut pending_tool_uses = Vec::new();
@@ -200,7 +221,9 @@ fn responses_input_to_messages(input: &Value) -> AppResult<Vec<Value>> {
                             .get("arguments")
                             .and_then(Value::as_str)
                             .and_then(|raw| serde_json::from_str(raw).ok())
-                            .unwrap_or_else(|| item.get("arguments").cloned().unwrap_or_else(|| json!({})));
+                            .unwrap_or_else(|| {
+                                item.get("arguments").cloned().unwrap_or_else(|| json!({}))
+                            });
                         pending_tool_uses.push(json!({
                             "type": "tool_use",
                             "id": item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),
@@ -220,8 +243,13 @@ fn responses_input_to_messages(input: &Value) -> AppResult<Vec<Value>> {
                         flush_tool_uses(&mut messages, &mut pending_tool_uses);
                         flush_tool_results(&mut messages, &mut pending_tool_results);
                         let role = item.get("role").and_then(Value::as_str).unwrap_or("user");
-                        let anthropic_role = if role == "assistant" { "assistant" } else { "user" };
-                        let content = convert_responses_content(item.get("content").unwrap_or(&Value::Null))?;
+                        let anthropic_role = if role == "assistant" {
+                            "assistant"
+                        } else {
+                            "user"
+                        };
+                        let content =
+                            convert_responses_content(item.get("content").unwrap_or(&Value::Null))?;
                         if !content.is_empty() {
                             messages.push(json!({"role": anthropic_role, "content": content}));
                         }
@@ -261,7 +289,10 @@ fn convert_responses_content(content: &Value) -> AppResult<Vec<Value>> {
             for part in parts {
                 match part.get("type").and_then(Value::as_str) {
                     Some("input_text" | "output_text" | "text") => {
-                        if let Some(text) = part.get("text").and_then(Value::as_str).filter(|text| !text.is_empty())
+                        if let Some(text) = part
+                            .get("text")
+                            .and_then(Value::as_str)
+                            .filter(|text| !text.is_empty())
                         {
                             blocks.push(json!({"type": "text", "text": text}));
                         }
@@ -330,14 +361,16 @@ fn responses_tool_choice_to_anthropic(value: &Value) -> Value {
             "none" => json!({"type": "none"}),
             _ => json!({"type": "auto"}),
         },
-        Value::Object(map) if map.get("type").and_then(Value::as_str) == Some("function") => json!({
-            "type": "tool",
-            "name": map
-                .get("name")
-                .or_else(|| map.get("function").and_then(|value| value.get("name")))
-                .and_then(Value::as_str)
-                .unwrap_or(""),
-        }),
+        Value::Object(map) if map.get("type").and_then(Value::as_str) == Some("function") => {
+            json!({
+                "type": "tool",
+                "name": map
+                    .get("name")
+                    .or_else(|| map.get("function").and_then(|value| value.get("name")))
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+            })
+        }
         _ => json!({"type": "auto"}),
     }
 }
@@ -465,9 +498,12 @@ fn parse_sse_event(frame: &str) -> Option<(String, Value)> {
         return None;
     }
     let parsed = serde_json::from_str::<Value>(&data).ok()?;
-    let event_type = event_type
-        .map(str::to_string)
-        .or_else(|| parsed.get("type").and_then(Value::as_str).map(str::to_string))?;
+    let event_type = event_type.map(str::to_string).or_else(|| {
+        parsed
+            .get("type")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    })?;
     Some((event_type, parsed))
 }
 
@@ -600,7 +636,10 @@ impl AnthropicSseToResponsesConverter {
                         if !self.text_item_started {
                             self.emit_text_item_added(&mut output);
                         }
-                        if let Some(text) = delta.get("text").and_then(Value::as_str).filter(|text| !text.is_empty())
+                        if let Some(text) = delta
+                            .get("text")
+                            .and_then(Value::as_str)
+                            .filter(|text| !text.is_empty())
                         {
                             self.text.push_str(text);
                             push_responses_event(
@@ -621,7 +660,10 @@ impl AnthropicSseToResponsesConverter {
                             .get(&index)
                             .copied()
                             .unwrap_or(self.output_index.saturating_sub(1));
-                        if let Some(partial) = delta.get("partial_json").and_then(Value::as_str).filter(|value| !value.is_empty())
+                        if let Some(partial) = delta
+                            .get("partial_json")
+                            .and_then(Value::as_str)
+                            .filter(|value| !value.is_empty())
                         {
                             if let Some(tool) = self
                                 .tools
@@ -691,7 +733,9 @@ impl AnthropicSseToResponsesConverter {
         } else {
             "response.completed"
         };
-        let total_input = self.input_tokens.saturating_add(self.cache_read_input_tokens);
+        let total_input = self
+            .input_tokens
+            .saturating_add(self.cache_read_input_tokens);
         let mut final_output = Vec::new();
         if self.text_item_started || !self.text.is_empty() {
             final_output.push((
@@ -949,7 +993,10 @@ mod tests {
         assert_eq!(anthropic["max_tokens"], 128);
         assert_eq!(anthropic["messages"][0]["content"][0]["text"], "Hello");
         assert_eq!(anthropic["messages"][1]["content"][0]["type"], "tool_use");
-        assert_eq!(anthropic["messages"][2]["content"][0]["type"], "tool_result");
+        assert_eq!(
+            anthropic["messages"][2]["content"][0]["type"],
+            "tool_result"
+        );
         assert_eq!(anthropic["tools"][0]["name"], "lookup");
         assert_eq!(anthropic["tool_choice"]["name"], "lookup");
     }
@@ -962,7 +1009,10 @@ mod tests {
         assert_eq!(responses["output"][0]["content"][0]["text"], "done");
         assert_eq!(responses["output"][1]["name"], "save");
         assert_eq!(responses["usage"]["input_tokens"], 5);
-        assert_eq!(responses["usage"]["input_tokens_details"]["cached_tokens"], 1);
+        assert_eq!(
+            responses["usage"]["input_tokens_details"]["cached_tokens"],
+            1
+        );
         assert_eq!(responses["usage"]["output_tokens"], 5);
         assert_eq!(responses["usage"]["total_tokens"], 10);
     }
@@ -980,7 +1030,10 @@ mod tests {
         });
         let responses = anthropic_response_to_responses(&body);
         assert_eq!(responses["status"], "incomplete");
-        assert_eq!(responses["incomplete_details"]["reason"], "max_output_tokens");
+        assert_eq!(
+            responses["incomplete_details"]["reason"],
+            "max_output_tokens"
+        );
     }
 
     #[test]
@@ -1000,7 +1053,10 @@ mod tests {
             ),
         )
         .unwrap();
-        let stop = String::from_utf8(converter.push_event("message_stop", &json!({"type":"message_stop"}))).unwrap();
+        let stop = String::from_utf8(
+            converter.push_event("message_stop", &json!({"type":"message_stop"})),
+        )
+        .unwrap();
         assert!(start.contains("response.created"));
         assert!(delta.contains("response.output_text.delta"));
         assert!(delta.contains("\"delta\":\"Hi\""));
@@ -1026,7 +1082,10 @@ mod tests {
     fn string_input_maps_to_single_user_message() {
         let body = json!({"input": "ping", "max_output_tokens": 32});
         let anthropic = responses_request_to_anthropic_messages(&body, "claude-sonnet").unwrap();
-        assert_eq!(anthropic["messages"][0], json!({"role": "user", "content": "ping"}));
+        assert_eq!(
+            anthropic["messages"][0],
+            json!({"role": "user", "content": "ping"})
+        );
     }
 
     #[test]
@@ -1036,7 +1095,8 @@ mod tests {
             "reasoning": {"effort": "high"},
             "max_output_tokens": 1000
         });
-        let anthropic = responses_request_to_anthropic_messages(&body, "claude-3-7-sonnet").unwrap();
+        let anthropic =
+            responses_request_to_anthropic_messages(&body, "claude-3-7-sonnet").unwrap();
         assert_eq!(anthropic["thinking"]["type"], "enabled");
         assert_eq!(anthropic["thinking"]["budget_tokens"], 16384);
         assert!(anthropic["max_tokens"].as_u64().unwrap() > 16384);

@@ -81,8 +81,14 @@ fn detect_outbound_proxy() -> Option<String> {
 }
 
 fn proxy_from_env() -> Option<String> {
-    for key in ["HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy"]
-    {
+    for key in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+    ] {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
             if !trimmed.is_empty() {
@@ -137,10 +143,7 @@ fn parse_wininet_proxy_server(server: &str) -> Option<String> {
             _ => {}
         }
     }
-    let host = https
-        .as_deref()
-        .or(http.as_deref())
-        .or(socks.as_deref())?;
+    let host = https.as_deref().or(http.as_deref()).or(socks.as_deref())?;
     if socks.is_some() && https.is_none() && http.is_none() {
         if host.contains("://") {
             normalize_proxy_url(host)

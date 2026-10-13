@@ -3,9 +3,9 @@
 use crate::database::dao;
 use crate::database::dao::mcp as mcp_dao;
 use crate::deeplink::{
-    self, build_mcp_share_link, build_provider_share_link, import_result_label, mcp_inputs_from_preview,
-    parse_import_text, provider_inputs_from_preview, DeeplinkImportResult, ImportPreview,
-    ImportResource, McpExportEntry,
+    self, build_mcp_share_link, build_provider_share_link, import_result_label,
+    mcp_inputs_from_preview, parse_import_text, provider_inputs_from_preview, DeeplinkImportResult,
+    ImportPreview, ImportResource, McpExportEntry,
 };
 use crate::error::{AppError, AppResult};
 use crate::mcp::{validate_server_input, McpServer};
@@ -41,13 +41,19 @@ pub async fn confirm_import_preview(
                 if input.target_app == crate::provider::ProviderTarget::OpenCode {
                     touched_opencode = true;
                 }
-                state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
+                state
+                    .db
+                    .with_conn(|conn| dao::upsert_provider(conn, &input))?;
                 imported += 1;
             }
             if touched_opencode {
                 crate::commands::providers::sync_opencode_providers_to_live(&state)?;
             }
-            Ok(import_result_label(ImportResource::Provider, imported, skipped))
+            Ok(import_result_label(
+                ImportResource::Provider,
+                imported,
+                skipped,
+            ))
         }
         ImportResource::Mcp => {
             let inputs = mcp_inputs_from_preview(&preview)?;
@@ -60,21 +66,27 @@ pub async fn confirm_import_preview(
                     skipped += 1;
                     continue;
                 }
-                state.db.with_conn(|conn| mcp_dao::upsert_mcp_server(conn, &input))?;
+                state
+                    .db
+                    .with_conn(|conn| mcp_dao::upsert_mcp_server(conn, &input))?;
                 imported += 1;
             }
             Ok(import_result_label(ImportResource::Mcp, imported, skipped))
         }
         ImportResource::Skill => {
-            let bundle: deeplink::SkillExportBundle = serde_json::from_value(preview.payload.clone())
-                .map_err(|_| AppError::Config("Skill 预览 payload 无效".to_string()))?;
+            let bundle: deeplink::SkillExportBundle =
+                serde_json::from_value(preview.payload.clone())
+                    .map_err(|_| AppError::Config("Skill 预览 payload 无效".to_string()))?;
             let mut imported = 0usize;
             let mut skipped = 0usize;
             for entry in bundle.skills {
                 if !entry.url.trim().is_empty() {
-                    if crate::skills::install_github_skill(&entry.url, crate::skills::SkillTarget::ClaudeCode)
-                        .await
-                        .is_ok()
+                    if crate::skills::install_github_skill(
+                        &entry.url,
+                        crate::skills::SkillTarget::ClaudeCode,
+                    )
+                    .await
+                    .is_ok()
                     {
                         imported += 1;
                     } else {
@@ -84,7 +96,11 @@ pub async fn confirm_import_preview(
                     skipped += 1;
                 }
             }
-            Ok(import_result_label(ImportResource::Skill, imported, skipped))
+            Ok(import_result_label(
+                ImportResource::Skill,
+                imported,
+                skipped,
+            ))
         }
     }
 }

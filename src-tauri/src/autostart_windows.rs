@@ -111,7 +111,12 @@ fn normalize_exe_display(path: &Path) -> String {
 #[cfg(test)]
 fn test_registry_root() -> &'static str {
     static ROOT: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    ROOT.get_or_init(|| format!(r"SOFTWARE\AI-Switcher\Tests\Autostart\{}", uuid::Uuid::new_v4()))
+    ROOT.get_or_init(|| {
+        format!(
+            r"SOFTWARE\AI-Switcher\Tests\Autostart\{}",
+            uuid::Uuid::new_v4()
+        )
+    })
 }
 
 fn hkcu() -> RegKey {

@@ -14,7 +14,9 @@ use serde_json::{Map, Value};
 
 use crate::backup::{backup_file_named, DEFAULT_BACKUP_KEEP};
 use crate::commands::tools::get_claude_code_version;
-use crate::config::{get_app_config_dir, get_claude_settings_path, read_json_file, write_json_file};
+use crate::config::{
+    get_app_config_dir, get_claude_settings_path, read_json_file, write_json_file,
+};
 use crate::error::{AppError, AppResult};
 use crate::store::AppState;
 
@@ -109,7 +111,8 @@ struct EditorDefinition {
 #[tauri::command]
 pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
     let code_info = get_claude_code_version(Some(false)).await?;
-    let settings = read_json_file::<Value>(&get_claude_settings_path())?.unwrap_or(Value::Object(Map::new()));
+    let settings =
+        read_json_file::<Value>(&get_claude_settings_path())?.unwrap_or(Value::Object(Map::new()));
     let plugin_enabled = settings
         .get("enabledPlugins")
         .and_then(Value::as_object)
@@ -150,7 +153,10 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
     };
     Ok(LocalizationHubStatus {
         claude_code,
-        editors: editor_definitions().into_iter().map(editor_status).collect(),
+        editors: editor_definitions()
+            .into_iter()
+            .map(editor_status)
+            .collect(),
     })
 }
 
@@ -179,9 +185,24 @@ pub async fn check_localization_upstream(
         .build()
         .map_err(|error| AppError::Other(format!("创建中文化上游检查客户端失败: {error}")))?;
     let (claude_code, editor, desktop) = tokio::join!(
-        fetch_latest_release(&client, CLAUDE_CODE_LOCALIZATION_REPOSITORY, &settings, &extra_hosts),
-        fetch_latest_release(&client, EDITOR_LOCALIZATION_REPOSITORY, &settings, &extra_hosts),
-        fetch_latest_release(&client, DESKTOP_LOCALIZATION_REPOSITORY, &settings, &extra_hosts),
+        fetch_latest_release(
+            &client,
+            CLAUDE_CODE_LOCALIZATION_REPOSITORY,
+            &settings,
+            &extra_hosts
+        ),
+        fetch_latest_release(
+            &client,
+            EDITOR_LOCALIZATION_REPOSITORY,
+            &settings,
+            &extra_hosts
+        ),
+        fetch_latest_release(
+            &client,
+            DESKTOP_LOCALIZATION_REPOSITORY,
+            &settings,
+            &extra_hosts
+        ),
     );
     Ok(LocalizationUpstreamStatus {
         checked_at: chrono::Utc::now().timestamp_millis(),
@@ -236,9 +257,7 @@ async fn fetch_github_release_json(
             }
         }
     }
-    Err(last_error.unwrap_or_else(|| {
-        AppError::Other(format!("连接 {repository} 失败"))
-    }))
+    Err(last_error.unwrap_or_else(|| AppError::Other(format!("连接 {repository} 失败"))))
 }
 
 async fn fetch_github_release_json_from_url(
@@ -282,7 +301,9 @@ async fn fetch_github_release_json_from_url(
     }
     let body = read_limited_body(response, MAX_GITHUB_RELEASE_METADATA_BYTES)
         .await
-        .map_err(|error| AppError::Other(format!("读取 {repository} Release 元数据失败: {error}")))?;
+        .map_err(|error| {
+            AppError::Other(format!("读取 {repository} Release 元数据失败: {error}"))
+        })?;
     serde_json::from_slice(&body)
         .map_err(|error| AppError::Config(format!("{repository} Release 元数据无效: {error}")))
 }
@@ -311,8 +332,21 @@ fn upstream_release_unavailable(repository: &str, error: AppError) -> Localizati
 #[tauri::command]
 pub async fn install_claude_code_localization() -> AppResult<String> {
     let executable = require_native_claude_executable().await?;
-    run_claude_plugin_command(&executable, ["plugin", "marketplace", "add", "--scope", "user", CLAUDE_MARKETPLACE_REPOSITORY])?;
-    run_claude_plugin_command(&executable, ["plugin", "install", CLAUDE_PLUGIN_ID, "--scope", "user"])?;
+    run_claude_plugin_command(
+        &executable,
+        [
+            "plugin",
+            "marketplace",
+            "add",
+            "--scope",
+            "user",
+            CLAUDE_MARKETPLACE_REPOSITORY,
+        ],
+    )?;
+    run_claude_plugin_command(
+        &executable,
+        ["plugin", "install", CLAUDE_PLUGIN_ID, "--scope", "user"],
+    )?;
     merge_claude_code_chinese_settings()?;
     Ok("Claude Code 中文插件已安装，并已启用中文基础设置".to_string())
 }
@@ -357,9 +391,15 @@ pub async fn update_editor_localization_helper(
 pub fn uninstall_editor_localization_helper(editor: String) -> AppResult<String> {
     let status = editor_status(require_editor_definition(&editor)?);
     let cli = require_editor_cli(&status)?;
-    let output = run_command(Path::new(&cli), &["--uninstall-extension", PATCH_HELPER_EXTENSION])?;
+    let output = run_command(
+        Path::new(&cli),
+        &["--uninstall-extension", PATCH_HELPER_EXTENSION],
+    )?;
     if output.status.success() {
-        return Ok(format!("{} 中文补丁助手已卸载；请重载编辑器窗口", status.label));
+        return Ok(format!(
+            "{} 中文补丁助手已卸载；请重载编辑器窗口",
+            status.label
+        ));
     }
     Err(AppError::Other(format!(
         "卸载中文补丁助手失败: {}",
@@ -402,8 +442,9 @@ fn merge_claude_code_chinese_settings() -> AppResult<()> {
         backup_file_named(&path, "claude-code-zh-cn-settings", DEFAULT_BACKUP_KEEP)?;
     }
     let mut settings = read_json_file::<Value>(&path)?.unwrap_or(Value::Object(Map::new()));
-    let object = settings.as_object_mut()
-        .ok_or_else(|| AppError::Config("Claude Code settings.json 必须是 JSON 对象".to_string()))?;
+    let object = settings.as_object_mut().ok_or_else(|| {
+        AppError::Config("Claude Code settings.json 必须是 JSON 对象".to_string())
+    })?;
     object.insert("language".to_string(), Value::String("Chinese".to_string()));
     object.insert("spinnerTipsEnabled".to_string(), Value::Bool(true));
     normalize_spinner_verbs(object);
@@ -470,9 +511,9 @@ async fn require_native_claude_executable() -> AppResult<String> {
             "未检测到 Claude Code，无法管理中文插件".to_string(),
         ));
     }
-    let executable = info.executable_path.ok_or_else(|| {
-        AppError::Config("未检测到 Claude Code，无法管理中文插件".to_string())
-    })?;
+    let executable = info
+        .executable_path
+        .ok_or_else(|| AppError::Config("未检测到 Claude Code，无法管理中文插件".to_string()))?;
     if info.environment == "wsl" {
         return Err(AppError::Config(
             "请在 WSL 终端中管理 Claude Code 中文插件".to_string(),
@@ -490,7 +531,10 @@ fn require_editor_definition(editor: &str) -> AppResult<EditorDefinition> {
 
 fn require_editor_cli(status: &EditorLocalizationStatus) -> AppResult<String> {
     status.editor_cli_path.clone().ok_or_else(|| {
-        AppError::Config(format!("未找到 {} 命令行工具，无法管理补丁助手", status.label))
+        AppError::Config(format!(
+            "未找到 {} 命令行工具，无法管理补丁助手",
+            status.label
+        ))
     })
 }
 
@@ -516,11 +560,17 @@ fn run_claude_plugin_command<const N: usize>(executable: &str, args: [&str; N]) 
     if output.status.success() {
         return Ok(());
     }
-    Err(AppError::Other(format!("Claude Code 插件命令失败: {}", command_detail(&output))))
+    Err(AppError::Other(format!(
+        "Claude Code 插件命令失败: {}",
+        command_detail(&output)
+    )))
 }
 
 fn install_helper_from_gallery(cli: &Path) -> AppResult<()> {
-    let output = run_command(cli, &["--install-extension", PATCH_HELPER_EXTENSION, "--force"])?;
+    let output = run_command(
+        cli,
+        &["--install-extension", PATCH_HELPER_EXTENSION, "--force"],
+    )?;
     if output.status.success() && !gallery_extension_missing(&output) {
         return Ok(());
     }
@@ -589,7 +639,9 @@ async fn download_helper_vsix(state: &tauri::State<'_, AppState>) -> AppResult<P
     let settings = crate::commands::system::get_update_mirror_settings(state.clone())?;
     let urls = github_asset_download_urls(&asset.browser_download_url, &settings);
     let bytes = download_vsix_with_fallbacks(&client, &urls, &extra_hosts).await?;
-    let dir = get_app_config_dir().join("localization").join("editor-helper");
+    let dir = get_app_config_dir()
+        .join("localization")
+        .join("editor-helper");
     fs::create_dir_all(&dir)?;
     let target = dir.join(format!("claude-code-zh-cn-patch-helper-{version}.vsix"));
     let stage = dir.join(format!(".download-{}.vsix", uuid::Uuid::new_v4().simple()));
@@ -622,9 +674,8 @@ async fn download_vsix_with_fallbacks(
             }
         }
     }
-    Err(last_error.unwrap_or_else(|| {
-        AppError::Other("下载中文补丁助手失败：没有可用的下载地址".into())
-    }))
+    Err(last_error
+        .unwrap_or_else(|| AppError::Other("下载中文补丁助手失败：没有可用的下载地址".into())))
 }
 
 async fn download_one_vsix(
@@ -635,7 +686,9 @@ async fn download_one_vsix(
     let parsed = reqwest::Url::parse(url)
         .map_err(|error| AppError::Config(format!("补丁助手下载地址无效: {error}")))?;
     if !helper_download_url_allowed(&parsed, extra_hosts) {
-        return Err(AppError::Config(format!("补丁助手下载地址不受信任: {parsed}")));
+        return Err(AppError::Config(format!(
+            "补丁助手下载地址不受信任: {parsed}"
+        )));
     }
     let response = client
         .get(parsed)
@@ -663,15 +716,14 @@ async fn download_one_vsix(
     }
     let bytes = read_limited_body(response, MAX_HELPER_VSIX_BYTES).await?;
     if !looks_like_vsix(&bytes) {
-        return Err(AppError::Config("下载的补丁助手不是有效的 .vsix 文件".to_string()));
+        return Err(AppError::Config(
+            "下载的补丁助手不是有效的 .vsix 文件".to_string(),
+        ));
     }
     Ok(bytes)
 }
 
-async fn read_limited_body(
-    mut response: reqwest::Response,
-    max_bytes: u64,
-) -> AppResult<Vec<u8>> {
+async fn read_limited_body(mut response: reqwest::Response, max_bytes: u64) -> AppResult<Vec<u8>> {
     let mut bytes = Vec::new();
     while let Some(chunk) = response
         .chunk()
@@ -679,7 +731,9 @@ async fn read_limited_body(
         .map_err(|error| AppError::Other(error.to_string()))?
     {
         if bytes.len() as u64 + chunk.len() as u64 > max_bytes {
-            return Err(AppError::Config(format!("下载内容超过 {max_bytes} 字节限制")));
+            return Err(AppError::Config(format!(
+                "下载内容超过 {max_bytes} 字节限制"
+            )));
         }
         bytes.extend_from_slice(&chunk);
     }
@@ -694,7 +748,14 @@ fn github_asset_download_urls(
     if settings.use_mirror {
         let base = settings.mirror_base.trim();
         if !base.is_empty() {
-            let mirrored = format!("{}{direct_url}", if base.ends_with('/') { base.to_string() } else { format!("{base}/") });
+            let mirrored = format!(
+                "{}{direct_url}",
+                if base.ends_with('/') {
+                    base.to_string()
+                } else {
+                    format!("{base}/")
+                }
+            );
             urls.push(mirrored);
         }
     }
@@ -721,9 +782,7 @@ fn helper_mirror_hosts(state: &tauri::State<'_, AppState>) -> Vec<String> {
 
 fn pick_helper_vsix_asset(assets: &[GitHubReleaseAsset]) -> Option<&GitHubReleaseAsset> {
     assets.iter().find(|asset| {
-        is_safe_vsix_name(&asset.name)
-            && asset.size > 0
-            && asset.size <= MAX_HELPER_VSIX_BYTES
+        is_safe_vsix_name(&asset.name) && asset.size > 0 && asset.size <= MAX_HELPER_VSIX_BYTES
     })
 }
 
@@ -749,8 +808,10 @@ fn helper_download_url_allowed(url: &reqwest::Url, extra_hosts: &[String]) -> bo
     let Some(host) = url.host_str() else {
         return false;
     };
-    matches!(host, "github.com" | "api.github.com" | "codeload.github.com")
-        || host == "githubusercontent.com"
+    matches!(
+        host,
+        "github.com" | "api.github.com" | "codeload.github.com"
+    ) || host == "githubusercontent.com"
         || host.ends_with(".githubusercontent.com")
         || extra_hosts.iter().any(|allowed| allowed == host)
 }
@@ -763,7 +824,9 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
             // Paths like `...\Microsoft VS Code\bin\code.cmd` contain spaces.
             // Pass a single /C string so cmd.exe does not split on spaces.
             let mut command = Command::new("cmd.exe");
-            command.args(["/D", "/C"]).arg(format_cmd_script_line(program, args));
+            command
+                .args(["/D", "/C"])
+                .arg(format_cmd_script_line(program, args));
             command
         } else {
             let mut command = Command::new(program);
@@ -771,11 +834,15 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
             command
         };
         command.creation_flags(CREATE_NO_WINDOW);
-        command.output().map_err(|error| AppError::Other(format!("启动命令失败: {error}")))
+        command
+            .output()
+            .map_err(|error| AppError::Other(format!("启动命令失败: {error}")))
     }
     #[cfg(not(windows))]
     {
-        Command::new(program).args(args).output()
+        Command::new(program)
+            .args(args)
+            .output()
             .map_err(|error| AppError::Other(format!("启动命令失败: {error}")))
     }
 }
@@ -801,16 +868,27 @@ fn quote_cmd_arg(value: &str) -> String {
 }
 
 fn requires_command_shell(program: &Path) -> bool {
-    program.extension()
+    program
+        .extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat"))
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat")
+        })
 }
 
 fn command_detail(output: &std::process::Output) -> String {
-    let text = if output.stderr.is_empty() { &output.stdout } else { &output.stderr };
+    let text = if output.stderr.is_empty() {
+        &output.stdout
+    } else {
+        &output.stderr
+    };
     let decoded = String::from_utf8_lossy(text);
     let cleaned = strip_cli_noise(&decoded);
-    if cleaned.is_empty() { format!("退出码 {}", output.status) } else { cleaned }
+    if cleaned.is_empty() {
+        format!("退出码 {}", output.status)
+    } else {
+        cleaned
+    }
 }
 
 fn strip_cli_noise(text: &str) -> String {
@@ -836,7 +914,11 @@ fn editor_definitions() -> Vec<EditorDefinition> {
             extension_dir: home.join(".vscode").join("extensions"),
             command_name: "code",
             cli_candidates: vec![
-                local.join("Programs").join("Microsoft VS Code").join("bin").join("code.cmd"),
+                local
+                    .join("Programs")
+                    .join("Microsoft VS Code")
+                    .join("bin")
+                    .join("code.cmd"),
                 PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin\code.cmd"),
                 PathBuf::from(r"C:\Program Files (x86)\Microsoft VS Code\bin\code.cmd"),
             ],
@@ -847,10 +929,34 @@ fn editor_definitions() -> Vec<EditorDefinition> {
             extension_dir: home.join(".cursor").join("extensions"),
             command_name: "cursor",
             cli_candidates: vec![
-                local.join("Programs").join("Cursor").join("resources").join("app").join("bin").join("cursor.cmd"),
-                local.join("Programs").join("cursor").join("resources").join("app").join("bin").join("cursor.cmd"),
-                local.join("Programs").join("Cursor").join("resources").join("app").join("codeBin").join("cursor.cmd"),
-                local.join("Programs").join("cursor").join("resources").join("app").join("codeBin").join("cursor.cmd"),
+                local
+                    .join("Programs")
+                    .join("Cursor")
+                    .join("resources")
+                    .join("app")
+                    .join("bin")
+                    .join("cursor.cmd"),
+                local
+                    .join("Programs")
+                    .join("cursor")
+                    .join("resources")
+                    .join("app")
+                    .join("bin")
+                    .join("cursor.cmd"),
+                local
+                    .join("Programs")
+                    .join("Cursor")
+                    .join("resources")
+                    .join("app")
+                    .join("codeBin")
+                    .join("cursor.cmd"),
+                local
+                    .join("Programs")
+                    .join("cursor")
+                    .join("resources")
+                    .join("app")
+                    .join("codeBin")
+                    .join("cursor.cmd"),
                 PathBuf::from(r"C:\Program Files\Cursor\resources\app\bin\cursor.cmd"),
                 PathBuf::from(r"C:\Program Files\cursor\resources\app\bin\cursor.cmd"),
             ],
@@ -871,7 +977,9 @@ fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
         format!("已检测到 Claude Code for VS Code 扩展，但未找到 {} 命令行工具；请在编辑器命令面板安装 Shell Command，或将命令加入 PATH", definition.label)
     } else if helper_installed {
         match helper_version.as_deref() {
-            Some(version) => format!("中文补丁助手 {version} 已安装；请在编辑器命令面板确认应用补丁"),
+            Some(version) => {
+                format!("中文补丁助手 {version} 已安装；请在编辑器命令面板确认应用补丁")
+            }
             None => "中文补丁助手已安装；请在编辑器命令面板确认应用补丁".to_string(),
         }
     } else {
@@ -921,10 +1029,22 @@ fn cli_paths_for_install_root(editor_id: &str, root: &Path) -> Vec<PathBuf> {
             root.join("bin").join("code.exe"),
         ],
         "cursor" => vec![
-            root.join("resources").join("app").join("bin").join("cursor.cmd"),
-            root.join("resources").join("app").join("bin").join("cursor.exe"),
-            root.join("resources").join("app").join("codeBin").join("cursor.cmd"),
-            root.join("resources").join("app").join("codeBin").join("cursor.exe"),
+            root.join("resources")
+                .join("app")
+                .join("bin")
+                .join("cursor.cmd"),
+            root.join("resources")
+                .join("app")
+                .join("bin")
+                .join("cursor.exe"),
+            root.join("resources")
+                .join("app")
+                .join("codeBin")
+                .join("cursor.cmd"),
+            root.join("resources")
+                .join("app")
+                .join("codeBin")
+                .join("cursor.exe"),
         ],
         _ => Vec::new(),
     }
@@ -938,7 +1058,10 @@ fn editor_install_roots(editor_id: &str) -> Vec<PathBuf> {
         _ => return Vec::new(),
     };
     let mut roots = Vec::new();
-    for hive in [winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER), winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE)] {
+    for hive in [
+        winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER),
+        winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE),
+    ] {
         for path in [
             r"Software\Microsoft\Windows\CurrentVersion\Uninstall",
             r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
@@ -955,7 +1078,8 @@ fn editor_install_roots(editor_id: &str) -> Vec<PathBuf> {
                     continue;
                 }
                 // Avoid matching unrelated "Cursor*" products by requiring exact-ish names.
-                if editor_id == "cursor" && !display_name.to_ascii_lowercase().starts_with("cursor") {
+                if editor_id == "cursor" && !display_name.to_ascii_lowercase().starts_with("cursor")
+                {
                     continue;
                 }
                 let location: String = subkey.get_value("InstallLocation").unwrap_or_default();
@@ -1028,7 +1152,10 @@ fn find_command_in_env_path(command: &str) -> Option<PathBuf> {
     ];
     for dir in dirs {
         // WindowsApps execution aliases are stubs and break --install-extension.
-        if dir.components().any(|part| part.as_os_str() == "WindowsApps") {
+        if dir
+            .components()
+            .any(|part| part.as_os_str() == "WindowsApps")
+        {
             continue;
         }
         for name in &names {
@@ -1059,9 +1186,18 @@ fn expand_windows_env(value: &str) -> String {
     let mut result = value.to_string();
     // Expand common %VAR% references used in user PATH.
     for (key, replacement) in [
-        ("%USERPROFILE%", dirs::home_dir().map(|p| p.to_string_lossy().into_owned())),
-        ("%LOCALAPPDATA%", dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned())),
-        ("%APPDATA%", dirs::config_dir().map(|p| p.to_string_lossy().into_owned())),
+        (
+            "%USERPROFILE%",
+            dirs::home_dir().map(|p| p.to_string_lossy().into_owned()),
+        ),
+        (
+            "%LOCALAPPDATA%",
+            dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned()),
+        ),
+        (
+            "%APPDATA%",
+            dirs::config_dir().map(|p| p.to_string_lossy().into_owned()),
+        ),
     ] {
         if let Some(replacement) = replacement {
             result = result.replace(key, &replacement);
@@ -1077,7 +1213,8 @@ fn find_command_on_path(_command: &str) -> Option<PathBuf> {
 }
 
 fn find_extension(root: &Path, prefix: &str) -> Option<PathBuf> {
-    let mut candidates = fs::read_dir(root).ok()?
+    let mut candidates = fs::read_dir(root)
+        .ok()?
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| path.is_dir())
@@ -1128,7 +1265,10 @@ mod tests {
     fn formats_cmd_script_line_with_quoted_spaces() {
         let line = format_cmd_script_line(
             Path::new(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd"),
-            &["--install-extension", "shanjiancaofu.claude-code-zh-cn-patch-helper"],
+            &[
+                "--install-extension",
+                "shanjiancaofu.claude-code-zh-cn-patch-helper",
+            ],
         );
         assert_eq!(
             line,
@@ -1140,9 +1280,17 @@ mod tests {
     fn builds_cli_paths_under_install_root() {
         let root = Path::new(r"F:\cursor");
         let paths = cli_paths_for_install_root("cursor", root);
-        assert!(paths.iter().any(|p| p.ends_with(r"resources\app\bin\cursor.cmd") || p.ends_with("resources/app/bin/cursor.cmd")));
-        let vscode = cli_paths_for_install_root("vscode", Path::new(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code"));
-        assert!(vscode.iter().any(|p| p.ends_with("bin\\code.cmd") || p.ends_with("bin/code.cmd")));
+        assert!(paths
+            .iter()
+            .any(|p| p.ends_with(r"resources\app\bin\cursor.cmd")
+                || p.ends_with("resources/app/bin/cursor.cmd")));
+        let vscode = cli_paths_for_install_root(
+            "vscode",
+            Path::new(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code"),
+        );
+        assert!(vscode
+            .iter()
+            .any(|p| p.ends_with("bin\\code.cmd") || p.ends_with("bin/code.cmd")));
     }
 
     #[cfg(windows)]
@@ -1152,14 +1300,19 @@ mod tests {
         let vscode = editors.iter().find(|e| e.id == "vscode").unwrap();
         let cursor = editors.iter().find(|e| e.id == "cursor").unwrap();
         // This machine has user-level VS Code under Local\Programs.
-        if PathBuf::from(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd").is_file() {
+        if PathBuf::from(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd")
+            .is_file()
+        {
             let cli = resolve_editor_cli(vscode).expect("VS Code CLI");
             assert!(cli.to_string_lossy().contains("code"));
         }
         // Portable/custom Cursor install registered via Uninstall InstallLocation.
         if PathBuf::from(r"f:\cursor\resources\app\bin\cursor.cmd").is_file() {
             let cli = resolve_editor_cli(cursor).expect("Cursor CLI");
-            assert!(cli.to_string_lossy().to_ascii_lowercase().contains("cursor"));
+            assert!(cli
+                .to_string_lossy()
+                .to_ascii_lowercase()
+                .contains("cursor"));
         }
     }
 
@@ -1207,7 +1360,10 @@ mod tests {
         );
         normalize_spinner_verbs(&mut settings);
         assert_eq!(
-            settings.get("spinnerVerbs").and_then(|value| value.get("mode")).and_then(Value::as_str),
+            settings
+                .get("spinnerVerbs")
+                .and_then(|value| value.get("mode"))
+                .and_then(Value::as_str),
             Some("append")
         );
     }
@@ -1242,7 +1398,9 @@ mod tests {
         let picked = pick_helper_vsix_asset(&assets).expect("vsix");
         assert_eq!(picked.name, "claude-code-zh-cn-patch-helper-0.1.2.vsix");
         assert!(is_safe_vsix_name(&picked.name));
-        assert!(!is_safe_vsix_name("../claude-code-zh-cn-patch-helper-0.1.2.vsix"));
+        assert!(!is_safe_vsix_name(
+            "../claude-code-zh-cn-patch-helper-0.1.2.vsix"
+        ));
         assert!(!looks_like_vsix(b"not-a-zip"));
         assert!(looks_like_vsix(b"PK\x03\x04payload"));
     }
@@ -1344,21 +1502,17 @@ mod tests {
     #[test]
     fn helper_version_prefers_package_json_then_directory_suffix() {
         let dir = tempfile::tempdir().unwrap();
-        let helper = dir.path().join("shanjiancaofu.claude-code-zh-cn-patch-helper-0.1.1");
+        let helper = dir
+            .path()
+            .join("shanjiancaofu.claude-code-zh-cn-patch-helper-0.1.1");
         fs::create_dir(&helper).unwrap();
-        assert_eq!(
-            helper_version_from_path(&helper).as_deref(),
-            Some("0.1.1")
-        );
+        assert_eq!(helper_version_from_path(&helper).as_deref(), Some("0.1.1"));
         fs::write(
             helper.join("package.json"),
             r#"{"name":"helper","version":"0.1.2"}"#,
         )
         .unwrap();
-        assert_eq!(
-            helper_version_from_path(&helper).as_deref(),
-            Some("0.1.2")
-        );
+        assert_eq!(helper_version_from_path(&helper).as_deref(), Some("0.1.2"));
     }
 
     #[test]
@@ -1368,10 +1522,7 @@ mod tests {
             .path()
             .join("shanjiancaofu.claude-code-zh-cn-patch-helper-0.1.2-universal");
         fs::create_dir(&helper).unwrap();
-        assert_eq!(
-            helper_version_from_path(&helper).as_deref(),
-            Some("0.1.2")
-        );
+        assert_eq!(helper_version_from_path(&helper).as_deref(), Some("0.1.2"));
     }
 
     #[test]

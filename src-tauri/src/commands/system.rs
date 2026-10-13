@@ -103,6 +103,13 @@ pub fn set_gateway_runtime_mode(
 }
 
 #[tauri::command]
+pub fn get_gateway_sidecar_status(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::sidecar::SidecarStatus> {
+    Ok(crate::sidecar::status(&state.db))
+}
+
+#[tauri::command]
 pub fn get_close_behavior(state: tauri::State<'_, AppState>) -> AppResult<CloseBehavior> {
     read_close_behavior(&state.db)
 }
@@ -123,7 +130,9 @@ pub fn resolve_close_request(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
     if action == CloseBehavior::Ask {
-        return Err(AppError::Config("关闭操作必须为系统托盘或直接退出".to_string()));
+        return Err(AppError::Config(
+            "关闭操作必须为系统托盘或直接退出".to_string(),
+        ));
     }
     if remember {
         set_setting_value(&state.db, CLOSE_BEHAVIOR_KEY, action.as_str())?;
@@ -172,7 +181,9 @@ pub fn restart_app(app: tauri::AppHandle) {
 pub fn get_update_mirror_settings(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<UpdateMirrorSettings> {
-    let configured = state.db.with_conn(|conn| get_setting(conn, UPDATE_MIRROR_SETTINGS_KEY))?
+    let configured = state
+        .db
+        .with_conn(|conn| get_setting(conn, UPDATE_MIRROR_SETTINGS_KEY))?
         .and_then(|value| serde_json::from_str::<UpdateMirrorSettings>(&value).ok());
     Ok(configured.unwrap_or_else(|| default_update_mirror_settings(&state.db)))
 }
@@ -198,14 +209,22 @@ fn default_update_mirror_settings(db: &Database) -> UpdateMirrorSettings {
     }
 }
 
-fn normalize_update_mirror_settings(settings: UpdateMirrorSettings) -> AppResult<UpdateMirrorSettings> {
+fn normalize_update_mirror_settings(
+    settings: UpdateMirrorSettings,
+) -> AppResult<UpdateMirrorSettings> {
     let mirror_base = settings.mirror_base.trim();
     let parsed = url::Url::parse(mirror_base)
         .map_err(|error| AppError::Config(format!("GitHub 镜像地址无效: {error}")))?;
-    if parsed.scheme() != "https" || parsed.host_str().is_none()
-        || !parsed.username().is_empty() || parsed.password().is_some()
-        || parsed.query().is_some() || parsed.fragment().is_some() {
-        return Err(AppError::Config("GitHub 镜像地址必须是无凭据、无参数的 HTTPS 前缀".to_string()));
+    if parsed.scheme() != "https"
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(AppError::Config(
+            "GitHub 镜像地址必须是无凭据、无参数的 HTTPS 前缀".to_string(),
+        ));
     }
     Ok(UpdateMirrorSettings {
         use_mirror: settings.use_mirror,
@@ -214,10 +233,10 @@ fn normalize_update_mirror_settings(settings: UpdateMirrorSettings) -> AppResult
 }
 
 #[tauri::command]
-pub fn get_dismissed_onboarding_tips(
-    state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<String>> {
-    let value = state.db.with_conn(|conn| get_setting(conn, DISMISSED_ONBOARDING_TIPS_KEY))?;
+pub fn get_dismissed_onboarding_tips(state: tauri::State<'_, AppState>) -> AppResult<Vec<String>> {
+    let value = state
+        .db
+        .with_conn(|conn| get_setting(conn, DISMISSED_ONBOARDING_TIPS_KEY))?;
     Ok(value
         .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
         .unwrap_or_default()
@@ -227,10 +246,7 @@ pub fn get_dismissed_onboarding_tips(
 }
 
 #[tauri::command]
-pub fn dismiss_onboarding_tip(
-    tip_key: String,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<()> {
+pub fn dismiss_onboarding_tip(tip_key: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
     validate_onboarding_tip_key(&tip_key)?;
     let mut dismissed = get_dismissed_onboarding_tips(state.clone())?;
     if !dismissed.contains(&tip_key) {
@@ -320,7 +336,8 @@ pub fn set_autostart_config(
         let status = autostart_status(&app)?;
         if !status.enabled {
             return Err(AppError::Other(
-                "开机自启未成功注册到系统启动项，请重试或检查任务管理器中的启动应用设置".to_string(),
+                "开机自启未成功注册到系统启动项，请重试或检查任务管理器中的启动应用设置"
+                    .to_string(),
             ));
         }
     }
@@ -514,10 +531,7 @@ fn should_launch_silently(from_autostart: bool, mode: Option<AutostartMode>) -> 
     from_autostart && mode == Some(AutostartMode::Silent)
 }
 
-pub fn migrate_autostart_registration(
-    app: &tauri::AppHandle,
-    db: &Database,
-) -> AppResult<()> {
+pub fn migrate_autostart_registration(app: &tauri::AppHandle, db: &Database) -> AppResult<()> {
     #[cfg(windows)]
     {
         if let Err(error) = crate::autostart_windows::cleanup_legacy_names() {
@@ -563,11 +577,7 @@ pub fn migrate_autostart_registration(
 }
 
 #[tauri::command]
-pub fn report_frontend_startup(
-    duration_ms: u64,
-    reason: String,
-    failures: Vec<String>,
-) {
+pub fn report_frontend_startup(duration_ms: u64, reason: String, failures: Vec<String>) {
     let safe_reason: String = reason
         .chars()
         .filter(|character| character.is_ascii_alphanumeric() || *character == '_')
@@ -594,17 +604,13 @@ pub fn report_frontend_startup(
 pub fn report_frontend_performance(kind: String, name: String, duration_ms: u64) {
     let safe_kind = sanitize_performance_label(&kind, 32);
     let safe_name = sanitize_performance_label(&name, 64);
-    log::info!(
-        "前端性能阶段: kind={safe_kind}, name={safe_name}, duration_ms={duration_ms}"
-    );
+    log::info!("前端性能阶段: kind={safe_kind}, name={safe_name}, duration_ms={duration_ms}");
 }
 
 fn sanitize_performance_label(value: &str, limit: usize) -> String {
     value
         .chars()
-        .filter(|character| {
-            character.is_ascii_alphanumeric() || matches!(*character, '_' | '-')
-        })
+        .filter(|character| character.is_ascii_alphanumeric() || matches!(*character, '_' | '-'))
         .take(limit)
         .collect()
 }
@@ -615,7 +621,10 @@ mod tests {
 
     #[test]
     fn autostart_modes_use_stable_wire_values() {
-        assert_eq!(serde_json::to_string(&AutostartMode::Off).unwrap(), "\"off\"");
+        assert_eq!(
+            serde_json::to_string(&AutostartMode::Off).unwrap(),
+            "\"off\""
+        );
         assert_eq!(
             serde_json::to_string(&AutostartMode::Silent).unwrap(),
             "\"silent\""
@@ -628,9 +637,18 @@ mod tests {
 
     #[test]
     fn close_behaviors_use_stable_wire_values() {
-        assert_eq!(serde_json::to_string(&CloseBehavior::Ask).unwrap(), "\"ask\"");
-        assert_eq!(serde_json::to_string(&CloseBehavior::Tray).unwrap(), "\"tray\"");
-        assert_eq!(serde_json::to_string(&CloseBehavior::Quit).unwrap(), "\"quit\"");
+        assert_eq!(
+            serde_json::to_string(&CloseBehavior::Ask).unwrap(),
+            "\"ask\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CloseBehavior::Tray).unwrap(),
+            "\"tray\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CloseBehavior::Quit).unwrap(),
+            "\"quit\""
+        );
     }
 
     #[test]
@@ -668,16 +686,19 @@ mod tests {
         let normalized = normalize_update_mirror_settings(UpdateMirrorSettings {
             use_mirror: true,
             mirror_base: "https://gh-proxy.com".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(normalized.mirror_base, "https://gh-proxy.com/");
         assert!(normalize_update_mirror_settings(UpdateMirrorSettings {
             use_mirror: true,
             mirror_base: "http://gh-proxy.com/".to_string(),
-        }).is_err());
+        })
+        .is_err());
         assert!(normalize_update_mirror_settings(UpdateMirrorSettings {
             use_mirror: true,
             mirror_base: "https://user@example.com/".to_string(),
-        }).is_err());
+        })
+        .is_err());
     }
 
     #[test]

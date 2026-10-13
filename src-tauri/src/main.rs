@@ -15,6 +15,11 @@ fn main() {
     if claude_switcher_lib::run_gateway_sidecar_if_requested() {
         return;
     }
+    // After the sidecar check: a supervised child inherits the selftest env but
+    // is started with `--gateway-sidecar`, so it must not run the selftest.
+    if claude_switcher_lib::run_supervisor_selftest_if_requested() {
+        return;
+    }
     if claude_switcher_lib::run_localization_worker_if_requested() {
         return;
     }

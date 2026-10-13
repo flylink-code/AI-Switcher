@@ -29,7 +29,9 @@ pub fn save_mcp_server(
     input: McpServerInput,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<McpServer> {
-    let saved = state.db.with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
+    let saved = state
+        .db
+        .with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
     sync_all(&state)?;
     Ok(saved)
 }
@@ -37,7 +39,9 @@ pub fn save_mcp_server(
 /// Delete a server, then re-sync (removes its key from both apps' files).
 #[tauri::command]
 pub fn delete_mcp_server(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    state.db.with_conn(|conn| dao::delete_mcp_server(conn, &id))?;
+    state
+        .db
+        .with_conn(|conn| dao::delete_mcp_server(conn, &id))?;
     sync_all(&state)
 }
 
@@ -86,127 +90,129 @@ pub async fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<
         let cline = crate::coding::cline::mcp::read_mcp_servers()?;
 
         db.with_conn(|conn| {
-        let mut imported = 0i64;
-        let mut updated = 0i64;
+            let mut imported = 0i64;
+            let mut updated = 0i64;
 
-        for (name, cfg) in &code {
-            let in_desktop = desktop.contains_key(name);
-            if dao::import_mcp_entry(
-                conn,
-                name,
-                cfg,
-                true,
-                in_desktop,
-                codex.contains_key(name),
-                opencode.contains_key(name),
-                pi.contains_key(name),
-                cline.contains_key(name),
-            )? {
-                imported += 1;
-            } else {
-                updated += 1;
+            for (name, cfg) in &code {
+                let in_desktop = desktop.contains_key(name);
+                if dao::import_mcp_entry(
+                    conn,
+                    name,
+                    cfg,
+                    true,
+                    in_desktop,
+                    codex.contains_key(name),
+                    opencode.contains_key(name),
+                    pi.contains_key(name),
+                    cline.contains_key(name),
+                )? {
+                    imported += 1;
+                } else {
+                    updated += 1;
+                }
             }
-        }
-        for (name, cfg) in &desktop {
-            if code.contains_key(name) {
-                continue;
+            for (name, cfg) in &desktop {
+                if code.contains_key(name) {
+                    continue;
+                }
+                if dao::import_mcp_entry(
+                    conn,
+                    name,
+                    cfg,
+                    false,
+                    true,
+                    codex.contains_key(name),
+                    opencode.contains_key(name),
+                    pi.contains_key(name),
+                    cline.contains_key(name),
+                )? {
+                    imported += 1;
+                } else {
+                    updated += 1;
+                }
             }
-            if dao::import_mcp_entry(
-                conn,
-                name,
-                cfg,
-                false,
-                true,
-                codex.contains_key(name),
-                opencode.contains_key(name),
-                pi.contains_key(name),
-                cline.contains_key(name),
-            )? {
-                imported += 1;
-            } else {
-                updated += 1;
+            for (name, cfg) in &codex {
+                if code.contains_key(name) || desktop.contains_key(name) {
+                    continue;
+                }
+                if dao::import_mcp_entry(
+                    conn,
+                    name,
+                    cfg,
+                    false,
+                    false,
+                    true,
+                    opencode.contains_key(name),
+                    pi.contains_key(name),
+                    cline.contains_key(name),
+                )? {
+                    imported += 1;
+                } else {
+                    updated += 1;
+                }
             }
-        }
-        for (name, cfg) in &codex {
-            if code.contains_key(name) || desktop.contains_key(name) {
-                continue;
+            for (name, cfg) in &opencode {
+                if code.contains_key(name) || desktop.contains_key(name) || codex.contains_key(name)
+                {
+                    continue;
+                }
+                if dao::import_mcp_entry(
+                    conn,
+                    name,
+                    cfg,
+                    false,
+                    false,
+                    false,
+                    true,
+                    pi.contains_key(name),
+                    cline.contains_key(name),
+                )? {
+                    imported += 1;
+                } else {
+                    updated += 1;
+                }
             }
-            if dao::import_mcp_entry(
-                conn,
-                name,
-                cfg,
-                false,
-                false,
-                true,
-                opencode.contains_key(name),
-                pi.contains_key(name),
-                cline.contains_key(name),
-            )? {
-                imported += 1;
-            } else {
-                updated += 1;
+            for (name, cfg) in &pi {
+                if code.contains_key(name)
+                    || desktop.contains_key(name)
+                    || codex.contains_key(name)
+                    || opencode.contains_key(name)
+                {
+                    continue;
+                }
+                if dao::import_mcp_entry(
+                    conn,
+                    name,
+                    cfg,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    cline.contains_key(name),
+                )? {
+                    imported += 1;
+                } else {
+                    updated += 1;
+                }
             }
-        }
-        for (name, cfg) in &opencode {
-            if code.contains_key(name) || desktop.contains_key(name) || codex.contains_key(name) {
-                continue;
+            for (name, cfg) in &cline {
+                if code.contains_key(name)
+                    || desktop.contains_key(name)
+                    || codex.contains_key(name)
+                    || opencode.contains_key(name)
+                    || pi.contains_key(name)
+                {
+                    continue;
+                }
+                if dao::import_mcp_entry(conn, name, cfg, false, false, false, false, false, true)?
+                {
+                    imported += 1;
+                } else {
+                    updated += 1;
+                }
             }
-            if dao::import_mcp_entry(
-                conn,
-                name,
-                cfg,
-                false,
-                false,
-                false,
-                true,
-                pi.contains_key(name),
-                cline.contains_key(name),
-            )? {
-                imported += 1;
-            } else {
-                updated += 1;
-            }
-        }
-        for (name, cfg) in &pi {
-            if code.contains_key(name)
-                || desktop.contains_key(name)
-                || codex.contains_key(name)
-                || opencode.contains_key(name)
-            {
-                continue;
-            }
-            if dao::import_mcp_entry(
-                conn,
-                name,
-                cfg,
-                false,
-                false,
-                false,
-                false,
-                true,
-                cline.contains_key(name),
-            )? {
-                imported += 1;
-            } else {
-                updated += 1;
-            }
-        }
-        for (name, cfg) in &cline {
-            if code.contains_key(name)
-                || desktop.contains_key(name)
-                || codex.contains_key(name)
-                || opencode.contains_key(name)
-                || pi.contains_key(name)
-            {
-                continue;
-            }
-            if dao::import_mcp_entry(conn, name, cfg, false, false, false, false, false, true)? {
-                imported += 1;
-            } else {
-                updated += 1;
-            }
-        }
-        Ok(McpImportSummary { imported, updated })
+            Ok(McpImportSummary { imported, updated })
         })
     })
     .await
@@ -239,7 +245,9 @@ pub async fn install_mcp_registry_server(
         enabled_pi: false,
         enabled_cline: false,
     };
-    let saved = state.db.with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
+    let saved = state
+        .db
+        .with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
     sync_all(&state)?;
     Ok(saved)
 }

@@ -51,12 +51,23 @@ impl FirstOutputProbe {
             self.offset = end + delimiter;
             self.scan_from = self.offset;
             let frame = std::str::from_utf8(frame).map_err(|_| FirstOutputError::Protocol)?;
-            let data = frame.lines().filter_map(|line| line.strip_prefix("data:"))
-                .map(str::trim_start).collect::<Vec<_>>().join("\n");
-            if data.is_empty() { continue; }
-            if data == "[DONE]" { return Ok(true); }
-            let event: Value = serde_json::from_str(&data).map_err(|_| FirstOutputError::Protocol)?;
-            if event_ready(&event)? { return Ok(true); }
+            let data = frame
+                .lines()
+                .filter_map(|line| line.strip_prefix("data:"))
+                .map(str::trim_start)
+                .collect::<Vec<_>>()
+                .join("\n");
+            if data.is_empty() {
+                continue;
+            }
+            if data == "[DONE]" {
+                return Ok(true);
+            }
+            let event: Value =
+                serde_json::from_str(&data).map_err(|_| FirstOutputError::Protocol)?;
+            if event_ready(&event)? {
+                return Ok(true);
+            }
         }
         // 保留最多 3 字节重叠以识别跨 chunk 的 CRLF 分隔符，避免半帧重复全量扫描。
         self.scan_from = self.offset.max(self.buffer.len().saturating_sub(3));
@@ -67,11 +78,15 @@ impl FirstOutputProbe {
         MAX_PREFETCH_BYTES.saturating_sub(self.buffer.len())
     }
 
-    pub(super) fn into_bytes(self) -> Bytes { Bytes::from(self.buffer) }
+    pub(super) fn into_bytes(self) -> Bytes {
+        Bytes::from(self.buffer)
+    }
 }
 
 fn nonempty(value: Option<&Value>) -> bool {
-    value.and_then(Value::as_str).is_some_and(|text| !text.is_empty())
+    value
+        .and_then(Value::as_str)
+        .is_some_and(|text| !text.is_empty())
 }
 
 fn event_ready(event: &Value) -> Result<bool, FirstOutputError> {
@@ -81,36 +96,71 @@ fn event_ready(event: &Value) -> Result<bool, FirstOutputError> {
     {
         return Err(FirstOutputError::Protocol);
     }
-    if matches!(kind, "message_stop" | "response.completed") { return Ok(true); }
+    if matches!(kind, "message_stop" | "response.completed") {
+        return Ok(true);
+    }
     if kind == "content_block_start" {
         let block = &event["content_block"];
-        if block["type"] == "tool_use" || nonempty(block.get("text"))
-            || nonempty(block.get("thinking")) { return Ok(true); }
-    }
-    if kind == "content_block_delta" {
-        let delta = &event["delta"];
-        if ["text", "thinking", "partial_json"].iter().any(|key| nonempty(delta.get(key))) {
+        if block["type"] == "tool_use"
+            || nonempty(block.get("text"))
+            || nonempty(block.get("thinking"))
+        {
             return Ok(true);
         }
     }
-    if matches!(kind, "response.output_text.delta" | "response.reasoning_text.delta"
-        | "response.reasoning_summary_text.delta" | "response.function_call_arguments.delta")
-        && nonempty(event.get("delta")) { return Ok(true); }
-    if kind == "response.output_item.added" && event["item"]["type"] == "function_call"
-        && nonempty(event["item"].get("name")) { return Ok(true); }
+    if kind == "content_block_delta" {
+        let delta = &event["delta"];
+        if ["text", "thinking", "partial_json"]
+            .iter()
+            .any(|key| nonempty(delta.get(key)))
+        {
+            return Ok(true);
+        }
+    }
+    if matches!(
+        kind,
+        "response.output_text.delta"
+            | "response.reasoning_text.delta"
+            | "response.reasoning_summary_text.delta"
+            | "response.function_call_arguments.delta"
+    ) && nonempty(event.get("delta"))
+    {
+        return Ok(true);
+    }
+    if kind == "response.output_item.added"
+        && event["item"]["type"] == "function_call"
+        && nonempty(event["item"].get("name"))
+    {
+        return Ok(true);
+    }
     if let Some(choices) = event.get("choices").and_then(Value::as_array) {
         for choice in choices {
             let delta = &choice["delta"];
-            if ["content", "reasoning_content", "reasoning"].iter().any(|key| nonempty(delta.get(key))) {
+            if ["content", "reasoning_content", "reasoning"]
+                .iter()
+                .any(|key| nonempty(delta.get(key)))
+            {
                 return Ok(true);
             }
-            if choice.get("finish_reason").is_some_and(|value| !value.is_null()) { return Ok(true); }
+            if choice
+                .get("finish_reason")
+                .is_some_and(|value| !value.is_null())
+            {
+                return Ok(true);
+            }
             if let Some(calls) = delta.get("tool_calls").and_then(Value::as_array) {
-                if calls.iter().any(|call| nonempty(call["function"].get("name"))
-                    || nonempty(call["function"].get("arguments"))) { return Ok(true); }
+                if calls.iter().any(|call| {
+                    nonempty(call["function"].get("name"))
+                        || nonempty(call["function"].get("arguments"))
+                }) {
+                    return Ok(true);
+                }
             }
             if nonempty(delta["function_call"].get("name"))
-                || nonempty(delta["function_call"].get("arguments")) { return Ok(true); }
+                || nonempty(delta["function_call"].get("arguments"))
+            {
+                return Ok(true);
+            }
         }
     }
     Ok(false)
@@ -123,10 +173,13 @@ mod tests {
 
     #[test]
     fn ignores_envelopes_heartbeats_roles_and_empty_deltas() {
-        for event in [json!({"type":"message_start"}), json!({"type":"ping"}),
+        for event in [
+            json!({"type":"message_start"}),
+            json!({"type":"ping"}),
             json!({"type":"content_block_delta","delta":{"text":""}}),
             json!({"choices":[{"delta":{"role":"assistant","content":""}}]}),
-            json!({"type":"response.created"})] {
+            json!({"type":"response.created"}),
+        ] {
             assert!(!event_ready(&event).unwrap());
         }
         assert!(!FirstOutputProbe::default().push(b": ping\r\n\r\n").unwrap());
@@ -134,7 +187,8 @@ mod tests {
 
     #[test]
     fn recognizes_text_reasoning_tools_and_normal_empty_completion() {
-        for event in [json!({"type":"content_block_delta","delta":{"text":"好"}}),
+        for event in [
+            json!({"type":"content_block_delta","delta":{"text":"好"}}),
             json!({"type":"content_block_delta","delta":{"thinking":"想"}}),
             json!({"type":"content_block_start","content_block":{"type":"tool_use"}}),
             json!({"type":"content_block_delta","delta":{"partial_json":"{"}}),
@@ -143,8 +197,10 @@ mod tests {
             json!({"type":"response.function_call_arguments.delta","delta":"{"}),
             json!({"type":"response.reasoning_summary_text.delta","delta":"think"}),
             json!({"type":"response.output_text.delta","delta":"hi"}),
-            json!({"type":"message_stop"}), json!({"type":"response.completed"}),
-            json!({"choices":[{"delta":{},"finish_reason":"stop"}]})] {
+            json!({"type":"message_stop"}),
+            json!({"type":"response.completed"}),
+            json!({"choices":[{"delta":{},"finish_reason":"stop"}]}),
+        ] {
             assert!(event_ready(&event).unwrap(), "{event}");
         }
     }
@@ -161,8 +217,14 @@ mod tests {
 
     #[test]
     fn rejects_errors_invalid_frames_and_buffer_overflow() {
-        assert_eq!(event_ready(&json!({"type":"response.failed"})), Err(FirstOutputError::Protocol));
-        assert_eq!(FirstOutputProbe::default().push(b"data: broken\n\n"), Err(FirstOutputError::Protocol));
+        assert_eq!(
+            event_ready(&json!({"type":"response.failed"})),
+            Err(FirstOutputError::Protocol)
+        );
+        assert_eq!(
+            FirstOutputProbe::default().push(b"data: broken\n\n"),
+            Err(FirstOutputError::Protocol)
+        );
         let mut probe = FirstOutputProbe::default();
         assert!(!probe.push(&vec![b'x'; MAX_PREFETCH_BYTES]).unwrap());
         assert_eq!(probe.push(b"x"), Err(FirstOutputError::BufferLimit));

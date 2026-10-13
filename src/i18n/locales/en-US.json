@@ -2773,9 +2773,17 @@
     "gatewayRuntimeModeRestart": "Saved. Restart the app to apply.",
     "gatewayRuntimeModeRestartNow": "Restart now",
     "gatewayRuntimeModes": {
-      "inproc": "In app (default)",
-      "sidecar": "Separate process"
+      "inproc": "In app",
+      "sidecar": "Separate process (default)"
     },
+    "gatewaySidecarStatusTitle": "Separate process",
+    "gatewaySidecarRunning": "Running (PID {{pid}}), restarted automatically {{restarts}} times",
+    "gatewaySidecarDown": "Not running, restarted automatically {{restarts}} times",
+    "gatewaySidecarExit": "Last exit code {{code}}",
+    "gatewaySidecarBackoff": "Retry in {{seconds}}s",
+    "gatewaySidecarHealth": "Antigravity {{ag}} · Kiro {{kiro}}",
+    "gatewaySidecarHealthUp": "up",
+    "gatewaySidecarHealthDown": "down",
     "visibleAgents": "Visible Agents",
     "visibleAgentsHint": "Select agent tools to show in application pickers and switchers",
     "proxyHint": "Upstream pool, routing profile, and local listeners. Also available from the main nav.",

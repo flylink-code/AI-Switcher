@@ -413,14 +413,12 @@ fn isolate_corrupt_files(db_path: &Path) -> std::io::Result<()> {
             return Err(e);
         }
     }
-    if wal_path.exists()
-        && std::fs::rename(&wal_path, &q_wal).is_err() {
-            log::warn!("Failed to rename corrupt database WAL file");
-        }
-    if shm_path.exists()
-        && std::fs::rename(&shm_path, &q_shm).is_err() {
-            log::warn!("Failed to rename corrupt database SHM file");
-        }
+    if wal_path.exists() && std::fs::rename(&wal_path, &q_wal).is_err() {
+        log::warn!("Failed to rename corrupt database WAL file");
+    }
+    if shm_path.exists() && std::fs::rename(&shm_path, &q_shm).is_err() {
+        log::warn!("Failed to rename corrupt database SHM file");
+    }
 
     if let Some(parent) = db_path.parent() {
         cleanup_old_quarantine_files(parent, MAX_QUARANTINE_FILES);

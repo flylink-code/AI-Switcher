@@ -139,7 +139,10 @@ mod tests {
         assert_eq!(map_model_id("claude-opus-5-5"), "claude-opus-5-5-medium");
         assert_eq!(map_model_id("claude-opus-5.5-high"), "claude-opus-5-5-high");
         assert_eq!(map_model_id("claude-opus-5-5-low"), "claude-opus-5-5-low");
-        assert_eq!(map_model_id("claude-sonnet-5.5-high"), "claude-sonnet-5-5-high");
+        assert_eq!(
+            map_model_id("claude-sonnet-5.5-high"),
+            "claude-sonnet-5-5-high"
+        );
         assert_eq!(map_model_id("Claude-Opus-5-high"), "claude-opus-5-5-high");
         assert_eq!(map_model_id("claude-opus-4-6"), "claude-opus-4-6-thinking");
         assert_eq!(map_model_id("claude-sonnet-4-6"), "claude-sonnet-4-6");

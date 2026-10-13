@@ -154,7 +154,11 @@ pub fn subagent_model(db: &Database, target: ProviderTarget) -> Option<String> {
 }
 
 /// Opus Plan is removed; keep the helper so leftover IPC callers stay off.
-pub fn opusplan_should_write_alias(_enabled: bool, _plan: Option<&str>, _execute: Option<&str>) -> bool {
+pub fn opusplan_should_write_alias(
+    _enabled: bool,
+    _plan: Option<&str>,
+    _execute: Option<&str>,
+) -> bool {
     false
 }
 
@@ -405,10 +409,16 @@ impl fmt::Display for CatalogRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::StalePublicId(model) => {
-                write!(f, "模型目录中的模型已不可用: {model}，请刷新模型列表后重新选择")
+                write!(
+                    f,
+                    "模型目录中的模型已不可用: {model}，请刷新模型列表后重新选择"
+                )
             }
             Self::UnknownPublicId(model) => {
-                write!(f, "模型不在智能网关目录中: {model}，请刷新模型列表后重新选择")
+                write!(
+                    f,
+                    "模型不在智能网关目录中: {model}，请刷新模型列表后重新选择"
+                )
             }
         }
     }
@@ -430,7 +440,10 @@ pub fn resolve_request_strict(
     if let Some(entry) = entries.iter().find(|entry| {
         entry.public_id.eq_ignore_ascii_case(requested) && !entry.provider_id.trim().is_empty()
     }) {
-        return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
+        return Ok(Some((
+            entry.provider_id.clone(),
+            entry.upstream_slug.clone(),
+        )));
     }
 
     let upstream_hits: Vec<&CatalogEntry> = entries
@@ -443,13 +456,16 @@ pub fn resolve_request_strict(
     // A bare name published by several providers resolves to the first one in pool
     // order (highest `sort_index`); a provider-qualified id pins a specific source.
     if let Some(entry) = upstream_hits.first() {
-        return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
+        return Ok(Some((
+            entry.provider_id.clone(),
+            entry.upstream_slug.clone(),
+        )));
     }
 
     if is_claude_role_request(requested) {
-        let first = providers.first().ok_or_else(|| {
-            CatalogRequestError::UnknownPublicId(requested.to_string())
-        })?;
+        let first = providers
+            .first()
+            .ok_or_else(|| CatalogRequestError::UnknownPublicId(requested.to_string()))?;
         return Ok(Some((
             first.id.clone(),
             resolve_upstream_model(first, requested),
@@ -464,8 +480,7 @@ pub fn resolve_request_strict(
             .find(|p| provider_slug(&p.name, &p.id).eq_ignore_ascii_case(first))
         {
             if let Some(entry) = entries.iter().find(|entry| {
-                entry.upstream_slug.eq_ignore_ascii_case(model)
-                    && entry.provider_id == provider.id
+                entry.upstream_slug.eq_ignore_ascii_case(model) && entry.provider_id == provider.id
             }) {
                 return Ok(Some((provider.id.clone(), entry.upstream_slug.clone())));
             }
@@ -479,7 +494,10 @@ pub fn resolve_request_strict(
             !entry.provider_id.trim().is_empty()
                 && entry.upstream_slug.eq_ignore_ascii_case(candidate)
         }) {
-            return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
+            return Ok(Some((
+                entry.provider_id.clone(),
+                entry.upstream_slug.clone(),
+            )));
         }
     }
 
@@ -487,11 +505,14 @@ pub fn resolve_request_strict(
     // provider configurations, but never treat gateway-qualified ids as raw.
     let looks_gateway_qualified = match requested.strip_prefix("claude.") {
         Some(rest) => rest.contains('.'),
-        None => requested.contains('.') && requested.split('.').next().is_some_and(|part| {
-            providers.iter().any(|provider| {
-                provider_slug(&provider.name, &provider.id).eq_ignore_ascii_case(part)
-            })
-        }),
+        None => {
+            requested.contains('.')
+                && requested.split('.').next().is_some_and(|part| {
+                    providers.iter().any(|provider| {
+                        provider_slug(&provider.name, &provider.id).eq_ignore_ascii_case(part)
+                    })
+                })
+        }
     };
     if looks_gateway_qualified {
         return Err(CatalogRequestError::StalePublicId(requested.to_string()));
@@ -499,9 +520,9 @@ pub fn resolve_request_strict(
     if requested.starts_with("claude.") || requested.starts_with("ccs-") {
         return Err(CatalogRequestError::UnknownPublicId(requested.to_string()));
     }
-    let first = providers.first().ok_or_else(|| {
-        CatalogRequestError::UnknownPublicId(requested.to_string())
-    })?;
+    let first = providers
+        .first()
+        .ok_or_else(|| CatalogRequestError::UnknownPublicId(requested.to_string()))?;
     Ok(Some((
         first.id.clone(),
         resolve_upstream_model(first, requested),
@@ -518,16 +539,18 @@ pub fn canonical_public_id(
     let saved = saved.trim();
     if saved.is_empty()
         || is_auto_public_id(saved)
-        || entries.iter().any(|entry| entry.public_id.eq_ignore_ascii_case(saved))
+        || entries
+            .iter()
+            .any(|entry| entry.public_id.eq_ignore_ascii_case(saved))
     {
         return None;
     }
-    let (provider_id, slug) = resolve_request_strict(entries, providers, saved).ok().flatten()?;
+    let (provider_id, slug) = resolve_request_strict(entries, providers, saved)
+        .ok()
+        .flatten()?;
     entries
         .iter()
-        .find(|entry| {
-            entry.upstream_slug == slug && entry.provider_id == provider_id
-        })
+        .find(|entry| entry.upstream_slug == slug && entry.provider_id == provider_id)
         .map(|entry| entry.public_id.clone())
 }
 
@@ -537,7 +560,9 @@ pub fn resolve_request(
     providers: &[Provider],
     requested: &str,
 ) -> Option<(String, String)> {
-    resolve_request_strict(entries, providers, requested).ok().flatten()
+    resolve_request_strict(entries, providers, requested)
+        .ok()
+        .flatten()
 }
 
 /// Return a stable, non-secret fingerprint for a published catalog snapshot.
@@ -560,7 +585,10 @@ pub fn catalog_revision(style: CatalogStyle, entries: &[CatalogEntry]) -> String
             hasher.update([0]);
         }
         hasher.update(entry.context_window.to_le_bytes());
-        hasher.update([entry.anthropic_upstream as u8, entry.web_search_enabled as u8]);
+        hasher.update([
+            entry.anthropic_upstream as u8,
+            entry.web_search_enabled as u8,
+        ]);
     }
     let digest = hasher.finalize();
     digest[..12]
@@ -592,8 +620,14 @@ pub fn claude_discovery_model(entry: &CatalogEntry) -> Value {
 }
 
 pub fn claude_discovery_payload(entries: &[CatalogEntry]) -> Value {
-    let first_id = entries.first().map(|entry| entry.public_id.as_str()).unwrap_or("");
-    let last_id = entries.last().map(|entry| entry.public_id.as_str()).unwrap_or("");
+    let first_id = entries
+        .first()
+        .map(|entry| entry.public_id.as_str())
+        .unwrap_or("");
+    let last_id = entries
+        .last()
+        .map(|entry| entry.public_id.as_str())
+        .unwrap_or("");
     json!({
         "object": "list",
         "data": entries.iter().map(claude_discovery_model).collect::<Vec<_>>(),
@@ -1094,10 +1128,17 @@ mod tests {
             CatalogStyle::Claude,
             &[(first, vec![]), (second, vec![]), (other, vec![])],
         );
-        let ids: Vec<&str> = catalog.iter().map(|entry| entry.public_id.as_str()).collect();
+        let ids: Vec<&str> = catalog
+            .iter()
+            .map(|entry| entry.public_id.as_str())
+            .collect();
         assert_eq!(
             ids,
-            vec!["claude.alpha.claude-sonnet-4", "claude.beta.claude-sonnet-4", "claude.kimi-k2"],
+            vec![
+                "claude.alpha.claude-sonnet-4",
+                "claude.beta.claude-sonnet-4",
+                "claude.kimi-k2"
+            ],
             "only the conflicting name carries the provider"
         );
         assert_eq!(catalog[0].provider_id, "a");
@@ -1113,8 +1154,14 @@ mod tests {
             CatalogStyle::Codex,
             &[(first, vec![]), (second, vec![]), (third, vec![])],
         );
-        let ids: Vec<&str> = catalog.iter().map(|entry| entry.public_id.as_str()).collect();
-        assert_eq!(ids, vec!["alpha.deepseek-v3", "beta.DeepSeek-V3", "gamma.deepseek-v3"]);
+        let ids: Vec<&str> = catalog
+            .iter()
+            .map(|entry| entry.public_id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            vec!["alpha.deepseek-v3", "beta.DeepSeek-V3", "gamma.deepseek-v3"]
+        );
     }
 
     #[test]
@@ -1147,7 +1194,10 @@ mod tests {
         );
         let codex = build_catalog(
             CatalogStyle::Codex,
-            &[(providers[0].clone(), vec![]), (providers[1].clone(), vec![])],
+            &[
+                (providers[0].clone(), vec![]),
+                (providers[1].clone(), vec![]),
+            ],
         );
         assert_eq!(
             resolve_request_strict(&codex, &providers, "kimi.kimi-k2"),
@@ -1157,8 +1207,14 @@ mod tests {
             canonical_public_id(&catalog, &providers, "claude.kimi.kimi-k2").as_deref(),
             Some("claude.kimi-k2")
         );
-        assert_eq!(canonical_public_id(&catalog, &providers, "claude.kimi-k2"), None);
-        assert_eq!(canonical_public_id(&catalog, &providers, "claude.auto"), None);
+        assert_eq!(
+            canonical_public_id(&catalog, &providers, "claude.kimi-k2"),
+            None
+        );
+        assert_eq!(
+            canonical_public_id(&catalog, &providers, "claude.auto"),
+            None
+        );
         // A retired model is still rejected rather than sent to the first provider.
         assert!(matches!(
             resolve_request_strict(&catalog, &providers, "claude.gpt-5.9"),
@@ -1232,10 +1288,7 @@ mod tests {
             .iter()
             .find(|entry| entry.upstream_slug == "gemini-3.6-flash-low")
             .expect("catalog keeps an explicitly saved 3.6-flash-low default");
-        assert_eq!(
-            public.public_id,
-            "claude.gemini-3.6-flash-low"
-        );
+        assert_eq!(public.public_id, "claude.gemini-3.6-flash-low");
         assert_eq!(
             resolve_request(&catalog, &providers, &public.public_id),
             Some(("ag".into(), "gemini-3.6-flash-low".into()))
@@ -1259,8 +1312,7 @@ mod tests {
         let first = provider("a", "Alpha", "shared-model");
         let second = provider("b", "Beta", "shared-model");
         let providers = vec![first.clone(), second.clone()];
-        let entries =
-            build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
+        let entries = build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
 
         assert_eq!(
             resolve_request_strict(&entries, &providers, "shared-model"),
@@ -1654,7 +1706,11 @@ mod tests {
         );
         assert!(!opusplan_should_write_alias(true, Some(plan), None));
         assert!(!opusplan_should_write_alias(true, None, None));
-        assert!(!opusplan_should_write_alias(false, Some(plan), Some(execute)));
+        assert!(!opusplan_should_write_alias(
+            false,
+            Some(plan),
+            Some(execute)
+        ));
     }
 
     #[test]
@@ -1665,7 +1721,9 @@ mod tests {
 
         let kimi = provider("p1", "Kimi", "kimi-k2");
         let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]);
-        assert!(catalog.iter().all(|entry| !is_auto_public_id(&entry.public_id)));
+        assert!(catalog
+            .iter()
+            .all(|entry| !is_auto_public_id(&entry.public_id)));
         let payload = claude_discovery_payload(&catalog);
         let ids: Vec<&str> = payload["data"]
             .as_array()
@@ -1694,10 +1752,7 @@ mod tests {
             "claude-sonnet-5[1m]"
         ));
         assert!(!is_explicit_catalog_passthrough(&catalog, "claude.auto"));
-        assert!(is_explicit_catalog_passthrough(
-            &catalog,
-            "claude.kimi-k2"
-        ));
+        assert!(is_explicit_catalog_passthrough(&catalog, "claude.kimi-k2"));
         assert!(is_sticky_remap_role_id(CLAUDE_SONNET_ROLE_ID));
         assert!(!is_sticky_remap_role_id(CLAUDE_HAIKU_ROLE_ID));
     }

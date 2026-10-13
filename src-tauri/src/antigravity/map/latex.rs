@@ -269,20 +269,19 @@ fn replace_subsup(input: &str, marker: char) -> String {
     let mut out = String::with_capacity(input.len());
     let mut chars = input.chars().peekable();
     while let Some(ch) = chars.next() {
-        if ch == marker
-            && chars.peek() == Some(&'{') {
-                chars.next();
-                let mut inner = String::new();
-                for next in chars.by_ref() {
-                    if next == '}' {
-                        break;
-                    }
-                    inner.push(next);
+        if ch == marker && chars.peek() == Some(&'{') {
+            chars.next();
+            let mut inner = String::new();
+            for next in chars.by_ref() {
+                if next == '}' {
+                    break;
                 }
-                out.push(marker);
-                out.push_str(&inner);
-                continue;
+                inner.push(next);
             }
+            out.push(marker);
+            out.push_str(&inner);
+            continue;
+        }
         out.push(ch);
     }
     out

@@ -12,8 +12,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 
@@ -154,7 +154,8 @@ fn read_skill_repositories_config() -> AppResult<Vec<SkillRepositorySnapshot>> {
 
     if let Ok(Some(old_config)) = read_json_file::<SkillRepositoryConfig>(&path) {
         if !old_config.repository_url.is_empty() {
-            let repository_url = normalize_github_url(&old_config.repository_url).unwrap_or(old_config.repository_url);
+            let repository_url = normalize_github_url(&old_config.repository_url)
+                .unwrap_or(old_config.repository_url);
             return Ok(vec![SkillRepositorySnapshot {
                 repository_url,
                 fetched_at: old_config.fetched_at,
@@ -235,7 +236,9 @@ struct SkillSourcesConfig {
     skills: BTreeMap<String, InstalledSkillSource>,
 }
 
-fn skill_sources_version() -> u8 { 1 }
+fn skill_sources_version() -> u8 {
+    1
+}
 
 pub fn list_skills(target: SkillTarget) -> AppResult<Vec<Skill>> {
     let root = skill_root(target);
@@ -252,7 +255,12 @@ pub fn list_skills(target: SkillTarget) -> AppResult<Vec<Skill>> {
         }
         let skill_file = path.join(SKILL_FILE);
         let disabled_file = path.join("SKILL.md.disabled");
-        let content = fs::read_to_string(if skill_file.is_file() { &skill_file } else { &disabled_file }).unwrap_or_default();
+        let content = fs::read_to_string(if skill_file.is_file() {
+            &skill_file
+        } else {
+            &disabled_file
+        })
+        .unwrap_or_default();
         let description = skill_description(&content).unwrap_or_default();
         let description_zh = skill_description_zh(&content);
         let name = entry.file_name().to_string_lossy().to_string();
@@ -271,17 +279,23 @@ pub fn list_skills(target: SkillTarget) -> AppResult<Vec<Skill>> {
 
 pub fn get_skill_repository() -> AppResult<String> {
     let repos = read_skill_repositories_config()?;
-    Ok(repos.first().map(|r| r.repository_url.clone()).unwrap_or_else(|| DEFAULT_SKILL_REPOSITORY.to_string()))
+    Ok(repos
+        .first()
+        .map(|r| r.repository_url.clone())
+        .unwrap_or_else(|| DEFAULT_SKILL_REPOSITORY.to_string()))
 }
 
 pub fn get_skill_repository_snapshot() -> AppResult<SkillRepositorySnapshot> {
     let repos = read_skill_repositories_config()?;
-    Ok(repos.into_iter().next().unwrap_or_else(|| SkillRepositorySnapshot {
-        repository_url: DEFAULT_SKILL_REPOSITORY.to_string(),
-        fetched_at: None,
-        revision: None,
-        skills: Vec::new(),
-    }))
+    Ok(repos
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| SkillRepositorySnapshot {
+            repository_url: DEFAULT_SKILL_REPOSITORY.to_string(),
+            fetched_at: None,
+            revision: None,
+            skills: Vec::new(),
+        }))
 }
 
 pub fn set_skill_repository(url: &str) -> AppResult<String> {
@@ -314,7 +328,10 @@ pub async fn refresh_github_repository_skills(url: &str) -> AppResult<SkillRepos
         skills,
     };
     let mut repos = read_skill_repositories_config()?;
-    if let Some(pos) = repos.iter().position(|r| r.repository_url == repository_url) {
+    if let Some(pos) = repos
+        .iter()
+        .position(|r| r.repository_url == repository_url)
+    {
         repos[pos] = snapshot.clone();
     } else {
         repos.push(snapshot.clone());
@@ -333,13 +350,18 @@ pub async fn list_github_repository_skills(url: &str) -> AppResult<Vec<Repositor
     Ok(skills)
 }
 
-pub async fn install_github_repository_skills(url: &str, paths: &[String], target: SkillTarget) -> AppResult<Vec<Skill>> {
+pub async fn install_github_repository_skills(
+    url: &str,
+    paths: &[String],
+    target: SkillTarget,
+) -> AppResult<Vec<Skill>> {
     if paths.is_empty() {
         return Err(AppError::Config("请至少选择一个 Skill".to_string()));
     }
     let (archive, repo) = download_github_archive(url).await?;
     let entries = repository_skill_entries(&archive, &repo)?;
-    let entry_map: BTreeMap<_, _> = entries.into_iter()
+    let entry_map: BTreeMap<_, _> = entries
+        .into_iter()
         .map(|(skill, index)| (skill.path.clone(), (skill, index)))
         .collect();
     let selected: BTreeSet<_> = paths.iter().map(|path| path.trim().to_string()).collect();
@@ -350,22 +372,32 @@ pub async fn install_github_repository_skills(url: &str, paths: &[String], targe
     let mut selected_indexes = Vec::with_capacity(selected.len());
     let mut installed_names = BTreeSet::new();
     for path in selected {
-        let (repository_skill, index) = entry_map.get(&path)
+        let (repository_skill, index) = entry_map
+            .get(&path)
             .ok_or_else(|| AppError::Config(format!("仓库中未找到 Skill: {path}")))?;
         let install_name = sanitize_skill_name(&repository_skill.name)?;
         if !installed_names.insert(install_name.clone()) {
-            return Err(AppError::Config(format!("选择的 Skills 名称冲突: {install_name}")));
+            return Err(AppError::Config(format!(
+                "选择的 Skills 名称冲突: {install_name}"
+            )));
         }
         selected_indexes.push(*index);
     }
 
     let mut installed = Vec::with_capacity(selected_indexes.len());
     for index in selected_indexes {
-        let path = entry_map.iter()
+        let path = entry_map
+            .iter()
             .find_map(|(path, (_, entry_index))| (*entry_index == index).then_some(path.clone()))
             .unwrap_or_default();
         let skill = install_archive_skill_at(&archive, index, Some(&repo), target)?;
-        installed.push(record_github_source(skill, url, archive_revision(&archive), Some(path), target)?);
+        installed.push(record_github_source(
+            skill,
+            url,
+            archive_revision(&archive),
+            Some(path),
+            target,
+        )?);
     }
     Ok(installed)
 }
@@ -388,14 +420,18 @@ pub fn install_zip_skill(path: &Path, target: SkillTarget) -> AppResult<Skill> {
     let archive = fs::read(path)?;
     let fallback = path.file_stem().and_then(|n| n.to_str());
     let skill = install_archive(&archive, fallback, target)?;
-    record_source(skill, InstalledSkillSource {
-        kind: "zip".to_string(),
-        source_url: Some(path.to_string_lossy().into_owned()),
-        revision: None,
-        repository_path: None,
-        installed_at: Utc::now().timestamp_millis(),
-        content_sha256: String::new(),
-    }, target)
+    record_source(
+        skill,
+        InstalledSkillSource {
+            kind: "zip".to_string(),
+            source_url: Some(path.to_string_lossy().into_owned()),
+            revision: None,
+            repository_path: None,
+            installed_at: Utc::now().timestamp_millis(),
+            content_sha256: String::new(),
+        },
+        target,
+    )
 }
 
 pub fn set_skill_enabled(name: &str, enabled: bool, target: SkillTarget) -> AppResult<()> {
@@ -407,7 +443,9 @@ pub fn set_skill_enabled(name: &str, enabled: bool, target: SkillTarget) -> AppR
             return Ok(());
         }
         if !disabled.is_file() {
-            return Err(AppError::Config("无法启用：Skill 缺少 SKILL.md".to_string()));
+            return Err(AppError::Config(
+                "无法启用：Skill 缺少 SKILL.md".to_string(),
+            ));
         }
         fs::rename(disabled, skill_file)?;
     } else {
@@ -415,7 +453,9 @@ pub fn set_skill_enabled(name: &str, enabled: bool, target: SkillTarget) -> AppR
             return Ok(());
         }
         if !skill_file.is_file() {
-            return Err(AppError::Config("无法停用：Skill 缺少 SKILL.md".to_string()));
+            return Err(AppError::Config(
+                "无法停用：Skill 缺少 SKILL.md".to_string(),
+            ));
         }
         // Keep the installed source intact. A disabled marker makes the state
         // explicit without destructive deletion; Claude Code only loads SKILL.md.
@@ -434,7 +474,9 @@ pub fn delete_skill(name: &str, target: SkillTarget) -> AppResult<()> {
 }
 
 pub async fn check_skill_update(name: &str, target: SkillTarget) -> AppResult<SkillUpdateStatus> {
-    let skill = list_skills(target)?.into_iter().find(|skill| skill.name == name)
+    let skill = list_skills(target)?
+        .into_iter()
+        .find(|skill| skill.name == name)
         .ok_or_else(|| AppError::Config(format!("Skill 不存在: {name}")))?;
     match classify_skill_for_update(&skill) {
         SkillCheckPlan::Ready(status) => Ok(status),
@@ -456,15 +498,16 @@ pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpda
             SkillCheckPlan::Ready(status) => {
                 statuses.insert(skill.name.clone(), status);
             }
-            SkillCheckPlan::Github { source_url, .. } => {
-                match normalize_github_url(&source_url) {
-                    Ok(repo_url) => by_repo.entry(repo_url).or_default().push(skill),
-                    Err(error) => {
-                        let name = skill.name.clone();
-                        statuses.insert(name.clone(), skill_check_error(&name, skill.source.as_ref(), error));
-                    }
+            SkillCheckPlan::Github { source_url, .. } => match normalize_github_url(&source_url) {
+                Ok(repo_url) => by_repo.entry(repo_url).or_default().push(skill),
+                Err(error) => {
+                    let name = skill.name.clone();
+                    statuses.insert(
+                        name.clone(),
+                        skill_check_error(&name, skill.source.as_ref(), error),
+                    );
                 }
-            }
+            },
         }
     }
 
@@ -481,7 +524,9 @@ pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpda
                         );
                         continue;
                     };
-                    let status = compare_installed_github_skill(&skill, &source, archive.clone(), &repo).await;
+                    let status =
+                        compare_installed_github_skill(&skill, &source, archive.clone(), &repo)
+                            .await;
                     statuses.insert(skill.name.clone(), status);
                 }
             }
@@ -498,7 +543,10 @@ pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpda
         }
     }
 
-    Ok(order.into_iter().filter_map(|name| statuses.remove(&name)).collect())
+    Ok(order
+        .into_iter()
+        .filter_map(|name| statuses.remove(&name))
+        .collect())
 }
 
 enum SkillCheckPlan {
@@ -530,7 +578,11 @@ fn classify_skill_for_update(skill: &Skill) -> SkillCheckPlan {
             remote_revision: None,
         });
     }
-    let Some(source_url) = source.source_url.clone().filter(|url| !url.trim().is_empty()) else {
+    let Some(source_url) = source
+        .source_url
+        .clone()
+        .filter(|url| !url.trim().is_empty())
+    else {
         return SkillCheckPlan::Ready(skill_check_error(
             &skill.name,
             Some(&source),
@@ -609,18 +661,32 @@ pub async fn update_github_skills(names: &[String], target: SkillTarget) -> AppR
     let installed = list_skills(target)?;
     let mut updated = Vec::with_capacity(names.len());
     for name in names {
-        let skill = installed.iter().find(|skill| skill.name == *name)
+        let skill = installed
+            .iter()
+            .find(|skill| skill.name == *name)
             .ok_or_else(|| AppError::Config(format!("Skill 不存在: {name}")))?;
         let status = check_skill_update(name, target).await?;
         if status.status != "update_available" {
-            return Err(AppError::Config(format!("Skill 不可安全更新: {name}（{}）", status.message)));
+            return Err(AppError::Config(format!(
+                "Skill 不可安全更新: {name}（{}）",
+                status.message
+            )));
         }
-        let source = skill.source.as_ref()
+        let source = skill
+            .source
+            .as_ref()
             .ok_or_else(|| AppError::Config(format!("Skill 缺少来源记录: {name}")))?;
-        let source_url = source.source_url.as_deref()
+        let source_url = source
+            .source_url
+            .as_deref()
             .ok_or_else(|| AppError::Config(format!("Skill 来源记录缺少地址: {name}")))?;
         if let Some(repository_path) = source.repository_path.as_ref() {
-            let mut skills = install_github_repository_skills(source_url, std::slice::from_ref(repository_path), target).await?;
+            let mut skills = install_github_repository_skills(
+                source_url,
+                std::slice::from_ref(repository_path),
+                target,
+            )
+            .await?;
             updated.append(&mut skills);
         } else {
             updated.push(install_github_skill(source_url, target).await?);
@@ -629,18 +695,32 @@ pub async fn update_github_skills(names: &[String], target: SkillTarget) -> AppR
     Ok(updated)
 }
 
-fn record_github_source(skill: Skill, url: &str, revision: Option<String>, repository_path: Option<String>, target: SkillTarget) -> AppResult<Skill> {
-    record_source(skill, InstalledSkillSource {
-        kind: "github".to_string(),
-        source_url: Some(normalize_github_url(url)?),
-        revision,
-        repository_path,
-        installed_at: Utc::now().timestamp_millis(),
-        content_sha256: String::new(),
-    }, target)
+fn record_github_source(
+    skill: Skill,
+    url: &str,
+    revision: Option<String>,
+    repository_path: Option<String>,
+    target: SkillTarget,
+) -> AppResult<Skill> {
+    record_source(
+        skill,
+        InstalledSkillSource {
+            kind: "github".to_string(),
+            source_url: Some(normalize_github_url(url)?),
+            revision,
+            repository_path,
+            installed_at: Utc::now().timestamp_millis(),
+            content_sha256: String::new(),
+        },
+        target,
+    )
 }
 
-fn record_source(mut skill: Skill, mut source: InstalledSkillSource, target: SkillTarget) -> AppResult<Skill> {
+fn record_source(
+    mut skill: Skill,
+    mut source: InstalledSkillSource,
+    target: SkillTarget,
+) -> AppResult<Skill> {
     let skill_file = PathBuf::from(&skill.path).join(SKILL_FILE);
     let disabled = PathBuf::from(&skill.path).join("SKILL.md.disabled");
     source.content_sha256 = skill_content_hash_from_files(&skill_file, &disabled)?;
@@ -652,27 +732,43 @@ fn record_source(mut skill: Skill, mut source: InstalledSkillSource, target: Ski
 }
 
 fn skill_content_hash(skill_dir: &Path) -> AppResult<String> {
-    skill_content_hash_from_files(&skill_dir.join(SKILL_FILE), &skill_dir.join("SKILL.md.disabled"))
+    skill_content_hash_from_files(
+        &skill_dir.join(SKILL_FILE),
+        &skill_dir.join("SKILL.md.disabled"),
+    )
 }
 
 fn skill_content_hash_from_files(skill_file: &Path, disabled_file: &Path) -> AppResult<String> {
-    let content = fs::read(if skill_file.is_file() { skill_file } else { disabled_file })?;
+    let content = fs::read(if skill_file.is_file() {
+        skill_file
+    } else {
+        disabled_file
+    })?;
     Ok(hex::encode(Sha256::digest(content)))
 }
 
-fn archive_skill_hash(bytes: &[u8], repository_path: Option<&str>, fallback_name: &str) -> AppResult<String> {
+fn archive_skill_hash(
+    bytes: &[u8],
+    repository_path: Option<&str>,
+    fallback_name: &str,
+) -> AppResult<String> {
     let entries = repository_skill_entries(bytes, fallback_name)?;
     let (_, index) = if let Some(path) = repository_path {
-        entries.into_iter().find(|(skill, _)| skill.path == path)
+        entries
+            .into_iter()
+            .find(|(skill, _)| skill.path == path)
             .ok_or_else(|| AppError::Config("远端仓库已找不到原 Skill 路径".to_string()))?
     } else {
-        entries.into_iter().next()
+        entries
+            .into_iter()
+            .next()
             .ok_or_else(|| AppError::Config("远端仓库未找到 SKILL.md".to_string()))?
     };
     let mut archive = ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|e| AppError::Config(format!("无效的 Skill ZIP 文件: {e}")))?;
     let mut content = Vec::new();
-    archive.by_index(index)
+    archive
+        .by_index(index)
         .map_err(|e| AppError::Config(format!("读取 ZIP 条目失败: {e}")))?
         .read_to_end(&mut content)?;
     Ok(hex::encode(Sha256::digest(content)))
@@ -684,41 +780,61 @@ fn skill_sources(target: SkillTarget) -> AppResult<SkillSourcesConfig> {
 }
 
 fn write_skill_sources(sources: &SkillSourcesConfig, target: SkillTarget) -> AppResult<()> {
-    write_json_file(&get_app_config_dir().join(skill_sources_file(target)), sources)
+    write_json_file(
+        &get_app_config_dir().join(skill_sources_file(target)),
+        sources,
+    )
 }
 
 fn archive_revision(bytes: &[u8]) -> Option<String> {
     let mut archive = ZipArchive::new(std::io::Cursor::new(bytes)).ok()?;
     let entry = archive.by_index(0).ok()?;
-    entry.enclosed_name()?.components().next()?.as_os_str().to_str()
+    entry
+        .enclosed_name()?
+        .components()
+        .next()?
+        .as_os_str()
+        .to_str()
         .and_then(|root| root.rsplit('-').next())
         .filter(|revision| revision.len() >= 7)
         .map(ToOwned::to_owned)
 }
 
-fn install_archive(bytes: &[u8], fallback_name: Option<&str>, target: SkillTarget) -> AppResult<Skill> {
+fn install_archive(
+    bytes: &[u8],
+    fallback_name: Option<&str>,
+    target: SkillTarget,
+) -> AppResult<Skill> {
     let cursor = std::io::Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor)
         .map_err(|e| AppError::Config(format!("无效的 Skill ZIP 文件: {e}")))?;
-    let skill_index = (0..archive.len()).find(|&index| {
-        archive.by_index(index).ok().is_some_and(|entry| {
-            entry.enclosed_name().is_some_and(|path| {
-                path.file_name().and_then(|name| name.to_str()) == Some(SKILL_FILE)
+    let skill_index = (0..archive.len())
+        .find(|&index| {
+            archive.by_index(index).ok().is_some_and(|entry| {
+                entry.enclosed_name().is_some_and(|path| {
+                    path.file_name().and_then(|name| name.to_str()) == Some(SKILL_FILE)
+                })
             })
         })
-    }).ok_or_else(|| AppError::Config("ZIP 中未找到 SKILL.md".to_string()))?;
+        .ok_or_else(|| AppError::Config("ZIP 中未找到 SKILL.md".to_string()))?;
     drop(archive);
     install_archive_skill_at(bytes, skill_index, fallback_name, target)
 }
 
-fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Option<&str>, target: SkillTarget) -> AppResult<Skill> {
+fn install_archive_skill_at(
+    bytes: &[u8],
+    skill_index: usize,
+    fallback_name: Option<&str>,
+    target: SkillTarget,
+) -> AppResult<Skill> {
     let cursor = std::io::Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor)
         .map_err(|e| AppError::Config(format!("无效的 Skill ZIP 文件: {e}")))?;
     let root = skill_root(target);
     fs::create_dir_all(&root)?;
 
-    let skill_path_in_archive = archive.by_index(skill_index)
+    let skill_path_in_archive = archive
+        .by_index(skill_index)
         .map_err(|e| AppError::Config(format!("读取 ZIP 条目失败: {e}")))?
         .enclosed_name()
         .ok_or_else(|| AppError::Config("ZIP 包含不安全路径".to_string()))?
@@ -738,9 +854,11 @@ fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Opt
     fs::create_dir_all(&target_dir)?;
 
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index)
+        let mut entry = archive
+            .by_index(index)
             .map_err(|e| AppError::Config(format!("读取 ZIP 条目失败: {e}")))?;
-        let enclosed = entry.enclosed_name()
+        let enclosed = entry
+            .enclosed_name()
             .ok_or_else(|| AppError::Config("ZIP 包含不安全路径".to_string()))?
             .to_path_buf();
         if !enclosed.starts_with(skill_parent) {
@@ -761,14 +879,19 @@ fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Opt
             std::io::copy(&mut entry, &mut output)?;
         }
     }
-    list_skills(target)?.into_iter().find(|skill| skill.name == name)
+    list_skills(target)?
+        .into_iter()
+        .find(|skill| skill.name == name)
         .ok_or_else(|| AppError::Other("Skill 安装后未能读取".to_string()))
 }
 
 async fn download_github_archive(url: &str) -> AppResult<(Vec<u8>, String)> {
     let (owner, repo) = parse_github_url(url)?;
     let archive_url = format!("https://api.github.com/repos/{owner}/{repo}/zipball/HEAD");
-    Ok((download_github_archive_bytes(&archive_url).await?, repo.to_string()))
+    Ok((
+        download_github_archive_bytes(&archive_url).await?,
+        repo.to_string(),
+    ))
 }
 
 async fn download_github_archive_bytes(archive_url: &str) -> AppResult<Vec<u8>> {
@@ -795,7 +918,9 @@ async fn download_github_archive_bytes_with_client(
     let Some((attempts, error)) = last_error else {
         return Err(AppError::Other("GitHub Skill 下载失败".into()));
     };
-    Err(AppError::Other(format!("GitHub Skill 下载失败（已重试 {attempts} 次）: {error}")))
+    Err(AppError::Other(format!(
+        "GitHub Skill 下载失败（已重试 {attempts} 次）: {error}"
+    )))
 }
 
 async fn download_github_archive_once(
@@ -812,18 +937,30 @@ async fn download_github_archive_once(
             .await
             .map_err(|e| AppError::Other(format!("GitHub 请求阶段失败: {e}")))?;
         if !response.status().is_success() {
-            return Err(AppError::Config(format!("GitHub 下载失败（HTTP {}）", response.status())));
+            return Err(AppError::Config(format!(
+                "GitHub 下载失败（HTTP {}）",
+                response.status()
+            )));
         }
-        if response.content_length().is_some_and(|size| size > MAX_ARCHIVE_BYTES) {
-            return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
+        if response
+            .content_length()
+            .is_some_and(|size| size > MAX_ARCHIVE_BYTES)
+        {
+            return Err(AppError::Config(
+                "GitHub Skill 压缩包超过 100 MB 限制".to_string(),
+            ));
         }
         let mut archive = Vec::new();
-        while let Some(chunk) = response.chunk().await
+        while let Some(chunk) = response
+            .chunk()
+            .await
             .map_err(|e| AppError::Other(format!("GitHub 响应体读取失败: {e}")))?
         {
             let next_len = archive.len() as u64 + chunk.len() as u64;
             if next_len > MAX_ARCHIVE_BYTES {
-                return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
+                return Err(AppError::Config(
+                    "GitHub Skill 压缩包超过 100 MB 限制".to_string(),
+                ));
             }
             archive.extend_from_slice(&chunk);
         }
@@ -834,36 +971,44 @@ async fn download_github_archive_once(
         .map_err(|_| AppError::Other("GitHub Skill 下载超时（30s）".into()))?
 }
 
-fn repository_skill_entries(bytes: &[u8], fallback_name: &str) -> AppResult<Vec<(RepositorySkill, usize)>> {
+fn repository_skill_entries(
+    bytes: &[u8],
+    fallback_name: &str,
+) -> AppResult<Vec<(RepositorySkill, usize)>> {
     let cursor = std::io::Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor)
         .map_err(|e| AppError::Config(format!("无效的 Skill ZIP 文件: {e}")))?;
     let mut entries = BTreeMap::new();
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index)
+        let mut entry = archive
+            .by_index(index)
             .map_err(|e| AppError::Config(format!("读取 ZIP 条目失败: {e}")))?;
-        let enclosed = entry.enclosed_name()
+        let enclosed = entry
+            .enclosed_name()
             .ok_or_else(|| AppError::Config("ZIP 包含不安全路径".to_string()))?
             .to_path_buf();
         if enclosed.file_name().and_then(|name| name.to_str()) != Some(SKILL_FILE) {
             continue;
         }
         let skill_parent = enclosed.parent().unwrap_or(Path::new(""));
-        let candidate = skill_parent.file_name()
+        let candidate = skill_parent
+            .file_name()
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
             .unwrap_or(fallback_name);
         let mut content = String::new();
         let _ = entry.read_to_string(&mut content);
         let path = repository_skill_path(skill_parent);
-        entries.entry(path.clone()).or_insert_with(|| (
-            RepositorySkill {
-                name: candidate.to_string(),
-                path,
-                description: skill_description(&content).unwrap_or_default(),
-            },
-            index,
-        ));
+        entries.entry(path.clone()).or_insert_with(|| {
+            (
+                RepositorySkill {
+                    name: candidate.to_string(),
+                    path,
+                    description: skill_description(&content).unwrap_or_default(),
+                },
+                index,
+            )
+        });
     }
     if entries.is_empty() {
         return Err(AppError::Config("仓库中未找到 SKILL.md".to_string()));
@@ -874,7 +1019,9 @@ fn repository_skill_entries(bytes: &[u8], fallback_name: &str) -> AppResult<Vec<
 fn repository_skill_path(skill_parent: &Path) -> String {
     let mut components = skill_parent.components();
     let _ = components.next(); // GitHub archive root directory
-    components.as_path().components()
+    components
+        .as_path()
+        .components()
         .filter_map(|component| component.as_os_str().to_str())
         .collect::<Vec<_>>()
         .join("/")
@@ -882,20 +1029,29 @@ fn repository_skill_path(skill_parent: &Path) -> String {
 
 fn parse_github_url(url: &str) -> AppResult<(&str, &str)> {
     let trimmed = url.trim().trim_end_matches('/').trim_end_matches(".git");
-    let path = trimmed.strip_prefix("https://github.com/")
+    let path = trimmed
+        .strip_prefix("https://github.com/")
         .or_else(|| trimmed.strip_prefix("http://github.com/"))
-        .ok_or_else(|| AppError::Config("仅支持 https://github.com/<owner>/<repo> 地址".to_string()))?;
+        .ok_or_else(|| {
+            AppError::Config("仅支持 https://github.com/<owner>/<repo> 地址".to_string())
+        })?;
     let mut parts = path.split('/');
     let owner = parts
         .next()
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string()))?;
+        .ok_or_else(|| {
+            AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string())
+        })?;
     let repo = parts
         .next()
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string()))?;
+        .ok_or_else(|| {
+            AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string())
+        })?;
     if parts.next().is_some() {
-        return Err(AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string()));
+        return Err(AppError::Config(
+            "GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string(),
+        ));
     }
     Ok((owner, repo))
 }
@@ -915,7 +1071,10 @@ fn skill_path(name: &str, target: SkillTarget) -> AppResult<PathBuf> {
 }
 
 fn sanitize_skill_name(value: &str) -> AppResult<String> {
-    let cleaned = value.trim().to_lowercase().replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "-");
+    let cleaned = value.trim().to_lowercase().replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "-",
+    );
     if cleaned.is_empty() || cleaned == "." || cleaned == ".." {
         return Err(AppError::Config("无效的 Skill 名称".to_string()));
     }
@@ -927,13 +1086,16 @@ fn skill_description(content: &str) -> Option<String> {
 }
 
 fn skill_description_zh(content: &str) -> Option<String> {
-    frontmatter_value(content, "description_zh").or_else(|| frontmatter_value(content, "descriptionZh"))
+    frontmatter_value(content, "description_zh")
+        .or_else(|| frontmatter_value(content, "descriptionZh"))
 }
 
 fn frontmatter_value(content: &str, key: &str) -> Option<String> {
     let frontmatter = content.strip_prefix("---")?.split_once("---")?.0;
     frontmatter.lines().find_map(|line| {
-        line.trim().strip_prefix(&format!("{key}:")).map(|value| value.trim().trim_matches('"').to_string())
+        line.trim()
+            .strip_prefix(&format!("{key}:"))
+            .map(|value| value.trim().trim_matches('"').to_string())
     })
 }
 
@@ -1044,11 +1206,15 @@ pub fn register_unmanaged_skill(path: &str, target: SkillTarget) -> AppResult<Sk
         .ok_or_else(|| AppError::Config("无法解析 Skill 目录名".to_string()))?
         .to_string();
     if directory.starts_with('.') || directory.contains(['/', '\\']) {
-        return Err(AppError::Config(format!("无效的 Skill 目录名: {directory}")));
+        return Err(AppError::Config(format!(
+            "无效的 Skill 目录名: {directory}"
+        )));
     }
     let dest = skill_root(target).join(&directory);
     if dest.exists() {
-        return Err(AppError::Config(format!("目标已存在同名 Skill: {directory}")));
+        return Err(AppError::Config(format!(
+            "目标已存在同名 Skill: {directory}"
+        )));
     }
     fs::create_dir_all(skill_root(target))?;
     copy_dir_recursive(&source, &dest)?;
@@ -1107,8 +1273,14 @@ fn discovery_scan_sources(target: SkillTarget) -> Vec<(PathBuf, String)> {
     }
     sources.push((home.join(".agents").join("skills"), "agents".to_string()));
     sources.push((home.join(".codex").join("skills"), "codex".to_string()));
-    sources.push((home.join(".claude").join("skills"), "claude_code".to_string()));
-    sources.push((home.join(".pi").join("agent").join("skills"), "pi".to_string()));
+    sources.push((
+        home.join(".claude").join("skills"),
+        "claude_code".to_string(),
+    ));
+    sources.push((
+        home.join(".pi").join("agent").join("skills"),
+        "pi".to_string(),
+    ));
     sources.push((home.join(".cline").join("skills"), "cline".to_string()));
     // Deduplicate while preserving order.
     let mut seen = BTreeSet::new();
@@ -1124,7 +1296,10 @@ fn normalize_path_key(path: &Path) -> String {
     let display = path.to_string_lossy();
     #[cfg(windows)]
     {
-        display.trim_start_matches(r"\\?\").replace('/', "\\").to_ascii_lowercase()
+        display
+            .trim_start_matches(r"\\?\")
+            .replace('/', "\\")
+            .to_ascii_lowercase()
     }
     #[cfg(not(windows))]
     {
@@ -1177,21 +1352,35 @@ mod tests {
         let cursor = std::io::Cursor::new(Vec::new());
         let mut archive = ZipWriter::new(cursor);
         let options = SimpleFileOptions::default();
-        archive.start_file("owner-skills-123/skills/first/SKILL.md", options).unwrap();
-        archive.write_all(b"---\ndescription: First skill\n---\n").unwrap();
-        archive.start_file("owner-skills-123/skills/second/SKILL.md", options).unwrap();
-        archive.write_all(b"---\ndescription: Second skill\n---\n").unwrap();
+        archive
+            .start_file("owner-skills-123/skills/first/SKILL.md", options)
+            .unwrap();
+        archive
+            .write_all(b"---\ndescription: First skill\n---\n")
+            .unwrap();
+        archive
+            .start_file("owner-skills-123/skills/second/SKILL.md", options)
+            .unwrap();
+        archive
+            .write_all(b"---\ndescription: Second skill\n---\n")
+            .unwrap();
         archive.finish().unwrap().into_inner()
     }
 
     #[test]
     fn repository_archive_lists_each_skill_directory() {
         let entries = repository_skill_entries(&repository_archive(), "skills").unwrap();
-        let paths: Vec<_> = entries.into_iter().map(|(skill, _)| (skill.path, skill.description)).collect();
-        assert_eq!(paths, vec![
-            ("skills/first".to_string(), "First skill".to_string()),
-            ("skills/second".to_string(), "Second skill".to_string()),
-        ]);
+        let paths: Vec<_> = entries
+            .into_iter()
+            .map(|(skill, _)| (skill.path, skill.description))
+            .collect();
+        assert_eq!(
+            paths,
+            vec![
+                ("skills/first".to_string(), "First skill".to_string()),
+                ("skills/second".to_string(), "Second skill".to_string()),
+            ]
+        );
     }
 
     #[test]
@@ -1222,18 +1411,38 @@ mod tests {
         };
         match classify_skill_for_update(&skill) {
             SkillCheckPlan::Ready(status) => assert_eq!(status.status, "unsupported"),
-            SkillCheckPlan::Github { .. } => panic!("local_import must not trigger a GitHub download"),
+            SkillCheckPlan::Github { .. } => {
+                panic!("local_import must not trigger a GitHub download")
+            }
         }
     }
 
     #[test]
     fn codex_skill_metadata_is_kept_separate_from_claude_code() {
-        assert_eq!(skill_sources_file(SkillTarget::ClaudeCode), SKILL_SOURCES_CONFIG_FILE);
-        assert_eq!(skill_sources_file(SkillTarget::Codex), CODEX_SKILL_SOURCES_CONFIG_FILE);
-        assert_eq!(skill_sources_file(SkillTarget::Pi), PI_SKILL_SOURCES_CONFIG_FILE);
-        assert_eq!(skill_sources_file(SkillTarget::Cline), CLINE_SKILL_SOURCES_CONFIG_FILE);
-        assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Codex));
-        assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Pi));
+        assert_eq!(
+            skill_sources_file(SkillTarget::ClaudeCode),
+            SKILL_SOURCES_CONFIG_FILE
+        );
+        assert_eq!(
+            skill_sources_file(SkillTarget::Codex),
+            CODEX_SKILL_SOURCES_CONFIG_FILE
+        );
+        assert_eq!(
+            skill_sources_file(SkillTarget::Pi),
+            PI_SKILL_SOURCES_CONFIG_FILE
+        );
+        assert_eq!(
+            skill_sources_file(SkillTarget::Cline),
+            CLINE_SKILL_SOURCES_CONFIG_FILE
+        );
+        assert_ne!(
+            skill_sources_file(SkillTarget::ClaudeCode),
+            skill_sources_file(SkillTarget::Codex)
+        );
+        assert_ne!(
+            skill_sources_file(SkillTarget::ClaudeCode),
+            skill_sources_file(SkillTarget::Pi)
+        );
         assert_eq!(SkillTarget::default(), SkillTarget::ClaudeCode);
     }
 
@@ -1243,11 +1452,23 @@ mod tests {
         let managed = temp.path().join("managed");
         let scatter = temp.path().join("scatter");
         fs::create_dir_all(managed.join("kept")).unwrap();
-        fs::write(managed.join("kept").join(SKILL_FILE), "---\ndescription: Kept\n---\n").unwrap();
+        fs::write(
+            managed.join("kept").join(SKILL_FILE),
+            "---\ndescription: Kept\n---\n",
+        )
+        .unwrap();
         fs::create_dir_all(scatter.join("loose")).unwrap();
-        fs::write(scatter.join("loose").join(SKILL_FILE), "---\ndescription: Loose\n---\n").unwrap();
+        fs::write(
+            scatter.join("loose").join(SKILL_FILE),
+            "---\ndescription: Loose\n---\n",
+        )
+        .unwrap();
         fs::create_dir_all(scatter.join("ignored")).unwrap();
-        fs::write(scatter.join("ignored").join(SKILL_FILE), "---\ndescription: Ignored\n---\n").unwrap();
+        fs::write(
+            scatter.join("ignored").join(SKILL_FILE),
+            "---\ndescription: Ignored\n---\n",
+        )
+        .unwrap();
 
         let managed_names: BTreeSet<String> = ["kept".to_string()].into_iter().collect();
         let mut ignored = BTreeSet::new();
@@ -1257,7 +1478,8 @@ mod tests {
         for entry in fs::read_dir(&scatter).unwrap().flatten() {
             let path = entry.path();
             let directory = entry.file_name().to_string_lossy().to_string();
-            if managed_names.contains(&directory) || ignored.contains(&discovery_ignore_key(&path)) {
+            if managed_names.contains(&directory) || ignored.contains(&discovery_ignore_key(&path))
+            {
                 continue;
             }
             if path.join(SKILL_FILE).is_file() {
@@ -1282,7 +1504,10 @@ mod tests {
                 if attempt == 0 {
                     stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
                 } else {
-                    let headers = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", archive.len());
+                    let headers = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        archive.len()
+                    );
                     stream.write_all(headers.as_bytes()).unwrap();
                     stream.write_all(&archive).unwrap();
                 }
@@ -1299,12 +1524,19 @@ mod tests {
         let bytes = download_github_archive_bytes_with_client(
             &format!("http://{address}/archive.zip"),
             &client,
-        ).await.unwrap();
-        let paths = repository_skill_entries(&bytes, "skills").unwrap()
-            .into_iter().map(|(skill, _)| skill.path).collect::<Vec<_>>();
+        )
+        .await
+        .unwrap();
+        let paths = repository_skill_entries(&bytes, "skills")
+            .unwrap()
+            .into_iter()
+            .map(|(skill, _)| skill.path)
+            .collect::<Vec<_>>();
         assert_eq!(paths, vec!["skills/first", "skills/second"]);
         let requests = worker.join().unwrap();
         assert_eq!(requests.len(), 2);
-        assert!(requests.iter().all(|request| request.to_ascii_lowercase().contains("accept-encoding: identity")));
+        assert!(requests.iter().all(|request| request
+            .to_ascii_lowercase()
+            .contains("accept-encoding: identity")));
     }
 }

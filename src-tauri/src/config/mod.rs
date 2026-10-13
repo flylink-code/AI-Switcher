@@ -6,29 +6,34 @@
 pub mod atomic;
 pub mod claude_code;
 pub mod claude_desktop;
+pub mod cline;
 pub mod codex;
 pub mod codex_provider_sync;
-pub mod cline;
 pub mod dsh;
 pub mod opencode;
 pub mod paths;
 
 // P2-wired re-exports.
 #[allow(unused_imports)]
-pub use claude_desktop::{apply_provider as apply_provider_to_desktop, clear_provider as clear_desktop_provider, detect_claude_desktop, ClaudeDesktopPaths};
+pub use claude_desktop::{
+    apply_provider as apply_provider_to_desktop, clear_provider as clear_desktop_provider,
+    detect_claude_desktop, ClaudeDesktopPaths,
+};
 pub use paths::{
-    get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_agents_dir, get_claude_config_dir,
-    get_claude_installed_plugins_path, get_claude_json_path, get_claude_known_marketplaces_path,
-    get_claude_marketplaces_dir, get_claude_plugins_cache_dir,
-    get_claude_settings_path, get_claude_skills_dir, get_home_dir, get_codex_config_dir,
-    get_codex_config_path, get_codex_auth_path, get_codex_plugins_cache_dir, get_codex_skills_dir,
-    get_opencode_config_dir, get_opencode_config_path, get_opencode_data_dir, get_opencode_db_path,
-    get_dsh_config_dir, get_dsh_settings_path, get_dsh_credentials_path,
+    get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_agents_dir,
+    get_claude_config_dir, get_claude_installed_plugins_path, get_claude_json_path,
+    get_claude_known_marketplaces_path, get_claude_marketplaces_dir, get_claude_plugins_cache_dir,
+    get_claude_settings_path, get_claude_skills_dir, get_codex_auth_path, get_codex_config_dir,
+    get_codex_config_path, get_codex_plugins_cache_dir, get_codex_skills_dir, get_dsh_config_dir,
+    get_dsh_credentials_path, get_dsh_settings_path, get_home_dir, get_opencode_config_dir,
+    get_opencode_config_path, get_opencode_data_dir, get_opencode_db_path,
 };
 
 // Foundational helpers (used from P1+). Re-exported for convenience; the
 // `#[allow(unused)]` keeps the crate warning-clean during scaffolding.
 #[allow(unused_imports)]
-pub use atomic::{atomic_write, broken_link_note, ensure_dir_with_context, read_json_file, write_json_file};
-#[allow(unused_imports)]
 pub use atomic::sort_json_keys;
+#[allow(unused_imports)]
+pub use atomic::{
+    atomic_write, broken_link_note, ensure_dir_with_context, read_json_file, write_json_file,
+};

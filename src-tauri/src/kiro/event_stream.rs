@@ -45,10 +45,14 @@ pub fn parse_frame(buffer: &[u8]) -> Result<Option<(Frame, usize)>, FrameError> 
     let header_length = u32::from_be_bytes([buffer[4], buffer[5], buffer[6], buffer[7]]);
     let prelude_crc = u32::from_be_bytes([buffer[8], buffer[9], buffer[10], buffer[11]]);
     if (total_length as usize) < MIN_MESSAGE_SIZE {
-        return Err(FrameError::TooSmall { length: total_length });
+        return Err(FrameError::TooSmall {
+            length: total_length,
+        });
     }
     if total_length as usize > MAX_MESSAGE_SIZE {
-        return Err(FrameError::TooLarge { length: total_length });
+        return Err(FrameError::TooLarge {
+            length: total_length,
+        });
     }
     let total_length = total_length as usize;
     if buffer.len() < total_length {
@@ -95,7 +99,8 @@ fn header_value(headers: &[u8], name: &str) -> Option<String> {
         if value_type != HEADER_STRING {
             return None;
         }
-        let value_len = u16::from_be_bytes([*headers.get(offset)?, *headers.get(offset + 1)?]) as usize;
+        let value_len =
+            u16::from_be_bytes([*headers.get(offset)?, *headers.get(offset + 1)?]) as usize;
         offset += 2;
         let value = std::str::from_utf8(headers.get(offset..offset + value_len)?).ok()?;
         offset += value_len;

@@ -163,8 +163,14 @@ fn parse_message_data(value: &Value) -> Option<OpenCodeMessageData> {
     let input_tokens = token("input");
     let output_tokens = token("output");
     let reasoning_tokens = token("reasoning");
-    let cache_read_tokens = tokens.pointer("/cache/read").and_then(Value::as_i64).unwrap_or(0);
-    let cache_write_tokens = tokens.pointer("/cache/write").and_then(Value::as_i64).unwrap_or(0);
+    let cache_read_tokens = tokens
+        .pointer("/cache/read")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let cache_write_tokens = tokens
+        .pointer("/cache/write")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
 
     if input_tokens == 0
         && output_tokens == 0
@@ -207,8 +213,8 @@ fn sync_opencode_db_inner(conn: &Connection) -> AppResult<OpenCodeSessionSyncRes
 
     // opencode.db 运行在 WAL 模式：新提交先落在 -wal 文件，主库 mtime 在
     // checkpoint 前不变，必须取两者大者。
-    let file_modified = file_modified_ms(&db_path)
-        .max(file_modified_ms(&db_path.with_extension("db-wal")));
+    let file_modified =
+        file_modified_ms(&db_path).max(file_modified_ms(&db_path.with_extension("db-wal")));
     let db_key = normalize_sync_path(&db_path);
     if let Some((last_modified, _, _)) = get_session_sync_state(conn, &db_key)? {
         if last_modified == file_modified {
@@ -235,7 +241,8 @@ fn sync_opencode_db_inner(conn: &Connection) -> AppResult<OpenCodeSessionSyncRes
             }
         }
 
-        let (messages, has_incomplete) = match query_assistant_messages(&opencode_conn, session_id) {
+        let (messages, has_incomplete) = match query_assistant_messages(&opencode_conn, session_id)
+        {
             Ok(result) => result,
             Err(error) => {
                 log::warn!("[OPENCODE-SYNC] 会话消息查询失败 {session_id}: {error}");
@@ -340,16 +347,22 @@ pub fn try_sync_opencode_session_usage_db(db: &Database) -> AppResult<OpenCodeSe
 }
 
 /// 手动同步：短暂等待锁，仍忙则报错。
-pub fn sync_opencode_session_usage_db_blocking(db: &Database) -> AppResult<OpenCodeSessionSyncResult> {
+pub fn sync_opencode_session_usage_db_blocking(
+    db: &Database,
+) -> AppResult<OpenCodeSessionSyncResult> {
     let Some(_guard) = wait_acquire_sync_lock(50) else {
-        return Err(AppError::Config("OpenCode 会话用量同步仍在进行，请稍后重试".into()));
+        return Err(AppError::Config(
+            "OpenCode 会话用量同步仍在进行，请稍后重试".into(),
+        ));
     };
     sync_opencode_session_usage_db(db)
 }
 
 pub fn rebuild_opencode_session_usage_db(db: &Database) -> AppResult<OpenCodeSessionSyncResult> {
     let Some(_guard) = wait_acquire_sync_lock(50) else {
-        return Err(AppError::Config("OpenCode 会话用量同步繁忙，请稍后重试重建".into()));
+        return Err(AppError::Config(
+            "OpenCode 会话用量同步繁忙，请稍后重试重建".into(),
+        ));
     };
     let deleted = db.with_conn(reset_opencode_session_usage)?;
     let mut result = sync_opencode_session_usage_db(db)?;

@@ -37,7 +37,10 @@ fn classify_process(image_path: &str) -> Option<AppKind> {
     let normalized = image_path.replace('\\', "/").to_ascii_lowercase();
     // Drop argv after " --" so Linux `claude-desktop --type=gpu` still matches,
     // without splitting Windows paths that contain spaces (`Program Files`).
-    let without_args = normalized.split_once(" --").map(|(path, _)| path).unwrap_or(&normalized);
+    let without_args = normalized
+        .split_once(" --")
+        .map(|(path, _)| path)
+        .unwrap_or(&normalized);
     let file_name = without_args.rsplit('/').next().unwrap_or(without_args);
 
     if file_name == "codex.exe" || file_name == "codex" {

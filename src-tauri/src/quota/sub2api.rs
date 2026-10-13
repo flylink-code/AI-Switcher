@@ -3,8 +3,8 @@
 //! Do not use NewAPI `/api/user/self` — sub2api does not implement that route.
 
 use crate::provider::{strip_anthropic_compat_path, strip_trailing_v1_path};
-use crate::quota::types::*;
 use crate::quota::now_millis;
+use crate::quota::types::*;
 use reqwest::header;
 use serde_json::Value;
 use std::time::Duration;
@@ -205,16 +205,17 @@ fn parse_quota_limited(body: &Value, queried_at: i64) -> ProviderQuotaResult {
             if limit <= 0.0 {
                 continue;
             }
-            let resets_at = item
-                .get("reset_at")
-                .and_then(json_string)
-                .or_else(|| item.get("reset_at").and_then(|v| parse_f64(v).and_then(|n| {
-                    crate::quota::millis_to_iso8601(if n < 1_000_000_000_000.0 {
-                        (n * 1000.0) as i64
-                    } else {
-                        n as i64
+            let resets_at = item.get("reset_at").and_then(json_string).or_else(|| {
+                item.get("reset_at").and_then(|v| {
+                    parse_f64(v).and_then(|n| {
+                        crate::quota::millis_to_iso8601(if n < 1_000_000_000_000.0 {
+                            (n * 1000.0) as i64
+                        } else {
+                            n as i64
+                        })
                     })
-                })));
+                })
+            });
             tiers.push(QuotaTier {
                 name: name.to_string(),
                 utilization: utilization(used, limit),

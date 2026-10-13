@@ -963,39 +963,38 @@ mod tests {
     fn list_snapshot_reads_quoted_plugin_table_keys() {
         let root = tempfile::tempdir().unwrap();
         with_isolated_codex_home(root.path(), || {
-
-        let cache = root
-            .path()
-            .join("plugins")
-            .join("cache")
-            .join("openai-curated")
-            .join("google-calendar")
-            .join("0.2.1");
-        fs::create_dir_all(&cache).unwrap();
-        fs::write(
-            root.path().join("config.toml"),
-            r#"
+            let cache = root
+                .path()
+                .join("plugins")
+                .join("cache")
+                .join("openai-curated")
+                .join("google-calendar")
+                .join("0.2.1");
+            fs::create_dir_all(&cache).unwrap();
+            fs::write(
+                root.path().join("config.toml"),
+                r#"
 [plugins."google-calendar@openai-curated"]
 enabled = true
 
 [plugins."slack@openai-curated"]
 enabled = false
 "#,
-        )
-        .unwrap();
+            )
+            .unwrap();
 
-        let snap = list_plugins_snapshot().unwrap();
-        assert!(snap.parse_ok);
-        assert_eq!(snap.config_plugin_count, 2);
-        assert_eq!(snap.cache_plugin_count, 1);
-        assert_eq!(snap.plugins.len(), 2);
-        let calendar = snap
-            .plugins
-            .iter()
-            .find(|p| p.plugin_id == "google-calendar@openai-curated")
-            .expect("calendar plugin");
-        assert!(calendar.enabled);
-        assert!(calendar.installed);
+            let snap = list_plugins_snapshot().unwrap();
+            assert!(snap.parse_ok);
+            assert_eq!(snap.config_plugin_count, 2);
+            assert_eq!(snap.cache_plugin_count, 1);
+            assert_eq!(snap.plugins.len(), 2);
+            let calendar = snap
+                .plugins
+                .iter()
+                .find(|p| p.plugin_id == "google-calendar@openai-curated")
+                .expect("calendar plugin");
+            assert!(calendar.enabled);
+            assert!(calendar.installed);
         });
     }
 

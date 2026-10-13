@@ -337,17 +337,13 @@ fn gateway_live_entry(
         _ => format!("http://127.0.0.1:{port}/v1"),
     };
     live.api_key = token;
-    let normalized = crate::gateway::normalize_live_model_for(target, &live.model);
-    live.model = if normalized.is_empty() {
-        catalog
-            .first()
-            .map(|entry| entry.public_id.clone())
-            .unwrap_or_default()
-    } else {
-        // A saved id from before same-name models were merged becomes today's id.
-        let providers: Vec<Provider> = pairs.iter().map(|(provider, _)| provider.clone()).collect();
-        catalog::canonical_public_id(&catalog, &providers, &normalized).unwrap_or(normalized)
-    };
+    // The Agent default is the first published catalog id. A previously stored
+    // id must not keep a newer catalog order from taking effect.
+    live.model = catalog
+        .first()
+        .map(|entry| entry.public_id.clone())
+        .filter(|id| !id.is_empty())
+        .unwrap_or_else(|| crate::gateway::normalize_live_model_for(target, &live.model));
     Ok((live, extra))
 }
 

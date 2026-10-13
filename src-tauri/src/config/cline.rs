@@ -24,7 +24,9 @@ pub fn cline_data_dir() -> std::path::PathBuf {
 }
 
 pub fn cline_mcp_settings_path() -> std::path::PathBuf {
-    cline_data_dir().join("settings").join("cline_mcp_settings.json")
+    cline_data_dir()
+        .join("settings")
+        .join("cline_mcp_settings.json")
 }
 
 pub fn cline_sessions_dir() -> std::path::PathBuf {
@@ -101,7 +103,10 @@ fn cline_provider_entry(provider: &Provider, models: &[String]) -> Value {
     })
 }
 
-fn sync_managed_cline_providers_to(dir: &std::path::Path, entries: &[(Provider, Vec<String>)]) -> AppResult<()> {
+fn sync_managed_cline_providers_to(
+    dir: &std::path::Path,
+    entries: &[(Provider, Vec<String>)],
+) -> AppResult<()> {
     ensure_dir_with_context(dir)?;
     if entries.is_empty() {
         return Ok(());
@@ -135,7 +140,14 @@ mod tests {
     use super::*;
     use crate::provider::{ProtocolType, Provider, ProviderKind, ProviderTarget};
 
-    fn sample(id: &str, name: &str, base_url: &str, model: &str, kind: ProviderKind, api_key: &str) -> Provider {
+    fn sample(
+        id: &str,
+        name: &str,
+        base_url: &str,
+        model: &str,
+        kind: ProviderKind,
+        api_key: &str,
+    ) -> Provider {
         Provider {
             id: id.into(),
             name: name.into(),

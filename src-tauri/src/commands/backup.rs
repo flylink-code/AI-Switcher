@@ -3,10 +3,9 @@
 use std::sync::Arc;
 
 use crate::backup::{
-    backup_file, export_library_backup as export_library,
-    find_latest_library_archive, preview_library_backup as preview_library,
-    restore_library_backup as restore_library, LibraryArchivePreview, LibraryBackupInfo,
-    LibraryRestoreResult, DEFAULT_BACKUP_KEEP,
+    backup_file, export_library_backup as export_library, find_latest_library_archive,
+    preview_library_backup as preview_library, restore_library_backup as restore_library,
+    LibraryArchivePreview, LibraryBackupInfo, LibraryRestoreResult, DEFAULT_BACKUP_KEEP,
 };
 use crate::config::paths::get_app_db_path;
 use crate::error::{AppError, AppResult};
@@ -75,9 +74,11 @@ pub async fn restore_library_backup(
 /// Resolve the newest `library-*.zip` inside a directory (for sync incoming folders).
 #[tauri::command]
 pub fn find_latest_library_archive_cmd(directory: String) -> AppResult<String> {
-    Ok(find_latest_library_archive(std::path::Path::new(&directory))?
-        .to_string_lossy()
-        .into_owned())
+    Ok(
+        find_latest_library_archive(std::path::Path::new(&directory))?
+            .to_string_lossy()
+            .into_owned(),
+    )
 }
 
 const WEBDAV_URL_KEY: &str = "webdav_url";
@@ -99,7 +100,8 @@ fn load_webdav_settings(state: &AppState) -> AppResult<(WebDavSettings, String)>
     state.db.with_conn(|conn| {
         let url = get_setting(conn, WEBDAV_URL_KEY)?.unwrap_or_default();
         let username = get_setting(conn, WEBDAV_USER_KEY)?.unwrap_or_default();
-        let remote_path = get_setting(conn, WEBDAV_PATH_KEY)?.unwrap_or_else(|| "/library.zip".into());
+        let remote_path =
+            get_setting(conn, WEBDAV_PATH_KEY)?.unwrap_or_else(|| "/library.zip".into());
         let password = get_setting(conn, WEBDAV_PASSWORD_KEY)?.unwrap_or_default();
         Ok((
             WebDavSettings {
@@ -153,7 +155,11 @@ fn webdav_client() -> AppResult<reqwest::blocking::Client> {
 
 fn join_webdav_url(base: &str, path: &str) -> String {
     let base = base.trim().trim_end_matches('/');
-    let path = if path.starts_with('/') { path.to_string() } else { format!("/{path}") };
+    let path = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    };
     format!("{base}{path}")
 }
 
@@ -167,22 +173,29 @@ pub fn upload_library_to_webdav(
         return Err(AppError::Config("WebDAV 地址为空".into()));
     }
     let info = export_library(None, include_credentials.unwrap_or(false), None)?;
-    let bytes = std::fs::read(&info.archive_path)
-        .map_err(|error| AppError::Io(error.to_string()))?;
+    let bytes =
+        std::fs::read(&info.archive_path).map_err(|error| AppError::Io(error.to_string()))?;
     let url = join_webdav_url(&settings.url, &settings.remote_path);
     let mut request = webdav_client()?.put(&url).body(bytes);
     if !settings.username.is_empty() {
         request = request.basic_auth(&settings.username, Some(&password));
     }
-    let response = request.send().map_err(|error| AppError::Network(error.to_string()))?;
+    let response = request
+        .send()
+        .map_err(|error| AppError::Network(error.to_string()))?;
     if !response.status().is_success() {
-        return Err(AppError::Network(format!("WebDAV 上传失败: HTTP {}", response.status())));
+        return Err(AppError::Network(format!(
+            "WebDAV 上传失败: HTTP {}",
+            response.status()
+        )));
     }
     Ok(url)
 }
 
 #[tauri::command]
-pub fn restore_library_from_webdav(state: tauri::State<'_, AppState>) -> AppResult<LibraryRestoreResult> {
+pub fn restore_library_from_webdav(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LibraryRestoreResult> {
     let (settings, password) = load_webdav_settings(&state)?;
     if settings.url.trim().is_empty() {
         return Err(AppError::Config("WebDAV 地址为空".into()));
@@ -194,11 +207,18 @@ pub fn restore_library_from_webdav(state: tauri::State<'_, AppState>) -> AppResu
     if !settings.username.is_empty() {
         request = request.basic_auth(&settings.username, Some(&password));
     }
-    let response = request.send().map_err(|error| AppError::Network(error.to_string()))?;
+    let response = request
+        .send()
+        .map_err(|error| AppError::Network(error.to_string()))?;
     if !response.status().is_success() {
-        return Err(AppError::Network(format!("WebDAV 下载失败: HTTP {}", response.status())));
+        return Err(AppError::Network(format!(
+            "WebDAV 下载失败: HTTP {}",
+            response.status()
+        )));
     }
-    let bytes = response.bytes().map_err(|error| AppError::Network(error.to_string()))?;
+    let bytes = response
+        .bytes()
+        .map_err(|error| AppError::Network(error.to_string()))?;
     let temp = std::env::temp_dir().join("ai-switcher-webdav-restore.zip");
     std::fs::write(&temp, &bytes).map_err(|error| AppError::Io(error.to_string()))?;
     let restored = restore_library(&temp, &state.db)?;

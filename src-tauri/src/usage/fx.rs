@@ -47,9 +47,7 @@ pub fn to_usd(amount: f64, currency: &str) -> f64 {
 /// - Empty → USD 0
 /// - Single currency → keep native amount/currency (no surprise conversion)
 /// - Multiple currencies → convert each to USD and sum
-pub fn summarize_costs_as_usd(
-    amounts: &[(String, f64)],
-) -> (String, f64) {
+pub fn summarize_costs_as_usd(amounts: &[(String, f64)]) -> (String, f64) {
     let meaningful: Vec<_> = amounts
         .iter()
         .filter(|(_, amount)| amount.abs() > f64::EPSILON)

@@ -97,7 +97,9 @@ pub fn create_workspace_profile(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Profile> {
     let payload = snapshot_current(&state, scopes)?;
-    state.db.with_conn(|conn| dao::profiles::create_profile(conn, &name, &payload))
+    state
+        .db
+        .with_conn(|conn| dao::profiles::create_profile(conn, &name, &payload))
 }
 
 #[tauri::command(rename = "update_workspace_profile")]
@@ -107,18 +109,16 @@ pub fn update_workspace_profile(
     payload: Option<ProfilePayload>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Profile> {
-    state
-        .db
-        .with_conn(|conn| dao::profiles::update_profile(conn, &id, name.as_deref(), payload.as_ref()))
+    state.db.with_conn(|conn| {
+        dao::profiles::update_profile(conn, &id, name.as_deref(), payload.as_ref())
+    })
 }
 
 #[tauri::command(rename = "delete_workspace_profile")]
 pub fn delete_workspace_profile(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
     state.db.with_conn(|conn| {
         dao::profiles::delete_profile(conn, &id)?;
-        if dao::profiles::get_current_profile_id(conn)?
-            .is_some_and(|current| current == id)
-        {
+        if dao::profiles::get_current_profile_id(conn)?.is_some_and(|current| current == id) {
             dao::profiles::set_current_profile_id(conn, None)?;
         }
         Ok(())
@@ -237,10 +237,16 @@ async fn autosave_current_profile(state: &AppState, next_profile_id: &str) -> Ap
     Ok(())
 }
 
-pub fn snapshot_current(state: &AppState, scopes: ProfileSnapshotScopes) -> AppResult<ProfilePayload> {
+pub fn snapshot_current(
+    state: &AppState,
+    scopes: ProfileSnapshotScopes,
+) -> AppResult<ProfilePayload> {
     let mut payload = ProfilePayload::default();
     if scopes.claude_code {
-        ProfileScope::ClaudeCode.set_payload(&mut payload, snapshot_scope(state, ProfileScope::ClaudeCode)?);
+        ProfileScope::ClaudeCode.set_payload(
+            &mut payload,
+            snapshot_scope(state, ProfileScope::ClaudeCode)?,
+        );
     }
     if scopes.claude_desktop {
         ProfileScope::ClaudeDesktop.set_payload(
@@ -348,9 +354,10 @@ fn apply_mcp(
         if currently_enabled == should_enable {
             continue;
         }
-        if let Err(error) = state.db.with_conn(|conn| {
-            dao::mcp::set_mcp_enabled(conn, &server.id, target, should_enable)
-        }) {
+        if let Err(error) = state
+            .db
+            .with_conn(|conn| dao::mcp::set_mcp_enabled(conn, &server.id, target, should_enable))
+        {
             warnings.push(format!(
                 "{} MCP {}: {error}",
                 scope_label(scope),
@@ -360,10 +367,7 @@ fn apply_mcp(
     }
     for id in &scope_payload.mcp_ids {
         if !servers.iter().any(|server| server.id == *id) {
-            warnings.push(format!(
-                "{} MCP 不存在，已跳过: {id}",
-                scope_label(scope)
-            ));
+            warnings.push(format!("{} MCP 不存在，已跳过: {id}", scope_label(scope)));
         }
     }
     Ok(())
@@ -377,11 +381,8 @@ fn apply_skills(
     let Some(target) = scope.skill_target() else {
         return;
     };
-    let enabled: std::collections::BTreeSet<&str> = scope_payload
-        .skill_ids
-        .iter()
-        .map(String::as_str)
-        .collect();
+    let enabled: std::collections::BTreeSet<&str> =
+        scope_payload.skill_ids.iter().map(String::as_str).collect();
     let skills = match skills::list_skills(target) {
         Ok(value) => value,
         Err(error) => {
@@ -413,11 +414,8 @@ fn apply_skills(
 }
 
 fn apply_agents(scope_payload: &ProfileScopePayload, warnings: &mut Vec<String>) {
-    let enabled: std::collections::BTreeSet<&str> = scope_payload
-        .agent_ids
-        .iter()
-        .map(String::as_str)
-        .collect();
+    let enabled: std::collections::BTreeSet<&str> =
+        scope_payload.agent_ids.iter().map(String::as_str).collect();
     let agents = match agents::list_agents() {
         Ok(value) => value,
         Err(error) => {
@@ -449,7 +447,11 @@ fn apply_prompt(
     let Some(target) = scope.prompt_target() else {
         return;
     };
-    let Some(prompt_id) = scope_payload.prompt_id.as_deref().filter(|id| !id.is_empty()) else {
+    let Some(prompt_id) = scope_payload
+        .prompt_id
+        .as_deref()
+        .filter(|id| !id.is_empty())
+    else {
         return;
     };
     if let Err(error) = prompts::activate_prompt(target, prompt_id) {

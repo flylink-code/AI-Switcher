@@ -1,6 +1,6 @@
 
-/// Upgrade a legacy Desktop profile ID or model route list in the background
-/// without a network preflight. The provider row and credential remain unchanged.
+/// Upgrade a legacy Desktop profile, and point a smart-gateway card at the
+/// first catalog model. No network preflight; credentials stay unchanged.
 pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
     let applied_id = claude_desktop::current_applied_id()?;
     let legacy_profile = applied_id.as_deref() == Some(claude_desktop::LEGACY_PROFILE_ID);
@@ -13,6 +13,17 @@ pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
         .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::ClaudeDesktop))?;
     let Some(provider) = provider else {
         return Ok(());
+    };
+    let provider = if provider.is_smart_gateway() {
+        let refreshed = ensure_smart_gateway_provider_row(state, ProviderTarget::ClaudeDesktop)?;
+        if refreshed.model != provider.model {
+            let _snapshot = apply_target_provider(&refreshed, None::<&tauri::AppHandle>, state).await?;
+            log::info!("Claude Desktop 智能网关默认模型已改为目录第一项");
+            return Ok(());
+        }
+        refreshed
+    } else {
+        provider
     };
     let legacy_routes = managed_profile
         && provider.requires_local_proxy()
@@ -41,6 +52,16 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
         let port = saved_smart_gateway_port(state);
         if let Some(current_base) = codex::managed_provider_base_url() {
             if is_local_proxy_base_url_for_port(&current_base, port) {
+                let auto = ensure_smart_gateway_provider_row(state, ProviderTarget::Codex)?;
+                let live_model = codex::read_current_live_provider()
+                    .ok()
+                    .flatten()
+                    .map(|info| info.model);
+                if live_model.as_deref() == Some(auto.model.as_str()) {
+                    return Ok(());
+                }
+                let _ = apply_target_provider(&auto, None::<&tauri::AppHandle>, state).await?;
+                log::info!("Codex 智能网关默认模型已改为目录第一项");
                 return Ok(());
             }
         }
@@ -469,12 +490,10 @@ pub(crate) fn ensure_smart_gateway_provider_row(
                 .unwrap_or_else(|| profile.entry_token.clone()))
         })
         .unwrap_or_else(|_| profile.entry_token.clone());
-    let model = existing
-        .as_ref()
-        .map(|provider| provider.model.trim().to_string())
-        .filter(|value| !value.is_empty() && !crate::gateway::is_auto_model_id(value))
-        .or_else(|| catalog_ids.first().cloned())
-        .unwrap_or_default();
+    let model = smart_gateway_default_model(
+        existing.as_ref().map(|provider| provider.model.as_str()),
+        &catalog_ids,
+    );
     let input = ProviderInput {
         id: Some(id),
         name: existing
@@ -511,4 +530,19 @@ pub(crate) fn ensure_smart_gateway_provider_row(
         custom_headers: None,
     };
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
+}
+
+/// Default written to an Agent is the first published catalog id. A previously
+/// stored id (including an older `claude.<provider>.<model>` form) must not
+/// keep overriding that. The stored id is only a fallback while the catalog
+/// is empty.
+fn smart_gateway_default_model(stored: Option<&str>, catalog_ids: &[String]) -> String {
+    if let Some(first) = catalog_ids.first() {
+        return first.clone();
+    }
+    stored
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && !crate::gateway::is_auto_model_id(value))
+        .unwrap_or("")
+        .to_string()
 }

@@ -99,7 +99,9 @@ pub fn sync_dsh_session_usage_db(db: &Database) -> AppResult<DshSessionSyncResul
         skipped_rows: skipped,
         message: format!(
             "Scanned {} DeepSeek Harness session files; inserted {}; skipped {}",
-            files.len(), inserted, skipped
+            files.len(),
+            inserted,
+            skipped
         ),
     })
 }
@@ -118,18 +120,25 @@ pub fn try_sync_dsh_session_usage_db(db: &Database) -> AppResult<DshSessionSyncR
 
 pub fn sync_dsh_session_usage_db_blocking(db: &Database) -> AppResult<DshSessionSyncResult> {
     let Some(_guard) = wait_acquire_sync_lock(50) else {
-        return Err(AppError::Config("DeepSeek Harness 会话用量同步仍在进行，请稍后重试".into()));
+        return Err(AppError::Config(
+            "DeepSeek Harness 会话用量同步仍在进行，请稍后重试".into(),
+        ));
     };
     sync_dsh_session_usage_db(db)
 }
 
 pub fn rebuild_dsh_session_usage_db(db: &Database) -> AppResult<DshSessionSyncResult> {
     let Some(_guard) = wait_acquire_sync_lock(50) else {
-        return Err(AppError::Config("DeepSeek Harness 会话用量同步繁忙，请稍后重试重建".into()));
+        return Err(AppError::Config(
+            "DeepSeek Harness 会话用量同步繁忙，请稍后重试重建".into(),
+        ));
     };
     let deleted = db.with_conn(reset_dsh_session_usage)?;
     let mut result = sync_dsh_session_usage_db(db)?;
-    result.message = format!("Rebuilt DeepSeek Harness session usage (removed {deleted} old rows). {}", result.message);
+    result.message = format!(
+        "Rebuilt DeepSeek Harness session usage (removed {deleted} old rows). {}",
+        result.message
+    );
     Ok(result)
 }
 
@@ -143,11 +152,17 @@ fn collect_session_files() -> Vec<PathBuf> {
 }
 
 fn collect_session_files_in(directory: &Path, files: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(directory) else { return };
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
-        let Ok(kind) = entry.file_type() else { continue };
-        if kind.is_symlink() { continue }
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if kind.is_symlink() {
+            continue;
+        }
         if kind.is_dir() {
             collect_session_files_in(&path, files);
         } else if path.file_name().and_then(|name| name.to_str()) == Some("session.jsonl.zstd") {
@@ -157,34 +172,52 @@ fn collect_session_files_in(directory: &Path, files: &mut Vec<PathBuf>) {
 }
 
 fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
-    let modified = std::fs::metadata(path)?.modified().ok()
+    let modified = std::fs::metadata(path)?
+        .modified()
+        .ok()
         .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|duration| duration.as_millis() as i64)
         .unwrap_or(0);
     let path_key = normalize_sync_path(path);
-    if get_session_sync_state(conn, &path_key)?.is_some_and(|(last_modified, _, _)| last_modified == modified) {
+    if get_session_sync_state(conn, &path_key)?
+        .is_some_and(|(last_modified, _, _)| last_modified == modified)
+    {
         return Ok((0, 0));
     }
     let events = match read_dsh_events(path) {
         Ok(events) => events,
         Err(error) => {
-            log::warn!("DeepSeek Harness session log ignored ({}): {error}", path.display());
+            log::warn!(
+                "DeepSeek Harness session log ignored ({}): {error}",
+                path.display()
+            );
             update_session_sync_state(conn, &path_key, modified, 0, 0)?;
             return Ok((0, 0));
         }
     };
 
-    let mut session_id = path.parent().and_then(|p| p.file_name()).and_then(|v| v.to_str()).unwrap_or_default().to_string();
+    let mut session_id = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|v| v.to_str())
+        .unwrap_or_default()
+        .to_string();
     let mut inserted = 0;
     let mut skipped = 0;
     let mut seen = HashSet::new();
     for event in &events {
         if event.get("type").and_then(Value::as_str) == Some("session") {
-            if let Some(id) = event.get("id").and_then(Value::as_str).filter(|id| !id.trim().is_empty()) {
+            if let Some(id) = event
+                .get("id")
+                .and_then(Value::as_str)
+                .filter(|id| !id.trim().is_empty())
+            {
                 session_id = id.to_string();
             }
         }
-        let Some(usage) = parse_assistant_message_usage(event) else { continue };
+        let Some(usage) = parse_assistant_message_usage(event) else {
+            continue;
+        };
         let key = format!("{}:{}", session_id, usage.seq);
         if !seen.insert(key.clone()) {
             skipped += 1;
@@ -232,24 +265,38 @@ struct DshUsageEvent {
 }
 
 fn parse_assistant_message_usage(event: &Value) -> Option<DshUsageEvent> {
-    if event.get("type").and_then(Value::as_str) != Some("assistant/message") { return None }
+    if event.get("type").and_then(Value::as_str) != Some("assistant/message") {
+        return None;
+    }
     let data = event.get("data")?;
     let usage = data.get("usage")?;
     let input_tokens = token_number(usage, "inputTokens");
     let output_tokens = token_number(usage, "outputTokens");
     let cache_read_tokens = token_number(usage, "cacheReadTokens");
     let cache_write_tokens = token_number(usage, "cacheWriteTokens");
-    if input_tokens == 0 && output_tokens == 0 && cache_read_tokens == 0 && cache_write_tokens == 0 { return None }
+    if input_tokens == 0 && output_tokens == 0 && cache_read_tokens == 0 && cache_write_tokens == 0
+    {
+        return None;
+    }
     let source = data.pointer("/message/source")?;
     let provider = source.get("provider").and_then(Value::as_str)?.trim();
     let model = source.get("model").and_then(Value::as_str)?.trim();
-    if provider.is_empty() || model.is_empty() { return None }
+    if provider.is_empty() || model.is_empty() {
+        return None;
+    }
     Some(DshUsageEvent {
         seq: event.get("seq").and_then(Value::as_i64)?,
-        created_at: event.get("time").and_then(Value::as_i64).unwrap_or_else(|| Utc::now().timestamp_millis()),
+        created_at: event
+            .get("time")
+            .and_then(Value::as_i64)
+            .unwrap_or_else(|| Utc::now().timestamp_millis()),
         provider: provider.to_string(),
         model: model.to_string(),
-        protocol: source.pointer("/replayState/api").and_then(Value::as_str).unwrap_or("dsh_session").to_string(),
+        protocol: source
+            .pointer("/replayState/api")
+            .and_then(Value::as_str)
+            .unwrap_or("dsh_session")
+            .to_string(),
         input_tokens,
         output_tokens,
         cache_read_tokens,
@@ -283,38 +330,74 @@ fn scan_zstd_frames(bytes: &[u8]) -> Result<Vec<(usize, usize)>, String> {
     let mut offset = 0;
     while offset < bytes.len() {
         let start = offset;
-        if bytes.len().saturating_sub(offset) < 5 { break }
+        if bytes.len().saturating_sub(offset) < 5 {
+            break;
+        }
         let mut magic_buf = [0u8; 4];
         magic_buf.copy_from_slice(&bytes[offset..offset + 4]);
         let magic = u32::from_le_bytes(magic_buf);
-        if magic != ZSTD_MAGIC { return Err(format!("invalid Zstandard frame magic at byte {offset}")) }
+        if magic != ZSTD_MAGIC {
+            return Err(format!("invalid Zstandard frame magic at byte {offset}"));
+        }
         offset += 4;
         let descriptor = bytes[offset];
         offset += 1;
-        if descriptor & 0x18 != 0 { return Err(format!("reserved Zstandard header bit at byte {}", offset - 1)) }
+        if descriptor & 0x18 != 0 {
+            return Err(format!(
+                "reserved Zstandard header bit at byte {}",
+                offset - 1
+            ));
+        }
         let content_size_flag = descriptor >> 6;
         let single_segment = descriptor & 0x20 != 0;
         let has_checksum = descriptor & 0x04 != 0;
         let dictionary_flag = descriptor & 0x03;
-        let dictionary_bytes = if dictionary_flag == 3 { 4 } else { dictionary_flag as usize };
-        let content_size_bytes = if content_size_flag == 0 { if single_segment { 1 } else { 0 } } else { 1usize << content_size_flag };
-        let header_remaining = if single_segment { 0 } else { 1 } + dictionary_bytes + content_size_bytes;
-        if bytes.len().saturating_sub(offset) < header_remaining { break }
+        let dictionary_bytes = if dictionary_flag == 3 {
+            4
+        } else {
+            dictionary_flag as usize
+        };
+        let content_size_bytes = if content_size_flag == 0 {
+            if single_segment {
+                1
+            } else {
+                0
+            }
+        } else {
+            1usize << content_size_flag
+        };
+        let header_remaining =
+            if single_segment { 0 } else { 1 } + dictionary_bytes + content_size_bytes;
+        if bytes.len().saturating_sub(offset) < header_remaining {
+            break;
+        }
         offset += header_remaining;
         loop {
-            if bytes.len().saturating_sub(offset) < 3 { return Ok(frames) }
-            let header = (bytes[offset] as usize) | ((bytes[offset + 1] as usize) << 8) | ((bytes[offset + 2] as usize) << 16);
+            if bytes.len().saturating_sub(offset) < 3 {
+                return Ok(frames);
+            }
+            let header = (bytes[offset] as usize)
+                | ((bytes[offset + 1] as usize) << 8)
+                | ((bytes[offset + 2] as usize) << 16);
             offset += 3;
             let last_block = header & 1 != 0;
             let block_type = (header >> 1) & 3;
-            if block_type == 3 { return Err(format!("reserved Zstandard block at byte {}", offset - 3)) }
+            if block_type == 3 {
+                return Err(format!("reserved Zstandard block at byte {}", offset - 3));
+            }
             let payload_size = if block_type == 1 { 1 } else { header >> 3 };
-            if bytes.len().saturating_sub(offset) < payload_size { return Ok(frames) }
+            if bytes.len().saturating_sub(offset) < payload_size {
+                return Ok(frames);
+            }
             offset += payload_size;
-            if last_block { break }
+            if last_block {
+                break;
+            }
         }
         if has_checksum {
-            if bytes.len().saturating_sub(offset) < 4 { return Ok(frames) }
+            if bytes.len().saturating_sub(offset) < 4 {
+                return Ok(frames);
+            }
             offset += 4;
         }
         frames.push((start, offset));

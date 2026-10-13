@@ -2186,6 +2186,8 @@ mod tests {
             "invalid argument"
         ));
         assert!(!crate::antigravity::pool::failure_cools_whole_account(404));
-        assert!(!crate::antigravity::pool::failure_forbids_whole_account(404));
+        assert!(!crate::antigravity::pool::failure_forbids_whole_account(
+            404
+        ));
     }
 }

@@ -107,7 +107,10 @@ mod tests {
         assert!(line.contains("system_chars=13"), "{line}");
         assert!(line.contains("tools=1"), "{line}");
         assert!(line.contains("calls=1 results=1 media=1/4B"), "{line}");
-        assert!(line.contains("maxOut=64000 budget=24576 thoughts=true"), "{line}");
+        assert!(
+            line.contains("maxOut=64000 budget=24576 thoughts=true"),
+            "{line}"
+        );
         assert!(!line.contains("secret"), "{line}");
     }
 

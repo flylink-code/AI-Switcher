@@ -4,12 +4,12 @@
 //! upstream model to call and records why.
 
 pub mod correlation;
-pub mod metadata;
-pub mod service;
+pub mod count_tokens;
 pub mod health;
 pub mod inbound;
+pub mod metadata;
+pub mod service;
 pub mod upstream_limits;
-pub mod count_tokens;
 
 pub const PARENT_SESSION_HEADER: &str = "x-cs-parent-session-id";
 
@@ -124,13 +124,33 @@ fn extract_host_port(url: &str) -> Option<String> {
 }
 
 pub fn default_gateway_ports() -> [u16; 8] {
-    [15821, 15822, 15823, 15824, 15825, 15826, 15827, SMART_GATEWAY_PORT]
+    [
+        15821,
+        15822,
+        15823,
+        15824,
+        15825,
+        15826,
+        15827,
+        SMART_GATEWAY_PORT,
+    ]
 }
 
 pub const SMART_GATEWAY_PORT: u16 = 15828;
 
 pub fn reserved_listener_ports() -> [u16; 10] {
-    [15821, 15822, 15823, 15824, 15825, 15826, 15827, SMART_GATEWAY_PORT, 15830, 15831]
+    [
+        15821,
+        15822,
+        15823,
+        15824,
+        15825,
+        15826,
+        15827,
+        SMART_GATEWAY_PORT,
+        15830,
+        15831,
+    ]
 }
 
 pub fn assert_not_self_referential(url: &str) -> crate::error::AppResult<()> {
@@ -168,10 +188,7 @@ pub fn normalize_live_model(model: &str) -> String {
 
 /// Live model written to an Agent. Auto and retired Opus Plan are blank so the
 /// caller can substitute the selected or first catalog model.
-pub fn normalize_live_model_for(
-    _target: crate::provider::ProviderTarget,
-    model: &str,
-) -> String {
+pub fn normalize_live_model_for(_target: crate::provider::ProviderTarget, model: &str) -> String {
     let trimmed = model.trim();
     if is_auto_model_id(trimmed) || trimmed.eq_ignore_ascii_case("opusplan") {
         String::new()
@@ -200,10 +217,14 @@ pub fn smart_gateway_live_endpoint(
 ) -> (crate::provider::ProtocolType, String) {
     use crate::provider::{ProtocolType, ProviderTarget};
     match target {
-        ProviderTarget::Codex | ProviderTarget::Cline => {
-            (ProtocolType::OpenAiResponses, format!("http://127.0.0.1:{port}/v1"))
-        }
-        ProviderTarget::OpenCode => (ProtocolType::Anthropic, format!("http://127.0.0.1:{port}/v1")),
+        ProviderTarget::Codex | ProviderTarget::Cline => (
+            ProtocolType::OpenAiResponses,
+            format!("http://127.0.0.1:{port}/v1"),
+        ),
+        ProviderTarget::OpenCode => (
+            ProtocolType::Anthropic,
+            format!("http://127.0.0.1:{port}/v1"),
+        ),
         _ => (ProtocolType::Anthropic, format!("http://127.0.0.1:{port}")),
     }
 }
@@ -306,18 +327,22 @@ pub fn build_execution_plan_with_chain(
         upstream_id: primary_upstream_id.map(str::to_string),
     }];
     let explicit_pinned = matches!(source, RouteSource::Explicit)
-        && profile.map(|profile| !profile.explicit_fallback_enabled).unwrap_or(true);
+        && profile
+            .map(|profile| !profile.explicit_fallback_enabled)
+            .unwrap_or(true);
     let mode_chain = extra_chain.filter(|items| !items.is_empty());
     if !explicit_pinned && (mode_chain.is_some() || fallback_mode == "model_chain") {
         let chain: Vec<String> = mode_chain
             .map(|items| items.to_vec())
-            .or_else(|| {
-                profile.map(|profile| chain_for_source(profile, source).to_vec())
-            })
+            .or_else(|| profile.map(|profile| chain_for_source(profile, source).to_vec()))
             .unwrap_or_default();
         for model in chain {
             let model = model.trim();
-            if model.is_empty() || attempts.iter().any(|attempt| attempt.model.eq_ignore_ascii_case(model)) {
+            if model.is_empty()
+                || attempts
+                    .iter()
+                    .any(|attempt| attempt.model.eq_ignore_ascii_case(model))
+            {
                 continue;
             }
             if attempts.len() >= 3 {
@@ -368,11 +393,35 @@ mod tests {
 
     #[test]
     fn mode_chain_works_without_profile_fallback_and_deduplicates() {
-        let chain = vec!["primary".into(), "backup".into(), "BACKUP".into(), "last".into(), "extra".into()];
-        let plan = build_execution_plan_with_chain(None, "primary", Some("p1"), RouteSource::Auto, Some(&chain));
+        let chain = vec![
+            "primary".into(),
+            "backup".into(),
+            "BACKUP".into(),
+            "last".into(),
+            "extra".into(),
+        ];
+        let plan = build_execution_plan_with_chain(
+            None,
+            "primary",
+            Some("p1"),
+            RouteSource::Auto,
+            Some(&chain),
+        );
         assert_eq!(plan.fallback_mode, "off");
-        assert_eq!(plan.attempts.iter().map(|attempt| attempt.model.as_str()).collect::<Vec<_>>(), vec!["primary", "backup", "last"]);
-        let pinned = build_execution_plan_with_chain(None, "primary", Some("p1"), RouteSource::Explicit, Some(&chain));
+        assert_eq!(
+            plan.attempts
+                .iter()
+                .map(|attempt| attempt.model.as_str())
+                .collect::<Vec<_>>(),
+            vec!["primary", "backup", "last"]
+        );
+        let pinned = build_execution_plan_with_chain(
+            None,
+            "primary",
+            Some("p1"),
+            RouteSource::Explicit,
+            Some(&chain),
+        );
         assert!(pinned.explicit_pinned);
         assert_eq!(pinned.attempts.len(), 1);
     }
@@ -404,7 +453,8 @@ mod tests {
             created_at: 0,
             updated_at: 0,
         };
-        let plan = build_execution_plan(Some(&profile), "kimi-k2", Some("p1"), RouteSource::Explicit);
+        let plan =
+            build_execution_plan(Some(&profile), "kimi-k2", Some("p1"), RouteSource::Explicit);
         assert_eq!(plan.attempts.len(), 1);
         assert_eq!(plan.fallback_mode, "retry");
     }
@@ -436,7 +486,8 @@ mod tests {
             created_at: 0,
             updated_at: 0,
         };
-        let plan = build_execution_plan(Some(&profile), "plan-a", Some("p1"), RouteSource::RolePlan);
+        let plan =
+            build_execution_plan(Some(&profile), "plan-a", Some("p1"), RouteSource::RolePlan);
         assert_eq!(plan.attempts.len(), 2);
         assert_eq!(plan.attempts[1].model, "plan-b");
     }
@@ -452,7 +503,10 @@ mod tests {
             ""
         );
         assert_eq!(
-            normalize_live_model_for(crate::provider::ProviderTarget::Codex, "claude.example.model"),
+            normalize_live_model_for(
+                crate::provider::ProviderTarget::Codex,
+                "claude.example.model"
+            ),
             "claude.example.model"
         );
         assert_eq!(normalize_live_model("claude.auto"), "auto");
@@ -501,5 +555,4 @@ mod tests {
         });
         assert_eq!(estimate_request_tokens(&body), 1);
     }
-
 }

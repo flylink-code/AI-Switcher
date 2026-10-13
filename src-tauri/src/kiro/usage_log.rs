@@ -27,11 +27,8 @@ pub fn insert_request(
     headers: Option<&HeaderMap>,
 ) -> Option<String> {
     let duration_ms = started.elapsed().as_millis() as i64;
-    let correlation = correlation::resolve(
-        headers.unwrap_or(&HeaderMap::new()),
-        HOP_KIRO,
-        Some("kiro"),
-    );
+    let correlation =
+        correlation::resolve(headers.unwrap_or(&HeaderMap::new()), HOP_KIRO, Some("kiro"));
     let target = correlation
         .target_app
         .clone()
@@ -75,7 +72,14 @@ pub fn insert_request(
     }
 }
 
-pub fn write_usage(db: &Arc<Database>, id: &str, input: i64, output: i64, cache_read: i64, cache_write: i64) {
+pub fn write_usage(
+    db: &Arc<Database>,
+    id: &str,
+    input: i64,
+    output: i64,
+    cache_read: i64,
+    cache_write: i64,
+) {
     let _ = db.with_conn(|conn| {
         update_proxy_log_usage_idempotent(
             conn,

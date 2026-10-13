@@ -147,8 +147,7 @@ mod tests {
     fn prefers_longer_prefix_match() {
         let catalog = vec![pricing("claude-opus-5"), pricing("claude-opus-5-fast")];
         assert_eq!(
-            find_pricing_for_model(&catalog, "claude-opus-5-fast")
-                .map(|row| row.model.as_str()),
+            find_pricing_for_model(&catalog, "claude-opus-5-fast").map(|row| row.model.as_str()),
             Some("claude-opus-5-fast")
         );
     }

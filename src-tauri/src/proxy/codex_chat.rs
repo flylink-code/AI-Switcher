@@ -131,8 +131,14 @@ pub fn chat_response_to_responses(body: &Value, fallback_model: &str) -> Value {
         result["incomplete_details"] = json!({ "reason": "max_output_tokens" });
     }
     if let Some(usage) = body.get("usage") {
-        let input_tokens = usage.get("prompt_tokens").and_then(Value::as_i64).unwrap_or(0);
-        let output_tokens = usage.get("completion_tokens").and_then(Value::as_i64).unwrap_or(0);
+        let input_tokens = usage
+            .get("prompt_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
+        let output_tokens = usage
+            .get("completion_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
         result["usage"] = json!({
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
@@ -195,7 +201,11 @@ impl ChatSseToResponsesConverter {
         }
         self.ensure_started(&mut out);
         let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);
-        if let Some(text) = delta.get("content").and_then(Value::as_str).filter(|t| !t.is_empty()) {
+        if let Some(text) = delta
+            .get("content")
+            .and_then(Value::as_str)
+            .filter(|t| !t.is_empty())
+        {
             self.text.push_str(text);
             self.emit_text_start(&mut out);
             push_responses_event(
@@ -312,8 +322,14 @@ impl ChatSseToResponsesConverter {
             "output": output,
         });
         let (input_tokens, output_tokens, total_tokens) = if let Some(usage) = usage {
-            let input_tokens = usage.get("prompt_tokens").and_then(Value::as_i64).unwrap_or(0);
-            let output_tokens = usage.get("completion_tokens").and_then(Value::as_i64).unwrap_or(0);
+            let input_tokens = usage
+                .get("prompt_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
+            let output_tokens = usage
+                .get("completion_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
             let total_tokens = usage
                 .get("total_tokens")
                 .and_then(Value::as_i64)
@@ -433,14 +449,20 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                     }
                     Some("reasoning") | Some("computer_call") | Some("computer_call_output") => {}
                     _ if item.get("role").is_some() => {
-                        let role = match item.get("role").and_then(Value::as_str).unwrap_or("user") {
+                        let role = match item.get("role").and_then(Value::as_str).unwrap_or("user")
+                        {
                             "assistant" => "assistant",
                             "system" | "developer" => "system",
                             _ => "user",
                         };
-                        let content = convert_responses_content(item.get("content").unwrap_or(&Value::Null));
+                        let content =
+                            convert_responses_content(item.get("content").unwrap_or(&Value::Null));
                         if role == "assistant" {
-                            append_assistant_message(&mut messages, &mut pending_tool_calls, content);
+                            append_assistant_message(
+                                &mut messages,
+                                &mut pending_tool_calls,
+                                content,
+                            );
                         } else {
                             flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
                             if !content_is_empty(&content) {
@@ -476,7 +498,10 @@ pub(crate) fn append_assistant_message(
     if !pending_tool_calls.is_empty() {
         if let Some(last) = messages.last_mut().filter(|last| {
             last.get("role").and_then(Value::as_str) == Some("assistant")
-                && last.get("tool_calls").and_then(Value::as_array).is_none_or(Vec::is_empty)
+                && last
+                    .get("tool_calls")
+                    .and_then(Value::as_array)
+                    .is_none_or(Vec::is_empty)
         }) {
             merge_assistant_content(last, content);
             last["tool_calls"] = Value::Array(std::mem::take(pending_tool_calls));
@@ -540,7 +565,9 @@ fn convert_responses_content(content: &Value) -> Value {
                         .or_else(|| block.pointer("/image_url/url"))
                         .and_then(Value::as_str)
                         .map(|url| json!({ "type": "image_url", "image_url": { "url": url } })),
-                    _ => block.as_str().map(|text| json!({ "type": "text", "text": text })),
+                    _ => block
+                        .as_str()
+                        .map(|text| json!({ "type": "text", "text": text })),
                 })
                 .collect();
             if parts.len() == 1 {
@@ -550,7 +577,11 @@ fn convert_responses_content(content: &Value) -> Value {
             }
             Value::Array(parts)
         }
-        Value::Object(map) => map.get("text").filter(|text| text.is_string()).cloned().unwrap_or(Value::Null),
+        Value::Object(map) => map
+            .get("text")
+            .filter(|text| text.is_string())
+            .cloned()
+            .unwrap_or(Value::Null),
         _ => Value::String(String::new()),
     }
 }
@@ -624,7 +655,9 @@ mod tests {
         assert!(is_unsupported_content_type_error(
             br#"{"error":{"message":"Unsupported content type"}}"#
         ));
-        assert!(!is_unsupported_content_type_error(br#"{"error":{"message":"rate limit"}}"#));
+        assert!(!is_unsupported_content_type_error(
+            br#"{"error":{"message":"rate limit"}}"#
+        ));
     }
     #[test]
     fn responses_assistant_text_and_function_call_merged_in_same_turn() {
@@ -736,7 +769,9 @@ mod tests {
             "role": "assistant", "content": "completed batch",
             "tool_calls": [{ "id": "call_1", "type": "function", "function": { "name": "first", "arguments": "{}" } }]
         })];
-        let mut calls = vec![json!({ "id": "call_2", "type": "function", "function": { "name": "second", "arguments": "{}" } })];
+        let mut calls = vec![
+            json!({ "id": "call_2", "type": "function", "function": { "name": "second", "arguments": "{}" } }),
+        ];
         flush_pending_tool_calls(&mut messages, &mut calls);
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0]["tool_calls"].as_array().unwrap().len(), 1);
@@ -753,7 +788,8 @@ mod tests {
                 { "type": "function_call", "call_id": "next", "name": "read", "arguments": "{}" },
                 { "type": "function_call_output", "call_id": "next", "output": "result" },
                 { "role": "assistant", "content": "after output" }
-            ])).unwrap();
+            ]))
+            .unwrap();
             assert_eq!(messages.len(), 5);
             assert!(messages[0].get("tool_calls").is_none());
             assert_eq!(messages[1]["content"], "boundary");
@@ -780,5 +816,4 @@ mod tests {
         assert_eq!(msgs[1]["content"], "starting tools");
         assert_eq!(msgs[1]["tool_calls"][0]["id"], "call_trail");
     }
-
 }

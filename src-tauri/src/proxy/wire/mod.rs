@@ -111,8 +111,14 @@ pub fn transcode_request(from: Api, to: Api, body: &Value, model: &str, stream: 
     build_request(to, &request)
 }
 
-pub fn client_anthropic_message(protocol: ProtocolType, upstream: &Value, client_model: &str) -> Value {
-    if protocol == ProtocolType::OpenAiResponses && upstream.get("status").and_then(Value::as_str) == Some("failed") {
+pub fn client_anthropic_message(
+    protocol: ProtocolType,
+    upstream: &Value,
+    client_model: &str,
+) -> Value {
+    if protocol == ProtocolType::OpenAiResponses
+        && upstream.get("status").and_then(Value::as_str) == Some("failed")
+    {
         let message = upstream
             .pointer("/error/message")
             .and_then(Value::as_str)
@@ -156,10 +162,22 @@ pub fn build_request(api: Api, request: &Request) -> Value {
 
 fn parse_anthropic(body: &Value) -> Request {
     let mut messages = Vec::new();
-    for message in body.get("messages").and_then(Value::as_array).into_iter().flatten() {
-        let role = message.get("role").and_then(Value::as_str).unwrap_or("user");
+    for message in body
+        .get("messages")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let role = message
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user");
         messages.push(Message {
-            role: if role == "assistant" { "assistant".into() } else { "user".into() },
+            role: if role == "assistant" {
+                "assistant".into()
+            } else {
+                "user".into()
+            },
             parts: parts_from_anthropic_content(message.get("content").unwrap_or(&Value::Null)),
         });
     }
@@ -213,8 +231,16 @@ fn build_anthropic(request: &Request) -> Value {
 fn parse_chat(body: &Value) -> Request {
     let mut system = String::new();
     let mut messages = Vec::new();
-    for message in body.get("messages").and_then(Value::as_array).into_iter().flatten() {
-        let role = message.get("role").and_then(Value::as_str).unwrap_or("user");
+    for message in body
+        .get("messages")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let role = message
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user");
         if role == "system" {
             let text = content_text(message.get("content").unwrap_or(&Value::Null));
             if !system.is_empty() && !text.is_empty() {
@@ -227,7 +253,11 @@ fn parse_chat(body: &Value) -> Request {
             messages.push(Message {
                 role: "user".into(),
                 parts: vec![Part::ToolResult {
-                    id: message.get("tool_call_id").and_then(Value::as_str).unwrap_or("tool_call").to_string(),
+                    id: message
+                        .get("tool_call_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool_call")
+                        .to_string(),
                     output: content_text(message.get("content").unwrap_or(&Value::Null)),
                 }],
             });
@@ -242,19 +272,40 @@ fn parse_chat(body: &Value) -> Request {
         {
             parts.insert(0, Part::Thinking(thinking.to_string()));
         }
-        for call in message.get("tool_calls").and_then(Value::as_array).into_iter().flatten() {
+        for call in message
+            .get("tool_calls")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
             let function = call.get("function").cloned().unwrap_or_else(|| json!({}));
             parts.push(Part::ToolCall {
-                id: call.get("id").and_then(Value::as_str).unwrap_or("tool_call").to_string(),
-                name: function.get("name").and_then(Value::as_str).unwrap_or("tool").to_string(),
-                arguments: function.get("arguments").and_then(Value::as_str).unwrap_or("{}").to_string(),
+                id: call
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool_call")
+                    .to_string(),
+                name: function
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool")
+                    .to_string(),
+                arguments: function
+                    .get("arguments")
+                    .and_then(Value::as_str)
+                    .unwrap_or("{}")
+                    .to_string(),
             });
         }
         if parts.is_empty() {
             continue;
         }
         messages.push(Message {
-            role: if role == "assistant" { "assistant".into() } else { "user".into() },
+            role: if role == "assistant" {
+                "assistant".into()
+            } else {
+                "user".into()
+            },
             parts,
         });
     }
@@ -284,7 +335,11 @@ fn build_chat(request: &Request) -> Value {
         for part in &message.parts {
             match part {
                 Part::Text(text) => text_and_images.push(json!({"type": "text", "text": text})),
-                Part::Image { media_type, data, url } => {
+                Part::Image {
+                    media_type,
+                    data,
+                    url,
+                } => {
                     text_and_images.push(json!({"type": "image_url", "image_url": {"url": chat_image_url(media_type, data, url)}}));
                 }
                 Part::Thinking(text) => {
@@ -293,7 +348,11 @@ fn build_chat(request: &Request) -> Value {
                     }
                     thinking.push_str(text);
                 }
-                Part::ToolCall { id, name, arguments } => tool_calls.push(json!({
+                Part::ToolCall {
+                    id,
+                    name,
+                    arguments,
+                } => tool_calls.push(json!({
                     "id": id,
                     "type": "function",
                     "function": { "name": name, "arguments": arguments }
@@ -309,10 +368,19 @@ fn build_chat(request: &Request) -> Value {
             let mut row = Map::new();
             row.insert(
                 "role".into(),
-                json!(if message.role == "assistant" { "assistant" } else { "user" }),
+                json!(if message.role == "assistant" {
+                    "assistant"
+                } else {
+                    "user"
+                }),
             );
-            if text_and_images.len() == 1 && text_and_images[0].get("type").and_then(Value::as_str) == Some("text") {
-                row.insert("content".into(), text_and_images[0].get("text").cloned().unwrap_or(json!("")));
+            if text_and_images.len() == 1
+                && text_and_images[0].get("type").and_then(Value::as_str) == Some("text")
+            {
+                row.insert(
+                    "content".into(),
+                    text_and_images[0].get("text").cloned().unwrap_or(json!("")),
+                );
             } else if text_and_images.is_empty() {
                 row.insert("content".into(), Value::Null);
             } else {
@@ -352,17 +420,45 @@ fn build_chat(request: &Request) -> Value {
 
 fn parse_responses(body: &Value) -> Request {
     let mut messages: Vec<Message> = Vec::new();
-    for item in body.get("input").and_then(Value::as_array).into_iter().flatten() {
+    for item in body
+        .get("input")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
         let (role, parts) = match item.get("type").and_then(Value::as_str) {
-            Some("function_call") => ("assistant", vec![Part::ToolCall {
-                id: item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or("tool_call").to_string(),
-                name: item.get("name").and_then(Value::as_str).unwrap_or("tool").to_string(),
-                arguments: item.get("arguments").and_then(Value::as_str).unwrap_or("{}").to_string(),
-            }]),
-            Some("function_call_output") => ("user", vec![Part::ToolResult {
-                id: item.get("call_id").and_then(Value::as_str).unwrap_or("tool_call").to_string(),
-                output: content_text(item.get("output").unwrap_or(&Value::Null)),
-            }]),
+            Some("function_call") => (
+                "assistant",
+                vec![Part::ToolCall {
+                    id: item
+                        .get("call_id")
+                        .or_else(|| item.get("id"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool_call")
+                        .to_string(),
+                    name: item
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool")
+                        .to_string(),
+                    arguments: item
+                        .get("arguments")
+                        .and_then(Value::as_str)
+                        .unwrap_or("{}")
+                        .to_string(),
+                }],
+            ),
+            Some("function_call_output") => (
+                "user",
+                vec![Part::ToolResult {
+                    id: item
+                        .get("call_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool_call")
+                        .to_string(),
+                    output: content_text(item.get("output").unwrap_or(&Value::Null)),
+                }],
+            ),
             Some("reasoning") => {
                 let text = reasoning_text(item);
                 if text.is_empty() {
@@ -372,7 +468,11 @@ fn parse_responses(body: &Value) -> Request {
             }
             _ => {
                 let role = item.get("role").and_then(Value::as_str).unwrap_or("user");
-                let role = if role == "assistant" { "assistant" } else { "user" };
+                let role = if role == "assistant" {
+                    "assistant"
+                } else {
+                    "user"
+                };
                 let parts = parts_from_responses_content(item.get("content").unwrap_or(item));
                 if parts.is_empty() {
                     continue;
@@ -386,13 +486,19 @@ fn parse_responses(body: &Value) -> Request {
                 continue;
             }
         }
-        messages.push(Message { role: role.into(), parts });
+        messages.push(Message {
+            role: role.into(),
+            parts,
+        });
     }
     Request {
         model: string_field(body, "model"),
         system: content_text(body.get("instructions").unwrap_or(&Value::Null)),
         messages,
-        max_tokens: body.get("max_output_tokens").or_else(|| body.get("max_tokens")).and_then(Value::as_u64),
+        max_tokens: body
+            .get("max_output_tokens")
+            .or_else(|| body.get("max_tokens"))
+            .and_then(Value::as_u64),
         temperature: body.get("temperature").cloned(),
         top_p: body.get("top_p").cloned(),
         stream: body.get("stream").and_then(Value::as_bool).unwrap_or(false),
@@ -405,7 +511,11 @@ fn build_responses(request: &Request) -> Value {
     let mut input = Vec::new();
     for message in &request.messages {
         let assistant = message.role == "assistant";
-        let text_type = if assistant { "output_text" } else { "input_text" };
+        let text_type = if assistant {
+            "output_text"
+        } else {
+            "input_text"
+        };
         let mut content = Vec::new();
         let flush_content = |input: &mut Vec<Value>, content: &mut Vec<Value>| {
             if content.is_empty() {
@@ -420,7 +530,11 @@ fn build_responses(request: &Request) -> Value {
         for part in &message.parts {
             match part {
                 Part::Text(text) => content.push(json!({"type": text_type, "text": text})),
-                Part::Image { media_type, data, url } if !assistant => {
+                Part::Image {
+                    media_type,
+                    data,
+                    url,
+                } if !assistant => {
                     content.push(json!({"type": "input_image", "image_url": chat_image_url(media_type, data, url)}));
                 }
                 Part::Image { .. } => {}
@@ -431,7 +545,11 @@ fn build_responses(request: &Request) -> Value {
                         "summary": [{ "type": "summary_text", "text": text }]
                     }));
                 }
-                Part::ToolCall { id, name, arguments } => {
+                Part::ToolCall {
+                    id,
+                    name,
+                    arguments,
+                } => {
                     flush_content(&mut input, &mut content);
                     input.push(json!({
                         "type": "function_call",
@@ -483,8 +601,14 @@ fn parse_response(api: Api, body: &Value) -> Response {
 }
 
 fn parse_chat_response(body: &Value) -> Response {
-    let choice = body.get("choices").and_then(Value::as_array).and_then(|items| items.first());
-    let message = choice.and_then(|choice| choice.get("message")).cloned().unwrap_or_else(|| json!({}));
+    let choice = body
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first());
+    let message = choice
+        .and_then(|choice| choice.get("message"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let mut parts = Vec::new();
     if let Some(thinking) = message
         .get("reasoning_content")
@@ -494,16 +618,37 @@ fn parse_chat_response(body: &Value) -> Response {
     {
         parts.push(Part::Thinking(thinking.to_string()));
     }
-    parts.extend(parts_from_chat_content(message.get("content").unwrap_or(&Value::Null)));
-    for call in message.get("tool_calls").and_then(Value::as_array).into_iter().flatten() {
+    parts.extend(parts_from_chat_content(
+        message.get("content").unwrap_or(&Value::Null),
+    ));
+    for call in message
+        .get("tool_calls")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
         let function = call.get("function").cloned().unwrap_or_else(|| json!({}));
         parts.push(Part::ToolCall {
-            id: call.get("id").and_then(Value::as_str).unwrap_or("tool_call").to_string(),
-            name: function.get("name").and_then(Value::as_str).unwrap_or("tool").to_string(),
-            arguments: function.get("arguments").and_then(Value::as_str).unwrap_or("{}").to_string(),
+            id: call
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("tool_call")
+                .to_string(),
+            name: function
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("tool")
+                .to_string(),
+            arguments: function
+                .get("arguments")
+                .and_then(Value::as_str)
+                .unwrap_or("{}")
+                .to_string(),
         });
     }
-    let finish = choice.and_then(|choice| choice.get("finish_reason")).and_then(Value::as_str);
+    let finish = choice
+        .and_then(|choice| choice.get("finish_reason"))
+        .and_then(Value::as_str);
     Response {
         id: string_field(body, "id"),
         model: string_field(body, "model"),
@@ -511,7 +656,10 @@ fn parse_chat_response(body: &Value) -> Response {
             Some("tool_calls") | Some("function_call") => Stop::ToolUse,
             Some("length") => Stop::MaxTokens,
             _ => {
-                if parts.iter().any(|part| matches!(part, Part::ToolCall { .. })) {
+                if parts
+                    .iter()
+                    .any(|part| matches!(part, Part::ToolCall { .. }))
+                {
                     Stop::ToolUse
                 } else {
                     Stop::EndTurn
@@ -525,12 +673,30 @@ fn parse_chat_response(body: &Value) -> Response {
 
 fn parse_responses_response(body: &Value) -> Response {
     let mut parts = Vec::new();
-    for item in body.get("output").and_then(Value::as_array).into_iter().flatten() {
+    for item in body
+        .get("output")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
         match item.get("type").and_then(Value::as_str) {
             Some("function_call") => parts.push(Part::ToolCall {
-                id: item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or("tool_call").to_string(),
-                name: item.get("name").and_then(Value::as_str).unwrap_or("tool").to_string(),
-                arguments: item.get("arguments").and_then(Value::as_str).unwrap_or("{}").to_string(),
+                id: item
+                    .get("call_id")
+                    .or_else(|| item.get("id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool_call")
+                    .to_string(),
+                name: item
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool")
+                    .to_string(),
+                arguments: item
+                    .get("arguments")
+                    .and_then(Value::as_str)
+                    .unwrap_or("{}")
+                    .to_string(),
             }),
             Some("reasoning") => {
                 let text = reasoning_text(item);
@@ -538,12 +704,20 @@ fn parse_responses_response(body: &Value) -> Response {
                     parts.push(Part::Thinking(text));
                 }
             }
-            _ => parts.extend(parts_from_responses_content(item.get("content").unwrap_or(&Value::Null))),
+            _ => parts.extend(parts_from_responses_content(
+                item.get("content").unwrap_or(&Value::Null),
+            )),
         }
     }
     let incomplete = body.get("status").and_then(Value::as_str) == Some("incomplete")
-        && body.pointer("/incomplete_details/reason").and_then(Value::as_str) == Some("max_output_tokens");
-    let stop = if parts.iter().any(|part| matches!(part, Part::ToolCall { .. })) {
+        && body
+            .pointer("/incomplete_details/reason")
+            .and_then(Value::as_str)
+            == Some("max_output_tokens");
+    let stop = if parts
+        .iter()
+        .any(|part| matches!(part, Part::ToolCall { .. }))
+    {
         Stop::ToolUse
     } else if incomplete {
         Stop::MaxTokens
@@ -570,9 +744,18 @@ fn parse_anthropic_response(body: &Value) -> Response {
             _ => Stop::EndTurn,
         },
         usage: Usage {
-            input_tokens: body.pointer("/usage/input_tokens").and_then(Value::as_i64).unwrap_or(0),
-            output_tokens: body.pointer("/usage/output_tokens").and_then(Value::as_i64).unwrap_or(0),
-            cache_read_input_tokens: body.pointer("/usage/cache_read_input_tokens").and_then(Value::as_i64).unwrap_or(0),
+            input_tokens: body
+                .pointer("/usage/input_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(0),
+            output_tokens: body
+                .pointer("/usage/output_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(0),
+            cache_read_input_tokens: body
+                .pointer("/usage/cache_read_input_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(0),
         },
     }
 }
@@ -615,16 +798,38 @@ fn parts_from_anthropic_content(content: &Value) -> Vec<Part> {
 
 fn anthropic_block(block: &Value) -> Option<Part> {
     match block.get("type").and_then(Value::as_str) {
-        Some("text") => block.get("text").and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Text(text.to_string())),
-        Some("thinking") => block.get("thinking").and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Thinking(text.to_string())),
+        Some("text") => block
+            .get("text")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(|text| Part::Text(text.to_string())),
+        Some("thinking") => block
+            .get("thinking")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(|text| Part::Thinking(text.to_string())),
         Some("image") => image_from_anthropic(block),
         Some("tool_use") => Some(Part::ToolCall {
-            id: block.get("id").and_then(Value::as_str).unwrap_or("tool_call").to_string(),
-            name: block.get("name").and_then(Value::as_str).unwrap_or("tool").to_string(),
-            arguments: serde_json::to_string(block.get("input").unwrap_or(&json!({}))).unwrap_or_else(|_| "{}".to_string()),
+            id: block
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("tool_call")
+                .to_string(),
+            name: block
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("tool")
+                .to_string(),
+            arguments: serde_json::to_string(block.get("input").unwrap_or(&json!({})))
+                .unwrap_or_else(|_| "{}".to_string()),
         }),
         Some("tool_result") | Some("tool_search_tool_result") => Some(Part::ToolResult {
-            id: block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call").to_string(),
+            id: block
+                .get("tool_use_id")
+                .or_else(|| block.get("id"))
+                .and_then(Value::as_str)
+                .unwrap_or("tool_call")
+                .to_string(),
             output: content_text(block.get("content").unwrap_or(&Value::Null)),
         }),
         _ => None,
@@ -635,16 +840,27 @@ fn image_from_anthropic(block: &Value) -> Option<Part> {
     let source = block.get("source")?;
     if source.get("type").and_then(Value::as_str) == Some("base64") {
         Some(Part::Image {
-            media_type: source.get("media_type").and_then(Value::as_str).unwrap_or("image/png").to_string(),
-            data: source.get("data").and_then(Value::as_str).unwrap_or("").to_string(),
+            media_type: source
+                .get("media_type")
+                .and_then(Value::as_str)
+                .unwrap_or("image/png")
+                .to_string(),
+            data: source
+                .get("data")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
             url: String::new(),
         })
     } else {
-        source.get("url").and_then(Value::as_str).map(|url| Part::Image {
-            media_type: String::new(),
-            data: String::new(),
-            url: url.to_string(),
-        })
+        source
+            .get("url")
+            .and_then(Value::as_str)
+            .map(|url| Part::Image {
+                media_type: String::new(),
+                data: String::new(),
+                url: url.to_string(),
+            })
     }
 }
 
@@ -658,13 +874,30 @@ fn parts_from_chat_content(content: &Value) -> Vec<Part> {
 
 fn chat_block(block: &Value) -> Option<Part> {
     match block.get("type").and_then(Value::as_str) {
-        Some("text") | Some("output_text") => block.get("text").and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Text(text.to_string())),
-        Some("refusal") => block.get("refusal").or_else(|| block.get("text")).and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Text(text.to_string())),
+        Some("text") | Some("output_text") => block
+            .get("text")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(|text| Part::Text(text.to_string())),
+        Some("refusal") => block
+            .get("refusal")
+            .or_else(|| block.get("text"))
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(|text| Part::Text(text.to_string())),
         Some("image_url") => {
-            let url = block.pointer("/image_url/url").and_then(Value::as_str).unwrap_or("");
+            let url = block
+                .pointer("/image_url/url")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             Some(image_from_url(url))
         }
-        Some("thinking") | Some("reasoning") => block.get("thinking").or_else(|| block.get("text")).and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Thinking(text.to_string())),
+        Some("thinking") | Some("reasoning") => block
+            .get("thinking")
+            .or_else(|| block.get("text"))
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(|text| Part::Thinking(text.to_string())),
         _ => None,
     }
 }
@@ -672,31 +905,53 @@ fn chat_block(block: &Value) -> Option<Part> {
 fn parts_from_responses_content(content: &Value) -> Vec<Part> {
     match content {
         Value::String(text) if !text.is_empty() => vec![Part::Text(text.clone())],
-        Value::Array(blocks) => blocks.iter().filter_map(|block| {
-            match block.get("type").and_then(Value::as_str) {
-                Some("input_text") | Some("output_text") | Some("text") => {
-                    block.get("text").and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Text(text.to_string()))
-                }
-                Some("refusal") => block.get("refusal").or_else(|| block.get("text")).and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Text(text.to_string())),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter_map(|block| match block.get("type").and_then(Value::as_str) {
+                Some("input_text") | Some("output_text") | Some("text") => block
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .filter(|text| !text.is_empty())
+                    .map(|text| Part::Text(text.to_string())),
+                Some("refusal") => block
+                    .get("refusal")
+                    .or_else(|| block.get("text"))
+                    .and_then(Value::as_str)
+                    .filter(|text| !text.is_empty())
+                    .map(|text| Part::Text(text.to_string())),
                 Some("input_image") => {
-                    let url = block.get("image_url").and_then(Value::as_str).or_else(|| block.pointer("/image_url/url").and_then(Value::as_str)).unwrap_or("");
+                    let url = block
+                        .get("image_url")
+                        .and_then(Value::as_str)
+                        .or_else(|| block.pointer("/image_url/url").and_then(Value::as_str))
+                        .unwrap_or("");
                     Some(image_from_url(url))
                 }
-                Some("reasoning_text") | Some("summary_text") => {
-                    block.get("text").and_then(Value::as_str).filter(|text| !text.is_empty()).map(|text| Part::Thinking(text.to_string()))
-                }
+                Some("reasoning_text") | Some("summary_text") => block
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .filter(|text| !text.is_empty())
+                    .map(|text| Part::Thinking(text.to_string())),
                 _ => None,
-            }
-        }).collect(),
+            })
+            .collect(),
         _ => Vec::new(),
     }
 }
 
 fn image_from_url(url: &str) -> Part {
     if let Some((media_type, data)) = split_data_url(url) {
-        Part::Image { media_type, data, url: String::new() }
+        Part::Image {
+            media_type,
+            data,
+            url: String::new(),
+        }
     } else {
-        Part::Image { media_type: String::new(), data: String::new(), url: url.to_string() }
+        Part::Image {
+            media_type: String::new(),
+            data: String::new(),
+            url: url.to_string(),
+        }
     }
 }
 
@@ -722,26 +977,53 @@ fn anthropic_blocks(parts: &[Part]) -> Vec<Value> {
 }
 
 fn anthropic_tools(body: &Value) -> Vec<ToolDef> {
-    body.get("tools").and_then(Value::as_array).into_iter().flatten().filter_map(|tool| {
-        let name = tool_name(tool)?;
-        Some(ToolDef {
-            name: name.to_string(),
-            description: tool.get("description").and_then(Value::as_str).unwrap_or("").to_string(),
-            parameters: tool.get("input_schema").cloned().unwrap_or_else(|| json!({"type": "object", "properties": {}})),
+    body.get("tools")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| {
+            let name = tool_name(tool)?;
+            Some(ToolDef {
+                name: name.to_string(),
+                description: tool
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                parameters: tool
+                    .get("input_schema")
+                    .cloned()
+                    .unwrap_or_else(|| json!({"type": "object", "properties": {}})),
+            })
         })
-    }).collect()
+        .collect()
 }
 
 fn chat_tools(body: &Value) -> Vec<ToolDef> {
-    body.get("tools").and_then(Value::as_array).into_iter().flatten().filter_map(|tool| {
-        let function = tool.get("function").unwrap_or(tool);
-        let name = function.get("name").and_then(Value::as_str).filter(|name| !name.is_empty())?;
-        Some(ToolDef {
-            name: name.to_string(),
-            description: function.get("description").and_then(Value::as_str).unwrap_or("").to_string(),
-            parameters: function.get("parameters").cloned().unwrap_or_else(|| json!({"type": "object", "properties": {}})),
+    body.get("tools")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| {
+            let function = tool.get("function").unwrap_or(tool);
+            let name = function
+                .get("name")
+                .and_then(Value::as_str)
+                .filter(|name| !name.is_empty())?;
+            Some(ToolDef {
+                name: name.to_string(),
+                description: function
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                parameters: function
+                    .get("parameters")
+                    .cloned()
+                    .unwrap_or_else(|| json!({"type": "object", "properties": {}})),
+            })
         })
-    }).collect()
+        .collect()
 }
 
 fn responses_tools(body: &Value) -> Vec<ToolDef> {
@@ -794,7 +1076,13 @@ fn anthropic_tool_choice(value: &Value) -> ToolChoice {
     match value.get("type").and_then(Value::as_str) {
         Some("none") => ToolChoice::None,
         Some("any") => ToolChoice::Required,
-        Some("tool") => ToolChoice::Named(value.get("name").and_then(Value::as_str).unwrap_or("").to_string()),
+        Some("tool") => ToolChoice::Named(
+            value
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        ),
         _ => ToolChoice::Auto,
     }
 }
@@ -804,7 +1092,12 @@ fn chat_tool_choice(value: &Value) -> ToolChoice {
         Value::String(text) if text == "none" => ToolChoice::None,
         Value::String(text) if text == "required" => ToolChoice::Required,
         Value::Object(_) => ToolChoice::Named(
-            value.pointer("/function/name").or_else(|| value.get("name")).and_then(Value::as_str).unwrap_or("").to_string(),
+            value
+                .pointer("/function/name")
+                .or_else(|| value.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
         ),
         _ => ToolChoice::Auto,
     }
@@ -814,7 +1107,13 @@ fn responses_tool_choice(value: &Value) -> ToolChoice {
     match value {
         Value::String(text) if text == "none" => ToolChoice::None,
         Value::String(text) if text == "required" => ToolChoice::Required,
-        Value::Object(_) => ToolChoice::Named(value.get("name").and_then(Value::as_str).unwrap_or("").to_string()),
+        Value::Object(_) => ToolChoice::Named(
+            value
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        ),
         _ => ToolChoice::Auto,
     }
 }
@@ -847,7 +1146,10 @@ fn responses_choice_json(choice: &ToolChoice) -> Value {
 }
 
 pub(super) fn chat_usage(body: &Value) -> Usage {
-    let total = body.pointer("/usage/prompt_tokens").and_then(Value::as_i64).unwrap_or(0);
+    let total = body
+        .pointer("/usage/prompt_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let cached = body
         .pointer("/usage/prompt_tokens_details/cached_tokens")
         .and_then(Value::as_i64)
@@ -855,13 +1157,19 @@ pub(super) fn chat_usage(body: &Value) -> Usage {
         .clamp(0, total);
     Usage {
         input_tokens: total.saturating_sub(cached),
-        output_tokens: body.pointer("/usage/completion_tokens").and_then(Value::as_i64).unwrap_or(0),
+        output_tokens: body
+            .pointer("/usage/completion_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
         cache_read_input_tokens: cached,
     }
 }
 
 fn responses_usage(body: &Value) -> Usage {
-    let total = body.pointer("/usage/input_tokens").and_then(Value::as_i64).unwrap_or(0);
+    let total = body
+        .pointer("/usage/input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let cached = body
         .pointer("/usage/input_tokens_details/cached_tokens")
         .and_then(Value::as_i64)
@@ -869,7 +1177,10 @@ fn responses_usage(body: &Value) -> Usage {
         .clamp(0, total.max(0));
     Usage {
         input_tokens: total.saturating_sub(cached),
-        output_tokens: body.pointer("/usage/output_tokens").and_then(Value::as_i64).unwrap_or(0),
+        output_tokens: body
+            .pointer("/usage/output_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
         cache_read_input_tokens: cached,
     }
 }
@@ -884,7 +1195,11 @@ fn reasoning_text(item: &Value) -> String {
 
 fn chat_image_url(media_type: &str, data: &str, url: &str) -> String {
     if !data.is_empty() {
-        let media = if media_type.is_empty() { "image/png" } else { media_type };
+        let media = if media_type.is_empty() {
+            "image/png"
+        } else {
+            media_type
+        };
         format!("data:{media};base64,{data}")
     } else {
         url.to_string()
@@ -909,13 +1224,21 @@ fn content_text(value: &Value) -> String {
             .filter_map(|item| item.get("text").and_then(Value::as_str))
             .collect::<Vec<_>>()
             .join("\n"),
-        Value::Object(_) => value.get("text").and_then(Value::as_str).unwrap_or("").to_string(),
+        Value::Object(_) => value
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
         _ => String::new(),
     }
 }
 
 fn string_field(value: &Value, key: &str) -> String {
-    value.get(key).and_then(Value::as_str).unwrap_or("").to_string()
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
 }
 
 fn copy_option(target: &mut Value, key: &str, value: Option<&Value>) {
@@ -926,8 +1249,10 @@ fn copy_option(target: &mut Value, key: &str, value: Option<&Value>) {
 
 #[cfg(test)]
 mod tests {
+    use super::sse::{
+        anthropic_sse_from_deltas, deltas_from_anthropic_sse, deltas_from_chat_event, Delta,
+    };
     use super::*;
-    use super::sse::{anthropic_sse_from_deltas, deltas_from_anthropic_sse, deltas_from_chat_event, Delta};
 
     fn sample_anthropic() -> Value {
         json!({
@@ -960,13 +1285,40 @@ mod tests {
         assert_eq!(request.tools[0].name, "lookup");
         let user = &request.messages[0].parts;
         assert_eq!(user[0], Part::Text("look".into()));
-        assert_eq!(user[1], Part::Image { media_type: "image/png".into(), data: "abc".into(), url: String::new() });
-        assert_eq!(user[2], Part::Image { media_type: String::new(), data: String::new(), url: "https://example.test/a.png".into() });
+        assert_eq!(
+            user[1],
+            Part::Image {
+                media_type: "image/png".into(),
+                data: "abc".into(),
+                url: String::new()
+            }
+        );
+        assert_eq!(
+            user[2],
+            Part::Image {
+                media_type: String::new(),
+                data: String::new(),
+                url: "https://example.test/a.png".into()
+            }
+        );
         let assistant = &request.messages[1].parts;
         assert_eq!(assistant[0], Part::Thinking("hmm".into()));
         assert_eq!(assistant[1], Part::Text("calling".into()));
-        assert_eq!(assistant[2], Part::ToolCall { id: "call_1".into(), name: "lookup".into(), arguments: "{\"q\":\"x\"}".into() });
-        assert_eq!(request.messages[2].parts[0], Part::ToolResult { id: "call_1".into(), output: "found".into() });
+        assert_eq!(
+            assistant[2],
+            Part::ToolCall {
+                id: "call_1".into(),
+                name: "lookup".into(),
+                arguments: "{\"q\":\"x\"}".into()
+            }
+        );
+        assert_eq!(
+            request.messages[2].parts[0],
+            Part::ToolResult {
+                id: "call_1".into(),
+                output: "found".into()
+            }
+        );
     }
 
     #[test]
@@ -976,8 +1328,14 @@ mod tests {
         assert_roundtrip(&parsed);
 
         let chat = build_request(Api::Chat, &parsed);
-        assert_eq!(chat["messages"][1]["content"][1]["image_url"]["url"], "data:image/png;base64,abc");
-        assert_eq!(chat["messages"][1]["content"][2]["image_url"]["url"], "https://example.test/a.png");
+        assert_eq!(
+            chat["messages"][1]["content"][1]["image_url"]["url"],
+            "data:image/png;base64,abc"
+        );
+        assert_eq!(
+            chat["messages"][1]["content"][2]["image_url"]["url"],
+            "https://example.test/a.png"
+        );
         assert_eq!(chat["tools"][0]["function"]["name"], "lookup");
         let from_chat = parse_request(Api::Chat, &chat);
         assert_roundtrip(&from_chat);
@@ -990,7 +1348,10 @@ mod tests {
 
         let back = build_request(Api::Anthropic, &from_responses);
         assert_eq!(back["messages"][0]["content"][1]["source"]["data"], "abc");
-        assert_eq!(back["messages"][0]["content"][2]["source"]["url"], "https://example.test/a.png");
+        assert_eq!(
+            back["messages"][0]["content"][2]["source"]["url"],
+            "https://example.test/a.png"
+        );
         assert_eq!(back["messages"][1]["content"][2]["id"], "call_1");
         assert_eq!(back["messages"][1]["content"][2]["input"]["q"], "x");
     }
@@ -1007,7 +1368,11 @@ mod tests {
             }}],
             "usage": {"prompt_tokens": 5, "completion_tokens": 2, "prompt_tokens_details": {"cached_tokens": 1}}
         });
-        let anthropic = client_anthropic_message(ProtocolType::OpenAiChat, &chat, "claude.sub2api.gpt-6-astra");
+        let anthropic = client_anthropic_message(
+            ProtocolType::OpenAiChat,
+            &chat,
+            "claude.sub2api.gpt-6-astra",
+        );
         assert_eq!(anthropic["model"], "claude.sub2api.gpt-6-astra");
         assert_eq!(anthropic["stop_reason"], "tool_use");
         assert_eq!(anthropic["content"][0]["thinking"], "hmm");
@@ -1027,7 +1392,8 @@ mod tests {
             ],
             "usage": {"input_tokens": 3, "output_tokens": 2}
         });
-        let converted = client_anthropic_message(ProtocolType::OpenAiResponses, &responses, "alias");
+        let converted =
+            client_anthropic_message(ProtocolType::OpenAiResponses, &responses, "alias");
         assert_eq!(converted["content"][0]["thinking"], "hmm");
         assert_eq!(converted["content"][2]["input"]["q"], "x");
         assert_eq!(converted["stop_reason"], "tool_use");
@@ -1047,9 +1413,15 @@ mod tests {
         assert!(sse.contains("call_1"));
         assert!(sse.contains("lookup"));
         let back = deltas_from_anthropic_sse(&sse);
-        assert!(back.iter().any(|delta| matches!(delta, Delta::Text(text) if text == "hi")));
+        assert!(back
+            .iter()
+            .any(|delta| matches!(delta, Delta::Text(text) if text == "hi")));
         assert!(back.iter().any(|delta| matches!(delta, Delta::Tool { id: Some(id), name: Some(name), .. } if id == "call_1" && name == "lookup")));
-        assert!(back.iter().any(|delta| matches!(delta, Delta::Stop(Stop::ToolUse))));
-        assert!(back.iter().any(|delta| matches!(delta, Delta::Usage(usage) if usage.output_tokens == 2)));
+        assert!(back
+            .iter()
+            .any(|delta| matches!(delta, Delta::Stop(Stop::ToolUse))));
+        assert!(back
+            .iter()
+            .any(|delta| matches!(delta, Delta::Usage(usage) if usage.output_tokens == 2)));
     }
 }

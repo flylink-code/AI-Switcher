@@ -5,14 +5,14 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::config::get_app_config_dir;
+use crate::error::{AppError, AppResult};
+use crate::file_stamp::FileStamp;
 use base64::Engine;
 use chrono::{DateTime, Utc};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use crate::config::get_app_config_dir;
-use crate::error::{AppError, AppResult};
-use crate::file_stamp::FileStamp;
 
 use super::outbound::build_blocking_client;
 
@@ -108,7 +108,10 @@ impl AccountStore {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, StoredAccounts> {
-        let mut guard = self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if self.disk.changed(&accounts_path()) {
             match load_accounts() {
                 Ok(fresh) => *guard = fresh,
@@ -130,7 +133,11 @@ impl AccountStore {
     pub fn upsert(&self, mut account: KiroAccount) -> AppResult<KiroAccountPublic> {
         normalize_account(&mut account)?;
         let mut stored = self.lock();
-        let saved_id = if let Some(index) = stored.accounts.iter().position(|item| item.id == account.id) {
+        let saved_id = if let Some(index) = stored
+            .accounts
+            .iter()
+            .position(|item| item.id == account.id)
+        {
             stored.accounts[index] = account;
             stored.accounts[index].id.clone()
         } else if let Some(index) = stored
@@ -210,7 +217,11 @@ impl AccountStore {
     }
 
     pub fn get(&self, id: &str) -> Option<KiroAccount> {
-        self.lock().accounts.iter().find(|account| account.id == id).cloned()
+        self.lock()
+            .accounts
+            .iter()
+            .find(|account| account.id == id)
+            .cloned()
     }
 
     pub fn update_tokens(
@@ -356,13 +367,47 @@ fn load_accounts() -> AppResult<StoredAccounts> {
 
 fn save_accounts(stored: &StoredAccounts) -> AppResult<()> {
     let path = accounts_path();
+    let raw = serde_json::to_string_pretty(stored)?;
+    if crate::sidecar::delegated() {
+        return crate::sidecar::commit_account_file(
+            crate::sidecar::STORE_KIRO,
+            &raw,
+            &store().disk,
+        );
+    }
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let raw = serde_json::to_string_pretty(stored)?;
     fs::write(&path, raw)?;
     store().disk.note_written(&path);
     Ok(())
+}
+
+/// Replace memory and the account file from a main-process snapshot.
+pub(crate) fn apply_committed_snapshot(
+    raw: &str,
+    base_exists: bool,
+    base_mtime_ns: &str,
+    base_len: u64,
+) -> AppResult<(String, u64)> {
+    let parsed: StoredAccounts = serde_json::from_str(raw)
+        .map_err(|error| AppError::Config(format!("Kiro 账号快照无效: {error}")))?;
+    let path = accounts_path();
+    let mut guard = store()
+        .inner
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if !crate::file_stamp::signature_matches(&path, base_exists, base_mtime_ns, base_len) {
+        return Err(AppError::Other("账号文件已被独立进程更新，请重试".into()));
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&path, raw)?;
+    store().disk.note_written(&path);
+    let observed = store().disk.observed();
+    *guard = parsed;
+    Ok((observed.mtime_ns, observed.len))
 }
 
 pub(crate) fn account_from_import(value: &serde_json::Value) -> AppResult<KiroAccount> {
@@ -385,9 +430,16 @@ pub(crate) fn account_from_import(value: &serde_json::Value) -> AppResult<KiroAc
         machine_id: string_field(value, &["machineId", "machine_id"]),
         region: {
             let region = string_field(value, &["authRegion", "region", "apiRegion"]);
-            if region.is_empty() { DEFAULT_REGION.to_string() } else { region }
+            if region.is_empty() {
+                DEFAULT_REGION.to_string()
+            } else {
+                region
+            }
         },
-        disabled: value.get("disabled").and_then(|item| item.as_bool()).unwrap_or(false),
+        disabled: value
+            .get("disabled")
+            .and_then(|item| item.as_bool())
+            .unwrap_or(false),
         disable_reason: String::new(),
         cooldown_until_ms: 0,
         quota: None,
@@ -419,7 +471,9 @@ fn normalize_account(account: &mut KiroAccount) -> AppResult<()> {
         && (account.client_id.trim().is_empty() || account.client_secret.trim().is_empty())
         && account.refresh_token.trim().is_empty()
     {
-        return Err(AppError::Config("Builder ID 凭据需要 clientId 和 clientSecret".into()));
+        return Err(AppError::Config(
+            "Builder ID 凭据需要 clientId 和 clientSecret".into(),
+        ));
     }
     if account.profile_arn.trim().is_empty() {
         account.profile_arn = default_profile_arn(account).to_string();
@@ -431,7 +485,11 @@ fn normalize_account(account: &mut KiroAccount) -> AppResult<()> {
         account.id = format!("kiro_{}", &account.machine_id[..12]);
     }
     if account.label.trim().is_empty() {
-        account.label = format!("{} {}", account.provider, &account.id[account.id.len().saturating_sub(6)..]);
+        account.label = format!(
+            "{} {}",
+            account.provider,
+            &account.id[account.id.len().saturating_sub(6)..]
+        );
     }
     if account.region.trim().is_empty() {
         account.region = DEFAULT_REGION.to_string();
@@ -491,7 +549,11 @@ fn string_field(value: &serde_json::Value, keys: &[&str]) -> String {
 }
 
 fn nonempty(value: String) -> Option<String> {
-    if value.is_empty() { None } else { Some(value) }
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
 }
 
 pub fn now_ms() -> i64 {

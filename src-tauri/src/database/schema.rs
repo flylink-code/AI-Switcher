@@ -444,7 +444,9 @@ fn migrate_v1_to_v2(conn: &Connection) -> AppResult<()> {
         |row| row.get(0),
     )?;
     if has_target == 0 {
-        conn.execute_batch("ALTER TABLE providers ADD COLUMN target_app TEXT NOT NULL DEFAULT 'claude_code';")?;
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN target_app TEXT NOT NULL DEFAULT 'claude_code';",
+        )?;
     }
     conn.execute_batch(
         "UPDATE providers SET target_app = 'claude_code' WHERE target_app IS NULL OR target_app = '';
@@ -502,7 +504,9 @@ fn migrate_v4_to_v5(conn: &Connection) -> AppResult<()> {
             |row| row.get(0),
         )?;
         if exists == 0 {
-            conn.execute_batch(&format!("ALTER TABLE proxy_request_logs ADD COLUMN {name} {definition};"))?;
+            conn.execute_batch(&format!(
+                "ALTER TABLE proxy_request_logs ADD COLUMN {name} {definition};"
+            ))?;
         }
     }
     conn.execute_batch(
@@ -608,7 +612,9 @@ fn migrate_v8_to_v9(conn: &Connection) -> AppResult<()> {
             |row| row.get(0),
         )?;
         if exists == 0 {
-            conn.execute_batch(&format!("ALTER TABLE model_pricing ADD COLUMN {name} {definition};"))?;
+            conn.execute_batch(&format!(
+                "ALTER TABLE model_pricing ADD COLUMN {name} {definition};"
+            ))?;
         }
     }
     set_user_version(conn, 9)
@@ -758,9 +764,7 @@ fn migrate_v13_to_v14(conn: &Connection) -> AppResult<()> {
         |row| row.get(0),
     )?;
     if exists == 0 {
-        conn.execute_batch(
-            "ALTER TABLE providers ADD COLUMN model_context_window INTEGER;",
-        )?;
+        conn.execute_batch("ALTER TABLE providers ADD COLUMN model_context_window INTEGER;")?;
     }
     set_user_version(conn, 14)
 }
@@ -781,9 +785,7 @@ fn migrate_v14_to_v15(conn: &Connection) -> AppResult<()> {
         |row| row.get(0),
     )?;
     if exists == 0 {
-        conn.execute_batch(
-            "ALTER TABLE providers ADD COLUMN auto_review_model_override TEXT;",
-        )?;
+        conn.execute_batch("ALTER TABLE providers ADD COLUMN auto_review_model_override TEXT;")?;
     }
     set_user_version(conn, 15)
 }
@@ -880,9 +882,7 @@ fn migrate_v18_to_v19(conn: &Connection) -> AppResult<()> {
         |row| row.get(0),
     )?;
     if exists == 0 {
-        conn.execute_batch(
-            "ALTER TABLE providers ADD COLUMN web_search_enabled INTEGER;",
-        )?;
+        conn.execute_batch("ALTER TABLE providers ADD COLUMN web_search_enabled INTEGER;")?;
     }
     set_user_version(conn, 19)
 }
@@ -1122,9 +1122,7 @@ fn migrate_v26_to_v27(conn: &Connection) -> AppResult<()> {
             |row| row.get(0),
         )?;
         if has_stream_outcome == 0 {
-            conn.execute_batch(
-                "ALTER TABLE proxy_request_logs ADD COLUMN stream_outcome TEXT;",
-            )?;
+            conn.execute_batch("ALTER TABLE proxy_request_logs ADD COLUMN stream_outcome TEXT;")?;
         }
     }
     let providers_exist: i64 = conn.query_row(
@@ -1441,7 +1439,10 @@ fn add_proxy_log_correlation_columns(conn: &Connection) -> AppResult<()> {
         return Ok(());
     }
     for (name, ddl) in [
-        ("correlation_id", "ALTER TABLE proxy_request_logs ADD COLUMN correlation_id TEXT;"),
+        (
+            "correlation_id",
+            "ALTER TABLE proxy_request_logs ADD COLUMN correlation_id TEXT;",
+        ),
         ("hop", "ALTER TABLE proxy_request_logs ADD COLUMN hop TEXT;"),
     ] {
         let has: i64 = conn.query_row(
@@ -1533,11 +1534,26 @@ fn add_proxy_log_route_columns(conn: &Connection) -> AppResult<()> {
         return Ok(());
     }
     for (name, ddl) in [
-        ("profile_id", "ALTER TABLE proxy_request_logs ADD COLUMN profile_id TEXT;"),
-        ("route_reason", "ALTER TABLE proxy_request_logs ADD COLUMN route_reason TEXT;"),
-        ("attempt_index", "ALTER TABLE proxy_request_logs ADD COLUMN attempt_index INTEGER NOT NULL DEFAULT 0;"),
-        ("requested_model", "ALTER TABLE proxy_request_logs ADD COLUMN requested_model TEXT;"),
-        ("upstream_id", "ALTER TABLE proxy_request_logs ADD COLUMN upstream_id TEXT;"),
+        (
+            "profile_id",
+            "ALTER TABLE proxy_request_logs ADD COLUMN profile_id TEXT;",
+        ),
+        (
+            "route_reason",
+            "ALTER TABLE proxy_request_logs ADD COLUMN route_reason TEXT;",
+        ),
+        (
+            "attempt_index",
+            "ALTER TABLE proxy_request_logs ADD COLUMN attempt_index INTEGER NOT NULL DEFAULT 0;",
+        ),
+        (
+            "requested_model",
+            "ALTER TABLE proxy_request_logs ADD COLUMN requested_model TEXT;",
+        ),
+        (
+            "upstream_id",
+            "ALTER TABLE proxy_request_logs ADD COLUMN upstream_id TEXT;",
+        ),
     ] {
         let has: i64 = conn.query_row(
             "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",

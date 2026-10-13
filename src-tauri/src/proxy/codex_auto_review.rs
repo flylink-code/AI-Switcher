@@ -29,7 +29,10 @@ pub fn apply_auto_review_model_override(
     body: &[u8],
     model_override: Option<&str>,
 ) -> Bytes {
-    let Some(override_model) = model_override.map(str::trim).filter(|model| !model.is_empty()) else {
+    let Some(override_model) = model_override
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    else {
         return Bytes::copy_from_slice(body);
     };
 
@@ -85,7 +88,11 @@ mod tests {
             Bytes::from_static(body)
         );
         assert_eq!(
-            apply_auto_review_model_override(&headers_with_subagent("other"), body, Some("cheap-model")),
+            apply_auto_review_model_override(
+                &headers_with_subagent("other"),
+                body,
+                Some("cheap-model")
+            ),
             Bytes::from_static(body)
         );
     }
@@ -97,8 +104,14 @@ mod tests {
             let headers = headers_with_subagent(subagent);
             let rewritten = apply_auto_review_model_override(&headers, body, Some("gpt-5.4-mini"));
             let value: serde_json::Value = serde_json::from_slice(&rewritten).unwrap();
-            assert_eq!(value.get("model").and_then(serde_json::Value::as_str), Some("gpt-5.4-mini"));
-            assert_eq!(value.get("stream").and_then(serde_json::Value::as_bool), Some(false));
+            assert_eq!(
+                value.get("model").and_then(serde_json::Value::as_str),
+                Some("gpt-5.4-mini")
+            );
+            assert_eq!(
+                value.get("stream").and_then(serde_json::Value::as_bool),
+                Some(false)
+            );
         }
     }
 

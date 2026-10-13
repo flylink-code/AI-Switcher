@@ -77,7 +77,10 @@ struct ConcurrencyGate {
 impl ConcurrencyGate {
     fn new() -> Self {
         Self {
-            state: Mutex::new(ConcurrencyState { limit: 0, active: 0 }),
+            state: Mutex::new(ConcurrencyState {
+                limit: 0,
+                active: 0,
+            }),
             changed: Notify::new(),
         }
     }
@@ -160,11 +163,23 @@ pub fn load_from_db(db: &Database) -> InboundLimitSettings {
 pub fn persist(db: &Database, settings: &InboundLimitSettings) -> AppResult<InboundLimitSettings> {
     settings.validate()?;
     db.with_conn(|conn| {
-        set_setting(conn, MAX_CONCURRENCY_SETTING, &settings.max_concurrency.to_string())?;
-        set_setting(conn, MIN_INTERVAL_SETTING, &settings.min_interval_ms.to_string())?;
+        set_setting(
+            conn,
+            MAX_CONCURRENCY_SETTING,
+            &settings.max_concurrency.to_string(),
+        )?;
+        set_setting(
+            conn,
+            MIN_INTERVAL_SETTING,
+            &settings.min_interval_ms.to_string(),
+        )?;
         set_setting(conn, RPM_SETTING, &settings.rpm.to_string())?;
         set_setting(conn, BURST_SETTING, &settings.burst.to_string())?;
-        set_setting(conn, ACQUIRE_TIMEOUT_SETTING, &settings.acquire_timeout_secs.to_string())?;
+        set_setting(
+            conn,
+            ACQUIRE_TIMEOUT_SETTING,
+            &settings.acquire_timeout_secs.to_string(),
+        )?;
         Ok(())
     })?;
     apply(settings);
@@ -210,7 +225,9 @@ pub async fn acquire() -> Result<InboundPermit, InboundLimitError> {
                 if elapsed < min {
                     return Err(InboundLimitError {
                         message: "local rate limit: min interval".into(),
-                        retry_after_secs: ((min - elapsed).as_millis() as u64).div_ceil(1000).max(1),
+                        retry_after_secs: ((min - elapsed).as_millis() as u64)
+                            .div_ceil(1000)
+                            .max(1),
                     });
                 }
             }
@@ -232,10 +249,12 @@ pub async fn acquire() -> Result<InboundPermit, InboundLimitError> {
             settings.acquire_timeout_secs.max(1),
         )
     };
-    gate.acquire(wait_interval).await.ok_or_else(|| InboundLimitError {
-        message: "local rate limit: concurrency".into(),
-        retry_after_secs: retry_after.max(1),
-    })
+    gate.acquire(wait_interval)
+        .await
+        .ok_or_else(|| InboundLimitError {
+            message: "local rate limit: concurrency".into(),
+            retry_after_secs: retry_after.max(1),
+        })
 }
 
 fn refill_locked(slot: &mut LimiterState) {
@@ -302,10 +321,15 @@ mod tests {
         gate.apply(1);
         let first = gate.acquire(Duration::ZERO).await.unwrap();
         let waiting_gate = gate.clone();
-        let waiter = tokio::spawn(async move { waiting_gate.acquire(Duration::from_secs(2)).await });
+        let waiter =
+            tokio::spawn(async move { waiting_gate.acquire(Duration::from_secs(2)).await });
         tokio::task::yield_now().await;
         gate.apply(2);
-        let second = tokio::time::timeout(Duration::from_secs(1), waiter).await.unwrap().unwrap().unwrap();
+        let second = tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         assert!(gate.acquire(Duration::ZERO).await.is_none());
         drop((first, second));
         assert_eq!(gate.state.lock().unwrap().active, 0);

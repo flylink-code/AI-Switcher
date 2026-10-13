@@ -19,13 +19,17 @@ use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 
-use super::account::{b64url, expires_after, store, KiroAccount, KiroAccountPublic, DEFAULT_REGION};
+use super::account::{
+    b64url, expires_after, store, KiroAccount, KiroAccountPublic, DEFAULT_REGION,
+};
 use super::outbound::build_async_client;
 
 const BUILDER_ID_START_URL: &str = "https://view.awsapps.com/start";
 const PORTAL_URL: &str = "https://app.kiro.dev";
 const SOCIAL_AUTH: &str = "https://prod.us-east-1.auth.desktop.kiro.dev";
-const CALLBACK_PORTS: &[u16] = &[3128, 4649, 6588, 8008, 9091, 49153, 50153, 51153, 52153, 53153];
+const CALLBACK_PORTS: &[u16] = &[
+    3128, 4649, 6588, 8008, 9091, 49153, 50153, 51153, 52153, 53153,
+];
 const SCOPES: &[&str] = &[
     "codewhisperer:completions",
     "codewhisperer:analysis",
@@ -79,7 +83,8 @@ pub async fn login_builder_id(app: &AppHandle) -> AppResult<KiroAccountPublic> {
         .unwrap_or(device.verification_uri.clone());
     let _ = app.opener().open_url(open_url, None::<&str>);
     let interval = device.interval.max(1) as u64;
-    let deadline = std::time::Instant::now() + Duration::from_secs(device.expires_in.max(30) as u64);
+    let deadline =
+        std::time::Instant::now() + Duration::from_secs(device.expires_in.max(30) as u64);
     loop {
         if std::time::Instant::now() > deadline {
             return Err(AppError::Config("Builder ID 登录超时".into()));
@@ -114,7 +119,9 @@ pub async fn login_builder_id(app: &AppHandle) -> AppResult<KiroAccountPublic> {
         if body.contains("expired_token") {
             return Err(AppError::Config("Builder ID 设备码已过期".into()));
         }
-        return Err(AppError::Other(format!("Builder ID 登录失败 HTTP {status}: {body}")));
+        return Err(AppError::Other(format!(
+            "Builder ID 登录失败 HTTP {status}: {body}"
+        )));
     }
 }
 
@@ -245,7 +252,11 @@ fn classify_callback(
             Some(code) => CallbackAction::Social {
                 code: code.to_string(),
                 redirect_uri: format!("{base}{path}?login_option={option}"),
-                provider: if option == "google" { "Google" } else { "Github" },
+                provider: if option == "google" {
+                    "Google"
+                } else {
+                    "Github"
+                },
             },
             None => CallbackAction::Fail("Kiro 没有返回授权码".into()),
         },
@@ -303,7 +314,10 @@ fn aws_authorize_url(session: &LoginSession, stage: &AwsStage) -> String {
         .append_pair("code_challenge", &challenge)
         .append_pair("code_challenge_method", "S256")
         .finish();
-    format!("https://oidc.{}.amazonaws.com/authorize?{query}", stage.region)
+    format!(
+        "https://oidc.{}.amazonaws.com/authorize?{query}",
+        stage.region
+    )
 }
 
 pub fn kiro_ide_user_agent() -> String {
@@ -363,7 +377,10 @@ async fn process_callback(
             code,
             redirect_uri,
             provider,
-        } => finish_with(session, exchange_social(session, &code, &redirect_uri, provider).await),
+        } => finish_with(
+            session,
+            exchange_social(session, &code, &redirect_uri, provider).await,
+        ),
         CallbackAction::AwsToken { code, stage } => {
             finish_with(session, exchange_aws(session, &code, &stage).await)
         }
@@ -526,16 +543,21 @@ pub async fn login_social(app: &AppHandle) -> AppResult<KiroAccountPublic> {
 /// Finishes a sign-in from a pasted browser address (the redirect to localhost could
 /// not be opened). Returns the next URL to open for the AWS leg, if any.
 pub async fn submit_login_callback(raw: &str) -> AppResult<Option<String>> {
-    let session = current_session()
-        .ok_or_else(|| AppError::Config("当前没有进行中的 Kiro 登录".into()))?;
-    let parsed = url::Url::parse(raw.trim())
-        .map_err(|_| AppError::Config("回调地址格式不正确".into()))?;
+    let session =
+        current_session().ok_or_else(|| AppError::Config("当前没有进行中的 Kiro 登录".into()))?;
+    let parsed =
+        url::Url::parse(raw.trim()).map_err(|_| AppError::Config("回调地址格式不正确".into()))?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err(AppError::Config("回调地址必须以 http:// 开头".into()));
     }
-    let host_ok = matches!(parsed.host_str(), Some("localhost" | "127.0.0.1" | "[::1]" | "::1"));
+    let host_ok = matches!(
+        parsed.host_str(),
+        Some("localhost" | "127.0.0.1" | "[::1]" | "::1")
+    );
     if !host_ok || parsed.port_or_known_default() != Some(session.port) {
-        return Err(AppError::Config("回调地址与当前登录的本机端口不匹配".into()));
+        return Err(AppError::Config(
+            "回调地址与当前登录的本机端口不匹配".into(),
+        ));
     }
     let query: HashMap<String, String> = parsed.query_pairs().into_owned().collect();
     match process_callback(&session, parsed.path(), &query).await {
@@ -543,7 +565,9 @@ pub async fn submit_login_callback(raw: &str) -> AppResult<Option<String>> {
         Reply::Redirect(next) => Ok(Some(next)),
         Reply::Failed(message) => Err(AppError::Config(message)),
         Reply::NotFound => Err(AppError::Config("回调地址路径不正确".into())),
-        Reply::Ignored => Err(AppError::Config("回调地址不属于当前登录，请重新点击登录".into())),
+        Reply::Ignored => Err(AppError::Config(
+            "回调地址不属于当前登录，请重新点击登录".into(),
+        )),
     }
 }
 
@@ -564,8 +588,9 @@ async fn handle_connection(mut stream: TcpStream, session: Arc<LoginSession>) {
         return;
     };
     let (path, query_text) = target.split_once('?').unwrap_or((target.as_str(), ""));
-    let query: HashMap<String, String> =
-        url::form_urlencoded::parse(query_text.as_bytes()).into_owned().collect();
+    let query: HashMap<String, String> = url::form_urlencoded::parse(query_text.as_bytes())
+        .into_owned()
+        .collect();
     let response = match process_callback(&session, path, &query).await {
         Reply::NotFound => http_response("404 Not Found", None, &page(false, "未找到", "")),
         Reply::Ignored => http_response(
@@ -574,7 +599,11 @@ async fn handle_connection(mut stream: TcpStream, session: Arc<LoginSession>) {
             &page(false, "此链接不属于当前登录", "请回到应用重新点击登录。"),
         ),
         Reply::Redirect(location) => http_response("302 Found", Some(&location), ""),
-        Reply::Done => http_response("200 OK", None, &page(true, "登录成功", "可以关闭这个页面。")),
+        Reply::Done => http_response(
+            "200 OK",
+            None,
+            &page(true, "登录成功", "可以关闭这个页面。"),
+        ),
         Reply::Failed(message) => {
             http_response("200 OK", None, &page(false, "登录没有完成", &message))
         }
@@ -594,7 +623,9 @@ async fn read_request_target(stream: &mut TcpStream) -> Option<String> {
             }
         }
     };
-    tokio::time::timeout(Duration::from_secs(5), read).await.ok()?;
+    tokio::time::timeout(Duration::from_secs(5), read)
+        .await
+        .ok()?;
     let text = String::from_utf8_lossy(&data);
     let mut parts = text.lines().next()?.split_whitespace();
     if parts.next()? != "GET" {
@@ -677,7 +708,9 @@ async fn send_json<T: for<'de> Deserialize<'de>>(
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
     if !status.is_success() {
-        return Err(AppError::Other(format!("Kiro 登录失败 HTTP {status}: {text}")));
+        return Err(AppError::Other(format!(
+            "Kiro 登录失败 HTTP {status}: {text}"
+        )));
     }
     Ok(serde_json::from_str(&text)?)
 }
@@ -717,7 +750,9 @@ async fn send_json_ide<T: for<'de> Deserialize<'de>>(
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
     if !status.is_success() {
-        return Err(AppError::Other(format!("Kiro 登录失败 HTTP {status}: {text}")));
+        return Err(AppError::Other(format!(
+            "Kiro 登录失败 HTTP {status}: {text}"
+        )));
     }
     Ok(serde_json::from_str(&text)?)
 }
@@ -824,7 +859,11 @@ mod tests {
     fn social_callback_keeps_login_option_in_token_redirect() {
         let action = classify(
             "/oauth/callback",
-            &[("state", STATE), ("code", "abc"), ("login_option", "github")],
+            &[
+                ("state", STATE),
+                ("code", "abc"),
+                ("login_option", "github"),
+            ],
             None,
         );
         assert_eq!(
@@ -837,12 +876,19 @@ mod tests {
         );
         let action = classify(
             "/signin/callback",
-            &[("state", STATE), ("code", "abc"), ("login_option", "google")],
+            &[
+                ("state", STATE),
+                ("code", "abc"),
+                ("login_option", "google"),
+            ],
             None,
         );
         assert!(matches!(
             action,
-            CallbackAction::Social { provider: "Google", .. }
+            CallbackAction::Social {
+                provider: "Google",
+                ..
+            }
         ));
     }
 
@@ -860,7 +906,10 @@ mod tests {
         );
         assert!(matches!(
             action,
-            CallbackAction::AwsRegister { provider: "BuilderId", .. }
+            CallbackAction::AwsRegister {
+                provider: "BuilderId",
+                ..
+            }
         ));
         let bad_region = classify(
             "/oauth/callback",
@@ -891,7 +940,11 @@ mod tests {
             }
         );
         assert_eq!(
-            classify("/oauth/callback", &[("state", "aws-st"), ("code", "xyz")], None),
+            classify(
+                "/oauth/callback",
+                &[("state", "aws-st"), ("code", "xyz")],
+                None
+            ),
             CallbackAction::Ignore
         );
     }
@@ -907,7 +960,11 @@ mod tests {
             CallbackAction::Fail(message) if message == "no"
         ));
         assert_eq!(
-            classify("/oauth/callback", &[("state", "other"), ("code", "c")], None),
+            classify(
+                "/oauth/callback",
+                &[("state", "other"), ("code", "c")],
+                None
+            ),
             CallbackAction::Ignore
         );
         assert_eq!(

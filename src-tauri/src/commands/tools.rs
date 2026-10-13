@@ -81,20 +81,15 @@ fn map_cli_install_error(detail: &str) -> String {
 
 fn parse_version(text: &str) -> Option<String> {
     text.split_whitespace().find_map(|token| {
-        let token = token.trim_matches(|c: char| {
-            !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+'
-        });
+        let token = token
+            .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+');
         // OpenCode v2 prints `opencode v2.0.26`. A single leading v is not part of the version.
         let token = token
             .strip_prefix('v')
             .or_else(|| token.strip_prefix('V'))
             .filter(|rest| rest.chars().next().is_some_and(|c| c.is_ascii_digit()))
             .unwrap_or(token);
-        (token
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_digit())
-            && token.contains('.'))
+        (token.chars().next().is_some_and(|c| c.is_ascii_digit()) && token.contains('.'))
             .then(|| token.to_string())
     })
 }
@@ -115,9 +110,25 @@ fn output_detail(output: &Output) -> String {
     let stderr = decode_output(&output.stderr).trim().to_string();
     let stdout = decode_output(&output.stdout).trim().to_string();
     if !stderr.is_empty() {
-        stderr.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+        stderr
+            .lines()
+            .rev()
+            .take(4)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n")
     } else if !stdout.is_empty() {
-        stdout.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+        stdout
+            .lines()
+            .rev()
+            .take(4)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n")
     } else {
         format!("claude --version exited with {}", output.status)
     }
@@ -203,11 +214,7 @@ fn push_env_dir(
     }
 }
 
-fn push_child_dirs(
-    paths: &mut Vec<PathBuf>,
-    seen: &mut HashSet<PathBuf>,
-    root: &Path,
-) {
+fn push_child_dirs(paths: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>, root: &Path) {
     if let Ok(entries) = std::fs::read_dir(root) {
         for entry in entries.flatten().take(100) {
             let path = entry.path();
@@ -301,7 +308,10 @@ fn executable_candidates(dir: &Path) -> Vec<PathBuf> {
 }
 
 fn infer_source(path: &Path) -> String {
-    let normalized = path.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
+    let normalized = path
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase();
     if normalized.contains("/.local/bin/claude") || normalized.contains("/.local/bin/codex") {
         "native".to_string()
     } else if normalized.contains("/pnpm/") {
@@ -361,11 +371,8 @@ fn compact_execution_path(tool_dir: &Path) -> std::ffi::OsString {
     let anchored = crate::commands::node_runtime::require_node_for_npm()
         .ok()
         .and_then(|runtime| runtime.node_path.parent().map(Path::to_path_buf));
-    std::env::join_paths(compact_execution_path_dirs(
-        tool_dir,
-        anchored.as_deref(),
-    ))
-    .unwrap_or_default()
+    std::env::join_paths(compact_execution_path_dirs(tool_dir, anchored.as_deref()))
+        .unwrap_or_default()
 }
 
 /// GUI apps on Linux/macOS often lack fnm/nvm on PATH. npm global CLIs use
@@ -426,7 +433,10 @@ fn quote_cmd_arg(value: &str) -> String {
 fn command_for_tool_at_path(path: &Path, args: &[&str]) -> Command {
     use std::os::windows::process::CommandExt;
 
-    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
     let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
     if extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat") {
         let mut command_line = format!("call {}", quote_cmd_arg(&path.to_string_lossy()));
@@ -500,7 +510,11 @@ fn probe_native_installations() -> Probe {
                 Ok(output) if output.status.success() => {
                     let stdout = decode_output(&output.stdout);
                     let stderr = decode_output(&output.stderr);
-                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    let raw = if stdout.trim().is_empty() {
+                        &stderr
+                    } else {
+                        &stdout
+                    };
                     if let Some(version) = parse_version(raw) {
                         return Probe::Found(Installation {
                             version: Some(version),
@@ -508,7 +522,8 @@ fn probe_native_installations() -> Probe {
                         });
                     }
                     if broken.is_none() {
-                        broken = Some((installation, "Claude Code returned no version".to_string()));
+                        broken =
+                            Some((installation, "Claude Code returned no version".to_string()));
                     }
                 }
                 Ok(output) if broken.is_none() => {
@@ -544,7 +559,10 @@ fn collect_child_output(mut child: Child, status: ExitStatus) -> io::Result<Outp
 }
 
 fn run_with_timeout(command: &mut Command, timeout: Duration) -> io::Result<Output> {
-    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
     let started = Instant::now();
     loop {
         if let Some(status) = child.try_wait()? {
@@ -752,7 +770,11 @@ pub(crate) fn update_available(current: &str, latest: &str) -> bool {
 
 fn find_command_near(name: &str, installation: &Installation) -> PathBuf {
     let bin = PathBuf::from(&installation.path);
-    let mut dirs = bin.parent().map(Path::to_path_buf).into_iter().collect::<Vec<_>>();
+    let mut dirs = bin
+        .parent()
+        .map(Path::to_path_buf)
+        .into_iter()
+        .collect::<Vec<_>>();
     #[cfg(windows)]
     dirs.push(PathBuf::from(r"C:\Program Files\nodejs"));
     if let Some(path) = std::env::var_os("PATH") {
@@ -822,23 +844,32 @@ fn update_command_for(installation: Option<&Installation>) -> String {
             .as_deref()
             .map(|distro| format!("wsl -d {} -- ", quoted(distro)))
             .unwrap_or_else(|| "wsl -- ".to_string());
-        return format!(
-            "{prefix}sh -lc 'claude update || npm i -g {NPM_PACKAGE}@latest'"
-        );
+        return format!("{prefix}sh -lc 'claude update || npm i -g {NPM_PACKAGE}@latest'");
     }
     match installation.source.as_str() {
         "native" => format!("{} update", quoted(&installation.path)),
         "pnpm" => format!(
             "{} add -g {NPM_PACKAGE}@latest",
-            quoted(&find_command_near("pnpm", installation).display().to_string())
+            quoted(
+                &find_command_near("pnpm", installation)
+                    .display()
+                    .to_string()
+            )
         ),
         "volta" => format!(
             "{} install {NPM_PACKAGE}@latest",
-            quoted(&find_command_near("volta", installation).display().to_string())
+            quoted(
+                &find_command_near("volta", installation)
+                    .display()
+                    .to_string()
+            )
         ),
         _ => {
             let npm = find_command_near("npm", installation);
-            format!("{} i -g {NPM_PACKAGE}@latest", quoted(&npm.display().to_string()))
+            format!(
+                "{} i -g {NPM_PACKAGE}@latest",
+                quoted(&npm.display().to_string())
+            )
         }
     }
 }
@@ -883,7 +914,10 @@ pub async fn get_claude_code_version(
 fn run_windows_command(program: &Path, args: &[&str]) -> io::Result<Output> {
     use std::os::windows::process::CommandExt;
 
-    let extension = program.extension().and_then(|value| value.to_str()).unwrap_or("");
+    let extension = program
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
     if extension.eq_ignore_ascii_case("cmd")
         || extension.eq_ignore_ascii_case("bat")
         || extension.is_empty()
@@ -1256,7 +1290,9 @@ fn run_claude_install_or_update() -> AppResult<Output> {
                         #[cfg(not(windows))]
                         let native = run_claude_native_install_unix();
                         return match native {
-                            Ok(native_output) if native_output.status.success() => Ok(native_output),
+                            Ok(native_output) if native_output.status.success() => {
+                                Ok(native_output)
+                            }
                             Ok(native_output) => Ok(output_failed(&merge_install_failures(
                                 &output_detail(&npm_output),
                                 &output_detail(&native_output),
@@ -1273,7 +1309,9 @@ fn run_claude_install_or_update() -> AppResult<Output> {
                         #[cfg(not(windows))]
                         let native = run_claude_native_install_unix();
                         return match native {
-                            Ok(native_output) if native_output.status.success() => Ok(native_output),
+                            Ok(native_output) if native_output.status.success() => {
+                                Ok(native_output)
+                            }
                             Ok(native_output) => Ok(output_failed(&merge_install_failures(
                                 &npm_error.to_string(),
                                 &output_detail(&native_output),
@@ -1437,7 +1475,11 @@ fn probe_codex_installation() -> Probe {
                 Ok(output) if output.status.success() => {
                     let stdout = decode_output(&output.stdout);
                     let stderr = decode_output(&output.stderr);
-                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    let raw = if stdout.trim().is_empty() {
+                        &stderr
+                    } else {
+                        &stdout
+                    };
                     if let Some(version) = parse_version(raw) {
                         return Probe::Found(Installation {
                             version: Some(version),
@@ -1540,9 +1582,7 @@ fn install_codex_with_npmjs_retry(node: &Path, npm: &Path) -> AppResult<Output> 
     if first.status.success() {
         return Ok(first);
     }
-    log::warn!(
-        "Codex CLI verify failed after npmmirror install; retrying via registry.npmjs.org"
-    );
+    log::warn!("Codex CLI verify failed after npmmirror install; retrying via registry.npmjs.org");
     let retry = crate::commands::node_runtime::run_anchored_npm_global_install_official(
         npm, node, &spec,
     )
@@ -1736,7 +1776,11 @@ fn probe_opencode_installation() -> Probe {
                 Ok(output) if output.status.success() => {
                     let stdout = decode_output(&output.stdout);
                     let stderr = decode_output(&output.stderr);
-                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    let raw = if stdout.trim().is_empty() {
+                        &stderr
+                    } else {
+                        &stdout
+                    };
                     if let Some(version) = parse_version(raw) {
                         return Probe::Found(Installation {
                             version: Some(version),
@@ -1744,7 +1788,8 @@ fn probe_opencode_installation() -> Probe {
                         });
                     }
                     if broken.is_none() {
-                        broken = Some((installation, "OpenCode CLI returned no version".to_string()));
+                        broken =
+                            Some((installation, "OpenCode CLI returned no version".to_string()));
                     }
                 }
                 Ok(output) if broken.is_none() => {
@@ -1803,11 +1848,14 @@ fn install_opencode_with_npmjs_retry(node: &Path, npm: &Path, package: &str) -> 
     if first.status.success() {
         return Ok(first);
     }
-    log::warn!("OpenCode CLI verify failed after npmmirror install; retrying via registry.npmjs.org");
-    let retry = crate::commands::node_runtime::run_anchored_npm_global_install_official(
-        npm, node, &spec,
-    )
-    .map_err(|error| AppError::Other(format!("无法从 npmjs.org 重试 OpenCode 安装: {error}")))?;
+    log::warn!(
+        "OpenCode CLI verify failed after npmmirror install; retrying via registry.npmjs.org"
+    );
+    let retry =
+        crate::commands::node_runtime::run_anchored_npm_global_install_official(npm, node, &spec)
+            .map_err(|error| {
+            AppError::Other(format!("无法从 npmjs.org 重试 OpenCode 安装: {error}"))
+        })?;
     Ok(ensure_npm_cli_after_install(node, npm, "opencode", retry))
 }
 
@@ -1846,7 +1894,9 @@ fn run_opencode_install_or_update() -> AppResult<Output> {
 }
 
 #[tauri::command]
-pub async fn get_opencode_cli_version(include_latest: Option<bool>) -> AppResult<OpenCodeCliVersionInfo> {
+pub async fn get_opencode_cli_version(
+    include_latest: Option<bool>,
+) -> AppResult<OpenCodeCliVersionInfo> {
     let probe_task = tokio::task::spawn_blocking(probe_opencode_installation);
     let (probe_result, v2_latest_version) = if include_latest.unwrap_or(true) {
         tokio::join!(
@@ -2121,11 +2171,13 @@ fn probe_claude_desktop_linux() -> ClaudeDesktopAppInfo {
     };
     if !can_install {
         info.error = Some(
-            "当前 Linux 未检测到 apt，Claude Desktop 官方包仅支持 Ubuntu 22.04+ / Debian 12+".into(),
+            "当前 Linux 未检测到 apt，Claude Desktop 官方包仅支持 Ubuntu 22.04+ / Debian 12+"
+                .into(),
         );
     }
 
-    if let Some(output) = run_quick_command("dpkg-query", &["-W", "-f=${Version}", "claude-desktop"])
+    if let Some(output) =
+        run_quick_command("dpkg-query", &["-W", "-f=${Version}", "claude-desktop"])
     {
         if output.status.success() {
             let version = decode_output(&output.stdout).trim().to_string();
@@ -2230,7 +2282,9 @@ fn probe_claude_desktop_app() -> ClaudeDesktopAppInfo {
     {
         if let Some(local) = std::env::var_os("LOCALAPPDATA") {
             let candidates = [
-                PathBuf::from(&local).join("AnthropicClaude").join("claude.exe"),
+                PathBuf::from(&local)
+                    .join("AnthropicClaude")
+                    .join("claude.exe"),
                 PathBuf::from(&local)
                     .join("Programs")
                     .join("Claude")
@@ -2301,9 +2355,8 @@ fn run_claude_desktop_apt_install() -> AppResult<String> {
         "ai-switcher-claude-desktop-{}.sh",
         std::process::id()
     ));
-    std::fs::write(&script_path, claude_desktop_install_script()).map_err(|error| {
-        AppError::Other(format!("无法写入安装脚本: {error}"))
-    })?;
+    std::fs::write(&script_path, claude_desktop_install_script())
+        .map_err(|error| AppError::Other(format!("无法写入安装脚本: {error}")))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -2311,9 +2364,8 @@ fn run_claude_desktop_apt_install() -> AppResult<String> {
             .map_err(|error| AppError::Other(format!("无法读取安装脚本权限: {error}")))?
             .permissions();
         permissions.set_mode(0o755);
-        std::fs::set_permissions(&script_path, permissions).map_err(|error| {
-            AppError::Other(format!("无法设置安装脚本可执行: {error}"))
-        })?;
+        std::fs::set_permissions(&script_path, permissions)
+            .map_err(|error| AppError::Other(format!("无法设置安装脚本可执行: {error}")))?;
     }
 
     let mut command = Command::new(pkexec);
@@ -2444,7 +2496,11 @@ fn probe_dsh_installation() -> Probe {
                 Ok(output) if output.status.success() => {
                     let stdout = decode_output(&output.stdout);
                     let stderr = decode_output(&output.stderr);
-                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    let raw = if stdout.trim().is_empty() {
+                        &stderr
+                    } else {
+                        &stdout
+                    };
                     if let Some(version) = parse_version(raw) {
                         return Probe::Found(Installation {
                             version: Some(version),
@@ -2452,7 +2508,10 @@ fn probe_dsh_installation() -> Probe {
                         });
                     }
                     if broken.is_none() {
-                        broken = Some((installation, "DeepSeek Harness CLI returned no version".to_string()));
+                        broken = Some((
+                            installation,
+                            "DeepSeek Harness CLI returned no version".to_string(),
+                        ));
                     }
                 }
                 Ok(output) if broken.is_none() => {
@@ -2541,8 +2600,11 @@ pub async fn get_dsh_cli_version(include_latest: Option<bool>) -> AppResult<DshC
     } else {
         (probe_task.await, None)
     };
-    let probe = probe_result
-        .map_err(|error| AppError::Other(format!("DeepSeek Harness CLI version probe failed: {error}")))?;
+    let probe = probe_result.map_err(|error| {
+        AppError::Other(format!(
+            "DeepSeek Harness CLI version probe failed: {error}"
+        ))
+    })?;
 
     let (installation, error, installed_but_broken) = match &probe {
         Probe::Found(installation) => (Some(installation), None, false),
@@ -2608,7 +2670,9 @@ fn start_dsh_web_sync() -> AppResult<()> {
     let installation = match probe_dsh_installation() {
         Probe::Found(installation) => installation,
         Probe::Broken(_, error) => {
-            return Err(AppError::Config(format!("DeepSeek Harness CLI 无法运行: {error}")))
+            return Err(AppError::Config(format!(
+                "DeepSeek Harness CLI 无法运行: {error}"
+            )))
         }
         Probe::NotFound(error) => return Err(AppError::Config(error)),
     };
@@ -2619,17 +2683,23 @@ fn start_dsh_web_sync() -> AppResult<()> {
     {
         use std::os::windows::process::CommandExt;
 
-        let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
-        let mut command = if extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat") {
-            let mut cmd = Command::new("cmd");
-            cmd.args(["/D", "/S", "/C"])
-                .raw_arg(format!("call {} web", quote_cmd_arg(&path.to_string_lossy())));
-            cmd
-        } else {
-            let mut cmd = Command::new(&path);
-            cmd.arg("web");
-            cmd
-        };
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        let mut command =
+            if extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat") {
+                let mut cmd = Command::new("cmd");
+                cmd.args(["/D", "/S", "/C"]).raw_arg(format!(
+                    "call {} web",
+                    quote_cmd_arg(&path.to_string_lossy())
+                ));
+                cmd
+            } else {
+                let mut cmd = Command::new(&path);
+                cmd.arg("web");
+                cmd
+            };
         command
             .env("PATH", compact_execution_path(tool_dir))
             .stdin(Stdio::null())
@@ -2637,7 +2707,9 @@ fn start_dsh_web_sync() -> AppResult<()> {
             .stderr(Stdio::null())
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
-            .map_err(|error| AppError::Config(format!("启动 DeepSeek Harness Web UI 失败: {error}")))?;
+            .map_err(|error| {
+                AppError::Config(format!("启动 DeepSeek Harness Web UI 失败: {error}"))
+            })?;
     }
     #[cfg(not(windows))]
     {
@@ -2648,7 +2720,9 @@ fn start_dsh_web_sync() -> AppResult<()> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|error| AppError::Config(format!("启动 DeepSeek Harness Web UI 失败: {error}")))?;
+            .map_err(|error| {
+                AppError::Config(format!("启动 DeepSeek Harness Web UI 失败: {error}"))
+            })?;
     }
     Ok(())
 }
@@ -2657,10 +2731,15 @@ fn start_dsh_web_sync() -> AppResult<()> {
 pub async fn start_dsh_web() -> AppResult<String> {
     tokio::task::spawn_blocking(start_dsh_web_sync)
         .await
-        .map_err(|error| AppError::Other(format!("DeepSeek Harness 启动任务异常结束: {error}")))??;
+        .map_err(|error| {
+            AppError::Other(format!("DeepSeek Harness 启动任务异常结束: {error}"))
+        })??;
 
     for _ in 0..40 {
-        if tokio::net::TcpStream::connect("127.0.0.1:3080").await.is_ok() {
+        if tokio::net::TcpStream::connect("127.0.0.1:3080")
+            .await
+            .is_ok()
+        {
             return Ok("http://127.0.0.1:3080".to_string());
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
@@ -2676,7 +2755,10 @@ mod tests {
 
     #[test]
     fn parses_common_claude_version_outputs() {
-        assert_eq!(parse_version("2.1.146 (Claude Code)"), Some("2.1.146".into()));
+        assert_eq!(
+            parse_version("2.1.146 (Claude Code)"),
+            Some("2.1.146".into())
+        );
         assert_eq!(parse_version("claude 1.0.20"), Some("1.0.20".into()));
         assert_eq!(parse_version("opencode v2.0.26"), Some("2.0.26".into()));
         assert_eq!(parse_version("no version"), None);
@@ -2719,7 +2801,10 @@ mod tests {
             parse_apt_policy_field(text, "Candidate"),
             Some("1.32885.2".into())
         );
-        assert_eq!(parse_apt_policy_field("Installed: (none)", "Installed"), None);
+        assert_eq!(
+            parse_apt_policy_field("Installed: (none)", "Installed"),
+            None
+        );
     }
 
     #[test]
@@ -2777,7 +2862,10 @@ mod tests {
         });
         let info = claude_code_version_from_probes(native, Some(wsl), None);
         assert!(!info.installed);
-        assert_eq!(info.environment, if cfg!(windows) { "windows" } else { "native" });
+        assert_eq!(
+            info.environment,
+            if cfg!(windows) { "windows" } else { "native" }
+        );
         assert_eq!(info.wsl_distro.as_deref(), Some("Ubuntu-24.04"));
         assert!(info.executable_path.is_none());
         assert!(!info.update_command.contains("wsl"));
@@ -2817,10 +2905,7 @@ mod tests {
 
     #[test]
     fn opencode_install_command_targets_v2_package() {
-        assert_eq!(
-            opencode_install_command(),
-            "npm i -g @opencode/cli@latest"
-        );
+        assert_eq!(opencode_install_command(), "npm i -g @opencode/cli@latest");
         assert_eq!(OPENCODE_V1_NPM_PACKAGE, "opencode-ai");
         assert_eq!(OPENCODE_V2_NPM_PACKAGE, "@opencode/cli");
     }
@@ -2833,7 +2918,9 @@ mod tests {
         let npm_bin = dirs::data_dir()
             .map(|dir| dir.join("npm").join("codex"))
             .filter(|path| path.is_file());
-        if npm_cmd.is_none() && npm_bin.is_none() && resolve_command_via_login_shell("codex").is_none()
+        if npm_cmd.is_none()
+            && npm_bin.is_none()
+            && resolve_command_via_login_shell("codex").is_none()
         {
             return;
         }
@@ -2862,7 +2949,10 @@ mod tests {
     #[test]
     fn quotes_cmd_args_with_spaces() {
         assert_eq!(quote_cmd_arg("plain"), "plain");
-        assert_eq!(quote_cmd_arg(r"C:\Program Files\codex.cmd"), r#""C:\Program Files\codex.cmd""#);
+        assert_eq!(
+            quote_cmd_arg(r"C:\Program Files\codex.cmd"),
+            r#""C:\Program Files\codex.cmd""#
+        );
     }
 
     #[test]
@@ -2882,7 +2972,8 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn windows_probe_path_puts_anchored_node_before_program_files() {
-        let anchored = Path::new(r"C:\Users\me\AppData\Roaming\fnm\node-versions\v22.14.0\installation");
+        let anchored =
+            Path::new(r"C:\Users\me\AppData\Roaming\fnm\node-versions\v22.14.0\installation");
         let dirs = compact_execution_path_dirs(
             Path::new(r"C:\Users\me\AppData\Roaming\npm"),
             Some(anchored),

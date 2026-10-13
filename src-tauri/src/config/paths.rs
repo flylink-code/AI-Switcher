@@ -7,8 +7,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
 use crate::error::AppResult;
+use serde::{Deserialize, Serialize};
 
 /// Application data folder name under the home directory.
 pub const APP_DIR_NAME: &str = ".claude-switcher";
@@ -38,8 +38,7 @@ pub struct DataRootConfig {
 
 /// True when `AISW_TEST_HOME` / test port env vars may rewrite profile paths.
 pub fn test_isolation_enabled() -> bool {
-    cfg!(test)
-        || std::env::var_os(ALLOW_TEST_HOME_ENV).is_some_and(|value| value == "1")
+    cfg!(test) || std::env::var_os(ALLOW_TEST_HOME_ENV).is_some_and(|value| value == "1")
 }
 
 fn test_home_override_allowed() -> bool {
@@ -143,8 +142,17 @@ pub fn enter_isolated_home(home: &Path) -> IsolatedHomeGuard {
     let _ = fs::create_dir_all(home);
     let extra = [
         ("CODEX_HOME", home.join(".codex")),
-        ("OPENCODE_CONFIG", home.join(".config").join("opencode").join("opencode.json")),
-        ("OPENCODE_DB", home.join(".local").join("share").join("opencode").join("opencode.db")),
+        (
+            "OPENCODE_CONFIG",
+            home.join(".config").join("opencode").join("opencode.json"),
+        ),
+        (
+            "OPENCODE_DB",
+            home.join(".local")
+                .join("share")
+                .join("opencode")
+                .join("opencode.db"),
+        ),
         ("DSH_HOME", home.join(".dsh")),
         ("PI_CODING_AGENT_DIR", home.join(".pi").join("agent")),
         ("XDG_DATA_HOME", home.join(".local").join("share")),
@@ -424,8 +432,7 @@ fn opencode_file_has_user_providers(path: &Path) -> bool {
         return false;
     };
     providers.iter().any(|(provider_id, entry)| {
-        !is_managed_opencode_provider_id(provider_id)
-            && opencode_provider_entry_has_base_url(entry)
+        !is_managed_opencode_provider_id(provider_id) && opencode_provider_entry_has_base_url(entry)
     })
 }
 
@@ -504,11 +511,11 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let home = get_home_dir();
         assert_eq!(get_legacy_app_config_dir(), home.join(APP_DIR_NAME));
+        assert_eq!(get_app_db_path(), home.join(APP_DIR_NAME).join(APP_DB_NAME));
         assert_eq!(
-            get_app_db_path(),
-            home.join(APP_DIR_NAME).join(APP_DB_NAME)
+            get_claude_settings_path(),
+            home.join(".claude").join("settings.json")
         );
-        assert_eq!(get_claude_settings_path(), home.join(".claude").join("settings.json"));
     }
 
     #[test]
@@ -544,7 +551,10 @@ mod tests {
         with_isolated_home(home.path(), || {
             write_data_root_config(outside.path()).unwrap();
             assert!(configured_data_root().is_none());
-            assert_eq!(get_app_db_path(), home.path().join(APP_DIR_NAME).join(APP_DB_NAME));
+            assert_eq!(
+                get_app_db_path(),
+                home.path().join(APP_DIR_NAME).join(APP_DB_NAME)
+            );
         });
     }
 

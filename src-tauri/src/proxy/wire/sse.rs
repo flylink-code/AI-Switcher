@@ -22,7 +22,11 @@ pub enum Delta {
 
 pub fn deltas_from_chat_event(event: &Value) -> Vec<Delta> {
     let mut deltas = Vec::new();
-    if let Some(choice) = event.get("choices").and_then(Value::as_array).and_then(|items| items.first()) {
+    if let Some(choice) = event
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+    {
         let delta = choice.get("delta").unwrap_or(&Value::Null);
         if let Some(text) = delta
             .get("reasoning_content")
@@ -32,16 +36,31 @@ pub fn deltas_from_chat_event(event: &Value) -> Vec<Delta> {
         {
             deltas.push(Delta::Thinking(text.to_string()));
         }
-        if let Some(text) = delta.get("content").and_then(Value::as_str).filter(|text| !text.is_empty()) {
+        if let Some(text) = delta
+            .get("content")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+        {
             deltas.push(Delta::Text(text.to_string()));
         }
-        for call in delta.get("tool_calls").and_then(Value::as_array).into_iter().flatten() {
+        for call in delta
+            .get("tool_calls")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
             let function = call.get("function");
             deltas.push(Delta::Tool {
                 index: call.get("index").and_then(Value::as_u64).unwrap_or(0) as usize,
                 id: call.get("id").and_then(Value::as_str).map(str::to_string),
-                name: function.and_then(|item| item.get("name")).and_then(Value::as_str).map(str::to_string),
-                arguments: function.and_then(|item| item.get("arguments")).and_then(Value::as_str).map(str::to_string),
+                name: function
+                    .and_then(|item| item.get("name"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                arguments: function
+                    .and_then(|item| item.get("arguments"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
             });
         }
         if let Some(finish) = choice.get("finish_reason").and_then(Value::as_str) {
@@ -69,19 +88,23 @@ pub fn anthropic_sse_from_deltas(deltas: &[Delta], model: &str) -> String {
     let mut tool_indexes: Vec<(usize, usize)> = Vec::new();
     let mut open = Vec::new();
 
-    push(&mut output, "message_start", json!({
-        "type": "message_start",
-        "message": {
-            "id": "msg_proxy",
-            "type": "message",
-            "role": "assistant",
-            "content": [],
-            "model": model,
-            "stop_reason": Value::Null,
-            "stop_sequence": Value::Null,
-            "usage": {"input_tokens": 0, "output_tokens": 0}
-        }
-    }));
+    push(
+        &mut output,
+        "message_start",
+        json!({
+            "type": "message_start",
+            "message": {
+                "id": "msg_proxy",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": model,
+                "stop_reason": Value::Null,
+                "stop_sequence": Value::Null,
+                "usage": {"input_tokens": 0, "output_tokens": 0}
+            }
+        }),
+    );
 
     for delta in deltas {
         match delta {
@@ -90,63 +113,94 @@ pub fn anthropic_sse_from_deltas(deltas: &[Delta], model: &str) -> String {
                     let index = next_index;
                     next_index += 1;
                     open.push(index);
-                    push(&mut output, "content_block_start", json!({
-                        "type": "content_block_start",
-                        "index": index,
-                        "content_block": {"type": "thinking", "thinking": ""}
-                    }));
+                    push(
+                        &mut output,
+                        "content_block_start",
+                        json!({
+                            "type": "content_block_start",
+                            "index": index,
+                            "content_block": {"type": "thinking", "thinking": ""}
+                        }),
+                    );
                     index
                 });
-                push(&mut output, "content_block_delta", json!({
-                    "type": "content_block_delta",
-                    "index": *index,
-                    "delta": {"type": "thinking_delta", "thinking": text}
-                }));
+                push(
+                    &mut output,
+                    "content_block_delta",
+                    json!({
+                        "type": "content_block_delta",
+                        "index": *index,
+                        "delta": {"type": "thinking_delta", "thinking": text}
+                    }),
+                );
             }
             Delta::Text(text) => {
                 let index = text_index.get_or_insert_with(|| {
                     let index = next_index;
                     next_index += 1;
                     open.push(index);
-                    push(&mut output, "content_block_start", json!({
-                        "type": "content_block_start",
-                        "index": index,
-                        "content_block": {"type": "text", "text": ""}
-                    }));
+                    push(
+                        &mut output,
+                        "content_block_start",
+                        json!({
+                            "type": "content_block_start",
+                            "index": index,
+                            "content_block": {"type": "text", "text": ""}
+                        }),
+                    );
                     index
                 });
-                push(&mut output, "content_block_delta", json!({
-                    "type": "content_block_delta",
-                    "index": *index,
-                    "delta": {"type": "text_delta", "text": text}
-                }));
+                push(
+                    &mut output,
+                    "content_block_delta",
+                    json!({
+                        "type": "content_block_delta",
+                        "index": *index,
+                        "delta": {"type": "text_delta", "text": text}
+                    }),
+                );
             }
-            Delta::Tool { index, id, name, arguments } => {
-                let block = if let Some((_, block)) = tool_indexes.iter().find(|(upstream, _)| upstream == index) {
+            Delta::Tool {
+                index,
+                id,
+                name,
+                arguments,
+            } => {
+                let block = if let Some((_, block)) =
+                    tool_indexes.iter().find(|(upstream, _)| upstream == index)
+                {
                     *block
                 } else {
                     let block = next_index;
                     next_index += 1;
                     tool_indexes.push((*index, block));
                     open.push(block);
-                    push(&mut output, "content_block_start", json!({
-                        "type": "content_block_start",
-                        "index": block,
-                        "content_block": {
-                            "type": "tool_use",
-                            "id": id.clone().unwrap_or_else(|| "tool_call".into()),
-                            "name": name.clone().unwrap_or_else(|| "tool".into()),
-                            "input": {}
-                        }
-                    }));
+                    push(
+                        &mut output,
+                        "content_block_start",
+                        json!({
+                            "type": "content_block_start",
+                            "index": block,
+                            "content_block": {
+                                "type": "tool_use",
+                                "id": id.clone().unwrap_or_else(|| "tool_call".into()),
+                                "name": name.clone().unwrap_or_else(|| "tool".into()),
+                                "input": {}
+                            }
+                        }),
+                    );
                     block
                 };
                 if let Some(arguments) = arguments.clone().filter(|text| !text.is_empty()) {
-                    push(&mut output, "content_block_delta", json!({
-                        "type": "content_block_delta",
-                        "index": block,
-                        "delta": {"type": "input_json_delta", "partial_json": arguments}
-                    }));
+                    push(
+                        &mut output,
+                        "content_block_delta",
+                        json!({
+                            "type": "content_block_delta",
+                            "index": block,
+                            "delta": {"type": "input_json_delta", "partial_json": arguments}
+                        }),
+                    );
                 }
             }
             Delta::Stop(reason) => stop = reason.clone(),
@@ -158,20 +212,28 @@ pub fn anthropic_sse_from_deltas(deltas: &[Delta], model: &str) -> String {
     }
 
     for index in open {
-        push(&mut output, "content_block_stop", json!({"type": "content_block_stop", "index": index}));
+        push(
+            &mut output,
+            "content_block_stop",
+            json!({"type": "content_block_stop", "index": index}),
+        );
     }
-    push(&mut output, "message_delta", json!({
-        "type": "message_delta",
-        "delta": {
-            "stop_reason": match stop {
-                Stop::ToolUse => "tool_use",
-                Stop::MaxTokens => "max_tokens",
-                Stop::EndTurn => "end_turn",
+    push(
+        &mut output,
+        "message_delta",
+        json!({
+            "type": "message_delta",
+            "delta": {
+                "stop_reason": match stop {
+                    Stop::ToolUse => "tool_use",
+                    Stop::MaxTokens => "max_tokens",
+                    Stop::EndTurn => "end_turn",
+                },
+                "stop_sequence": Value::Null
             },
-            "stop_sequence": Value::Null
-        },
-        "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens}
-    }));
+            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens}
+        }),
+    );
     push(&mut output, "message_stop", json!({"type": "message_stop"}));
     output
 }
@@ -190,7 +252,10 @@ pub fn deltas_from_anthropic_sse(sse: &str) -> Vec<Delta> {
         let Ok(value) = serde_json::from_str::<Value>(data) else {
             continue;
         };
-        let kind = value.get("type").and_then(Value::as_str).unwrap_or(current_event.as_str());
+        let kind = value
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or(current_event.as_str());
         match kind {
             "content_block_start" => {
                 let block = value.get("content_block").unwrap_or(&Value::Null);
@@ -198,7 +263,10 @@ pub fn deltas_from_anthropic_sse(sse: &str) -> Vec<Delta> {
                     deltas.push(Delta::Tool {
                         index: value.get("index").and_then(Value::as_u64).unwrap_or(0) as usize,
                         id: block.get("id").and_then(Value::as_str).map(str::to_string),
-                        name: block.get("name").and_then(Value::as_str).map(str::to_string),
+                        name: block
+                            .get("name")
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
                         arguments: None,
                     });
                 }
@@ -220,7 +288,10 @@ pub fn deltas_from_anthropic_sse(sse: &str) -> Vec<Delta> {
                         index: value.get("index").and_then(Value::as_u64).unwrap_or(0) as usize,
                         id: None,
                         name: None,
-                        arguments: delta.get("partial_json").and_then(Value::as_str).map(str::to_string),
+                        arguments: delta
+                            .get("partial_json")
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
                     }),
                     _ => {}
                 }
@@ -235,9 +306,18 @@ pub fn deltas_from_anthropic_sse(sse: &str) -> Vec<Delta> {
                 }
                 if value.get("usage").is_some() {
                     deltas.push(Delta::Usage(Usage {
-                        input_tokens: value.pointer("/usage/input_tokens").and_then(Value::as_i64).unwrap_or(0),
-                        output_tokens: value.pointer("/usage/output_tokens").and_then(Value::as_i64).unwrap_or(0),
-                        cache_read_input_tokens: value.pointer("/usage/cache_read_input_tokens").and_then(Value::as_i64).unwrap_or(0),
+                        input_tokens: value
+                            .pointer("/usage/input_tokens")
+                            .and_then(Value::as_i64)
+                            .unwrap_or(0),
+                        output_tokens: value
+                            .pointer("/usage/output_tokens")
+                            .and_then(Value::as_i64)
+                            .unwrap_or(0),
+                        cache_read_input_tokens: value
+                            .pointer("/usage/cache_read_input_tokens")
+                            .and_then(Value::as_i64)
+                            .unwrap_or(0),
                     }));
                 }
             }

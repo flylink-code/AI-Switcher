@@ -463,8 +463,7 @@ impl Drop for PermitInner {
 
         let conc_ok =
             state.policy.max_concurrency == 0 || state.active < state.policy.max_concurrency;
-        let rpm_ok =
-            state.has_rpm_capacity();
+        let rpm_ok = state.has_rpm_capacity();
         if conc_ok && rpm_ok {
             if let Some(head) = state.waiters.front() {
                 head.notify.notify_one();
@@ -516,15 +515,13 @@ impl UpstreamLimiter {
     pub fn apply(&self, upstream_id: &str, policy: impl Into<UpstreamLimitPolicy>) {
         let policy = policy.into();
         let now = self.inner.clock.now();
-        let state_arc = {
-            let mut states = self.inner.states.lock().unwrap();
-            Arc::clone(states.entry(upstream_id.to_string()).or_insert_with(|| {
-                Arc::new(Mutex::new(UpstreamState::new(
-                    policy.clone(),
-                    now,
-                )))
-            }))
-        };
+        let state_arc =
+            {
+                let mut states = self.inner.states.lock().unwrap();
+                Arc::clone(states.entry(upstream_id.to_string()).or_insert_with(|| {
+                    Arc::new(Mutex::new(UpstreamState::new(policy.clone(), now)))
+                }))
+            };
 
         let mut state = state_arc.lock().unwrap();
         state.policy = policy;
@@ -580,9 +577,7 @@ impl UpstreamLimiter {
             state.last_activity = now;
 
             if state.removed {
-                return Err(LimitError::Validation(format!(
-                    "上游已移除: {upstream_id}"
-                )));
+                return Err(LimitError::Validation(format!("上游已移除: {upstream_id}")));
             }
 
             state.prune_rpm(now);
@@ -590,8 +585,7 @@ impl UpstreamLimiter {
             let queue_empty = state.waiters.is_empty();
             let conc_ok =
                 state.policy.max_concurrency == 0 || state.active < state.policy.max_concurrency;
-            let rpm_ok =
-                state.has_rpm_capacity();
+            let rpm_ok = state.has_rpm_capacity();
 
             if queue_empty && conc_ok && rpm_ok {
                 state.active += 1;
@@ -678,9 +672,7 @@ impl UpstreamLimiter {
 
                     if state.removed {
                         state.waiters.retain(|w| w.id != waiter_id);
-                        return Err(LimitError::Validation(format!(
-                            "上游已移除: {upstream_id}"
-                        )));
+                        return Err(LimitError::Validation(format!("上游已移除: {upstream_id}")));
                     }
 
                     let is_head = state.waiters.front().map(|w| w.id) == Some(waiter_id);
@@ -692,7 +684,7 @@ impl UpstreamLimiter {
                         if conc_ok && rpm_ok {
                             state.waiters.pop_front();
                             state.active += 1;
-                state.reserved_rpm += 1;
+                            state.reserved_rpm += 1;
 
                             // If capacity still remains, wake next waiter in line.
                             let next_conc_ok = state.policy.max_concurrency == 0
@@ -779,10 +771,7 @@ impl UpstreamLimiter {
                     state.retry_after(clock.now())
                 };
                 Err(LimitError::queue_timeout(
-                    format!(
-                        "上游 {upstream_id} 排队等待超时 ({}ms)",
-                        queue_timeout_ms
-                    ),
+                    format!("上游 {upstream_id} 排队等待超时 ({}ms)", queue_timeout_ms),
                     retry_after,
                 ))
             }
@@ -838,11 +827,14 @@ impl UpstreamLimiter {
         let mut states = self.inner.states.lock().unwrap();
         let state_arc = states.entry(upstream_id.to_string()).or_insert_with(|| {
             Arc::new(Mutex::new(UpstreamState::new(
-                UpstreamLimitPolicy::default(), self.inner.clock.now(),
+                UpstreamLimitPolicy::default(),
+                self.inner.clock.now(),
             )))
         });
         let mut state = state_arc.lock().unwrap();
-        if state.removed { return false; }
+        if state.removed {
+            return false;
+        }
         state.removed = true;
         for waiter in state.waiters.drain(..) {
             waiter.notify.notify_one();
@@ -912,10 +904,7 @@ pub fn upstream_id_from_key(key: &str) -> Option<&str> {
 }
 
 /// Load an upstream's policy from the `settings` table, if present.
-pub fn load_policy(
-    conn: &Connection,
-    upstream_id: &str,
-) -> AppResult<Option<UpstreamLimitPolicy>> {
+pub fn load_policy(conn: &Connection, upstream_id: &str) -> AppResult<Option<UpstreamLimitPolicy>> {
     let key = upstream_policy_key(upstream_id);
     let raw = get_setting(conn, &key)?;
     match raw {
@@ -1221,9 +1210,7 @@ mod tests {
 
         let lim = limiter.clone();
         let up = upstream.to_string();
-        let h1 = tokio::spawn(async move {
-            lim.acquire(&up).await
-        });
+        let h1 = tokio::spawn(async move { lim.acquire(&up).await });
         tokio::time::sleep(Duration::from_millis(30)).await;
 
         let snap = limiter.snapshot(upstream).unwrap();
@@ -1261,9 +1248,7 @@ mod tests {
         for _ in 0..15 {
             let lim = limiter.clone();
             let up = upstream.to_string();
-            handles.push(tokio::spawn(async move {
-                lim.acquire(&up).await
-            }));
+            handles.push(tokio::spawn(async move { lim.acquire(&up).await }));
         }
 
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -1343,9 +1328,7 @@ mod tests {
 
         let lim = limiter.clone();
         let up = upstream.to_string();
-        let handle = tokio::spawn(async move {
-            lim.acquire(&up).await
-        });
+        let handle = tokio::spawn(async move { lim.acquire(&up).await });
 
         tokio::time::sleep(Duration::from_millis(30)).await;
         let snap1 = limiter.snapshot(upstream).unwrap();
@@ -1451,11 +1434,14 @@ mod tests {
     async fn reservation_blocks_parallel_admission_but_only_commit_consumes_rpm() {
         let limiter = Limiter::new();
         let upstream = "rpm_reservation";
-        limiter.apply(upstream, UpstreamLimitPolicy {
-            rpm: 1,
-            queue_capacity: 0,
-            ..Default::default()
-        });
+        limiter.apply(
+            upstream,
+            UpstreamLimitPolicy {
+                rpm: 1,
+                queue_capacity: 0,
+                ..Default::default()
+            },
+        );
         let first = limiter.acquire(upstream).await.unwrap();
         assert_eq!(limiter.snapshot(upstream).unwrap().current_rpm, 0);
         assert!(limiter.acquire(upstream).await.is_err());
@@ -1472,18 +1458,28 @@ mod tests {
     #[tokio::test]
     async fn releasing_uncommitted_reservation_wakes_fifo_waiter() {
         let limiter = Limiter::new();
-        limiter.apply("reserved_queue", UpstreamLimitPolicy {
-            rpm: 1,
-            queue_timeout_ms: 1000,
-            ..Default::default()
-        });
+        limiter.apply(
+            "reserved_queue",
+            UpstreamLimitPolicy {
+                rpm: 1,
+                queue_timeout_ms: 1000,
+                ..Default::default()
+            },
+        );
         let first = limiter.acquire("reserved_queue").await.unwrap();
         let waiting = limiter.acquire("reserved_queue");
         tokio::pin!(waiting);
-        assert!(tokio::time::timeout(Duration::from_millis(10), &mut waiting).await.is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), &mut waiting)
+                .await
+                .is_err()
+        );
         assert_eq!(limiter.snapshot("reserved_queue").unwrap().queue_len, 1);
         drop(first);
-        let mut next = tokio::time::timeout(Duration::from_millis(100), waiting).await.unwrap().unwrap();
+        let mut next = tokio::time::timeout(Duration::from_millis(100), waiting)
+            .await
+            .unwrap()
+            .unwrap();
         next.commit_outbound();
         assert_eq!(limiter.snapshot("reserved_queue").unwrap().current_rpm, 1);
     }
@@ -1508,9 +1504,7 @@ mod tests {
 
         let lim = limiter.clone();
         let up = upstream.to_string();
-        let handle = tokio::spawn(async move {
-            lim.acquire(&up).await.unwrap()
-        });
+        let handle = tokio::spawn(async move { lim.acquire(&up).await.unwrap() });
 
         tokio::time::sleep(Duration::from_millis(30)).await;
         let snap1 = limiter.snapshot(upstream).unwrap();
@@ -1770,7 +1764,11 @@ mod tests {
         let conn = setup_test_db();
         let limiter = Limiter::new();
         let permit = limiter.acquire("up_test_1").await.unwrap();
-        let policy = UpstreamLimitPolicy { max_concurrency: 1, queue_capacity: 0, ..Default::default() };
+        let policy = UpstreamLimitPolicy {
+            max_concurrency: 1,
+            queue_capacity: 0,
+            ..Default::default()
+        };
         persist_policy(&conn, "up_test_1", &policy).unwrap();
         load_into_limiter(&conn, &limiter).unwrap();
         assert_eq!(limiter.snapshot("up_test_1").unwrap().active, 1);
@@ -1786,7 +1784,10 @@ mod tests {
     async fn removing_unused_upstream_rejects_stale_dispatch() {
         let limiter = Limiter::new();
         assert!(limiter.remove("deleted"));
-        assert!(matches!(limiter.acquire("deleted").await, Err(LimitError::Validation(_))));
+        assert!(matches!(
+            limiter.acquire("deleted").await,
+            Err(LimitError::Validation(_))
+        ));
     }
 
     #[test]

@@ -15,11 +15,11 @@ use rust_xlsxwriter::Workbook;
 use crate::database::dao::proxy_logs::{
     delete_model_pricing as delete_pricing, get_usage_by_model_for_target,
     get_usage_by_provider_model_for_target, get_usage_summary_for_target,
-    get_usage_trend_for_target, list_model_pricing as list_pricing,
-    list_proxy_request_logs, save_model_pricing as save_pricing, CurrencyAmount, ModelPricing,
-    PaginatedProxyLogs, ProxyLogFilters, TrendGranularity, UsageBreakdown, UsageProviderModelGroup,
-    UsageSummary, UsageTrendPoint, LogMaintenancePreview, LogMaintenanceResult,
+    get_usage_trend_for_target, list_model_pricing as list_pricing, list_proxy_request_logs,
     maintain_proxy_logs as maintain_logs, preview_proxy_log_maintenance as preview_logs,
+    save_model_pricing as save_pricing, CurrencyAmount, LogMaintenancePreview,
+    LogMaintenanceResult, ModelPricing, PaginatedProxyLogs, ProxyLogFilters, TrendGranularity,
+    UsageBreakdown, UsageProviderModelGroup, UsageSummary, UsageTrendPoint,
 };
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
@@ -136,9 +136,15 @@ pub struct PricingImportPreview {
 }
 
 const PRICING_COLUMNS: [&str; 9] = [
-    "model", "provider", "inputPricePerMillion", "cacheReadPricePerMillion",
-    "cacheWritePricePerMillion", "outputPricePerMillion", "batchInputPricePerMillion",
-    "batchOutputPricePerMillion", "currency",
+    "model",
+    "provider",
+    "inputPricePerMillion",
+    "cacheReadPricePerMillion",
+    "cacheWritePricePerMillion",
+    "outputPricePerMillion",
+    "batchInputPricePerMillion",
+    "batchOutputPricePerMillion",
+    "currency",
 ];
 
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
@@ -155,7 +161,11 @@ pub struct LogMaintenancePolicy {
 
 impl Default for LogMaintenancePolicy {
     fn default() -> Self {
-        Self { retention_days: 90, max_rows: 100_000, auto_maintain: false }
+        Self {
+            retention_days: 90,
+            max_rows: 100_000,
+            auto_maintain: false,
+        }
     }
 }
 
@@ -548,7 +558,11 @@ struct LocalCodexAggregation {
 }
 
 #[derive(Default, Clone, Copy)]
-struct TokenTotals { input: i64, cached: i64, output: i64 }
+struct TokenTotals {
+    input: i64,
+    cached: i64,
+    output: i64,
+}
 
 fn collect_codex_local_usage_from_root(root: &Path, since: i64) -> LocalCodexAggregation {
     collect_codex_local_usage_from_roots(&[root.to_path_buf()], since)
@@ -854,14 +868,16 @@ fn fold_provider_breakdowns(
     }
     let mut grouped: HashMap<String, Acc> = HashMap::new();
     for group in groups {
-        let acc = grouped.entry(group.provider.clone()).or_insert_with(|| Acc {
-            request_count: 0,
-            input_tokens: 0,
-            cache_read_input_tokens: 0,
-            cache_creation_input_tokens: 0,
-            output_tokens: 0,
-            costs: Vec::new(),
-        });
+        let acc = grouped
+            .entry(group.provider.clone())
+            .or_insert_with(|| Acc {
+                request_count: 0,
+                input_tokens: 0,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+                output_tokens: 0,
+                costs: Vec::new(),
+            });
         acc.request_count += group.request_count;
         acc.input_tokens += group.input_tokens;
         acc.cache_read_input_tokens += group.cache_read_input_tokens;
@@ -1008,37 +1024,73 @@ pub fn list_model_pricing(state: tauri::State<'_, AppState>) -> AppResult<Vec<Mo
 }
 
 #[tauri::command]
-pub fn save_model_pricing(input: ModelPricingInput, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub fn save_model_pricing(
+    input: ModelPricingInput,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
     let pricing = normalize_pricing_input(input)?;
     state.db.with_conn(|conn| save_pricing(conn, &pricing))
 }
 
 #[tauri::command]
-pub fn export_model_pricing_xlsx(destination_path: String, state: tauri::State<'_, AppState>) -> AppResult<String> {
+pub fn export_model_pricing_xlsx(
+    destination_path: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
     let destination = Path::new(&destination_path);
-    if destination.extension().and_then(|value| value.to_str()).is_none_or(|value| !value.eq_ignore_ascii_case("xlsx")) {
-        return Err(AppError::Config("导出文件必须使用 .xlsx 扩展名".to_string()));
+    if destination
+        .extension()
+        .and_then(|value| value.to_str())
+        .is_none_or(|value| !value.eq_ignore_ascii_case("xlsx"))
+    {
+        return Err(AppError::Config(
+            "导出文件必须使用 .xlsx 扩展名".to_string(),
+        ));
     }
     let pricing = state.db.with_read_conn(list_pricing)?;
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
-    worksheet.set_name("Model Pricing").map_err(|error| AppError::Other(format!("设置 Excel 工作表名称失败: {error}")))?;
+    worksheet
+        .set_name("Model Pricing")
+        .map_err(|error| AppError::Other(format!("设置 Excel 工作表名称失败: {error}")))?;
     for (column, header) in PRICING_COLUMNS.iter().enumerate() {
-        worksheet.write_string(0, column as u16, *header).map_err(excel_write_error)?;
+        worksheet
+            .write_string(0, column as u16, *header)
+            .map_err(excel_write_error)?;
     }
     for (index, entry) in pricing.iter().enumerate() {
         let row = (index + 1) as u32;
-        worksheet.write_string(row, 0, &entry.model).map_err(excel_write_error)?;
-        worksheet.write_string(row, 1, &entry.provider).map_err(excel_write_error)?;
-        worksheet.write_number(row, 2, entry.input_price_per_million).map_err(excel_write_error)?;
-        worksheet.write_number(row, 3, entry.cache_read_price_per_million).map_err(excel_write_error)?;
-        worksheet.write_number(row, 4, entry.cache_write_price_per_million).map_err(excel_write_error)?;
-        worksheet.write_number(row, 5, entry.output_price_per_million).map_err(excel_write_error)?;
-        worksheet.write_number(row, 6, entry.batch_input_price_per_million).map_err(excel_write_error)?;
-        worksheet.write_number(row, 7, entry.batch_output_price_per_million).map_err(excel_write_error)?;
-        worksheet.write_string(row, 8, &entry.currency).map_err(excel_write_error)?;
+        worksheet
+            .write_string(row, 0, &entry.model)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_string(row, 1, &entry.provider)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_number(row, 2, entry.input_price_per_million)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_number(row, 3, entry.cache_read_price_per_million)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_number(row, 4, entry.cache_write_price_per_million)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_number(row, 5, entry.output_price_per_million)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_number(row, 6, entry.batch_input_price_per_million)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_number(row, 7, entry.batch_output_price_per_million)
+            .map_err(excel_write_error)?;
+        worksheet
+            .write_string(row, 8, &entry.currency)
+            .map_err(excel_write_error)?;
     }
-    workbook.save(destination).map_err(|error| AppError::Other(format!("导出 Excel 失败: {error}")))?;
+    workbook
+        .save(destination)
+        .map_err(|error| AppError::Other(format!("导出 Excel 失败: {error}")))?;
     Ok(destination_path)
 }
 
@@ -1047,16 +1099,25 @@ fn excel_write_error(error: rust_xlsxwriter::XlsxError) -> AppError {
 }
 
 #[tauri::command]
-pub fn preview_model_pricing_xlsx(source_path: String, state: tauri::State<'_, AppState>) -> AppResult<PricingImportPreview> {
+pub fn preview_model_pricing_xlsx(
+    source_path: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<PricingImportPreview> {
     let parsed = parse_pricing_xlsx(Path::new(&source_path))?;
     preview_pricing_rows(&state.db, &parsed.rows, parsed.errors)
 }
 
 #[tauri::command]
-pub fn import_model_pricing_xlsx(source_path: String, state: tauri::State<'_, AppState>) -> AppResult<PricingImportPreview> {
+pub fn import_model_pricing_xlsx(
+    source_path: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<PricingImportPreview> {
     let parsed = parse_pricing_xlsx(Path::new(&source_path))?;
     if !parsed.errors.is_empty() {
-        return Err(AppError::Config(format!("Excel 包含 {} 行无效数据，请修正后重新导入", parsed.errors.len())));
+        return Err(AppError::Config(format!(
+            "Excel 包含 {} 行无效数据，请修正后重新导入",
+            parsed.errors.len()
+        )));
     }
     let preview = preview_pricing_rows(&state.db, &parsed.rows, Vec::new())?;
     state.db.with_conn_mut(|conn| {
@@ -1070,35 +1131,82 @@ pub fn import_model_pricing_xlsx(source_path: String, state: tauri::State<'_, Ap
     Ok(preview)
 }
 
-struct ParsedPricingImport { rows: Vec<ModelPricing>, errors: Vec<String> }
+struct ParsedPricingImport {
+    rows: Vec<ModelPricing>,
+    errors: Vec<String>,
+}
 
-fn preview_pricing_rows(db: &crate::database::Database, rows: &[ModelPricing], errors: Vec<String>) -> AppResult<PricingImportPreview> {
-    let existing = db.with_read_conn(list_pricing)?.into_iter().map(|entry| entry.model).collect::<BTreeSet<_>>();
+fn preview_pricing_rows(
+    db: &crate::database::Database,
+    rows: &[ModelPricing],
+    errors: Vec<String>,
+) -> AppResult<PricingImportPreview> {
+    let existing = db
+        .with_read_conn(list_pricing)?
+        .into_iter()
+        .map(|entry| entry.model)
+        .collect::<BTreeSet<_>>();
     Ok(PricingImportPreview {
-        new_models: rows.iter().filter(|entry| !existing.contains(&entry.model)).map(|entry| entry.model.clone()).collect(),
-        updated_models: rows.iter().filter(|entry| existing.contains(&entry.model)).map(|entry| entry.model.clone()).collect(),
+        new_models: rows
+            .iter()
+            .filter(|entry| !existing.contains(&entry.model))
+            .map(|entry| entry.model.clone())
+            .collect(),
+        updated_models: rows
+            .iter()
+            .filter(|entry| existing.contains(&entry.model))
+            .map(|entry| entry.model.clone())
+            .collect(),
         errors,
         valid_rows: rows.len(),
     })
 }
 
 fn parse_pricing_xlsx(path: &Path) -> AppResult<ParsedPricingImport> {
-    if !path.is_file() || path.extension().and_then(|value| value.to_str()).is_none_or(|value| !value.eq_ignore_ascii_case("xlsx")) {
+    if !path.is_file()
+        || path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_none_or(|value| !value.eq_ignore_ascii_case("xlsx"))
+    {
         return Err(AppError::Config("请选择有效的 .xlsx 定价文件".to_string()));
     }
-    let mut workbook = open_workbook_auto(path).map_err(|error| AppError::Config(format!("无法读取 Excel 文件: {error}")))?;
-    let range = workbook.worksheet_range_at(0).ok_or_else(|| AppError::Config("Excel 文件不包含工作表".to_string()))?
+    let mut workbook = open_workbook_auto(path)
+        .map_err(|error| AppError::Config(format!("无法读取 Excel 文件: {error}")))?;
+    let range = workbook
+        .worksheet_range_at(0)
+        .ok_or_else(|| AppError::Config("Excel 文件不包含工作表".to_string()))?
         .map_err(|error| AppError::Config(format!("无法读取 Excel 工作表: {error}")))?;
     let mut spreadsheet_rows = range.rows();
-    let headers = spreadsheet_rows.next().ok_or_else(|| AppError::Config("Excel 文件缺少表头".to_string()))?;
-    let header_values = headers.iter().map(|cell| cell.to_string().trim().to_string()).collect::<Vec<_>>();
-    if header_values != PRICING_COLUMNS { return Err(AppError::Config(format!("Excel 表头必须依次为: {}", PRICING_COLUMNS.join(", ")))); }
+    let headers = spreadsheet_rows
+        .next()
+        .ok_or_else(|| AppError::Config("Excel 文件缺少表头".to_string()))?;
+    let header_values = headers
+        .iter()
+        .map(|cell| cell.to_string().trim().to_string())
+        .collect::<Vec<_>>();
+    if header_values != PRICING_COLUMNS {
+        return Err(AppError::Config(format!(
+            "Excel 表头必须依次为: {}",
+            PRICING_COLUMNS.join(", ")
+        )));
+    }
     let mut rows = Vec::new();
     let mut errors = Vec::new();
     let mut models = BTreeSet::new();
     for (offset, row) in spreadsheet_rows.enumerate() {
-        let values = (0..PRICING_COLUMNS.len()).map(|index| row.get(index).map(ToString::to_string).unwrap_or_default().trim().to_string()).collect::<Vec<_>>();
-        if values.iter().all(String::is_empty) { continue; }
+        let values = (0..PRICING_COLUMNS.len())
+            .map(|index| {
+                row.get(index)
+                    .map(ToString::to_string)
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        if values.iter().all(String::is_empty) {
+            continue;
+        }
         match spreadsheet_row_to_pricing(&values) {
             Ok(entry) if models.insert(entry.model.clone()) => rows.push(entry),
             Ok(entry) => errors.push(format!("第 {} 行: 模型 {} 重复", offset + 2, entry.model)),
@@ -1111,27 +1219,66 @@ fn parse_pricing_xlsx(path: &Path) -> AppResult<ParsedPricingImport> {
 fn spreadsheet_row_to_pricing(values: &[String]) -> AppResult<ModelPricing> {
     let price = |index: usize, name: &str, required: bool| -> AppResult<f64> {
         let value = values.get(index).map(String::as_str).unwrap_or("").trim();
-        if value.is_empty() && !required { return Ok(0.0); }
-        let parsed = value.parse::<f64>().map_err(|_| AppError::Config(format!("{name} 必须是数字")))?;
-        if !parsed.is_finite() || parsed < 0.0 { return Err(AppError::Config(format!("{name} 不能为负数"))); }
+        if value.is_empty() && !required {
+            return Ok(0.0);
+        }
+        let parsed = value
+            .parse::<f64>()
+            .map_err(|_| AppError::Config(format!("{name} 必须是数字")))?;
+        if !parsed.is_finite() || parsed < 0.0 {
+            return Err(AppError::Config(format!("{name} 不能为负数")));
+        }
         Ok(parsed)
     };
     normalize_pricing_input(ModelPricingInput {
-        model: values.first().cloned().unwrap_or_default(), provider: values.get(1).cloned().unwrap_or_default(),
-        input_price_per_million: price(2, "inputPricePerMillion", true)?, cache_read_price_per_million: price(3, "cacheReadPricePerMillion", false)?,
-        cache_write_price_per_million: price(4, "cacheWritePricePerMillion", false)?, output_price_per_million: price(5, "outputPricePerMillion", true)?,
-        batch_input_price_per_million: price(6, "batchInputPricePerMillion", false)?, batch_output_price_per_million: price(7, "batchOutputPricePerMillion", false)?,
+        model: values.first().cloned().unwrap_or_default(),
+        provider: values.get(1).cloned().unwrap_or_default(),
+        input_price_per_million: price(2, "inputPricePerMillion", true)?,
+        cache_read_price_per_million: price(3, "cacheReadPricePerMillion", false)?,
+        cache_write_price_per_million: price(4, "cacheWritePricePerMillion", false)?,
+        output_price_per_million: price(5, "outputPricePerMillion", true)?,
+        batch_input_price_per_million: price(6, "batchInputPricePerMillion", false)?,
+        batch_output_price_per_million: price(7, "batchOutputPricePerMillion", false)?,
         currency: values.get(8).cloned().unwrap_or_default(),
     })
 }
 
 fn normalize_pricing_input(input: ModelPricingInput) -> AppResult<ModelPricing> {
     let model = input.model.trim();
-    if model.is_empty() { return Err(AppError::Config("模型名不能为空".to_string())); }
-    if [input.input_price_per_million, input.cache_read_price_per_million, input.cache_write_price_per_million, input.output_price_per_million, input.batch_input_price_per_million, input.batch_output_price_per_million].iter().any(|price| !price.is_finite() || *price < 0.0) {
+    if model.is_empty() {
+        return Err(AppError::Config("模型名不能为空".to_string()));
+    }
+    if [
+        input.input_price_per_million,
+        input.cache_read_price_per_million,
+        input.cache_write_price_per_million,
+        input.output_price_per_million,
+        input.batch_input_price_per_million,
+        input.batch_output_price_per_million,
+    ]
+    .iter()
+    .any(|price| !price.is_finite() || *price < 0.0)
+    {
         return Err(AppError::Config("模型价格不能为负数".to_string()));
     }
-    Ok(ModelPricing { model: model.to_string(), provider: input.provider.trim().to_string(), input_price_per_million: input.input_price_per_million, cache_read_price_per_million: input.cache_read_price_per_million, cache_write_price_per_million: input.cache_write_price_per_million, output_price_per_million: input.output_price_per_million, batch_input_price_per_million: input.batch_input_price_per_million, batch_output_price_per_million: input.batch_output_price_per_million, currency: if input.currency.trim().is_empty() { "USD".to_string() } else { input.currency.trim().to_string() }, source_url: String::new(), effective_date: String::new(), is_default: false })
+    Ok(ModelPricing {
+        model: model.to_string(),
+        provider: input.provider.trim().to_string(),
+        input_price_per_million: input.input_price_per_million,
+        cache_read_price_per_million: input.cache_read_price_per_million,
+        cache_write_price_per_million: input.cache_write_price_per_million,
+        output_price_per_million: input.output_price_per_million,
+        batch_input_price_per_million: input.batch_input_price_per_million,
+        batch_output_price_per_million: input.batch_output_price_per_million,
+        currency: if input.currency.trim().is_empty() {
+            "USD".to_string()
+        } else {
+            input.currency.trim().to_string()
+        },
+        source_url: String::new(),
+        effective_date: String::new(),
+        is_default: false,
+    })
 }
 
 #[tauri::command]
@@ -1140,25 +1287,46 @@ pub fn delete_model_pricing(model: String, state: tauri::State<'_, AppState>) ->
 }
 
 #[tauri::command]
-pub fn get_log_maintenance_policy(state: tauri::State<'_, AppState>) -> AppResult<LogMaintenancePolicy> {
+pub fn get_log_maintenance_policy(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LogMaintenancePolicy> {
     state.db.with_conn(load_log_maintenance_policy)
 }
 
 #[tauri::command]
-pub fn save_log_maintenance_policy(policy: LogMaintenancePolicy, state: tauri::State<'_, AppState>) -> AppResult<LogMaintenancePolicy> {
+pub fn save_log_maintenance_policy(
+    policy: LogMaintenancePolicy,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LogMaintenancePolicy> {
     let policy = normalize_log_maintenance_policy(policy);
     state.db.with_conn(|conn| {
-        set_setting(conn, LOG_RETENTION_DAYS_KEY, &policy.retention_days.to_string())?;
+        set_setting(
+            conn,
+            LOG_RETENTION_DAYS_KEY,
+            &policy.retention_days.to_string(),
+        )?;
         set_setting(conn, LOG_MAX_ROWS_KEY, &policy.max_rows.to_string())?;
-        set_setting(conn, LOG_AUTO_MAINTAIN_KEY, if policy.auto_maintain { "true" } else { "false" })?;
+        set_setting(
+            conn,
+            LOG_AUTO_MAINTAIN_KEY,
+            if policy.auto_maintain {
+                "true"
+            } else {
+                "false"
+            },
+        )?;
         Ok(policy)
     })
 }
 
 #[tauri::command]
-pub fn preview_proxy_log_maintenance(policy: Option<LogMaintenancePolicy>, state: tauri::State<'_, AppState>) -> AppResult<LogMaintenancePreview> {
+pub fn preview_proxy_log_maintenance(
+    policy: Option<LogMaintenancePolicy>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LogMaintenancePreview> {
     state.db.with_read_conn(|conn| {
-        let policy = policy.map(normalize_log_maintenance_policy)
+        let policy = policy
+            .map(normalize_log_maintenance_policy)
             .unwrap_or(load_log_maintenance_policy(conn)?);
         preview_logs(conn, policy.retention_days, policy.max_rows)
     })
@@ -1166,12 +1334,22 @@ pub fn preview_proxy_log_maintenance(policy: Option<LogMaintenancePolicy>, state
 
 /// Apply the persisted proxy-log retention policy and optionally reclaim SQLite space.
 #[tauri::command]
-pub async fn maintain_proxy_logs(vacuum: Option<bool>, state: tauri::State<'_, AppState>) -> AppResult<LogMaintenanceResult> {
+pub async fn maintain_proxy_logs(
+    vacuum: Option<bool>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LogMaintenanceResult> {
     let db = Arc::clone(&state.db);
-    tokio::task::spawn_blocking(move || db.with_conn(|conn| {
-        let policy = load_log_maintenance_policy(conn)?;
-        maintain_logs(conn, policy.retention_days, policy.max_rows, vacuum.unwrap_or(false))
-    }))
+    tokio::task::spawn_blocking(move || {
+        db.with_conn(|conn| {
+            let policy = load_log_maintenance_policy(conn)?;
+            maintain_logs(
+                conn,
+                policy.retention_days,
+                policy.max_rows,
+                vacuum.unwrap_or(false),
+            )
+        })
+    })
     .await
     .map_err(|error| AppError::Other(format!("日志维护任务异常结束: {error}")))?
 }
@@ -1179,8 +1357,12 @@ pub async fn maintain_proxy_logs(vacuum: Option<bool>, state: tauri::State<'_, A
 fn load_log_maintenance_policy(conn: &rusqlite::Connection) -> AppResult<LogMaintenancePolicy> {
     let defaults = LogMaintenancePolicy::default();
     let policy = LogMaintenancePolicy {
-        retention_days: get_setting(conn, LOG_RETENTION_DAYS_KEY)?.and_then(|value| value.parse().ok()).unwrap_or(defaults.retention_days),
-        max_rows: get_setting(conn, LOG_MAX_ROWS_KEY)?.and_then(|value| value.parse().ok()).unwrap_or(defaults.max_rows),
+        retention_days: get_setting(conn, LOG_RETENTION_DAYS_KEY)?
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(defaults.retention_days),
+        max_rows: get_setting(conn, LOG_MAX_ROWS_KEY)?
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(defaults.max_rows),
         auto_maintain: get_setting(conn, LOG_AUTO_MAINTAIN_KEY)?.as_deref() == Some("true"),
     };
     Ok(normalize_log_maintenance_policy(policy))
@@ -1198,7 +1380,10 @@ mod tests {
 
     #[test]
     fn parse_cline_source() {
-        assert_eq!(UsageSource::parse(Some("cline")).unwrap(), UsageSource::Cline);
+        assert_eq!(
+            UsageSource::parse(Some("cline")).unwrap(),
+            UsageSource::Cline
+        );
         assert_eq!(
             UsageSource::parse(Some("cline")).unwrap().proxy_target(),
             Some(Some("cline"))
@@ -1561,7 +1746,12 @@ mod tests {
         row
     }
 
-    fn provider_group(provider: &str, model: &str, input: i64, output: i64) -> UsageProviderModelGroup {
+    fn provider_group(
+        provider: &str,
+        model: &str,
+        input: i64,
+        output: i64,
+    ) -> UsageProviderModelGroup {
         UsageProviderModelGroup {
             provider: provider.to_string(),
             model: model.to_string(),
@@ -1642,8 +1832,17 @@ mod tests {
     #[test]
     fn pricing_import_defaults_optional_prices_and_currency() {
         let pricing = spreadsheet_row_to_pricing(&row(&[
-            "example-model", "Example", "2", "", "", "8", "", "", "",
-        ])).unwrap();
+            "example-model",
+            "Example",
+            "2",
+            "",
+            "",
+            "8",
+            "",
+            "",
+            "",
+        ]))
+        .unwrap();
         assert_eq!(pricing.model, "example-model");
         assert_eq!(pricing.cache_read_price_per_million, 0.0);
         assert_eq!(pricing.batch_output_price_per_million, 0.0);
@@ -1653,8 +1852,17 @@ mod tests {
     #[test]
     fn pricing_import_rejects_invalid_numeric_values() {
         let error = spreadsheet_row_to_pricing(&row(&[
-            "example-model", "Example", "-1", "", "", "8", "", "", "USD",
-        ])).unwrap_err();
+            "example-model",
+            "Example",
+            "-1",
+            "",
+            "",
+            "8",
+            "",
+            "",
+            "USD",
+        ]))
+        .unwrap_err();
         assert!(error.to_string().contains("不能为负数"));
     }
 }

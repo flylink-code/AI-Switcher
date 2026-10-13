@@ -55,7 +55,10 @@ pub async fn refresh_one(account_id: &str) -> AppResult<KiroAccountPublic> {
                     Ok(updated) => account = updated,
                     Err(refresh_error) => {
                         if matches!(refresh_error, AppError::Network(_)) {
-                            return store().save_quota(&account.id, error_snapshot(refresh_error.to_string()));
+                            return store().save_quota(
+                                &account.id,
+                                error_snapshot(refresh_error.to_string()),
+                            );
                         }
                         return Err(refresh_error);
                     }
@@ -70,7 +73,11 @@ pub async fn refresh_one(account_id: &str) -> AppResult<KiroAccountPublic> {
                 } else if error.body.trim().is_empty() {
                     format!("查询额度失败 HTTP {}", error.status)
                 } else {
-                    format!("查询额度失败 HTTP {}: {}", error.status, truncate(&error.body, 240))
+                    format!(
+                        "查询额度失败 HTTP {}: {}",
+                        error.status,
+                        truncate(&error.body, 240)
+                    )
                 };
                 return store().save_quota(&account.id, error_snapshot(message));
             }
@@ -172,8 +179,10 @@ pub fn parse_usage_limits(root: &Value) -> KiroQuotaSnapshot {
             .and_then(|item| item.as_str())
             .unwrap_or("")
             .to_string(),
-        trial_used: trial.and_then(|item| number_of(item, &["currentUsageWithPrecision", "currentUsage"])),
-        trial_limit: trial.and_then(|item| number_of(item, &["usageLimitWithPrecision", "usageLimit"])),
+        trial_used: trial
+            .and_then(|item| number_of(item, &["currentUsageWithPrecision", "currentUsage"])),
+        trial_limit: trial
+            .and_then(|item| number_of(item, &["usageLimitWithPrecision", "usageLimit"])),
         queried_at: now_ms(),
         error: String::new(),
     }

@@ -39,8 +39,7 @@ pub fn compact_request_to_anthropic(body: &Value, model: &str) -> AppResult<Valu
     reject_streaming_compact(body)?;
     let mut messages_body = body.clone();
     messages_body["stream"] = Value::Bool(false);
-    if messages_body.get("max_output_tokens").is_none()
-        && messages_body.get("max_tokens").is_none()
+    if messages_body.get("max_output_tokens").is_none() && messages_body.get("max_tokens").is_none()
     {
         messages_body["max_output_tokens"] = json!(2048);
     }
@@ -201,7 +200,11 @@ fn content_to_text(value: &Value) -> Option<String> {
         Value::Array(parts) => Some(
             parts
                 .iter()
-                .filter_map(|part| part.get("text").and_then(Value::as_str).or_else(|| part.as_str()))
+                .filter_map(|part| {
+                    part.get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| part.as_str())
+                })
                 .collect::<Vec<_>>()
                 .join(""),
         ),

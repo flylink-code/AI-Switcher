@@ -57,7 +57,15 @@ pub async fn test_account(
         }
     };
     let Some(account) = store().get(account_id) else {
-        return Ok(result(false, "error", None, model, started, None, Some("Kiro 账号不存在".into())));
+        return Ok(result(
+            false,
+            "error",
+            None,
+            model,
+            started,
+            None,
+            Some("Kiro 账号不存在".into()),
+        ));
     };
     let incoming = json!({
         "model": model,
@@ -69,7 +77,15 @@ pub async fn test_account(
     let prepared = match prepare(WireProtocol::Anthropic, &incoming, &account) {
         Ok(prepared) => prepared,
         Err(error) => {
-            return Ok(result(false, "error", None, model, started, None, Some(error)));
+            return Ok(result(
+                false,
+                "error",
+                None,
+                model,
+                started,
+                None,
+                Some(error),
+            ));
         }
     };
     let mut account = match ensure_access_token(&account, false).await {
@@ -80,7 +96,15 @@ pub async fn test_account(
             } else {
                 "auth"
             };
-            return Ok(result(false, category, None, prepared.client_model, started, None, Some(error.to_string())));
+            return Ok(result(
+                false,
+                category,
+                None,
+                prepared.client_model,
+                started,
+                None,
+                Some(error.to_string()),
+            ));
         }
     };
     let mut refreshed = false;
@@ -227,10 +251,7 @@ mod tests {
 
     #[test]
     fn collects_assistant_text_from_event_stream() {
-        let frame = encode_frame(
-            "assistantResponseEvent",
-            br#"{"content":"hello back"}"#,
-        );
+        let frame = encode_frame("assistantResponseEvent", br#"{"content":"hello back"}"#);
         let reply = collect_reply(&frame);
         assert_eq!(reply.text, "hello back");
     }

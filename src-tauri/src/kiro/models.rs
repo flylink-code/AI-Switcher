@@ -10,6 +10,7 @@ use std::sync::{OnceLock, RwLock};
 use serde::{Deserialize, Serialize};
 
 use crate::config::get_app_config_dir;
+use crate::error::{AppError, AppResult};
 
 pub const DEFAULT_MODEL: &str = "claude-sonnet-4.6";
 pub const THINKING_BUDGET_CAP: u32 = 24_576;
@@ -118,26 +119,60 @@ pub fn model_list() -> KiroModelList {
 
 /// Models the local `/v1/models` list exposes. No synthetic `-thinking` ids.
 pub fn catalog_ids() -> Vec<String> {
-    model_list().models.into_iter().map(|model| model.id).collect()
+    model_list()
+        .models
+        .into_iter()
+        .map(|model| model.id)
+        .collect()
 }
 
 /// Stores a live list and persists it next to the account file.
-pub fn save_live_models(models: Vec<KiroModelInfo>, fetched_at: i64) -> KiroModelList {
+pub fn save_live_models(models: Vec<KiroModelInfo>, fetched_at: i64) -> AppResult<KiroModelList> {
     let stored = StoredModels { fetched_at, models };
-    if let Ok(text) = serde_json::to_string_pretty(&stored) {
-        let _ = fs::write(get_app_config_dir().join(MODELS_FILE), text);
+    let text = serde_json::to_string_pretty(&stored)
+        .map_err(|error| AppError::Json(format!("序列化 Kiro 模型列表失败: {error}")))?;
+    if crate::sidecar::delegated() {
+        crate::sidecar::commit_store(crate::sidecar::STORE_KIRO_MODELS, &text, None)?;
+    } else {
+        let path = get_app_config_dir().join(MODELS_FILE);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, text)?;
     }
     *live_cell()
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = stored;
-    model_list()
+    Ok(model_list())
+}
+
+/// Replace the cached model list from a main-process snapshot and write the file.
+pub(crate) fn apply_committed_snapshot(raw: &str) -> AppResult<(String, u64)> {
+    let stored: StoredModels = serde_json::from_str(raw)
+        .map_err(|error| AppError::Config(format!("Kiro 模型快照无效: {error}")))?;
+    let path = get_app_config_dir().join(MODELS_FILE);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&path, raw)?;
+    *live_cell()
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = stored;
+    let meta = fs::metadata(&path)?;
+    let mtime_ns = meta
+        .modified()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos()
+        .to_string();
+    Ok((mtime_ns, meta.len()))
 }
 
 /// Parses `ListAvailableModels`. `auto` and rows without an id are dropped; the
 /// service's own order (newest first) is kept.
 pub fn parse_available_models(body: &str) -> Result<Vec<KiroModelInfo>, String> {
-    let value: serde_json::Value =
-        serde_json::from_str(body).map_err(|error| format!("Kiro 模型列表不是有效 JSON: {error}"))?;
+    let value: serde_json::Value = serde_json::from_str(body)
+        .map_err(|error| format!("Kiro 模型列表不是有效 JSON: {error}"))?;
     let rows = value
         .get("models")
         .and_then(|rows| rows.as_array())
@@ -168,9 +203,10 @@ pub fn parse_available_models(body: &str) -> Result<Vec<KiroModelInfo>, String> 
             .get("supportedInputTypes")
             .and_then(|types| types.as_array())
             .is_some_and(|types| {
-                types
-                    .iter()
-                    .any(|kind| kind.as_str().is_some_and(|kind| kind.eq_ignore_ascii_case("image")))
+                types.iter().any(|kind| {
+                    kind.as_str()
+                        .is_some_and(|kind| kind.eq_ignore_ascii_case("image"))
+                })
             });
         models.push(KiroModelInfo {
             id: id.to_string(),
@@ -252,7 +288,10 @@ fn canonical_version(parts: &[&str]) -> Option<String> {
     if parts.is_empty() || parts.iter().any(|part| part.is_empty()) {
         return None;
     }
-    if !parts.iter().all(|part| part.chars().all(|ch| ch.is_ascii_digit())) {
+    if !parts
+        .iter()
+        .all(|part| part.chars().all(|ch| ch.is_ascii_digit()))
+    {
         return None;
     }
     Some(parts.join("."))
@@ -264,7 +303,10 @@ pub fn thinking_requested(value: &serde_json::Value) -> bool {
     match thinking {
         Some(serde_json::Value::Object(map)) if map.is_empty() => false,
         Some(item) => {
-            let kind = item.get("type").and_then(|kind| kind.as_str()).unwrap_or("");
+            let kind = item
+                .get("type")
+                .and_then(|kind| kind.as_str())
+                .unwrap_or("");
             !kind.eq_ignore_ascii_case("disabled")
         }
         None => value
@@ -282,7 +324,11 @@ pub fn clamped_thinking_budget(value: &serde_json::Value) -> Option<u32> {
         .pointer("/thinking/budget_tokens")
         .and_then(|item| item.as_u64())
         .unwrap_or(20_000);
-    Some(u32::try_from(raw).unwrap_or(THINKING_BUDGET_CAP).min(THINKING_BUDGET_CAP))
+    Some(
+        u32::try_from(raw)
+            .unwrap_or(THINKING_BUDGET_CAP)
+            .min(THINKING_BUDGET_CAP),
+    )
 }
 
 #[cfg(test)]
@@ -323,7 +369,10 @@ mod tests {
         .to_string();
         let models = parse_available_models(&body).expect("parse");
         assert_eq!(
-            models.iter().map(|model| model.id.as_str()).collect::<Vec<_>>(),
+            models
+                .iter()
+                .map(|model| model.id.as_str())
+                .collect::<Vec<_>>(),
             vec!["claude-opus-5.5", "glm-5"]
         );
         assert_eq!(models[0].name, "Claude Opus 5.5");
@@ -337,17 +386,30 @@ mod tests {
     #[test]
     fn builtin_catalog_has_no_auto_and_current_families() {
         assert!(BUILTIN_IDS.iter().all(|id| *id != "auto"));
-        for id in ["claude-opus-5.5", "claude-sonnet-5.5", "claude-haiku-4.5", "glm-5"] {
+        for id in [
+            "claude-opus-5.5",
+            "claude-sonnet-5.5",
+            "claude-haiku-4.5",
+            "glm-5",
+        ] {
             assert!(BUILTIN_IDS.contains(&id), "{id}");
         }
-        assert_eq!(map_model("claude-opus-5.5").as_deref(), Some("claude-opus-5.5"));
-        assert_eq!(map_model("claude-sonnet-5-5").as_deref(), Some("claude-sonnet-5.5"));
+        assert_eq!(
+            map_model("claude-opus-5.5").as_deref(),
+            Some("claude-opus-5.5")
+        );
+        assert_eq!(
+            map_model("claude-sonnet-5-5").as_deref(),
+            Some("claude-sonnet-5.5")
+        );
     }
 
     #[test]
     fn thinking_budget_caps_and_ignores_disabled() {
         assert_eq!(
-            clamped_thinking_budget(&json!({"thinking": {"type": "enabled", "budget_tokens": 99999}})),
+            clamped_thinking_budget(
+                &json!({"thinking": {"type": "enabled", "budget_tokens": 99999}})
+            ),
             Some(THINKING_BUDGET_CAP)
         );
         assert_eq!(

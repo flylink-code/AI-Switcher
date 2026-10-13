@@ -53,8 +53,7 @@ pub struct ProfileSnapshotScopes {
     pub codex: bool,
 }
 
-const PROFILE_SELECT: &str =
-    "SELECT id, name, payload_json, sort_order, created_at, updated_at";
+const PROFILE_SELECT: &str = "SELECT id, name, payload_json, sort_order, created_at, updated_at";
 
 pub fn list_profiles(conn: &Connection) -> AppResult<Vec<Profile>> {
     let mut stmt = conn.prepare(&format!(
@@ -103,8 +102,8 @@ pub fn update_profile(
     name: Option<&str>,
     payload: Option<&ProfilePayload>,
 ) -> AppResult<Profile> {
-    let existing = get_profile(conn, id)?
-        .ok_or_else(|| AppError::Config(format!("配置快照不存在: {id}")))?;
+    let existing =
+        get_profile(conn, id)?.ok_or_else(|| AppError::Config(format!("配置快照不存在: {id}")))?;
     let next_name = match name {
         Some(value) => {
             let trimmed = value.trim();
@@ -143,8 +142,12 @@ pub fn rewrite_prompt_id(
     let mut updated = 0usize;
     for mut profile in list_profiles(conn)? {
         let changed = match scope {
-            PromptRenameScope::ClaudeCode => rewrite_scope_prompt(&mut profile.payload.claude_code, old_name, new_name),
-            PromptRenameScope::Codex => rewrite_scope_prompt(&mut profile.payload.codex, old_name, new_name),
+            PromptRenameScope::ClaudeCode => {
+                rewrite_scope_prompt(&mut profile.payload.claude_code, old_name, new_name)
+            }
+            PromptRenameScope::Codex => {
+                rewrite_scope_prompt(&mut profile.payload.codex, old_name, new_name)
+            }
         };
         if !changed {
             continue;
@@ -190,11 +193,9 @@ pub fn get_current_profile_id(conn: &Connection) -> AppResult<Option<String>> {
 
 pub fn set_current_profile_id(conn: &Connection, id: Option<&str>) -> AppResult<()> {
     match id {
-        Some(value) => crate::database::dao::settings::set_setting(
-            conn,
-            CURRENT_PROFILE_SETTING_KEY,
-            value,
-        ),
+        Some(value) => {
+            crate::database::dao::settings::set_setting(conn, CURRENT_PROFILE_SETTING_KEY, value)
+        }
         None => {
             conn.execute(
                 "DELETE FROM settings WHERE key = ?;",
@@ -216,7 +217,9 @@ fn get_by_name(conn: &Connection, name: &str) -> AppResult<Option<Profile>> {
 
 fn next_sort_order(conn: &Connection) -> AppResult<i64> {
     let max: Option<i64> = conn
-        .query_row("SELECT MAX(sort_order) FROM profiles;", [], |row| row.get(0))
+        .query_row("SELECT MAX(sort_order) FROM profiles;", [], |row| {
+            row.get(0)
+        })
         .ok();
     Ok(max.unwrap_or(-1) + 1)
 }

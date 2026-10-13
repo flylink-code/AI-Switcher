@@ -86,7 +86,10 @@ impl ProviderTarget {
     pub fn is_catalog_target(self) -> bool {
         matches!(
             self,
-            ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
+            ProviderTarget::OpenCode
+                | ProviderTarget::Pi
+                | ProviderTarget::Dsh
+                | ProviderTarget::Cline
         )
     }
 
@@ -102,8 +105,6 @@ impl ProviderTarget {
         self.is_catalog_target()
     }
 }
-
-
 
 impl ProtocolType {
     pub fn as_str(&self) -> &'static str {
@@ -179,7 +180,8 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
         )
     {
         return Err(AppError::Config(
-            "Codex 供应商仅支持 OpenAI Chat、OpenAI Responses 或 Anthropic Messages 协议".to_string(),
+            "Codex 供应商仅支持 OpenAI Chat、OpenAI Responses 或 Anthropic Messages 协议"
+                .to_string(),
         ));
     }
     if target == ProviderTarget::OpenCode
@@ -189,7 +191,8 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
         )
     {
         return Err(AppError::Config(
-            "OpenCode 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+            "OpenCode 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议"
+                .to_string(),
         ));
     }
     if (target == ProviderTarget::Pi
@@ -198,17 +201,21 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
         && !matches!(
             protocol,
             ProtocolType::Anthropic | ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
-        ) {
-            return Err(AppError::Config(
+        )
+    {
+        return Err(AppError::Config(
                 "Pi / DeepSeek Harness / Cline 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
             ));
-        }
+    }
     Ok(())
 }
 
 pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> AppResult<()> {
     if kind == ProviderKind::CodexOauth
-        && !matches!(target, ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop)
+        && !matches!(
+            target,
+            ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop
+        )
     {
         return Err(AppError::Config(
             "ChatGPT 订阅目前仅支持 Claude Code 和 Claude Desktop".to_string(),
@@ -217,10 +224,17 @@ pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> App
     Ok(())
 }
 
-pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapping) -> ClaudeModelMapping {
+pub fn normalized_model_mapping(
+    target: ProviderTarget,
+    mapping: ClaudeModelMapping,
+) -> ClaudeModelMapping {
     if matches!(
         target,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
+        ProviderTarget::Codex
+            | ProviderTarget::OpenCode
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline
     ) {
         ClaudeModelMapping::default()
     } else {
@@ -253,7 +267,12 @@ impl ThinkingConfig {
     pub fn is_empty(&self) -> bool {
         self.mode.as_deref().unwrap_or("").trim().is_empty()
             && self.budget_tokens.is_none()
-            && self.reasoning_effort.as_deref().unwrap_or("").trim().is_empty()
+            && self
+                .reasoning_effort
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
             && self.prefix_thought.is_none()
     }
 
@@ -410,7 +429,11 @@ pub fn catalog_models_from_provider(provider: &Provider) -> Vec<String> {
 fn adapt_copied_failover_models(source: &Provider, dest: ProviderTarget) -> Vec<String> {
     if matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
+        ProviderTarget::Codex
+            | ProviderTarget::OpenCode
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline
     ) {
         catalog_models_from_provider(source)
             .into_iter()
@@ -425,7 +448,11 @@ fn adapt_copied_default_model(source: &Provider, dest: ProviderTarget) -> String
     let current = source.model.trim();
     if !matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
+        ProviderTarget::Codex
+            | ProviderTarget::OpenCode
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline
     ) {
         return current.to_string();
     }
@@ -480,8 +507,7 @@ fn classify_copied_vendor(base_url: &str) -> CopiedVendor {
 }
 
 fn vendor_host_root(base_url: &str) -> String {
-    strip_anthropic_compat_path(base_url)
-        .unwrap_or_else(|| strip_trailing_v1_path(base_url))
+    strip_anthropic_compat_path(base_url).unwrap_or_else(|| strip_trailing_v1_path(base_url))
 }
 
 fn join_base(root: &str, suffix: &str) -> String {
@@ -546,7 +572,11 @@ fn adapt_copied_model_mapping(
 ) -> ClaudeModelMapping {
     if matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
+        ProviderTarget::Codex
+            | ProviderTarget::OpenCode
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline
     ) {
         return ClaudeModelMapping::default();
     }
@@ -721,10 +751,14 @@ pub fn normalize_base_url(value: &str) -> AppResult<String> {
         ));
     }
     if !url.username().is_empty() || url.password().is_some() {
-        return Err(AppError::Config("API 基础地址不能包含用户名或密码".to_string()));
+        return Err(AppError::Config(
+            "API 基础地址不能包含用户名或密码".to_string(),
+        ));
     }
     if url.query().is_some() || url.fragment().is_some() {
-        return Err(AppError::Config("API 基础地址不能包含查询参数或片段".to_string()));
+        return Err(AppError::Config(
+            "API 基础地址不能包含查询参数或片段".to_string(),
+        ));
     }
 
     let mut path = url.path().trim_end_matches('/').to_string();
@@ -773,7 +807,10 @@ pub fn normalize_provider_base_url(
 ) -> AppResult<String> {
     let normalized = normalize_base_url(base_url)?;
     if matches!(target, ProviderTarget::Codex | ProviderTarget::OpenCode)
-        && matches!(protocol, ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses)
+        && matches!(
+            protocol,
+            ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
+        )
     {
         ensure_openai_v1_suffix(&normalized)
     } else {
@@ -1052,7 +1089,10 @@ impl Provider {
             return self.protocol_type == ProtocolType::Anthropic;
         }
         // OpenCode / Pi / Dsh 通过各自 SDK 原生支持各协议，直连写入配置即可，无需本地代理。
-        if matches!(self.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh) {
+        if matches!(
+            self.target_app,
+            ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+        ) {
             return false;
         }
         if self.target_app == ProviderTarget::Cline {
@@ -1263,17 +1303,24 @@ pub struct LiveProviderInfo {
 #[cfg(test)]
 mod tests {
     use super::{
-        api_endpoint_url, copied_provider_input, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
-        openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
-        should_activate_copied_provider, split_model_window_label, normalized_model_mapping, validate_target_protocol,
-        ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget, ThinkingConfig,
+        api_endpoint_url, copied_provider_input, ensure_openai_v1_suffix, normalize_base_url,
+        normalize_provider_base_url, normalized_model_mapping, openai_compatible_base_url_needs_v1,
+        protocol_endpoint_path, resolve_upstream_model, should_activate_copied_provider,
+        split_model_window_label, validate_target_protocol, ClaudeModelMapping, ProtocolType,
+        Provider, ProviderKind, ProviderTarget, ThinkingConfig,
     };
 
     #[test]
     fn openai_compatible_base_url_appends_v1_for_host_roots() {
-        assert!(openai_compatible_base_url_needs_v1("https://api.example.test"));
-        assert!(!openai_compatible_base_url_needs_v1("https://api.example.test/v1"));
-        assert!(!openai_compatible_base_url_needs_v1("https://gateway.example.test/openai/v1"));
+        assert!(openai_compatible_base_url_needs_v1(
+            "https://api.example.test"
+        ));
+        assert!(!openai_compatible_base_url_needs_v1(
+            "https://api.example.test/v1"
+        ));
+        assert!(!openai_compatible_base_url_needs_v1(
+            "https://gateway.example.test/openai/v1"
+        ));
         assert_eq!(
             ensure_openai_v1_suffix("https://api.example.test").unwrap(),
             "https://api.example.test/v1"
@@ -1318,13 +1365,22 @@ mod tests {
     fn base_url_normalization_strips_known_request_endpoints() {
         for (input, expected) in [
             (" https://api.example.test/ ", "https://api.example.test"),
-            ("https://api.example.test/v1/messages", "https://api.example.test/v1"),
+            (
+                "https://api.example.test/v1/messages",
+                "https://api.example.test/v1",
+            ),
             (
                 "https://gateway.example.test/openai/v1/chat/completions/",
                 "https://gateway.example.test/openai/v1",
             ),
-            ("https://api.example.test/v1/responses", "https://api.example.test/v1"),
-            ("https://api.example.test/v1/models", "https://api.example.test/v1"),
+            (
+                "https://api.example.test/v1/responses",
+                "https://api.example.test/v1",
+            ),
+            (
+                "https://api.example.test/v1/models",
+                "https://api.example.test/v1",
+            ),
         ] {
             assert_eq!(normalize_base_url(input).unwrap(), expected);
         }
@@ -1339,7 +1395,10 @@ mod tests {
             "https://api.example.test/v1#section",
             "not-a-url",
         ] {
-            assert!(normalize_base_url(value).is_err(), "{value} should be rejected");
+            assert!(
+                normalize_base_url(value).is_err(),
+                "{value} should be rejected"
+            );
         }
     }
 
@@ -1358,7 +1417,10 @@ mod tests {
 
     #[test]
     fn protocol_selects_the_upstream_request_path() {
-        assert_eq!(protocol_endpoint_path(ProtocolType::Anthropic), "/v1/messages");
+        assert_eq!(
+            protocol_endpoint_path(ProtocolType::Anthropic),
+            "/v1/messages"
+        );
         assert_eq!(
             protocol_endpoint_path(ProtocolType::OpenAiChat),
             "/v1/chat/completions"
@@ -1385,9 +1447,16 @@ mod tests {
     fn codex_accepts_openai_and_anthropic_protocols_and_clears_claude_mapping() {
         assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Anthropic).is_ok());
         assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Proxy).is_err());
-        assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::OpenAiResponses).is_ok());
-        let mapping = ClaudeModelMapping { sonnet: "claude-sonnet".into(), ..Default::default() };
-        assert!(!normalized_model_mapping(ProviderTarget::Codex, mapping.clone()).has_explicit_roles());
+        assert!(
+            validate_target_protocol(ProviderTarget::Codex, ProtocolType::OpenAiResponses).is_ok()
+        );
+        let mapping = ClaudeModelMapping {
+            sonnet: "claude-sonnet".into(),
+            ..Default::default()
+        };
+        assert!(
+            !normalized_model_mapping(ProviderTarget::Codex, mapping.clone()).has_explicit_roles()
+        );
         assert!(!normalized_model_mapping(ProviderTarget::Pi, mapping).has_explicit_roles());
     }
 
@@ -1583,15 +1652,9 @@ mod tests {
         provider.hidden_models = vec!["keep-me".into(), "hide-me".into()];
         assert!(!provider.is_hidden_model("keep-me"));
         assert!(provider.is_hidden_model("hide-me"));
-        let filtered = provider.filter_hidden_models(vec![
-            "keep-me".into(),
-            "hide-me".into(),
-            "ok".into(),
-        ]);
-        assert_eq!(
-            filtered,
-            vec!["keep-me".to_string(), "ok".to_string()]
-        );
+        let filtered =
+            provider.filter_hidden_models(vec!["keep-me".into(), "hide-me".into(), "ok".into()]);
+        assert_eq!(filtered, vec!["keep-me".to_string(), "ok".to_string()]);
     }
 
     #[test]
@@ -1606,7 +1669,11 @@ mod tests {
         assert!(provider.allows_failover_model(""));
     }
 
-    fn sample_provider(target: ProviderTarget, kind: ProviderKind, protocol: ProtocolType) -> Provider {
+    fn sample_provider(
+        target: ProviderTarget,
+        kind: ProviderKind,
+        protocol: ProtocolType,
+    ) -> Provider {
         Provider {
             id: "src".into(),
             name: "DeepSeek".into(),
@@ -1651,7 +1718,8 @@ mod tests {
             ProviderKind::Standard,
             ProtocolType::Anthropic,
         );
-        let input = copied_provider_input(&source, ProviderTarget::Pi, &[], "sk-test".into()).unwrap();
+        let input =
+            copied_provider_input(&source, ProviderTarget::Pi, &[], "sk-test".into()).unwrap();
         assert_eq!(input.target_app, ProviderTarget::Pi);
         assert_eq!(input.protocol_type, ProtocolType::Anthropic);
         assert_eq!(input.api_key, "sk-test");
@@ -1659,7 +1727,10 @@ mod tests {
         assert_eq!(input.model, "deepseek-v4-pro");
         assert_eq!(
             input.failover_models,
-            vec!["deepseek-v4-pro".to_string(), "deepseek-v4-flash".to_string()]
+            vec![
+                "deepseek-v4-pro".to_string(),
+                "deepseek-v4-flash".to_string()
+            ]
         );
     }
 
@@ -1686,7 +1757,8 @@ mod tests {
             ProtocolType::Anthropic,
         );
         source.base_url = "http://127.0.0.1:15830".into();
-        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        let input =
+            copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
         assert_eq!(input.protocol_type, ProtocolType::OpenAiResponses);
         assert_eq!(input.base_url, "http://127.0.0.1:15830/v1");
         assert!(!input.model_mapping.has_explicit_roles());
@@ -1750,7 +1822,10 @@ mod tests {
         let input = copied_provider_input(&source, ProviderTarget::Pi, &[], String::new()).unwrap();
         assert_eq!(
             input.failover_models,
-            vec!["deepseek-v4-pro".to_string(), "deepseek-v4-flash".to_string()]
+            vec![
+                "deepseek-v4-pro".to_string(),
+                "deepseek-v4-flash".to_string()
+            ]
         );
         assert!(!input.model_mapping.has_explicit_roles());
     }
@@ -1778,7 +1853,8 @@ mod tests {
     #[test]
     fn copy_kimi_anthropic_to_codex_uses_chat_and_lifts_model() {
         let source = kimi_anthropic_code_provider();
-        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        let input =
+            copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
         assert_eq!(input.protocol_type, ProtocolType::OpenAiChat);
         assert_eq!(input.base_url, "https://api.moonshot.cn/v1");
         assert_eq!(input.model, "kimi-k3");
@@ -1797,7 +1873,8 @@ mod tests {
         source.base_url = "https://api.moonshot.cn/v1".into();
         source.model = "kimi-k3".into();
         source.model_mapping = ClaudeModelMapping::default();
-        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        let input =
+            copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
         assert_eq!(input.protocol_type, ProtocolType::OpenAiChat);
         assert_eq!(input.base_url, "https://api.moonshot.cn/v1");
         assert_eq!(input.model, "kimi-k3");
@@ -1810,7 +1887,8 @@ mod tests {
             ProviderKind::Standard,
             ProtocolType::Anthropic,
         );
-        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        let input =
+            copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
         assert_eq!(input.protocol_type, ProtocolType::OpenAiResponses);
         assert_eq!(input.base_url, "https://api.deepseek.com");
         assert_eq!(input.model, "deepseek-v4-pro");
@@ -1865,7 +1943,8 @@ mod tests {
     fn copy_code_to_desktop_keeps_protocol_and_clears_subagent() {
         let source = kimi_anthropic_code_provider();
         let input =
-            copied_provider_input(&source, ProviderTarget::ClaudeDesktop, &[], String::new()).unwrap();
+            copied_provider_input(&source, ProviderTarget::ClaudeDesktop, &[], String::new())
+                .unwrap();
         assert_eq!(input.protocol_type, ProtocolType::Anthropic);
         assert_eq!(input.base_url, "https://api.moonshot.cn/anthropic");
         assert_eq!(input.model_mapping.sonnet, "kimi-k3");
@@ -1875,7 +1954,9 @@ mod tests {
     #[test]
     fn activate_copied_provider_only_for_switch_style_agents() {
         assert!(should_activate_copied_provider(ProviderTarget::ClaudeCode));
-        assert!(should_activate_copied_provider(ProviderTarget::ClaudeDesktop));
+        assert!(should_activate_copied_provider(
+            ProviderTarget::ClaudeDesktop
+        ));
         assert!(should_activate_copied_provider(ProviderTarget::Codex));
         assert!(!should_activate_copied_provider(ProviderTarget::OpenCode));
         assert!(!should_activate_copied_provider(ProviderTarget::Pi));

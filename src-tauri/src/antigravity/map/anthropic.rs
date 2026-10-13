@@ -183,8 +183,9 @@ pub fn anthropic_to_gemini_request(
 
     let mut generation = json!({});
     if let Some(max_tokens) = body.get("max_tokens").and_then(Value::as_u64) {
-        generation["maxOutputTokens"] =
-            json!(model_catalog::clamp_claude_55_max_output(&model, max_tokens));
+        generation["maxOutputTokens"] = json!(model_catalog::clamp_claude_55_max_output(
+            &model, max_tokens
+        ));
     }
     // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
     let skip_sampling = gemini_target && model_catalog::is_gemini_31_pro(&model);
@@ -499,9 +500,7 @@ fn is_google_search_tool(tool: &Value) -> bool {
     let name = tool
         .get("name")
         .and_then(Value::as_str)
-        .or_else(|| {
-            tool.get("google_search").map(|_| "google_search")
-        })
+        .or_else(|| tool.get("google_search").map(|_| "google_search"))
         .unwrap_or("");
     let lower = name.to_ascii_lowercase();
     lower == "google_search" || lower == "googlesearch" || tool.get("googleSearch").is_some()
@@ -2068,7 +2067,9 @@ mod tests {
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("high")
         );
-        assert!(parts.request["generationConfig"].get("maxOutputTokens").is_none());
+        assert!(parts.request["generationConfig"]
+            .get("maxOutputTokens")
+            .is_none());
     }
 
     #[test]

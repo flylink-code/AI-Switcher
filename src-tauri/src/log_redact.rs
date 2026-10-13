@@ -102,7 +102,8 @@ mod tests {
 
     #[test]
     fn redacts_bearer_and_sk_tokens() {
-        let text = redact_secrets("Authorization: Bearer secret-token-value failed sk-live-abc123 end");
+        let text =
+            redact_secrets("Authorization: Bearer secret-token-value failed sk-live-abc123 end");
         assert!(!text.contains("secret-token-value"));
         assert!(!text.contains("sk-live-abc123"));
         assert!(text.contains("[redacted]"));
@@ -110,9 +111,8 @@ mod tests {
 
     #[test]
     fn redacts_url_userinfo_and_query() {
-        let text = redact_secrets(
-            "upstream https://user:pass@api.example.com/v1?api_key=supersecret&x=1",
-        );
+        let text =
+            redact_secrets("upstream https://user:pass@api.example.com/v1?api_key=supersecret&x=1");
         assert!(!text.contains("user:pass"));
         assert!(!text.contains("supersecret"));
         assert!(text.contains("[redacted]"));

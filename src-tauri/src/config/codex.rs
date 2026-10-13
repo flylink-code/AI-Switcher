@@ -3,8 +3,8 @@
 //! Only AI-Switcher-owned model-provider entries are updated.  `toml_edit`
 //! retains comments and unrelated settings in users' config.toml files.
 
-use std::fs;
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::Path;
 #[cfg(windows)]
 use std::thread;
@@ -16,13 +16,15 @@ use serde_json::{Map, Value};
 use toml_edit::{value, Array, DocumentMut, Item, Table};
 
 use crate::catalog::{build_catalog, CatalogEntry, CatalogStyle};
-use crate::config::{atomic_write, get_backup_dir, get_codex_auth_path, get_codex_config_dir, get_codex_config_path};
+use crate::config::{
+    atomic_write, get_backup_dir, get_codex_auth_path, get_codex_config_dir, get_codex_config_path,
+};
 use crate::error::{AppError, AppResult};
+use crate::mcp::McpServer;
 use crate::provider::{
     effective_model_context_window, validate_target_protocol, ClaudeModelMapping, LiveProviderInfo,
     ProtocolType, Provider, ProviderTarget,
 };
-use crate::mcp::McpServer;
 
 /// Stable Codex model_provider id for every AI-Switcher managed third-party
 /// provider. Keeping this fixed prevents Codex from hiding historical sessions
@@ -174,7 +176,9 @@ fn apply_managed_provider(
     for attempt in 1..=MAX_ATTEMPTS {
         match apply_provider_once(provider, api_key, proxy_port, catalog, gateway_catalog) {
             Ok(info) => return Ok(info),
-            Err(error) if is_retryable_windows_config_conflict(&error) && attempt < MAX_ATTEMPTS => {
+            Err(error)
+                if is_retryable_windows_config_conflict(&error) && attempt < MAX_ATTEMPTS =>
+            {
                 let delay_ms = 500u64.saturating_mul(u64::from(attempt)).min(2_500);
                 log::warn!(
                     "Codex 配置写入遇到 Windows 文件冲突 (attempt {attempt}/{MAX_ATTEMPTS}): {error}; {}ms 后重试",
@@ -225,14 +229,12 @@ fn apply_provider_once(
             proxy_listener_token(proxy_port, api_key, gateway_catalog),
         )?;
     }
-    Ok(CodexApplyInfo { preserved_official_login })
+    Ok(CodexApplyInfo {
+        preserved_official_login,
+    })
 }
 
-fn proxy_listener_token(
-    proxy_port: Option<u16>,
-    api_key: &str,
-    gateway_catalog: bool,
-) -> &str {
+fn proxy_listener_token(proxy_port: Option<u16>, api_key: &str, gateway_catalog: bool) -> &str {
     if proxy_port.is_some() && !gateway_catalog {
         PROXY_MANAGED_API_KEY
     } else {
@@ -379,7 +381,9 @@ fn catalog_for_single_provider(provider: &Provider, extra_models: &[String]) -> 
         && should_inject_openai_model_suggestions(provider.model.trim())
     {
         for suggestion in CODEX_MODEL_SUGGESTIONS {
-            if !extras.iter().any(|existing| existing.eq_ignore_ascii_case(suggestion))
+            if !extras
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(suggestion))
                 && !provider.model.trim().eq_ignore_ascii_case(suggestion)
             {
                 extras.push((*suggestion).to_string());
@@ -647,36 +651,61 @@ fn auth_restore_would_downgrade_login(live: Option<&Value>, backup_bytes: &[u8])
         return false;
     }
     let backup = serde_json::from_slice::<Value>(backup_bytes).ok();
-    !backup.as_ref().is_some_and(auth_has_credential_login_material)
+    !backup
+        .as_ref()
+        .is_some_and(auth_has_credential_login_material)
 }
 
 /// 读取用户当前第三方配置供全局上游导入，不把官方 OAuth 凭据当 API Key。
 pub fn read_current_upstream_for_import() -> AppResult<Option<LiveProviderInfo>> {
     let doc = load_document(&get_codex_config_path())?;
-    let provider_id = doc.get("model_provider").and_then(Item::as_str).unwrap_or("openai");
-    let Some(table) = doc.get("model_providers")
-        .and_then(|providers| providers.get(provider_id)).and_then(Item::as_table) else {
+    let provider_id = doc
+        .get("model_provider")
+        .and_then(Item::as_str)
+        .unwrap_or("openai");
+    let Some(table) = doc
+        .get("model_providers")
+        .and_then(|providers| providers.get(provider_id))
+        .and_then(Item::as_table)
+    else {
         return Ok(None);
     };
     let base_url = table.get("base_url").and_then(Item::as_str).unwrap_or("");
     if base_url.is_empty() {
         return Ok(None);
     }
-    let key = table.get("experimental_bearer_token").and_then(Item::as_str)
+    let key = table
+        .get("experimental_bearer_token")
+        .and_then(Item::as_str)
         .map(str::to_string)
-        .or_else(|| table.get("env_key").and_then(Item::as_str).and_then(|name| std::env::var(name).ok()))
+        .or_else(|| {
+            table
+                .get("env_key")
+                .and_then(Item::as_str)
+                .and_then(|name| std::env::var(name).ok())
+        })
         .unwrap_or_default();
     let auth_token = if key.is_empty() {
-        std::fs::read_to_string(get_codex_auth_path()).ok()
+        std::fs::read_to_string(get_codex_auth_path())
+            .ok()
             .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-            .and_then(|auth| auth.get("OPENAI_API_KEY").and_then(serde_json::Value::as_str).map(str::to_string))
+            .and_then(|auth| {
+                auth.get("OPENAI_API_KEY")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+            })
             .unwrap_or_default()
     } else {
         key
     };
     Ok(Some(LiveProviderInfo {
-        base_url: base_url.to_string(), auth_token,
-        model: doc.get("model").and_then(Item::as_str).unwrap_or("").to_string(),
+        base_url: base_url.to_string(),
+        auth_token,
+        model: doc
+            .get("model")
+            .and_then(Item::as_str)
+            .unwrap_or("")
+            .to_string(),
         model_mapping: ClaudeModelMapping::default(),
         protocol_type: if table.get("wire_api").and_then(Item::as_str) == Some("chat") {
             crate::provider::ProtocolType::OpenAiChat
@@ -696,8 +725,14 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         return Ok(None);
     }
     let entry = &doc["model_providers"][provider_id];
-    let Some(table) = entry.as_table() else { return Ok(None); };
-    let base_url = table.get("base_url").and_then(Item::as_str).unwrap_or_default().to_string();
+    let Some(table) = entry.as_table() else {
+        return Ok(None);
+    };
+    let base_url = table
+        .get("base_url")
+        .and_then(Item::as_str)
+        .unwrap_or_default()
+        .to_string();
     let model = doc["model"].as_str().unwrap_or_default().to_string();
     if base_url.is_empty() || model.is_empty() {
         return Ok(None);
@@ -979,7 +1014,9 @@ pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
     let mut doc = load_document(&path)?;
     let table = ensure_table(&mut doc, "mcp_servers")?;
     for server in servers.iter().filter(|server| server.enabled_codex) {
-        let Some(object) = server.server_config.as_object() else { continue; };
+        let Some(object) = server.server_config.as_object() else {
+            continue;
+        };
         let mut entry = Table::new();
         if let Some(command) = object.get("command").and_then(|value| value.as_str()) {
             entry["command"] = value(command);
@@ -989,10 +1026,14 @@ pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
         }
         if let Some(args) = object.get("args").and_then(|value| value.as_array()) {
             let mut values = Array::new();
-            for arg in args.iter().filter_map(|value| value.as_str()) { values.push(arg); }
+            for arg in args.iter().filter_map(|value| value.as_str()) {
+                values.push(arg);
+            }
             entry["args"] = value(values);
         }
-        if entry.is_empty() { continue; }
+        if entry.is_empty() {
+            continue;
+        }
         table[server.name.as_str()] = Item::Table(entry);
     }
     atomic_write(&path, doc.to_string().as_bytes())
@@ -1000,10 +1041,14 @@ pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
 
 pub fn read_mcp_servers() -> AppResult<BTreeMap<String, Value>> {
     let doc = load_document(&get_codex_config_path())?;
-    let Some(servers) = doc["mcp_servers"].as_table() else { return Ok(BTreeMap::new()); };
+    let Some(servers) = doc["mcp_servers"].as_table() else {
+        return Ok(BTreeMap::new());
+    };
     let mut result = BTreeMap::new();
     for (name, item) in servers.iter() {
-        let Some(table) = item.as_table() else { continue; };
+        let Some(table) = item.as_table() else {
+            continue;
+        };
         let mut config = Map::new();
         if let Some(command) = table.get("command").and_then(Item::as_str) {
             config.insert("command".to_string(), Value::String(command.to_string()));
@@ -1012,9 +1057,20 @@ pub fn read_mcp_servers() -> AppResult<BTreeMap<String, Value>> {
             config.insert("url".to_string(), Value::String(url.to_string()));
         }
         if let Some(args) = table.get("args").and_then(Item::as_array) {
-            config.insert("args".to_string(), Value::Array(args.iter().filter_map(|value| value.as_str().map(|value| Value::String(value.to_string()))).collect()));
+            config.insert(
+                "args".to_string(),
+                Value::Array(
+                    args.iter()
+                        .filter_map(|value| {
+                            value.as_str().map(|value| Value::String(value.to_string()))
+                        })
+                        .collect(),
+                ),
+            );
         }
-        if !config.is_empty() { result.insert(name.to_string(), Value::Object(config)); }
+        if !config.is_empty() {
+            result.insert(name.to_string(), Value::Object(config));
+        }
     }
     Ok(result)
 }
@@ -1112,15 +1168,23 @@ mod tests {
             assert!(!text.contains("[model_providers.ai_switcher_old]"));
             assert_eq!(doc["model"].as_str(), Some("gpt-5"));
             assert_eq!(doc["model_provider"].as_str(), Some(MANAGED_PROVIDER_ID));
-            assert_eq!(doc["model_catalog_json"].as_str(), Some(MODEL_CATALOG_FILENAME));
+            assert_eq!(
+                doc["model_catalog_json"].as_str(),
+                Some(MODEL_CATALOG_FILENAME)
+            );
             assert_eq!(doc["model_context_window"].as_integer(), Some(272_000));
-            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+                .as_table()
+                .unwrap();
             assert_eq!(entry.get("name").and_then(Item::as_str), Some("ThirdParty"));
             assert_eq!(
                 entry.get("base_url").and_then(Item::as_str),
                 Some("https://api.example.com/v1")
             );
-            assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
+            assert_eq!(
+                entry.get("wire_api").and_then(Item::as_str),
+                Some("responses")
+            );
             assert_eq!(
                 entry.get("requires_openai_auth").and_then(Item::as_bool),
                 Some(true)
@@ -1157,7 +1221,9 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         with_isolated_codex_home(temp.path(), || {
             write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
-            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+                .as_table()
+                .unwrap();
             let base_url = entry.get("base_url").and_then(Item::as_str).unwrap_or("");
             assert_eq!(base_url, "https://api.example.com/v1");
             assert!(!base_url.contains("127.0.0.1"));
@@ -1284,7 +1350,9 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         with_isolated_codex_home(temp.path(), || {
             write_managed_provider(&mut doc, &provider, Some(15823), &[]).unwrap();
-            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+                .as_table()
+                .unwrap();
             assert_eq!(
                 entry.get("wire_api").and_then(Item::as_str),
                 Some("responses")
@@ -1317,19 +1385,19 @@ mod tests {
     fn top_level_web_search_mode_round_trips_and_strips_legacy_features() {
         let root = tempfile::tempdir().unwrap();
         with_isolated_codex_home(root.path(), || {
-        fs::write(
-            root.path().join("config.toml"),
-            "[features]\nweb_search = true\nweb_search_live = true\n",
-        )
-        .unwrap();
-        let snap = set_web_search_mode(CodexWebSearchMode::Live).unwrap();
-        assert_eq!(snap.mode, CodexWebSearchMode::Live);
-        assert!(snap.set_in_config);
-        let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
-        assert!(text.contains("web_search = \"live\""));
-        assert!(!text.contains("web_search_live"));
-        let loaded = get_web_search_mode().unwrap();
-        assert_eq!(loaded.mode, CodexWebSearchMode::Live);
+            fs::write(
+                root.path().join("config.toml"),
+                "[features]\nweb_search = true\nweb_search_live = true\n",
+            )
+            .unwrap();
+            let snap = set_web_search_mode(CodexWebSearchMode::Live).unwrap();
+            assert_eq!(snap.mode, CodexWebSearchMode::Live);
+            assert!(snap.set_in_config);
+            let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
+            assert!(text.contains("web_search = \"live\""));
+            assert!(!text.contains("web_search_live"));
+            let loaded = get_web_search_mode().unwrap();
+            assert_eq!(loaded.mode, CodexWebSearchMode::Live);
         });
     }
 
@@ -1337,45 +1405,46 @@ mod tests {
     fn output_profile_writes_official_keys_and_catalog_defaults() {
         let root = tempfile::tempdir().unwrap();
         with_isolated_codex_home(root.path(), || {
-        fs::write(root.path().join("config.toml"), "model = \"gpt-6-astra\"\n").unwrap();
-        fs::write(
+            fs::write(root.path().join("config.toml"), "model = \"gpt-6-astra\"\n").unwrap();
+            fs::write(
             root.path().join(MODEL_CATALOG_FILENAME),
             r#"{"models":[{"slug":"gpt-6-astra","default_verbosity":"low","default_reasoning_summary":"none"}]}"#,
         )
         .unwrap();
 
-        let unset = get_output_profile().unwrap();
-        assert_eq!(unset.profile, CodexOutputProfile::Default);
-        assert_eq!(unset.profile.as_str(), "default");
-        assert!(!unset.set_in_config);
-        assert_eq!(
-            CodexOutputProfile::parse("verbose"),
-            Some(CodexOutputProfile::Full)
-        );
+            let unset = get_output_profile().unwrap();
+            assert_eq!(unset.profile, CodexOutputProfile::Default);
+            assert_eq!(unset.profile.as_str(), "default");
+            assert!(!unset.set_in_config);
+            assert_eq!(
+                CodexOutputProfile::parse("verbose"),
+                Some(CodexOutputProfile::Full)
+            );
 
-        let concise = set_output_profile(CodexOutputProfile::Concise, true).unwrap();
-        assert_eq!(concise.profile, CodexOutputProfile::Concise);
-        assert!(!concise.show_raw_reasoning);
-        let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
-        assert!(text.contains("hide_agent_reasoning = true"));
-        assert!(text.contains("model_verbosity = \"low\""));
-        assert!(text.contains("model_reasoning_summary = \"none\""));
-        let catalog: Value =
-            serde_json::from_str(&fs::read_to_string(root.path().join(MODEL_CATALOG_FILENAME)).unwrap())
-                .unwrap();
-        assert_eq!(catalog["models"][0]["default_verbosity"], "low");
-        assert_eq!(catalog["models"][0]["default_reasoning_summary"], "none");
+            let concise = set_output_profile(CodexOutputProfile::Concise, true).unwrap();
+            assert_eq!(concise.profile, CodexOutputProfile::Concise);
+            assert!(!concise.show_raw_reasoning);
+            let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
+            assert!(text.contains("hide_agent_reasoning = true"));
+            assert!(text.contains("model_verbosity = \"low\""));
+            assert!(text.contains("model_reasoning_summary = \"none\""));
+            let catalog: Value = serde_json::from_str(
+                &fs::read_to_string(root.path().join(MODEL_CATALOG_FILENAME)).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(catalog["models"][0]["default_verbosity"], "low");
+            assert_eq!(catalog["models"][0]["default_reasoning_summary"], "none");
 
-        let full = set_output_profile(CodexOutputProfile::Full, true).unwrap();
-        assert!(full.show_raw_reasoning);
-        let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
-        assert!(text.contains("hide_agent_reasoning = false"));
-        assert!(text.contains("show_raw_agent_reasoning = true"));
-        assert!(text.contains("model_verbosity = \"high\""));
-        assert!(text.contains("model_reasoning_summary = \"detailed\""));
-        let loaded = get_output_profile().unwrap();
-        assert_eq!(loaded.profile, CodexOutputProfile::Full);
-        assert!(loaded.show_raw_reasoning);
+            let full = set_output_profile(CodexOutputProfile::Full, true).unwrap();
+            assert!(full.show_raw_reasoning);
+            let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
+            assert!(text.contains("hide_agent_reasoning = false"));
+            assert!(text.contains("show_raw_agent_reasoning = true"));
+            assert!(text.contains("model_verbosity = \"high\""));
+            assert!(text.contains("model_reasoning_summary = \"detailed\""));
+            let loaded = get_output_profile().unwrap();
+            assert_eq!(loaded.profile, CodexOutputProfile::Full);
+            assert!(loaded.show_raw_reasoning);
         });
     }
 
@@ -1383,11 +1452,11 @@ mod tests {
     fn catalog_entry_follows_output_profile_verbosity() {
         let root = tempfile::tempdir().unwrap();
         with_isolated_codex_home(root.path(), || {
-        fs::write(root.path().join("config.toml"), "").unwrap();
-        set_output_profile(CodexOutputProfile::Full, false).unwrap();
-        let entry = codex_model_catalog_entry("gpt-6-astra", 272_000, true, 1);
-        assert_eq!(entry["default_verbosity"], "high");
-        assert_eq!(entry["default_reasoning_summary"], "detailed");
+            fs::write(root.path().join("config.toml"), "").unwrap();
+            set_output_profile(CodexOutputProfile::Full, false).unwrap();
+            let entry = codex_model_catalog_entry("gpt-6-astra", 272_000, true, 1);
+            assert_eq!(entry["default_verbosity"], "high");
+            assert_eq!(entry["default_reasoning_summary"], "detailed");
         });
     }
 
@@ -1458,26 +1527,38 @@ mod tests {
             "tokens": { "account_id": "acct-meta-only" }
         })));
 
-        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({
-            "OPENAI_API_KEY": "sk-x",
-            "tokens": { "access_token": "t" }
-        })));
-        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({
-            "auth_mode": "chatgpt",
-            "OPENAI_API_KEY": null,
-            "tokens": { "access_token": "official-oauth-token" }
-        })));
-        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({})));
-        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({
-            "OPENAI_API_KEY": ""
-        })));
+        assert!(!live_auth_is_stale_third_party_residue(
+            &serde_json::json!({
+                "OPENAI_API_KEY": "sk-x",
+                "tokens": { "access_token": "t" }
+            })
+        ));
+        assert!(!live_auth_is_stale_third_party_residue(
+            &serde_json::json!({
+                "auth_mode": "chatgpt",
+                "OPENAI_API_KEY": null,
+                "tokens": { "access_token": "official-oauth-token" }
+            })
+        ));
+        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!(
+            {}
+        )));
+        assert!(!live_auth_is_stale_third_party_residue(
+            &serde_json::json!({
+                "OPENAI_API_KEY": ""
+            })
+        ));
     }
 
     #[test]
     fn clears_api_key_only_auth_but_keeps_oauth() {
         let temp = tempfile::tempdir().unwrap();
         let stale = temp.path().join("stale-auth.json");
-        fs::write(&stale, r#"{"auth_mode":"apikey","OPENAI_API_KEY":"sk-vendor"}"#).unwrap();
+        fs::write(
+            &stale,
+            r#"{"auth_mode":"apikey","OPENAI_API_KEY":"sk-vendor"}"#,
+        )
+        .unwrap();
         assert!(clear_stale_third_party_auth_if_needed(&stale).unwrap());
         assert!(!stale.exists());
 
@@ -1539,12 +1620,17 @@ mod tests {
             "auth_mode": "chatgpt"
         });
 
-        let preserved = apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor", false).unwrap();
+        let preserved =
+            apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor", false).unwrap();
 
         assert!(preserved);
-        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+            .as_table()
+            .unwrap();
         assert_eq!(
-            entry.get("experimental_bearer_token").and_then(Item::as_str),
+            entry
+                .get("experimental_bearer_token")
+                .and_then(Item::as_str),
             Some("sk-vendor")
         );
     }
@@ -1554,12 +1640,17 @@ mod tests {
         let (mut doc, _temp) = doc_with_managed_entry();
         let auth = serde_json::json!({ "tokens": { "access_token": "official" } });
 
-        let preserved = apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor", false).unwrap();
+        let preserved =
+            apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor", false).unwrap();
 
         assert!(preserved);
-        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+            .as_table()
+            .unwrap();
         assert_eq!(
-            entry.get("experimental_bearer_token").and_then(Item::as_str),
+            entry
+                .get("experimental_bearer_token")
+                .and_then(Item::as_str),
             Some(PROXY_MANAGED_API_KEY)
         );
     }
@@ -1573,9 +1664,13 @@ mod tests {
             apply_auth_strategy(&mut doc, Some(&auth), Some(15_823), "gwt_shared", true).unwrap();
 
         assert!(preserved);
-        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+            .as_table()
+            .unwrap();
         assert_eq!(
-            entry.get("experimental_bearer_token").and_then(Item::as_str),
+            entry
+                .get("experimental_bearer_token")
+                .and_then(Item::as_str),
             Some("gwt_shared")
         );
         assert_eq!(
@@ -1598,15 +1693,14 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         with_isolated_codex_home(temp.path(), || {
             write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
-            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID]
+                .as_table()
+                .unwrap();
             assert_eq!(
                 entry.get("base_url").and_then(Item::as_str),
                 Some("http://127.0.0.1:15828/v1")
             );
-            assert_eq!(
-                proxy_listener_token(None, "gwt_shared", true),
-                "gwt_shared"
-            );
+            assert_eq!(proxy_listener_token(None, "gwt_shared", true), "gwt_shared");
         });
     }
 
@@ -1623,15 +1717,14 @@ mod tests {
             None,
         ] {
             let preserved =
-                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor", false).unwrap();
+                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor", false)
+                    .unwrap();
             assert!(!preserved);
-            assert!(
-                doc["model_providers"][MANAGED_PROVIDER_ID]
-                    .as_table()
-                    .unwrap()
-                    .get("experimental_bearer_token")
-                    .is_none()
-            );
+            assert!(doc["model_providers"][MANAGED_PROVIDER_ID]
+                .as_table()
+                .unwrap()
+                .get("experimental_bearer_token")
+                .is_none());
             // Re-seed for the second iteration.
             doc["model_providers"][MANAGED_PROVIDER_ID]["experimental_bearer_token"] =
                 value("sk-stale");

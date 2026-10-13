@@ -53,15 +53,13 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
     let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let mut tmp = parent.to_path_buf();
     // PID + nanos + seq: Windows clock resolution can collide across writers.
-    tmp.push(format!(
-        "{file_name}.tmp.{}.{ts}.{seq}",
-        std::process::id()
-    ));
+    tmp.push(format!("{file_name}.tmp.{}.{ts}.{seq}", std::process::id()));
 
     // Write + flush the temp file first.
     {
         let mut f = fs::File::create(&tmp).map_err(|e| io_context("创建临时文件失败", e))?;
-        f.write_all(data).map_err(|e| io_context("写入临时文件失败", e))?;
+        f.write_all(data)
+            .map_err(|e| io_context("写入临时文件失败", e))?;
         f.flush().map_err(|e| io_context("刷新临时文件失败", e))?;
     }
 
@@ -159,7 +157,10 @@ fn replace_file_on_windows(tmp: &Path, path: &Path) -> AppResult<()> {
     };
 
     let to_wide = |p: &Path| -> Vec<u16> {
-        p.as_os_str().encode_wide().chain(std::iter::once(0)).collect()
+        p.as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
     };
     let from = to_wide(tmp);
     let to = to_wide(path);
@@ -323,14 +324,16 @@ mod tests {
         let barrier_for_write = Arc::clone(&barrier);
         let writer = thread::spawn(move || {
             barrier_for_write.wait();
-            atomic_write(path_for_write.as_path(), b"new-after-lock").expect(
-                "atomic_write should succeed once the exclusive lock is released",
-            );
+            atomic_write(path_for_write.as_path(), b"new-after-lock")
+                .expect("atomic_write should succeed once the exclusive lock is released");
         });
 
         locker.join().unwrap();
         writer.join().unwrap();
-        assert_eq!(fs::read_to_string(target.as_path()).unwrap(), "new-after-lock");
+        assert_eq!(
+            fs::read_to_string(target.as_path()).unwrap(),
+            "new-after-lock"
+        );
     }
 
     #[test]
@@ -353,7 +356,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let target = dir.path().join("out.json");
         // Deliberately out-of-order keys; expect sorted output.
-        write_json_file(&target, &json!({"z": 1, "a": 2, "m": [3, {"k": 1, "j": 0}]})).unwrap();
+        write_json_file(
+            &target,
+            &json!({"z": 1, "a": 2, "m": [3, {"k": 1, "j": 0}]}),
+        )
+        .unwrap();
         let s = fs::read_to_string(&target).unwrap();
         let pos_a = s.find("\"a\"").unwrap();
         let pos_m = s.find("\"m\"").unwrap();

@@ -30,9 +30,7 @@ pub async fn get_provider_quota(
 }
 
 #[tauri::command]
-pub async fn get_official_quota(
-    target: ProviderTarget,
-) -> AppResult<ProviderQuotaResult> {
+pub async fn get_official_quota(target: ProviderTarget) -> AppResult<ProviderQuotaResult> {
     Ok(query_official_quota(target).await)
 }
 
@@ -43,7 +41,7 @@ mod tests {
     use crate::database::Database;
     use crate::error::AppError;
     use crate::provider::{
-        ClaudeModelMapping, ProviderInput, ProviderKind, ProviderTarget, ProtocolType,
+        ClaudeModelMapping, ProtocolType, ProviderInput, ProviderKind, ProviderTarget,
     };
 
     fn upstream_input(id: &str, name: &str, base_url: &str) -> ProviderInput {
@@ -92,11 +90,18 @@ mod tests {
     fn load_quota_provider_prefers_provider_row() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {
-            let mut input =
-                upstream_input("shared_quota_id", "Provider card", "https://api.deepseek.com");
+            let mut input = upstream_input(
+                "shared_quota_id",
+                "Provider card",
+                "https://api.deepseek.com",
+            );
             input.name = "Provider card".into();
             let provider = dao::upsert_provider(conn, &input)?;
-            let mut pool = upstream_input(&provider.id, "Upstream snapshot", "https://api.deepseek.com");
+            let mut pool = upstream_input(
+                &provider.id,
+                "Upstream snapshot",
+                "https://api.deepseek.com",
+            );
             pool.name = "Upstream snapshot".into();
             dao::gateway::upsert_upstream(conn, &pool)?;
             let loaded = load_quota_provider(conn, &provider.id)?;

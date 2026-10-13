@@ -35,7 +35,9 @@ pub async fn add_claude_plugin_marketplace(source: String) -> AppResult<ClaudePl
 }
 
 #[tauri::command]
-pub async fn remove_claude_plugin_marketplace(name: String) -> AppResult<ClaudePluginCommandResult> {
+pub async fn remove_claude_plugin_marketplace(
+    name: String,
+) -> AppResult<ClaudePluginCommandResult> {
     spawn_blocking_result(move || {
         let executable = claude_plugins::resolve_claude_executable()?;
         claude_plugins::remove_marketplace(&executable, &name)

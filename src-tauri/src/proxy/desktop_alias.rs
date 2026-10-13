@@ -33,8 +33,16 @@ pub fn discovery_payload(entries: &[CatalogEntry]) -> Value {
         .zip(titles)
         .map(|(entry, title)| discovery_row(entry, &title))
         .collect();
-    let first_id = data.first().and_then(|row| row.get("id")).cloned().unwrap_or(Value::String(String::new()));
-    let last_id = data.last().and_then(|row| row.get("id")).cloned().unwrap_or(Value::String(String::new()));
+    let first_id = data
+        .first()
+        .and_then(|row| row.get("id"))
+        .cloned()
+        .unwrap_or(Value::String(String::new()));
+    let last_id = data
+        .last()
+        .and_then(|row| row.get("id"))
+        .cloned()
+        .unwrap_or(Value::String(String::new()));
     json!({
         "object": "list",
         "data": data,
@@ -68,7 +76,9 @@ pub fn public_id_for_listed(listed: &str, entries: &[CatalogEntry]) -> Option<St
         if is_auto_public_id(&entry.public_id) {
             return None;
         }
-        if entry.public_id.eq_ignore_ascii_case(listed) || listed_id(&entry.public_id).eq_ignore_ascii_case(listed) {
+        if entry.public_id.eq_ignore_ascii_case(listed)
+            || listed_id(&entry.public_id).eq_ignore_ascii_case(listed)
+        {
             Some(entry.public_id.clone())
         } else {
             None
@@ -167,7 +177,8 @@ pub fn resolve_selected(
         return Ok(public_id);
     }
     if !requested.starts_with(ALIAS_PREFIX) {
-        if let Some(public_id) = last_selected.and_then(|last| public_id_for_listed(last, entries)) {
+        if let Some(public_id) = last_selected.and_then(|last| public_id_for_listed(last, entries))
+        {
             return Ok(public_id);
         }
     }
@@ -275,7 +286,9 @@ mod tests {
             .collect();
         assert_eq!(ids.len(), 2);
         assert!(ids.iter().all(|id| id.starts_with(ALIAS_PREFIX)));
-        assert!(!ids.iter().any(|id| id.to_ascii_lowercase().contains("sonnet")));
+        assert!(!ids
+            .iter()
+            .any(|id| id.to_ascii_lowercase().contains("sonnet")));
         let alias = alias_for(vendor);
         assert_eq!(alias.len(), ALIAS_PREFIX.len() + 10);
         assert_eq!(alias_for(vendor), alias);
@@ -286,7 +299,10 @@ mod tests {
             .find(|row| row["id"].as_str() == Some(alias.as_str()))
             .unwrap();
         assert_eq!(row["display_name"], "gpt-6-astra");
-        assert_eq!(public_id_for_listed(&alias, &entries).as_deref(), Some(vendor));
+        assert_eq!(
+            public_id_for_listed(&alias, &entries).as_deref(),
+            Some(vendor)
+        );
         assert_eq!(
             public_id_for_listed(&alias_for(sonnet), &entries).as_deref(),
             Some(sonnet)
@@ -306,7 +322,12 @@ mod tests {
             Ok(gemini)
         );
         // 标题生成、裸角色、旧 slug 都不是用户选的模型，跟随上次成功的选择。
-        for unlisted in ["claude-sonnet-5-5-high", "sonnet", "haiku", "claude-haiku-4-5"] {
+        for unlisted in [
+            "claude-sonnet-5-5-high",
+            "sonnet",
+            "haiku",
+            "claude-haiku-4-5",
+        ] {
             assert_eq!(
                 resolve_selected(unlisted, &entries, Some(&luna_alias)).as_deref(),
                 Ok(luna),
@@ -316,9 +337,14 @@ mod tests {
         // 还没有选择记录时不猜模型。
         assert!(resolve_selected("sonnet", &entries, None).is_err());
         // 未知别名是过期选择，不能落到记忆里的模型。
-        assert!(resolve_selected("anthropic/aisw-0000000000", &entries, Some(&luna_alias)).is_err());
+        assert!(
+            resolve_selected("anthropic/aisw-0000000000", &entries, Some(&luna_alias)).is_err()
+        );
         // Auto 仍交给卡片默认。
-        assert_eq!(resolve_selected("claude.auto", &entries, None).as_deref(), Ok("claude.auto"));
+        assert_eq!(
+            resolve_selected("claude.auto", &entries, None).as_deref(),
+            Ok("claude.auto")
+        );
         assert_eq!(resolve_selected("", &entries, None).as_deref(), Ok(""));
         assert!(is_listed_selection(&luna_alias, &entries));
         assert!(!is_listed_selection("sonnet", &entries));

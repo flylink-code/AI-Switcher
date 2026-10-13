@@ -5,15 +5,14 @@ use std::sync::Arc;
 use serde::Serialize;
 
 use crate::database::dao::gateway::{
-    delete_upstream, ensure_profile_for_target, import_providers_as_upstreams,
-    list_upstream_models, list_upstream_providers, get_upstream_provider, replace_upstream_models,
-    set_upstream_enabled, set_upstream_model_visible, upsert_upstream, AgentConnectionView,
-    ConnectionType,
-    GatewayUpstreamImportResult, GatewayUpstreamModelRow,
+    delete_upstream, ensure_profile_for_target, get_upstream_provider,
+    import_providers_as_upstreams, list_upstream_models, list_upstream_providers,
+    replace_upstream_models, set_upstream_enabled, set_upstream_model_visible, upsert_upstream,
+    AgentConnectionView, ConnectionType, GatewayUpstreamImportResult, GatewayUpstreamModelRow,
 };
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    ModelDiscoveryResult, Provider, ProviderInput, ProviderKind, ProviderTarget, ProtocolType,
+    ModelDiscoveryResult, ProtocolType, Provider, ProviderInput, ProviderKind, ProviderTarget,
 };
 use crate::store::AppState;
 
@@ -47,14 +46,12 @@ pub fn get_agent_connection(
                     profile,
                 })
             }
-            _ => {
-                Ok(AgentConnectionView {
-                    target,
-                    connection_type: ConnectionType::External,
-                    upstream_id: None,
-                    profile: None,
-                })
-            }
+            _ => Ok(AgentConnectionView {
+                target,
+                connection_type: ConnectionType::External,
+                upstream_id: None,
+                profile: None,
+            }),
         }
     })
 }
@@ -69,10 +66,12 @@ pub async fn set_agent_connection(
     let kind = ConnectionType::from_str_lossy(&connection_type);
     match kind {
         ConnectionType::Gateway => {
-            crate::commands::providers::set_agent_gateway_for_target(target, Some(&app), &state).await?;
+            crate::commands::providers::set_agent_gateway_for_target(target, Some(&app), &state)
+                .await?;
         }
         ConnectionType::External => {
-            crate::commands::providers::switch_to_official_for_target(target, Some(&app), &state).await?;
+            crate::commands::providers::switch_to_official_for_target(target, Some(&app), &state)
+                .await?;
         }
     }
     crate::commands::proxy::publish_target_status(&app, &state, target).await;
@@ -92,7 +91,9 @@ pub async fn set_gateway_upstream_enabled(
     enabled: bool,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Provider> {
-    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+    let _guard = crate::commands::providers::agent_connection_lock()
+        .lock()
+        .await;
     let mut provider = state
         .db
         .with_conn(|conn| set_upstream_enabled(conn, &id, enabled))?;
@@ -112,11 +113,9 @@ pub fn get_local_gateway_enabled(state: tauri::State<'_, AppState>) -> AppResult
         || crate::kiro::list_accounts()
             .map(|accounts| !accounts.is_empty())
             .unwrap_or(false);
-    state
-        .db
-        .with_read_conn(|conn| {
-            crate::database::dao::gateway::local_gateway_enabled_with(conn, has_saved_accounts)
-        })
+    state.db.with_read_conn(|conn| {
+        crate::database::dao::gateway::local_gateway_enabled_with(conn, has_saved_accounts)
+    })
 }
 
 #[tauri::command]
@@ -142,10 +141,12 @@ pub async fn reorder_gateway_upstreams(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<Provider>> {
     let mut providers = {
-        let _guard = crate::commands::providers::agent_connection_lock().lock().await;
-        state
-            .db
-            .with_conn(|conn| crate::database::dao::gateway::reorder_upstreams(conn, &ordered_ids))?;
+        let _guard = crate::commands::providers::agent_connection_lock()
+            .lock()
+            .await;
+        state.db.with_conn(|conn| {
+            crate::database::dao::gateway::reorder_upstreams(conn, &ordered_ids)
+        })?;
         crate::catalog::invalidate_view_cache();
         state
             .db
@@ -169,7 +170,9 @@ pub async fn upsert_gateway_upstream(
     if input.provider_kind == ProviderKind::SmartGateway {
         return Err(AppError::Config("托管 Auto 卡不能加入上游池".to_string()));
     }
-    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+    let _guard = crate::commands::providers::agent_connection_lock()
+        .lock()
+        .await;
 
     if let Some(upstream_id) = input.id.as_deref() {
         state.db.with_read_conn(|conn| {
@@ -184,7 +187,10 @@ pub async fn upsert_gateway_upstream(
 
     let mut provider = state.db.with_conn(|conn| upsert_upstream(conn, &input))?;
     let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    if let Err(error) = crate::commands::providers::refresh_direct_upstream_locked(&provider.id, Some(&app), &state).await {
+    if let Err(error) =
+        crate::commands::providers::refresh_direct_upstream_locked(&provider.id, Some(&app), &state)
+            .await
+    {
         return Err(AppError::Config(format!(
             "上游数据已保存，但刷新直连 Agent 配置失败: {error}"
         )));
@@ -234,7 +240,9 @@ pub async fn set_gateway_upstream_model_visible(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayUpstreamModelRow>> {
     let rows = {
-        let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+        let _guard = crate::commands::providers::agent_connection_lock()
+            .lock()
+            .await;
         let rows = state
             .db
             .with_conn(|conn| set_upstream_model_visible(conn, &id, &model_id, visible))?;
@@ -274,9 +282,11 @@ pub async fn discover_gateway_upstream_models_batch(
         let name = state
             .db
             .with_conn(|conn| {
-                Ok(crate::database::dao::gateway::get_upstream_provider(conn, &id)?
-                    .map(|provider| provider.name)
-                    .unwrap_or_else(|| id.clone()))
+                Ok(
+                    crate::database::dao::gateway::get_upstream_provider(conn, &id)?
+                        .map(|provider| provider.name)
+                        .unwrap_or_else(|| id.clone()),
+                )
             })
             .unwrap_or_else(|_| id.clone());
         let result = discover_one_upstream(&id, &state).await?;
@@ -285,16 +295,15 @@ pub async fn discover_gateway_upstream_models_batch(
     Ok(results)
 }
 
-async fn discover_one_upstream(
-    id: &str,
-    state: &AppState,
-) -> AppResult<ModelDiscoveryResult> {
+async fn discover_one_upstream(id: &str, state: &AppState) -> AppResult<ModelDiscoveryResult> {
     let provider = state.db.with_conn(|conn| {
         crate::database::dao::gateway::get_upstream_provider(conn, id)?
             .ok_or_else(|| AppError::Config(format!("上游不存在: {id}")))
     })?;
     if provider.is_smart_gateway() {
-        return Err(AppError::Config("托管 Auto 卡不能作为上游刷新模型".to_string()));
+        return Err(AppError::Config(
+            "托管 Auto 卡不能作为上游刷新模型".to_string(),
+        ));
     }
     let key = state
         .db
@@ -314,8 +323,13 @@ async fn discover_one_upstream(
 }
 
 #[tauri::command]
-pub async fn delete_gateway_upstream(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+pub async fn delete_gateway_upstream(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let _guard = crate::commands::providers::agent_connection_lock()
+        .lock()
+        .await;
     state.db.with_conn(|conn| delete_upstream(conn, &id))?;
     state.db.gateway_upstream_limiter.remove(&id);
     Ok(())
@@ -479,7 +493,9 @@ pub async fn start_smart_gateway(
 }
 
 #[tauri::command]
-pub async fn stop_smart_gateway(app: tauri::AppHandle) -> AppResult<crate::gateway::service::SmartGatewayStatus> {
+pub async fn stop_smart_gateway(
+    app: tauri::AppHandle,
+) -> AppResult<crate::gateway::service::SmartGatewayStatus> {
     let status = crate::gateway::service::stop_service().await?;
     crate::gateway::service::emit_status(&app);
     Ok(status)
@@ -489,7 +505,9 @@ pub async fn stop_smart_gateway(app: tauri::AppHandle) -> AppResult<crate::gatew
 pub fn list_smart_gateway_bindings(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<crate::database::dao::gateway::GatewayBinding>> {
-    state.db.with_read_conn(crate::database::dao::gateway::list_bindings)
+    state
+        .db
+        .with_read_conn(crate::database::dao::gateway::list_bindings)
 }
 
 #[tauri::command]
@@ -498,7 +516,9 @@ pub async fn bind_smart_gateway(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Provider> {
-    let mut provider = crate::commands::providers::set_agent_gateway_for_target(target, Some(&app), &state).await?;
+    let mut provider =
+        crate::commands::providers::set_agent_gateway_for_target(target, Some(&app), &state)
+            .await?;
     if !provider.api_key.starts_with("kr://") {
         provider.api_key = String::new();
     }
@@ -524,10 +544,15 @@ pub async fn unbind_smart_gateway(
         }
         let is_gw = state
             .db
-            .with_read_conn(|conn| Ok(crate::database::dao::gateway::is_gateway_connection(conn, target)))
+            .with_read_conn(|conn| {
+                Ok(crate::database::dao::gateway::is_gateway_connection(
+                    conn, target,
+                ))
+            })
             .unwrap_or(false);
         if is_gw {
-            crate::commands::providers::switch_to_official_for_target(target, Some(&app), &state).await?;
+            crate::commands::providers::switch_to_official_for_target(target, Some(&app), &state)
+                .await?;
         } else {
             state
                 .db
@@ -538,7 +563,6 @@ pub async fn unbind_smart_gateway(
     crate::gateway::service::emit_status(&app);
     Ok(())
 }
-
 
 pub use crate::database::dao::proxy_logs::UpstreamDailyUsageStat;
 
@@ -557,7 +581,6 @@ pub async fn list_upstream_daily_usage_stats(
     .await
     .map_err(|e| AppError::Database(format!("list upstream daily usage stats task failed: {e}")))?
 }
-
 
 #[tauri::command]
 pub fn list_gateway_upstream_health(
@@ -591,8 +614,12 @@ pub async fn set_gateway_upstream_policy(
     policy: crate::gateway::upstream_limits::UpstreamLimitPolicy,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<crate::gateway::upstream_limits::UpstreamLimitPolicy> {
-    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
-    state.db.with_conn(|conn| crate::gateway::upstream_limits::persist_policy(conn, &id, &policy))?;
+    let _guard = crate::commands::providers::agent_connection_lock()
+        .lock()
+        .await;
+    state
+        .db
+        .with_conn(|conn| crate::gateway::upstream_limits::persist_policy(conn, &id, &policy))?;
     state.db.gateway_upstream_limiter.apply(&id, policy.clone());
     Ok(policy)
 }
@@ -603,7 +630,6 @@ pub fn list_gateway_upstream_pressure(
 ) -> Vec<crate::gateway::upstream_limits::UpstreamLimitSnapshot> {
     state.db.gateway_upstream_limiter.snapshot_all()
 }
-
 
 #[tauri::command]
 pub fn get_smart_gateway_inbound_limits(
@@ -619,7 +645,6 @@ pub fn set_smart_gateway_inbound_limits(
 ) -> AppResult<crate::gateway::inbound::InboundLimitSettings> {
     crate::gateway::inbound::persist(&state.db, &settings)
 }
-
 
 #[tauri::command]
 pub fn get_smart_gateway_health_probe_secs(state: tauri::State<'_, AppState>) -> u64 {

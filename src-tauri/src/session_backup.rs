@@ -82,7 +82,9 @@ fn backup_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
-pub fn load_auto_backup_settings(conn: &rusqlite::Connection) -> AppResult<SessionAutoBackupSettings> {
+pub fn load_auto_backup_settings(
+    conn: &rusqlite::Connection,
+) -> AppResult<SessionAutoBackupSettings> {
     let mut settings = SessionAutoBackupSettings::default();
     settings.schedule_enabled = get_setting(conn, SCHEDULE_ENABLED_KEY)?.as_deref() == Some("true");
     settings.mirror_enabled = get_setting(conn, MIRROR_ENABLED_KEY)?.as_deref() == Some("true");
@@ -118,14 +120,26 @@ pub fn save_auto_backup_settings(
     set_setting(
         conn,
         SCHEDULE_ENABLED_KEY,
-        if normalized.schedule_enabled { "true" } else { "false" },
+        if normalized.schedule_enabled {
+            "true"
+        } else {
+            "false"
+        },
     )?;
     set_setting(
         conn,
         MIRROR_ENABLED_KEY,
-        if normalized.mirror_enabled { "true" } else { "false" },
+        if normalized.mirror_enabled {
+            "true"
+        } else {
+            "false"
+        },
     )?;
-    set_setting(conn, INTERVAL_MINUTES_KEY, &normalized.interval_minutes.to_string())?;
+    set_setting(
+        conn,
+        INTERVAL_MINUTES_KEY,
+        &normalized.interval_minutes.to_string(),
+    )?;
     set_setting(conn, KEEP_AUTO_KEY, &normalized.keep_auto.to_string())?;
     set_setting(conn, ACTIVE_DAYS_KEY, &normalized.active_days.to_string())?;
     Ok(normalized)
@@ -173,7 +187,9 @@ fn run_backup_tick(
     copied: &mut HashMap<PathBuf, FileStamp>,
     pending: &mut HashMap<PathBuf, PendingCopy>,
 ) {
-    let _guard = backup_lock().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = backup_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if settings.mirror_enabled {
         if let Err(error) = sync_session_mirrors(backup_dir, settings, copied, pending) {
             log::warn!("会话镜像同步失败: {error}");
@@ -190,9 +206,11 @@ fn run_backup_tick(
                         info.session_count,
                         info.archive_path
                     );
-                    if let Err(error) =
-                        prune_auto_session_backups(backup_dir, provider, settings.keep_auto as usize)
-                    {
+                    if let Err(error) = prune_auto_session_backups(
+                        backup_dir,
+                        provider,
+                        settings.keep_auto as usize,
+                    ) {
                         log::warn!("自动会话 ZIP 裁剪失败 {:?}: {error}", provider);
                     }
                 }
@@ -248,7 +266,8 @@ fn sync_session_mirrors(
             }
             let due = match pending.get(&source) {
                 Some(pending_copy) if pending_copy.stamp == stamp => {
-                    now.duration_since(pending_copy.first_seen) >= Duration::from_secs(DEBOUNCE_SECS)
+                    now.duration_since(pending_copy.first_seen)
+                        >= Duration::from_secs(DEBOUNCE_SECS)
                 }
                 _ => {
                     pending.insert(
@@ -350,11 +369,15 @@ pub fn restore_session_mirror(
     overwrite: bool,
 ) -> AppResult<SessionBatchRestoreResult> {
     if matches!(provider, SessionProvider::OpenCode | SessionProvider::Cline) {
-        return Err(AppError::Config("此 Agent 不支持从文件镜像恢复".to_string()));
+        return Err(AppError::Config(
+            "此 Agent 不支持从文件镜像恢复".to_string(),
+        ));
     }
     let dest_root = simplified_path(&mirror_provider_dir(backup_dir, provider));
     if !dest_root.is_dir() {
-        return Err(AppError::Config("当前备份目录下没有该 Agent 的会话镜像".to_string()));
+        return Err(AppError::Config(
+            "当前备份目录下没有该 Agent 的会话镜像".to_string(),
+        ));
     }
     let mut mirrored = Vec::new();
     collect_files(&dest_root, &mut mirrored, 0)?;
@@ -427,7 +450,10 @@ fn restore_decision(
 }
 
 fn live_is_newer(live: &Path, mirror: &Path) -> bool {
-    match (live.metadata().and_then(|meta| meta.modified()), mirror.metadata().and_then(|meta| meta.modified())) {
+    match (
+        live.metadata().and_then(|meta| meta.modified()),
+        mirror.metadata().and_then(|meta| meta.modified()),
+    ) {
         (Ok(live_time), Ok(mirror_time)) => live_time > mirror_time,
         _ => false,
     }
@@ -449,7 +475,8 @@ pub fn spawn_session_auto_backup_loop(db: Arc<Database>) {
             match loaded {
                 Ok((settings, backup_dir)) => {
                     if settings.mirror_enabled || settings.schedule_enabled {
-                        let interval = Duration::from_secs(u64::from(settings.interval_minutes) * 60);
+                        let interval =
+                            Duration::from_secs(u64::from(settings.interval_minutes) * 60);
                         let due_zip = settings.schedule_enabled && last_zip.elapsed() >= interval;
                         let copied_state = Arc::clone(&copied);
                         let pending_state = Arc::clone(&pending);
@@ -504,7 +531,8 @@ mod tests {
         write_file(&dir.path().join("claude-code-all-backup-1.zip"), "manual");
         for index in 1..=10 {
             write_file(
-                &dir.path().join(format!("claude-code-auto-backup-{index}.zip")),
+                &dir.path()
+                    .join(format!("claude-code-auto-backup-{index}.zip")),
                 "auto",
             );
         }
@@ -528,7 +556,11 @@ mod tests {
     #[test]
     fn backup_dir_is_not_treated_as_session_source() {
         let dir = tempdir().unwrap();
-        let nested = dir.path().join("mirror").join("claude-code").join("x.jsonl");
+        let nested = dir
+            .path()
+            .join("mirror")
+            .join("claude-code")
+            .join("x.jsonl");
         write_file(&nested, "session");
         assert!(path_is_under(&nested, dir.path()));
         let outside = tempdir().unwrap();

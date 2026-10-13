@@ -75,10 +75,7 @@ pub async fn query_deepseek_balance(api_key: &str) -> ProviderQuotaResult {
                 .and_then(Value::as_str)
                 .unwrap_or("CNY")
                 .to_string();
-            let total_balance = info
-                .get("total_balance")
-                .and_then(parse_f64)
-                .unwrap_or(0.0);
+            let total_balance = info.get("total_balance").and_then(parse_f64).unwrap_or(0.0);
             let granted_balance = info.get("granted_balance").and_then(parse_f64);
             let topped_up_balance = info.get("topped_up_balance").and_then(parse_f64);
 
@@ -175,7 +172,11 @@ pub async fn query_siliconflow_balance(base_url: &str, api_key: &str) -> Provide
     let charge_balance = data.get("chargeBalance").and_then(parse_f64);
     let balance = data.get("balance").and_then(parse_f64);
 
-    let currency = if domain.contains(".com") { "USD" } else { "CNY" };
+    let currency = if domain.contains(".com") {
+        "USD"
+    } else {
+        "CNY"
+    };
 
     ProviderQuotaResult::Balance {
         provider_type: "siliconflow".to_string(),
@@ -325,7 +326,9 @@ pub async fn query_openrouter_balance(api_key: &str) -> ProviderQuotaResult {
     let usage = data.get("usage").and_then(parse_f64).unwrap_or(0.0);
     let limit_remaining = data.get("limit_remaining").and_then(parse_f64);
 
-    let remaining_balance = limit_remaining.or_else(|| limit.map(|l| (l - usage).max(0.0))).unwrap_or(0.0);
+    let remaining_balance = limit_remaining
+        .or_else(|| limit.map(|l| (l - usage).max(0.0)))
+        .unwrap_or(0.0);
 
     ProviderQuotaResult::Balance {
         provider_type: "openrouter".to_string(),

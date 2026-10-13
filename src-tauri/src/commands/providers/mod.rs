@@ -1,18 +1,18 @@
 //! Provider management commands scoped to Claude Code or Claude Desktop.
 
 use crate::catalog::{self, build_catalog_with, CatalogStyle};
-use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync, opencode};
 use crate::config::codex_provider_sync::CodexProviderSyncResult;
+use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync, opencode};
 use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
     api_endpoint_url, catalog_models_from_provider, normalize_base_url,
-    protocol_endpoint_path, strip_anthropic_compat_path,
-    ClaudeModelMapping, ConnectionTestResult, EndpointSpeedtestResult, LiveProviderInfo,
-    ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
-    normalized_model_mapping, normalized_auto_review_model_override, validate_target_protocol,
-    ProviderImportResult, ProviderInput, ProviderKind, ProviderTarget, ProtocolType,
+    normalized_auto_review_model_override, normalized_model_mapping, protocol_endpoint_path,
+    strip_anthropic_compat_path, validate_target_protocol, ClaudeModelMapping,
+    ConnectionTestResult, EndpointSpeedtestResult, LiveProviderInfo, ModelDiscoveryResult,
+    ProtocolType, Provider, ProviderExportBundle, ProviderExportEntry, ProviderImportResult,
+    ProviderInput, ProviderKind, ProviderTarget,
 };
 use crate::store::AppState;
 use chrono::Utc;
@@ -41,15 +41,24 @@ fn codex_switch_lock() -> &'static tokio::sync::Mutex<()> {
 }
 
 #[tauri::command]
-pub fn list_providers(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Vec<Provider>> {
-    state.db.with_read_conn(|conn| dao::list_providers(conn, target))
+pub fn list_providers(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<Provider>> {
+    state
+        .db
+        .with_read_conn(|conn| dao::list_providers(conn, target))
 }
 
 fn gateway_catalog_on(state: &AppState, target: ProviderTarget) -> bool {
     catalog::enabled(state.db.as_ref(), target)
 }
 
-fn patch_default_profile_field<F>(state: &AppState, target: ProviderTarget, mutate: F) -> AppResult<()>
+fn patch_default_profile_field<F>(
+    state: &AppState,
+    target: ProviderTarget,
+    mutate: F,
+) -> AppResult<()>
 where
     F: FnOnce(&mut crate::database::dao::gateway::GatewayProfilePatch),
 {
@@ -81,7 +90,9 @@ pub async fn set_gateway_catalog_hide_official(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<bool> {
     let Some(key) = catalog::hide_official_setting_key(target) else {
-        return Err(AppError::Config("此 Agent 不支持隐藏官方内置模型".to_string()));
+        return Err(AppError::Config(
+            "此 Agent 不支持隐藏官方内置模型".to_string(),
+        ));
     };
     state
         .db
@@ -183,7 +194,9 @@ fn catalog_public_ids_for(state: &AppState, target: ProviderTarget) -> AppResult
 fn saved_smart_gateway_port(state: &AppState) -> u16 {
     state
         .db
-        .with_conn(|conn| crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING))
+        .with_conn(|conn| {
+            crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING)
+        })
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u16>().ok())
@@ -229,31 +242,35 @@ pub fn list_gateway_catalog_entries(
         .iter()
         .map(|(provider, _)| (provider.id.clone(), provider.name.clone()))
         .collect();
-    let options = build_catalog_with(style, &pairs, hide_official).into_iter().map(|entry| {
-        let inferred = crate::gateway::metadata::infer(&entry.public_id);
-        let source_names: Vec<String> = names.get(&entry.provider_id).cloned().into_iter().collect();
-        GatewayCatalogModelOption {
-            provider_name: names
-                .get(&entry.provider_id)
-                .cloned()
-                .unwrap_or_else(|| entry.display_name.clone()),
-            source_names,
-            public_id: entry.public_id,
-            display_name: entry.display_name,
-            context_window: entry.context_window,
-            web_search_enabled: entry.web_search_enabled
-                || inferred.capabilities["web_search"].as_bool().unwrap_or(false),
-            vision_enabled: inferred.capabilities["vision"].as_bool().unwrap_or(false),
-            reasoning_levels: if inferred.reasoning_levels.is_empty() {
-                vec!["off".into(), "low".into(), "medium".into(), "high".into()]
-            } else {
-                inferred.reasoning_levels
-            },
-        }
-    });
+    let options = build_catalog_with(style, &pairs, hide_official)
+        .into_iter()
+        .map(|entry| {
+            let inferred = crate::gateway::metadata::infer(&entry.public_id);
+            let source_names: Vec<String> =
+                names.get(&entry.provider_id).cloned().into_iter().collect();
+            GatewayCatalogModelOption {
+                provider_name: names
+                    .get(&entry.provider_id)
+                    .cloned()
+                    .unwrap_or_else(|| entry.display_name.clone()),
+                source_names,
+                public_id: entry.public_id,
+                display_name: entry.display_name,
+                context_window: entry.context_window,
+                web_search_enabled: entry.web_search_enabled
+                    || inferred.capabilities["web_search"]
+                        .as_bool()
+                        .unwrap_or(false),
+                vision_enabled: inferred.capabilities["vision"].as_bool().unwrap_or(false),
+                reasoning_levels: if inferred.reasoning_levels.is_empty() {
+                    vec!["off".into(), "low".into(), "medium".into(), "high".into()]
+                } else {
+                    inferred.reasoning_levels
+                },
+            }
+        });
     Ok(options.collect())
 }
-
 
 include!("crud.rs");
 include!("apply.rs");

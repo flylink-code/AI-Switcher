@@ -81,7 +81,9 @@ pub async fn query_claude_official_quota() -> ProviderQuotaResult {
         Some(t) => t,
         None => {
             return ProviderQuotaResult::Unsupported {
-                reason: Some("未找到 Claude Code 登录凭据 (~/.claude/.credentials.json)".to_string()),
+                reason: Some(
+                    "未找到 Claude Code 登录凭据 (~/.claude/.credentials.json)".to_string(),
+                ),
             };
         }
     };
@@ -194,7 +196,10 @@ pub async fn query_claude_official_quota() -> ProviderQuotaResult {
 
     // Extra usage
     let extra_usage = body.get("extra_usage").map(|e| ExtraUsage {
-        is_enabled: e.get("is_enabled").and_then(Value::as_bool).unwrap_or(false),
+        is_enabled: e
+            .get("is_enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         monthly_limit: e.get("monthly_limit").and_then(Value::as_f64),
         used_credits: e.get("used_credits").and_then(Value::as_f64),
         utilization: e.get("utilization").and_then(Value::as_f64),
@@ -216,14 +221,15 @@ pub async fn query_claude_official_quota() -> ProviderQuotaResult {
 
 /// Query ChatGPT / Codex official rate limits
 pub async fn query_codex_official_quota(account_id: Option<&str>) -> ProviderQuotaResult {
-    let (access_token, active_account_id) = match crate::codex_oauth::manager().get_valid_token(account_id) {
-        Ok(res) => res,
-        Err(e) => {
-            return ProviderQuotaResult::Unsupported {
-                reason: Some(format!("未获取到 Codex 登录账户令牌: {e}")),
-            };
-        }
-    };
+    let (access_token, active_account_id) =
+        match crate::codex_oauth::manager().get_valid_token(account_id) {
+            Ok(res) => res,
+            Err(e) => {
+                return ProviderQuotaResult::Unsupported {
+                    reason: Some(format!("未获取到 Codex 登录账户令牌: {e}")),
+                };
+            }
+        };
 
     let client = quota_http_client();
     let mut req = client
@@ -275,14 +281,26 @@ pub async fn query_codex_official_quota(account_id: Option<&str>) -> ProviderQuo
         }
     };
 
-    let plan_name = body.get("plan_type").and_then(Value::as_str).map(|s| s.to_string());
+    let plan_name = body
+        .get("plan_type")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
     let mut tiers = Vec::new();
 
     if let Some(rate_limits) = body.get("rate_limits").and_then(Value::as_array) {
         for item in rate_limits {
-            let max_requests = item.get("max_requests").and_then(Value::as_f64).unwrap_or(1.0);
-            let remaining = item.get("remaining_requests").and_then(Value::as_f64).unwrap_or(0.0);
-            let window_seconds = item.get("window_seconds").and_then(Value::as_i64).unwrap_or(18000);
+            let max_requests = item
+                .get("max_requests")
+                .and_then(Value::as_f64)
+                .unwrap_or(1.0);
+            let remaining = item
+                .get("remaining_requests")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
+            let window_seconds = item
+                .get("window_seconds")
+                .and_then(Value::as_i64)
+                .unwrap_or(18000);
 
             let used = (max_requests - remaining).max(0.0);
             let utilization = if max_requests > 0.0 {
@@ -291,10 +309,17 @@ pub async fn query_codex_official_quota(account_id: Option<&str>) -> ProviderQuo
                 0.0
             };
 
-            let reset_time_ms = item.get("reset_time")
+            let reset_time_ms = item
+                .get("reset_time")
                 .or_else(|| item.get("resets_at"))
                 .and_then(Value::as_i64)
-                .map(|ts| if ts < 1_000_000_000_000 { ts * 1000 } else { ts });
+                .map(|ts| {
+                    if ts < 1_000_000_000_000 {
+                        ts * 1000
+                    } else {
+                        ts
+                    }
+                });
 
             let resets_at = reset_time_ms.and_then(millis_to_iso8601);
 

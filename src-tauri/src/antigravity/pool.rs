@@ -12,7 +12,9 @@ use super::quota::{quota_family_from_model, QuotaFamily};
 use crate::error::{AppError, AppResult};
 
 fn account_allows_model(account: &AntigravityAccount, requested_model: Option<&str>) -> bool {
-    requested_model.map(|model| account.allows_model(model)).unwrap_or(true)
+    requested_model
+        .map(|model| account.allows_model(model))
+        .unwrap_or(true)
 }
 
 /// Claude 5.5 is entitlement-gated. A non-empty quota model list that omits the
@@ -131,7 +133,8 @@ impl AccountPool {
         requested_model: Option<&str>,
         now: i64,
     ) -> Vec<AntigravityAccount> {
-        let Some(model) = requested_model.filter(|id| super::model_catalog::is_claude_55(id)) else {
+        let Some(model) = requested_model.filter(|id| super::model_catalog::is_claude_55(id))
+        else {
             return accounts;
         };
         accounts
@@ -203,7 +206,8 @@ impl AccountPool {
         if candidates.is_empty() {
             // Desktop health probes + short upstream blips can cool every account
             // at once. Prefer a soft retry over hard-failing with "no accounts".
-            if let Some(soft) = soft_select_cooled_account(&accounts, now, family, requested_model) {
+            if let Some(soft) = soft_select_cooled_account(&accounts, now, family, requested_model)
+            {
                 let soft = self.drop_quarantined_models(vec![soft], requested_model, now);
                 let Some(soft) = soft.into_iter().next() else {
                     return Err(AppError::Other(explain_unavailable(
@@ -308,12 +312,7 @@ impl AccountPool {
             .cloned()
             .collect();
         let mut candidates = self.drop_quarantined_models(
-            collect_schedulable_with_family_fallback(
-                &remaining,
-                now,
-                family,
-                requested_model,
-            ),
+            collect_schedulable_with_family_fallback(&remaining, now, family, requested_model),
             requested_model,
             now,
         );
@@ -323,12 +322,8 @@ impl AccountPool {
                     "Antigravity 已尝试所有可用账号，上游均失败".into(),
                 ));
             }
-            if let Some(soft) = soft_select_cooled_account(
-                &remaining,
-                now,
-                family,
-                requested_model,
-            ) {
+            if let Some(soft) = soft_select_cooled_account(&remaining, now, family, requested_model)
+            {
                 let soft = self.drop_quarantined_models(vec![soft], requested_model, now);
                 let Some(soft) = soft.into_iter().next() else {
                     return Err(AppError::Other(explain_unavailable(
@@ -384,7 +379,12 @@ impl AccountPool {
         let mut candidates: Vec<_> = accounts
             .into_iter()
             .filter(|account| {
-                account_is_schedulable_for_model(account, now, requested_family(requested_model), requested_model)
+                account_is_schedulable_for_model(
+                    account,
+                    now,
+                    requested_family(requested_model),
+                    requested_model,
+                )
             })
             .collect();
         if candidates.is_empty() {
@@ -865,8 +865,7 @@ mod tests {
     fn soft_selects_when_all_accounts_cooling() {
         let now = Utc::now().timestamp();
         let accounts = vec![sample("a1", Some(now + 30)), sample("a2", Some(now + 10))];
-        let soft =
-            soft_select_cooled_account(&accounts, now, None, None).expect("soft");
+        let soft = soft_select_cooled_account(&accounts, now, None, None).expect("soft");
         assert_eq!(soft.id, "a2");
     }
 

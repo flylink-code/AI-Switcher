@@ -11,6 +11,7 @@ import {
   getNodeRuntimeStatus,
   getCloseBehavior,
   getGatewayRuntimeMode,
+  getGatewaySidecarStatus,
   getDbInfo,
   getDataRoot,
   getDesktopLocalizationStatus,
@@ -271,6 +272,12 @@ export const gatewayRuntimeModeOptions = queryOptions({
   queryKey: ["environment", "gateway-runtime-mode"] as const,
   queryFn: getGatewayRuntimeMode,
   staleTime: Number.POSITIVE_INFINITY,
+});
+
+export const gatewaySidecarStatusOptions = queryOptions({
+  queryKey: ["environment", "gateway-sidecar-status"] as const,
+  queryFn: getGatewaySidecarStatus,
+  staleTime: 0,
 });
 
 export const localizationOptions = queryOptions({

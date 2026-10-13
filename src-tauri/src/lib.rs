@@ -14,32 +14,34 @@
 #![allow(clippy::incompatible_msrv)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::await_holding_lock)]
-mod backup;
 mod agents;
-mod catalog;
-mod gateway;
 mod antigravity;
-mod kiro;
+#[cfg(windows)]
+mod autostart_windows;
+mod backup;
+mod catalog;
 mod claude_plugins;
-mod coding;
 mod codex_oauth;
 mod codex_plugins;
+mod coding;
 mod commands;
 mod config;
 mod database;
 mod deeplink;
 mod error;
 mod file_stamp;
+mod gateway;
+mod kiro;
 mod log_redact;
 mod mcp;
 mod mcp_oauth;
 mod mcp_registry;
 mod process_util;
 mod prompts;
-mod quota;
-mod runtime_status;
 mod provider;
 mod proxy;
+mod quota;
+mod runtime_status;
 mod secrets;
 mod session_backup;
 mod session_manager;
@@ -47,133 +49,132 @@ mod sidecar;
 mod skills;
 mod store;
 mod system_proxy;
+#[cfg(test)]
+mod system_test;
 mod tray;
+#[cfg(test)]
+mod ts_bindings;
 mod usage;
 mod usage_events;
 mod wsl_direct;
-#[cfg(test)]
-mod ts_bindings;
-#[cfg(test)]
-mod system_test;
-#[cfg(windows)]
-mod autostart_windows;
-use std::sync::Arc;
-use tauri::{Emitter, Manager, WindowEvent};
-use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use crate::commands::{
-    check_app_update, install_app_update,
-    get_codex_auth_status, get_codex_web_search_mode, add_codex_plugin_marketplace,
-    set_agent_direct, get_agent_connection_mode,
-    get_agent_direct_model_mapping, set_agent_direct_model_mapping,
-    test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
-    list_codex_plugin_marketplaces, list_codex_plugin_catalog, list_codex_plugins,
-    remove_codex_plugin_marketplace, set_codex_plugin_enabled, set_codex_web_search_mode,
-    get_codex_output_profile, set_codex_output_profile,
-    uninstall_codex_plugin, install_codex_plugin, update_codex_plugin,
-    upgrade_codex_plugin_marketplace, check_codex_plugin_update, check_codex_plugin_updates,
-    add_claude_plugin_marketplace, list_claude_plugin_marketplaces, list_claude_plugins,
-    remove_claude_plugin_marketplace, set_claude_plugin_enabled, uninstall_claude_plugin,
-    install_claude_plugin, list_claude_plugin_catalog, update_claude_plugin,
-    update_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
-    sync_codex_session_providers,
-    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings, preview_library_backup, restore_library_backup, restore_library_from_webdav, set_webdav_settings, upload_library_to_webdav, create_provider, delete_mcp_server, delete_prompt,
-    delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
-    delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
-    ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
-    get_antigravity_pool_warning, get_antigravity_recommended_account,
-    import_antigravity_accounts, list_antigravity_accounts, list_antigravity_models,
-    refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
-    set_antigravity_account_model_access,
-    set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
-    get_antigravity_limiter_settings, set_antigravity_limiter_settings,
-    get_antigravity_fast_path_settings, set_antigravity_fast_path_settings,
-    set_antigravity_outbound_proxy, set_antigravity_exit_proxy, probe_antigravity_exit_proxy,
-    probe_antigravity_exit_latency,
-    start_antigravity_gateway, start_antigravity_oauth_login,
-    stop_antigravity_gateway, test_antigravity_account,
-    download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
-    get_autostart_enabled, get_current_provider, get_agent_connection, set_agent_connection,
-    list_gateway_upstreams, set_gateway_upstream_enabled, upsert_gateway_upstream, delete_gateway_upstream, add_antigravity_gateway_upstream,
-    reorder_gateway_upstreams, get_local_gateway_enabled, set_local_gateway_enabled,
-    add_kiro_gateway_upstream,
-    list_kiro_accounts, import_kiro_accounts, remove_kiro_account,
-    start_kiro_builder_id_login, start_kiro_social_login, submit_kiro_login_callback,
-    list_kiro_models, refresh_kiro_models,
-    get_kiro_gateway_status, set_kiro_gateway_port, set_kiro_gateway_api_key,
-    set_kiro_outbound_proxy, set_kiro_exit_proxy, probe_kiro_exit_proxy, probe_kiro_exit_latency,
-    refresh_kiro_account_quota, refresh_kiro_quotas, test_kiro_account,
-    start_kiro_gateway, stop_kiro_gateway, ensure_kiro_provider,
-    import_gateway_upstreams_from_providers, list_gateway_upstream_models, set_gateway_upstream_model_visible,
+    activate_prompt, add_antigravity_gateway_upstream, add_claude_plugin_marketplace,
+    add_codex_plugin_marketplace, add_kiro_gateway_upstream, add_skill_repository, apply_profile,
+    backup_all_sessions, backup_now, backup_sessions, batch_speedtest_upstream_endpoints,
+    bind_smart_gateway, build_mcp_deeplink, build_provider_deeplink, build_skill_deeplink,
+    cancel_batch_speedtest, check_app_update, check_claude_plugin_update,
+    check_claude_plugin_updates, check_codex_plugin_update, check_codex_plugin_updates,
+    check_localization_upstream, check_skill_update, check_skill_updates, clear_mcp_oauth,
+    confirm_import_preview, create_provider, create_workspace_profile, delete_agent,
+    delete_gateway_upstream, delete_mcp_server, delete_model_pricing, delete_pi_prompt_template,
+    delete_prompt, delete_skill, delete_sync_target, delete_workspace_profile, detect_pi_cli,
     discover_gateway_upstream_models, discover_gateway_upstream_models_batch,
-    ensure_smart_gateway_provider,
-    get_smart_gateway_status, set_smart_gateway_port, set_smart_gateway_api_key,
-    rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
-    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, 
-    list_upstream_daily_usage_stats,
-     list_gateway_upstream_health,
-    get_gateway_upstream_policy, set_gateway_upstream_policy, list_gateway_upstream_pressure,
-    get_smart_gateway_inbound_limits,
-    set_smart_gateway_inbound_limits,  
-    get_smart_gateway_health_probe_secs, set_smart_gateway_health_probe_secs,
-      get_claude_code_default_permission_mode,
-    get_claude_desktop_auto_mode,
-    get_claude_code_agent_settings, get_opencode_permission_mode,
-    get_db_info, rollback_v34, get_paths,
-    get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
-    get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status,
-    get_managed_apps_runtime_status, import_live_prompt, import_mcp_servers, import_providers_json,
-    list_config_backups, preview_config_backup, restore_config_backup,
-    build_provider_deeplink, build_mcp_deeplink, build_skill_deeplink, confirm_import_preview, preview_import_text,
-    install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
-    install_mcp_registry_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status, clear_mcp_oauth,
-    check_localization_upstream, get_localization_hub_status, install_claude_code_localization, install_editor_localization_helper,
-    uninstall_claude_code_localization, uninstall_editor_localization_helper,
-    update_claude_code_localization, update_desktop_localization, update_editor_localization_helper,
-    get_skill_repository, get_skill_repository_snapshot, list_skill_repositories, add_skill_repository, remove_skill_repository, ignore_unmanaged_skill, list_github_repository_skills, refresh_github_repository_skills, register_unmanaged_skill, scan_unmanaged_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
-    list_providers, get_official_quota, get_provider_quota, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers,
-    search_mcp_registry,
-    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled,      set_claude_code_default_permission_mode, set_claude_desktop_auto_mode, set_claude_code_agent_settings, set_opencode_permission_mode, list_gateway_catalog_models, list_gateway_catalog_entries, get_gateway_catalog_hide_official, set_gateway_catalog_hide_official, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
-    set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official,
-    batch_speedtest_upstream_endpoints, cancel_batch_speedtest,
-    test_provider_input,
-    toggle_mcp_server, delete_model_pricing, get_usage_dashboard, get_usage_trend,
-    export_model_pricing_xlsx, get_log_maintenance_policy, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
-    preview_model_pricing_xlsx, preview_proxy_log_maintenance, rebuild_codex_session_usage_cmd, restore_desktop_localization, save_log_maintenance_policy,
-    sync_codex_session_usage_cmd, sync_claude_code_session_usage_cmd, rebuild_claude_code_session_usage_cmd,
-    sync_opencode_session_usage_cmd, rebuild_opencode_session_usage_cmd,
-    sync_pi_session_usage_cmd, rebuild_pi_session_usage_cmd,
-    sync_dsh_session_usage_cmd, rebuild_dsh_session_usage_cmd,
-    select_desktop_localization_pack,
-    validate_desktop_localization_pack, get_claude_code_version, get_codex_cli_version,
-    get_node_runtime_status, ensure_node_runtime_via_fnm,
-    run_claude_code_update, run_codex_cli_update, run_environment_doctor,
-    get_opencode_cli_version, run_opencode_cli_update, get_opencode_desktop_status,
-    get_claude_desktop_app_status, run_claude_desktop_app_update,
-    get_dsh_cli_version, run_dsh_cli_update, start_dsh_web,
-    repair_doctor_check, repair_environment_visibility,
-    load_session_messages,
-    scan_sessions, search_session_contents,
-    backup_all_sessions, backup_sessions, export_session, export_session_markdown, export_sessions,
-    get_session_backup_dir, get_session_auto_backup_settings, get_session_mirror_dir, import_session, list_session_backups, list_trashed_sessions,
-    reset_session_backup_dir, restore_session_backup, restore_session_mirror, restore_trashed_session, set_session_backup_dir, set_session_auto_backup_settings, trash_session,
-    delete_sync_target, discover_wsl_distributions, get_wsl_runtime_status, list_sync_targets, preview_sync, push_sync_archive, save_sync_target, sync_wsl_direct,
-    set_app_language, get_update_mirror_settings, set_update_mirror_settings,
-    restart_app,
-    dismiss_onboarding_tip, get_close_behavior, get_dismissed_onboarding_tips, migrate_data_root,
-    get_gateway_runtime_mode, set_gateway_runtime_mode,
-    resolve_close_request, restore_onboarding_tips, set_close_behavior,
-    apply_profile, create_workspace_profile, delete_workspace_profile, get_current_profile_id,
-    list_profiles, update_workspace_profile,
-    ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
-    start_codex_oauth_login,
-    detect_pi_cli, get_pi_settings,
-    get_workspace_pi_prompt, install_pi_cli, list_pi_prompt_templates, list_pi_sessions, read_pi_prompt_template, read_pi_session_detail,
-    save_pi_prompt_template, save_workspace_pi_prompt, delete_pi_prompt_template,
-    update_pi_settings,
+    discover_provider_models, discover_provider_models_input, discover_wsl_distributions,
+    dismiss_onboarding_tip, download_desktop_localization_pack, ensure_antigravity_provider,
+    ensure_codex_oauth_provider, ensure_kiro_provider, ensure_node_runtime_via_fnm,
+    ensure_smart_gateway_provider, export_gateway_upstreams, export_library_backup,
+    export_model_pricing_xlsx, export_providers, export_session, export_session_markdown,
+    export_sessions, find_latest_library_archive_cmd, get_agent_connection,
+    get_agent_connection_mode, get_agent_direct_model_mapping, get_antigravity_defaults,
+    get_antigravity_fast_path_settings, get_antigravity_gateway_status,
+    get_antigravity_limiter_settings, get_antigravity_pool_warning,
+    get_antigravity_recommended_account, get_autostart_config, get_autostart_enabled,
+    get_cached_provider_models, get_claude_code_agent_settings,
+    get_claude_code_default_permission_mode, get_claude_code_version,
+    get_claude_desktop_app_status, get_claude_desktop_auto_mode, get_close_behavior,
+    get_codex_auth_status, get_codex_cli_version, get_codex_output_profile,
+    get_codex_web_search_mode, get_current_profile_id, get_current_provider, get_data_root,
+    get_db_info, get_desktop_localization_status, get_dismissed_onboarding_tips,
+    get_dsh_cli_version, get_gateway_catalog_hide_official, get_gateway_runtime_mode,
+    get_gateway_sidecar_status, get_gateway_upstream_policy, get_kiro_gateway_status,
+    get_local_gateway_enabled, get_localization_hub_status, get_log_maintenance_policy,
+    get_managed_apps_runtime_status, get_mcp_desktop_conflict_status, get_mcp_oauth_status,
+    get_node_runtime_status, get_official_quota, get_opencode_cli_version,
+    get_opencode_desktop_status, get_opencode_permission_mode, get_paths, get_pi_settings,
+    get_provider_quota, get_proxy_failover_enabled, get_proxy_retryable_status_codes,
+    get_proxy_status, get_proxy_streaming_idle_timeout_secs, get_session_auto_backup_settings,
+    get_session_backup_dir, get_session_mirror_dir, get_skill_repository,
+    get_skill_repository_snapshot, get_smart_gateway_health_probe_secs,
+    get_smart_gateway_inbound_limits, get_smart_gateway_status, get_update_mirror_settings,
+    get_usage_dashboard, get_usage_trend, get_webdav_settings, get_workspace_pi_prompt,
+    get_wsl_runtime_status, ignore_unmanaged_skill, import_antigravity_accounts,
+    import_gateway_upstreams_from_providers, import_gateway_upstreams_json, import_kiro_accounts,
+    import_live_config_as_upstreams, import_live_prompt, import_mcp_servers,
+    import_model_pricing_xlsx, import_providers_json, import_session, install_app_update,
+    install_claude_code_localization, install_claude_plugin, install_codex_plugin,
+    install_desktop_localization, install_editor_localization_helper,
+    install_github_repository_skills, install_github_skill, install_mcp_registry_server,
+    install_pi_cli, install_zip_agent, install_zip_skill, list_agents, list_antigravity_accounts,
+    list_antigravity_models, list_claude_plugin_catalog, list_claude_plugin_marketplaces,
+    list_claude_plugins, list_codex_oauth_accounts, list_codex_plugin_catalog,
+    list_codex_plugin_marketplaces, list_codex_plugins, list_config_backups,
+    list_gateway_catalog_entries, list_gateway_catalog_models, list_gateway_upstream_health,
+    list_gateway_upstream_models, list_gateway_upstream_pressure, list_gateway_upstreams,
+    list_github_repository_skills, list_kiro_accounts, list_kiro_models, list_mcp_servers,
+    list_model_pricing, list_pi_prompt_templates, list_pi_sessions, list_profiles, list_prompts,
+    list_providers, list_proxy_request_logs_cmd, list_session_backups, list_skill_repositories,
+    list_skills, list_smart_gateway_bindings, list_sync_targets, list_trashed_sessions,
+    list_upstream_daily_usage_stats, load_session_messages, maintain_proxy_logs, migrate_data_root,
+    ping, poll_codex_oauth_login, preview_config_backup, preview_import_text,
+    preview_library_backup, preview_model_pricing_xlsx, preview_proxy_log_maintenance,
+    preview_sync, probe_antigravity_exit_latency, probe_antigravity_exit_proxy,
+    probe_kiro_exit_latency, probe_kiro_exit_proxy, push_sync_archive, read_live_prompt,
+    read_pi_prompt_template, read_pi_session_detail, read_prompt,
+    rebuild_claude_code_session_usage_cmd, rebuild_codex_session_usage_cmd,
+    rebuild_dsh_session_usage_cmd, rebuild_opencode_session_usage_cmd,
+    rebuild_pi_session_usage_cmd, refresh_antigravity_account_quota, refresh_antigravity_quotas,
+    refresh_github_repository_skills, refresh_kiro_account_quota, refresh_kiro_models,
+    refresh_kiro_quotas, register_unmanaged_skill, remove_antigravity_account,
+    remove_claude_plugin_marketplace, remove_codex_plugin_marketplace, remove_kiro_account,
+    remove_skill_repository, rename_prompt, reorder_gateway_upstreams, reorder_mcp_servers,
+    repair_doctor_check, repair_environment_visibility, report_frontend_performance,
+    report_frontend_startup, reset_session_backup_dir, resolve_close_request, restart_app,
+    restore_config_backup, restore_desktop_localization, restore_library_backup,
+    restore_library_from_webdav, restore_onboarding_tips, restore_session_backup,
+    restore_session_mirror, restore_trashed_session, rollback_v34, rotate_smart_gateway_api_key,
+    run_claude_code_update, run_claude_desktop_app_update, run_codex_cli_update,
+    run_dsh_cli_update, run_environment_doctor, run_opencode_cli_update, save_agent,
+    save_log_maintenance_policy, save_mcp_server, save_model_pricing, save_pi_prompt_template,
+    save_prompt, save_sync_target, save_workspace_pi_prompt, scan_sessions, scan_unmanaged_skills,
+    search_mcp_registry, search_session_contents, select_desktop_localization_pack,
+    set_agent_connection, set_agent_direct, set_agent_direct_model_mapping, set_agent_enabled,
+    set_antigravity_account_model_access, set_antigravity_active_account,
+    set_antigravity_exit_proxy, set_antigravity_fast_path_settings,
+    set_antigravity_gateway_api_key, set_antigravity_gateway_port,
+    set_antigravity_limiter_settings, set_antigravity_outbound_proxy, set_app_language,
+    set_autostart_config, set_autostart_enabled, set_claude_code_agent_settings,
+    set_claude_code_default_permission_mode, set_claude_desktop_auto_mode,
+    set_claude_plugin_enabled, set_close_behavior, set_codex_output_profile,
+    set_codex_plugin_enabled, set_codex_web_search_mode, set_gateway_catalog_hide_official,
+    set_gateway_runtime_mode, set_gateway_upstream_enabled, set_gateway_upstream_model_visible,
+    set_gateway_upstream_policy, set_kiro_exit_proxy, set_kiro_gateway_api_key,
+    set_kiro_gateway_port, set_kiro_outbound_proxy, set_local_gateway_enabled,
+    set_opencode_permission_mode, set_proxy_failover_enabled, set_proxy_port,
+    set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs,
+    set_session_auto_backup_settings, set_session_backup_dir, set_skill_enabled,
+    set_skill_repository, set_smart_gateway_api_key, set_smart_gateway_health_probe_secs,
+    set_smart_gateway_inbound_limits, set_smart_gateway_port, set_update_mirror_settings,
+    set_webdav_settings, start_antigravity_gateway, start_antigravity_oauth_login,
+    start_codex_oauth_login, start_dsh_web, start_kiro_builder_id_login, start_kiro_gateway,
+    start_kiro_social_login, start_proxy, start_smart_gateway, stop_antigravity_gateway,
+    stop_kiro_gateway, stop_proxy, stop_smart_gateway, submit_kiro_login_callback, switch_provider,
+    switch_to_official, sync_claude_code_session_usage_cmd, sync_codex_session_providers,
+    sync_codex_session_usage_cmd, sync_dsh_session_usage_cmd, sync_opencode_session_usage_cmd,
+    sync_pi_session_usage_cmd, sync_wsl_direct, test_antigravity_account, test_kiro_account,
+    test_provider_input, test_upstream_connection, toggle_mcp_server, trash_session,
+    unbind_smart_gateway, uninstall_claude_code_localization, uninstall_claude_plugin,
+    uninstall_codex_plugin, uninstall_editor_localization_helper, update_claude_code_localization,
+    update_claude_plugin, update_claude_plugin_marketplace, update_codex_plugin,
+    update_desktop_localization, update_editor_localization_helper, update_github_skills,
+    update_pi_settings, update_workspace_profile, upgrade_codex_plugin_marketplace,
+    upload_library_to_webdav, upsert_gateway_upstream, validate_desktop_localization_pack,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
 use crate::store::AppState;
+use std::sync::Arc;
+use tauri::{Emitter, Manager, WindowEvent};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 const SESSION_USAGE_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -559,6 +560,7 @@ pub fn run() {
             get_close_behavior,
             set_close_behavior,
             get_gateway_runtime_mode,
+            get_gateway_sidecar_status,
             set_gateway_runtime_mode,
             resolve_close_request,
             list_profiles,
@@ -582,6 +584,10 @@ pub fn run() {
 /// `--gateway-sidecar`: run the Antigravity / Kiro gateways without the UI.
 pub fn run_gateway_sidecar_if_requested() -> bool {
     sidecar::run_sidecar_if_requested()
+}
+/// Isolated supervisor check used by `tests/gateway_sidecar.rs`. No window.
+pub fn run_supervisor_selftest_if_requested() -> bool {
+    sidecar::run_supervisor_selftest_if_requested()
 }
 pub fn run_localization_worker_if_requested() -> bool {
     commands::desktop_localization::run_worker_from_args()
@@ -613,7 +619,10 @@ fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         if argv.iter().any(|arg| arg == "--autostart") {
             return;
         }
-        if let Some(url) = argv.iter().find(|arg| commands::deeplink::looks_like_deeplink(arg)) {
+        if let Some(url) = argv
+            .iter()
+            .find(|arg| commands::deeplink::looks_like_deeplink(arg))
+        {
             commands::deeplink::emit_deeplink_url(app, url);
         }
         if let Some(window) = app.get_webview_window("main") {
@@ -633,7 +642,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_config_dir = config::get_app_config_dir();
     std::fs::create_dir_all(&app_config_dir)?;
     std::fs::create_dir_all(config::get_backup_dir())?;
-    log::info!("AI-Switcher starting; data directory: {}", app_config_dir.display());
+    log::info!(
+        "AI-Switcher starting; data directory: {}",
+        app_config_dir.display()
+    );
     usage_events::init(app.handle().clone());
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
@@ -662,14 +674,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         log::error!("供应商初始化/导入失败: {e}");
     }
     let initial_proxy_status = commands::proxy::initial_proxy_statuses(&db);
-    let (proxy_lifecycle_tx, proxy_lifecycle_rx) =
-        tokio::sync::mpsc::unbounded_channel();
+    let (proxy_lifecycle_tx, proxy_lifecycle_rx) = tokio::sync::mpsc::unbounded_channel();
     app.manage(AppState {
         db: Arc::clone(&db),
-        proxy: tokio::sync::Mutex::new(ProxyManager::new(
-            Arc::clone(&db),
-            proxy_lifecycle_tx,
-        )),
+        proxy: tokio::sync::Mutex::new(ProxyManager::new(Arc::clone(&db), proxy_lifecycle_tx)),
         proxy_status: tokio::sync::RwLock::new(initial_proxy_status),
     });
     crate::antigravity::gateway::init_gateway(Arc::clone(&db));
@@ -679,10 +687,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         sidecar::start_supervisor(Arc::clone(&db));
     }
     crate::gateway::service::init_service(Arc::clone(&db));
-    commands::proxy::spawn_proxy_lifecycle_listener(
-        app.handle().clone(),
-        proxy_lifecycle_rx,
-    );
+    commands::proxy::spawn_proxy_lifecycle_listener(app.handle().clone(), proxy_lifecycle_rx);
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         let background_started = std::time::Instant::now();
@@ -948,17 +953,23 @@ fn spawn_dsh_session_usage_sync(db: Arc<database::Database>) {
             let db = Arc::clone(&db);
             match tokio::task::spawn_blocking(move || {
                 usage::session_usage_dsh::try_sync_dsh_session_usage_db(&db)
-            }).await {
+            })
+            .await
+            {
                 Ok(Ok(result)) if result.inserted_rows > 0 => {
                     usage_events::notify_log_recorded();
                     log::info!(
                         "DeepSeek Harness session usage sync: scanned={}, inserted={}, skipped={}",
-                        result.scanned_files, result.inserted_rows, result.skipped_rows
+                        result.scanned_files,
+                        result.inserted_rows,
+                        result.skipped_rows
                     );
                 }
                 Ok(Ok(_)) => {}
                 Ok(Err(error)) => log::warn!("DeepSeek Harness session usage sync failed: {error}"),
-                Err(error) => log::warn!("DeepSeek Harness session usage task join failed: {error}"),
+                Err(error) => {
+                    log::warn!("DeepSeek Harness session usage task join failed: {error}")
+                }
             }
             tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
         }

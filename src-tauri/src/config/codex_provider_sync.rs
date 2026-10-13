@@ -192,7 +192,10 @@ struct CollectedSessionChanges {
     skipped_locked_databases: Vec<String>,
 }
 
-fn collect_session_changes(home: &Path, target_provider: &str) -> AppResult<CollectedSessionChanges> {
+fn collect_session_changes(
+    home: &Path,
+    target_provider: &str,
+) -> AppResult<CollectedSessionChanges> {
     let mut collected = CollectedSessionChanges::default();
     for path in rollout_files(home)? {
         let text = match fs::read_to_string(&path) {
@@ -249,12 +252,10 @@ fn rewrite_rollout_session_meta_providers(
                         continue;
                     };
                     rewrite.session_meta_count += 1;
-                    if payload.get("model_provider").and_then(Value::as_str) != Some(target_provider)
+                    if payload.get("model_provider").and_then(Value::as_str)
+                        != Some(target_provider)
                     {
-                        payload.insert(
-                            "model_provider".to_string(),
-                            json!(target_provider),
-                        );
+                        payload.insert("model_provider".to_string(), json!(target_provider));
                         next_line = serde_json::to_string(&record).map_err(|error| {
                             AppError::Config(format!("序列化 Codex session_meta 失败: {error}"))
                         })?;
@@ -293,12 +294,14 @@ fn rollout_files(home: &Path) -> AppResult<Vec<PathBuf>> {
 
 fn collect_rollout_files(root: &Path, files: &mut Vec<PathBuf>) -> AppResult<()> {
     let entries = fs::read_dir(root).map_err(|error| {
-        AppError::Io(format!("扫描 Codex 会话目录失败 {}: {error}", root.display()))
+        AppError::Io(format!(
+            "扫描 Codex 会话目录失败 {}: {error}",
+            root.display()
+        ))
     })?;
     for entry in entries {
-        let entry = entry.map_err(|error| {
-            AppError::Io(format!("读取 Codex 会话目录项失败: {error}"))
-        })?;
+        let entry =
+            entry.map_err(|error| AppError::Io(format!("读取 Codex 会话目录项失败: {error}")))?;
         let path = entry.path();
         let is_symlink = entry
             .file_type()
@@ -359,7 +362,10 @@ fn provider_sync_db_paths(home: &Path) -> Vec<PathBuf> {
 
 fn open_codex_sqlite(path: &Path) -> AppResult<Connection> {
     let db = Connection::open(path).map_err(|error| {
-        AppError::Database(format!("打开 Codex SQLite 失败 {}: {error}", path.display()))
+        AppError::Database(format!(
+            "打开 Codex SQLite 失败 {}: {error}",
+            path.display()
+        ))
     })?;
     let _ = db.busy_timeout(std::time::Duration::from_millis(2_000));
     Ok(db)
@@ -436,9 +442,9 @@ fn apply_sqlite_provider_update(path: &Path, target_provider: &str) -> AppResult
         return Ok(0);
     }
     let mut db = open_codex_sqlite(path)?;
-    let tx = db.transaction().map_err(|error| {
-        AppError::Database(format!("开始 Codex SQLite 事务失败: {error}"))
-    })?;
+    let tx = db
+        .transaction()
+        .map_err(|error| AppError::Database(format!("开始 Codex SQLite 事务失败: {error}")))?;
     let mut counts = 0usize;
     if table_has_column(&tx, "threads", "model_provider") {
         counts += tx
@@ -446,7 +452,9 @@ fn apply_sqlite_provider_update(path: &Path, target_provider: &str) -> AppResult
                 "UPDATE threads SET model_provider = ?1 WHERE COALESCE(model_provider, '') <> ?1",
                 [target_provider],
             )
-            .map_err(|error| AppError::Database(format!("更新 threads.model_provider 失败: {error}")))?;
+            .map_err(|error| {
+                AppError::Database(format!("更新 threads.model_provider 失败: {error}"))
+            })?;
     }
     if table_has_column(&tx, "local_thread_catalog", "model_provider") {
         counts += tx

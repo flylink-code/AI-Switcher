@@ -36,7 +36,13 @@ pub async fn detect_pi_cli(include_latest: Option<bool>) -> AppResult<PiCliVersi
 pub async fn install_pi_cli() -> AppResult<String> {
     let mut cmd = if cfg!(windows) {
         let mut c = Command::new("cmd");
-        c.args(["/C", "npm", "install", "-g", "@earendil-works/pi-coding-agent@latest"]);
+        c.args([
+            "/C",
+            "npm",
+            "install",
+            "-g",
+            "@earendil-works/pi-coding-agent@latest",
+        ]);
         c
     } else {
         let mut c = Command::new("npm");
@@ -55,9 +61,7 @@ pub async fn install_pi_cli() -> AppResult<String> {
     if output.status.success() {
         Ok(format!("安装成功！\n{stdout}"))
     } else {
-        Err(AppError::Config(format!(
-            "安装失败:\n{stderr}\n{stdout}"
-        )))
+        Err(AppError::Config(format!("安装失败:\n{stderr}\n{stdout}")))
     }
 }
 
@@ -73,13 +77,16 @@ pub async fn update_pi_settings(
     default_thinking_level: Option<String>,
     extra_patch: Option<Value>,
 ) -> AppResult<Value> {
-    update_pi_settings_fn(default_provider, default_model, default_thinking_level, extra_patch)
+    update_pi_settings_fn(
+        default_provider,
+        default_model,
+        default_thinking_level,
+        extra_patch,
+    )
 }
 
 #[tauri::command]
-pub async fn get_workspace_pi_prompt(
-    workspace_dir: String,
-) -> AppResult<Option<(String, String)>> {
+pub async fn get_workspace_pi_prompt(workspace_dir: String) -> AppResult<Option<(String, String)>> {
     read_workspace_prompt(&workspace_dir)
 }
 
@@ -114,7 +121,9 @@ pub async fn list_pi_prompt_templates() -> AppResult<Vec<String>> {
 
 #[tauri::command]
 pub async fn read_pi_prompt_template(name: String) -> AppResult<String> {
-    let path = crate::coding::pi::config::get_pi_dir().join("prompts").join(&name);
+    let path = crate::coding::pi::config::get_pi_dir()
+        .join("prompts")
+        .join(&name);
     if !path.exists() {
         return Err(AppError::Config(format!("模板不存在: {name}")));
     }
@@ -133,7 +142,9 @@ pub async fn save_pi_prompt_template(name: String, content: String) -> AppResult
 
 #[tauri::command]
 pub async fn delete_pi_prompt_template(name: String) -> AppResult<()> {
-    let path = crate::coding::pi::config::get_pi_dir().join("prompts").join(&name);
+    let path = crate::coding::pi::config::get_pi_dir()
+        .join("prompts")
+        .join(&name);
     if path.exists() {
         std::fs::remove_file(&path).map_err(|e| AppError::Io(e.to_string()))?;
     }

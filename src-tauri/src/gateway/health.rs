@@ -128,7 +128,8 @@ include!("health/classifier.rs");
 // ---------------------------------------------------------------------------
 
 fn apply_cooldown(entry: &mut HealthEntry, now: Instant, cooldown: Duration) {
-    let target = now.checked_add(cooldown)
+    let target = now
+        .checked_add(cooldown)
         .unwrap_or_else(|| now + Duration::from_secs(365 * 24 * 60 * 60));
     entry.open_until = match entry.open_until {
         Some(existing) if existing > target => Some(existing),
@@ -137,7 +138,8 @@ fn apply_cooldown(entry: &mut HealthEntry, now: Instant, cooldown: Duration) {
 }
 
 fn apply_model_cooldown(m_entry: &mut ModelHealthEntry, now: Instant, cooldown: Duration) {
-    let target = now.checked_add(cooldown)
+    let target = now
+        .checked_add(cooldown)
         .unwrap_or_else(|| now + Duration::from_secs(365 * 24 * 60 * 60));
     m_entry.open_until = match m_entry.open_until {
         Some(existing) if existing > target => Some(existing),

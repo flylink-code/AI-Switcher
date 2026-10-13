@@ -278,7 +278,11 @@ fn merge_draft(
     }
 }
 
-fn merge_opt_string(incoming: Option<&str>, existing: Option<&str>, exists: bool) -> Option<String> {
+fn merge_opt_string(
+    incoming: Option<&str>,
+    existing: Option<&str>,
+    exists: bool,
+) -> Option<String> {
     match incoming {
         Some(value) if value.trim().is_empty() => None,
         Some(value) => Some(value.trim().to_string()),
@@ -420,11 +424,7 @@ fn write_agent_file(path: &Path, file: &AgentFileContent) -> AppResult<()> {
     let mut out = fs::File::create(path)?;
     writeln!(out, "---")?;
     writeln!(out, "name: {}", yaml_escape(&file.name))?;
-    writeln!(
-        out,
-        "description: {}",
-        yaml_escape(file.description.trim())
-    )?;
+    writeln!(out, "description: {}", yaml_escape(file.description.trim()))?;
     write_yaml_list(&mut out, "tools", &file.tools)?;
     write_yaml_list(&mut out, "disallowedTools", &file.disallowed_tools)?;
     write_yaml_opt(&mut out, "model", file.model.as_deref())?;
@@ -659,7 +659,11 @@ mod tests {
     fn parse_and_roundtrip_agent_markdown() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("reviewer.md");
-        write_agent_file(&path, &simple_file("reviewer", "Reviews PRs", "Be thorough.")).unwrap();
+        write_agent_file(
+            &path,
+            &simple_file("reviewer", "Reviews PRs", "Be thorough."),
+        )
+        .unwrap();
         let content = fs::read_to_string(&path).unwrap();
         let meta = parse_frontmatter(&content);
         assert_eq!(meta.name.as_deref(), Some("reviewer"));
@@ -689,7 +693,10 @@ Be thorough.\n";
         assert_eq!(meta.model.as_deref(), Some("sonnet"));
         assert_eq!(meta.permission_mode.as_deref(), Some("plan"));
         assert_eq!(meta.max_turns, Some(8));
-        assert!(meta.extra_lines.iter().any(|line| line.contains("color: cyan")));
+        assert!(meta
+            .extra_lines
+            .iter()
+            .any(|line| line.contains("color: cyan")));
         assert!(meta.extra_lines.iter().any(|line| line.contains("hooks:")));
         assert!(meta
             .extra_lines
@@ -718,7 +725,8 @@ Be thorough.\n";
 
     #[test]
     fn parse_inline_tools_list() {
-        let content = "---\nname: explorer\ndescription: Explore\ntools: Read, Grep, Glob\n---\n\nGo.\n";
+        let content =
+            "---\nname: explorer\ndescription: Explore\ntools: Read, Grep, Glob\n---\n\nGo.\n";
         let meta = parse_frontmatter(content);
         assert_eq!(
             meta.tools,

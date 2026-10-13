@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::config::paths::{configured_data_root, get_legacy_app_config_dir, write_data_root_config};
+use crate::config::paths::{
+    configured_data_root, get_legacy_app_config_dir, write_data_root_config,
+};
 use crate::error::{AppError, AppResult};
 use crate::process_util::spawn_blocking_result;
 
@@ -48,10 +50,14 @@ fn migrate_data_root_blocking(target_path: String) -> AppResult<DataRootInfo> {
         return Err(AppError::Config("所选目录已经是当前资料库目录".to_string()));
     }
     if target.starts_with(&source) || source.starts_with(&target) {
-        return Err(AppError::Config("资料库目录不能嵌套在当前资料库中".to_string()));
+        return Err(AppError::Config(
+            "资料库目录不能嵌套在当前资料库中".to_string(),
+        ));
     }
     if target.exists() && fs::read_dir(&target)?.next().is_some() {
-        return Err(AppError::Config("资料库目标目录必须为空，避免覆盖已有文件".to_string()));
+        return Err(AppError::Config(
+            "资料库目标目录必须为空，避免覆盖已有文件".to_string(),
+        ));
     }
     fs::create_dir_all(&target)?;
     if source.exists() {
@@ -87,9 +93,12 @@ fn snapshot_sqlite_database(source: &Path, target: &Path) -> AppResult<()> {
 
 fn verify_sqlite_snapshot(path: &Path) -> AppResult<()> {
     let connection = rusqlite::Connection::open(path)?;
-    let integrity: String = connection.query_row("PRAGMA integrity_check;", [], |row| row.get(0))?;
+    let integrity: String =
+        connection.query_row("PRAGMA integrity_check;", [], |row| row.get(0))?;
     if integrity != "ok" {
-        return Err(AppError::Config(format!("资料库数据库快照校验失败: {integrity}")));
+        return Err(AppError::Config(format!(
+            "资料库数据库快照校验失败: {integrity}"
+        )));
     }
     Ok(())
 }
@@ -107,12 +116,19 @@ fn copy_directory_except_database(source: &Path, target: &Path, root: &Path) -> 
     for entry in fs::read_dir(source)? {
         let entry = entry?;
         let source_path = entry.path();
-        let relative = source_path.strip_prefix(root).map_err(|_| AppError::Path("资料库路径超出根目录".to_string()))?;
-        if is_database_file(relative) { continue; }
+        let relative = source_path
+            .strip_prefix(root)
+            .map_err(|_| AppError::Path("资料库路径超出根目录".to_string()))?;
+        if is_database_file(relative) {
+            continue;
+        }
         let target_path = target.join(entry.file_name());
         let kind = entry.file_type()?;
         if kind.is_symlink() {
-            return Err(AppError::Config(format!("资料库不支持迁移符号链接: {}", source_path.display())));
+            return Err(AppError::Config(format!(
+                "资料库不支持迁移符号链接: {}",
+                source_path.display()
+            )));
         }
         if kind.is_dir() {
             fs::create_dir_all(&target_path)?;
@@ -133,7 +149,9 @@ fn verify_directory_copy_except_database(source: &Path, target: &Path) -> AppRes
     source_files.sort();
     target_files.sort();
     if source_files != target_files {
-        return Err(AppError::Config("资料库复制校验失败，旧资料库仍保持活动状态".to_string()));
+        return Err(AppError::Config(
+            "资料库复制校验失败，旧资料库仍保持活动状态".to_string(),
+        ));
     }
     Ok(())
 }
@@ -144,20 +162,34 @@ fn list_files_with_hashes_except_database(root: &Path) -> AppResult<Vec<(String,
     Ok(files)
 }
 
-fn list_files_recursive_except_database(root: &Path, current: &Path, files: &mut Vec<(String, String)>) -> AppResult<()> {
+fn list_files_recursive_except_database(
+    root: &Path,
+    current: &Path,
+    files: &mut Vec<(String, String)>,
+) -> AppResult<()> {
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let kind = entry.file_type()?;
         let path = entry.path();
-        let relative = path.strip_prefix(root).map_err(|_| AppError::Path("资料库路径超出根目录".to_string()))?;
-        if is_database_file(relative) { continue; }
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| AppError::Path("资料库路径超出根目录".to_string()))?;
+        if is_database_file(relative) {
+            continue;
+        }
         if kind.is_symlink() {
-            return Err(AppError::Config(format!("资料库不支持校验符号链接: {}", path.display())));
+            return Err(AppError::Config(format!(
+                "资料库不支持校验符号链接: {}",
+                path.display()
+            )));
         }
         if kind.is_dir() {
             list_files_recursive_except_database(root, &path, files)?;
         } else if kind.is_file() {
-            files.push((relative.to_string_lossy().replace('\\', "/"), sha256_file(&path)?));
+            files.push((
+                relative.to_string_lossy().replace('\\', "/"),
+                sha256_file(&path)?,
+            ));
         }
     }
     Ok(())
@@ -171,9 +203,7 @@ fn is_database_file(relative: &Path) -> bool {
     matches!(name.as_ref(), "app.db" | "app.db-wal" | "app.db-shm")
         || matches!(
             name.as_ref(),
-            "thought-signatures.db"
-                | "thought-signatures.db-wal"
-                | "thought-signatures.db-shm"
+            "thought-signatures.db" | "thought-signatures.db-wal" | "thought-signatures.db-shm"
         )
         || (name.starts_with("thought-signatures.db") && name.contains(".corrupt"))
 }
@@ -184,7 +214,9 @@ fn sha256_file(path: &Path) -> AppResult<String> {
     let mut buffer = [0_u8; 16 * 1024];
     loop {
         let read = file.read(&mut buffer)?;
-        if read == 0 { break; }
+        if read == 0 {
+            break;
+        }
         hasher.update(&buffer[..read]);
     }
     Ok(hex::encode(hasher.finalize()))
@@ -247,7 +279,9 @@ mod tests {
         snapshot_sqlite_database(&source_db, &target_db).unwrap();
         verify_sqlite_snapshot(&target_db).unwrap();
         let copied = rusqlite::Connection::open(target_db).unwrap();
-        let value: String = copied.query_row("SELECT value FROM values_table", [], |row| row.get(0)).unwrap();
+        let value: String = copied
+            .query_row("SELECT value FROM values_table", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(value, "present");
     }
 }

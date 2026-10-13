@@ -198,7 +198,10 @@ pub async fn test_account(
     let mapped = resolve_probe_model(model.as_deref());
     let prompt = resolve_probe_prompt(prompt.as_deref());
     let account_snapshot = match account_store().list_accounts() {
-        Ok(accounts) => match accounts.into_iter().find(|account| account.id == account_id) {
+        Ok(accounts) => match accounts
+            .into_iter()
+            .find(|account| account.id == account_id)
+        {
             Some(account) => account,
             None => return Err(AppError::Config("Antigravity 账号不存在".into())),
         },

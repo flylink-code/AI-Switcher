@@ -287,7 +287,11 @@ pub fn set_exit_proxies(entries: Vec<ExitProxyEntry>) -> AppResult<AntigravityGa
 
 pub async fn probe_exit_proxy(id: String, proxy_url: String) -> AppResult<ExitProxyProbeResult> {
     let probe = crate::antigravity::outbound::probe_exit_proxy(&id, &proxy_url).await?;
-    log::info!("Antigravity chain exit probe {}: {}", probe.id, probe.message);
+    log::info!(
+        "Antigravity chain exit probe {}: {}",
+        probe.id,
+        probe.message
+    );
     Ok(probe)
 }
 
@@ -298,7 +302,8 @@ pub async fn probe_exit_latency(
     let latency = crate::antigravity::outbound::probe_exit_latency(&id, &proxy_url).await?;
     log::info!(
         "Antigravity chain exit latency {}: {}",
-        latency.id, latency.message
+        latency.id,
+        latency.message
     );
     Ok(latency)
 }
@@ -437,11 +442,16 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         }
         set_enabled_flag(true);
         crate::sidecar::request_restart();
-        let up =
-            crate::sidecar::wait_until_up(crate::sidecar::GatewayKind::Antigravity, SIDECAR_START_WAIT)
-                .await;
+        let up = crate::sidecar::wait_until_up(
+            crate::sidecar::GatewayKind::Antigravity,
+            SIDECAR_START_WAIT,
+        )
+        .await;
         if !up {
-            log::warn!("Antigravity sidecar 网关尚未就绪（{}s 内）", SIDECAR_START_WAIT.as_secs());
+            log::warn!(
+                "Antigravity sidecar 网关尚未就绪（{}s 内）",
+                SIDECAR_START_WAIT.as_secs()
+            );
         }
         return gateway_status();
     }
@@ -545,7 +555,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
             "/images/generations",
             any(handlers::openai_images_generations),
         )
-        .layer(DefaultBodyLimit::max(crate::proxy::LOCAL_LISTENER_BODY_LIMIT))
+        .layer(DefaultBodyLimit::max(
+            crate::proxy::LOCAL_LISTENER_BODY_LIMIT,
+        ))
         .with_state(state)
         .layer(CorsLayer::permissive());
 

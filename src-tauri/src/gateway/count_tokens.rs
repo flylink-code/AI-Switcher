@@ -1,14 +1,16 @@
 //! POST /v1/messages/count_tokens — Anthropic passthrough or local estimate.
 
+use axum::body::Body;
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::body::Body;
 use bytes::Bytes;
 use serde_json::Value;
 
 use crate::error::AppResult;
 use crate::provider::{api_endpoint_url, ProtocolType};
-use crate::proxy::{hydrate_provider_credential, json_error, select_gateway_runtime_provider_with, ProxyState};
+use crate::proxy::{
+    hydrate_provider_credential, json_error, select_gateway_runtime_provider_with, ProxyState,
+};
 
 pub async fn handle(state: ProxyState, headers: HeaderMap, body: Bytes) -> Response {
     let incoming: Value = match serde_json::from_slice(&body) {
@@ -83,8 +85,8 @@ async fn forward_anthropic(
     let response = request.send().await.map_err(|error| {
         crate::error::AppError::Network(format!("count_tokens 上游失败: {error}"))
     })?;
-    let status = StatusCode::from_u16(response.status().as_u16())
-        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let bytes = response.bytes().await.map_err(|error| {
         crate::error::AppError::Network(format!("读取 count_tokens 响应失败: {error}"))
     })?;

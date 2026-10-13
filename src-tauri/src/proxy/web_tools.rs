@@ -49,7 +49,10 @@ pub fn execute_web_search(query: &str) -> String {
     let encoded = urlencoding_lite(query);
     let url = format!("https://html.duckduckgo.com/html/?q={encoded}");
     match fetch_text(&url) {
-        Ok(html) => format!("Search results for {query}:\n{}", clip(&strip_tags(&html), 4000)),
+        Ok(html) => format!(
+            "Search results for {query}:\n{}",
+            clip(&strip_tags(&html), 4000)
+        ),
         Err(error) => format!("web_search failed: {error}"),
     }
 }

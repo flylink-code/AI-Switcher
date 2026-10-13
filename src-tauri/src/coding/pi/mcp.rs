@@ -56,9 +56,9 @@ pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> 
         backup_file_named(path, "mcp.json", MCP_BACKUP_KEEP)?;
     }
 
-    let obj = value.as_object_mut().ok_or_else(|| {
-        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
-    })?;
+    let obj = value
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config(format!("{} 无法写成 JSON 对象", path.display())))?;
     if map.is_empty() {
         obj.remove("mcpServers");
     } else {

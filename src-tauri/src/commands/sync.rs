@@ -26,15 +26,27 @@ const SYNC_TARGETS_FILE: &str = "sync-targets.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SyncTargetKind { Wsl, Ssh }
+pub enum SyncTargetKind {
+    Wsl,
+    Ssh,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SyncItem { ProviderPresets, Mcp, Prompts, Skills, SessionArchives }
+pub enum SyncItem {
+    ProviderPresets,
+    Mcp,
+    Prompts,
+    Skills,
+    SessionArchives,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PathMapping { pub windows_path: String, pub remote_path: String }
+pub struct PathMapping {
+    pub windows_path: String,
+    pub remote_path: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,18 +54,27 @@ pub struct SyncTarget {
     pub id: String,
     pub name: String,
     pub kind: SyncTargetKind,
-    #[serde(default)] pub wsl_distribution: Option<String>,
-    #[serde(default)] pub ssh_host: Option<String>,
-    #[serde(default)] pub ssh_port: Option<u16>,
+    #[serde(default)]
+    pub wsl_distribution: Option<String>,
+    #[serde(default)]
+    pub ssh_host: Option<String>,
+    #[serde(default)]
+    pub ssh_port: Option<u16>,
     pub remote_root: String,
-    #[serde(default)] pub path_mappings: Vec<PathMapping>,
-    #[serde(default)] pub items: Vec<SyncItem>,
-    #[serde(default)] pub last_synced_at: Option<i64>,
+    #[serde(default)]
+    pub path_mappings: Vec<PathMapping>,
+    #[serde(default)]
+    pub items: Vec<SyncItem>,
+    #[serde(default)]
+    pub last_synced_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SyncTargetsConfig { version: u8, targets: Vec<SyncTarget> }
+struct SyncTargetsConfig {
+    version: u8,
+    targets: Vec<SyncTarget>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,22 +102,49 @@ pub struct SyncPushResult {
     pub bytes: u64,
 }
 
-fn config_path() -> PathBuf { get_app_config_dir().join(SYNC_TARGETS_FILE) }
+fn config_path() -> PathBuf {
+    get_app_config_dir().join(SYNC_TARGETS_FILE)
+}
 
 fn load_targets() -> AppResult<SyncTargetsConfig> {
-    Ok(read_json_file(&config_path())?.unwrap_or(SyncTargetsConfig {
-        version: SYNC_TARGETS_VERSION, targets: Vec::new(),
-    }))
+    Ok(
+        read_json_file(&config_path())?.unwrap_or(SyncTargetsConfig {
+            version: SYNC_TARGETS_VERSION,
+            targets: Vec::new(),
+        }),
+    )
 }
 
 fn validate_target(target: &SyncTarget) -> AppResult<()> {
-    if target.name.trim().is_empty() { return Err(AppError::Config("同步目标名称不能为空".to_string())); }
+    if target.name.trim().is_empty() {
+        return Err(AppError::Config("同步目标名称不能为空".to_string()));
+    }
     if !is_safe_posix_absolute_path(&target.remote_root) {
-        return Err(AppError::Path("远端资料库路径必须是 POSIX 绝对路径，且不能包含 '..' 或反斜杠".to_string()));
+        return Err(AppError::Path(
+            "远端资料库路径必须是 POSIX 绝对路径，且不能包含 '..' 或反斜杠".to_string(),
+        ));
     }
     match target.kind {
-        SyncTargetKind::Wsl if target.wsl_distribution.as_deref().unwrap_or_default().trim().is_empty() => Err(AppError::Config("WSL 目标必须选择发行版".to_string())),
-        SyncTargetKind::Ssh if target.ssh_host.as_deref().unwrap_or_default().trim().is_empty() => Err(AppError::Config("SSH 目标必须填写主机名".to_string())),
+        SyncTargetKind::Wsl
+            if target
+                .wsl_distribution
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty() =>
+        {
+            Err(AppError::Config("WSL 目标必须选择发行版".to_string()))
+        }
+        SyncTargetKind::Ssh
+            if target
+                .ssh_host
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty() =>
+        {
+            Err(AppError::Config("SSH 目标必须填写主机名".to_string()))
+        }
         _ => Ok(()),
     }
 }
@@ -111,11 +159,17 @@ fn is_safe_posix_absolute_path(value: &str) -> bool {
 }
 
 #[tauri::command]
-pub fn list_sync_targets() -> AppResult<Vec<SyncTarget>> { Ok(load_targets()?.targets) }
+pub fn list_sync_targets() -> AppResult<Vec<SyncTarget>> {
+    Ok(load_targets()?.targets)
+}
 
 #[tauri::command]
 pub fn save_sync_target(mut target: SyncTarget) -> AppResult<SyncTarget> {
-    target.id = if target.id.trim().is_empty() { Uuid::new_v4().to_string() } else { target.id };
+    target.id = if target.id.trim().is_empty() {
+        Uuid::new_v4().to_string()
+    } else {
+        target.id
+    };
     target.name = target.name.trim().to_string();
     target.remote_root = if target.remote_root == "/" {
         "/".to_string()
@@ -124,8 +178,11 @@ pub fn save_sync_target(mut target: SyncTarget) -> AppResult<SyncTarget> {
     };
     validate_target(&target)?;
     let mut config = load_targets()?;
-    if let Some(existing) = config.targets.iter_mut().find(|item| item.id == target.id) { *existing = target.clone(); }
-    else { config.targets.push(target.clone()); }
+    if let Some(existing) = config.targets.iter_mut().find(|item| item.id == target.id) {
+        *existing = target.clone();
+    } else {
+        config.targets.push(target.clone());
+    }
     config.version = SYNC_TARGETS_VERSION;
     write_json_file(&config_path(), &config)?;
     Ok(target)
@@ -136,7 +193,9 @@ pub fn delete_sync_target(id: String) -> AppResult<()> {
     let mut config = load_targets()?;
     let original = config.targets.len();
     config.targets.retain(|target| target.id != id);
-    if config.targets.len() == original { return Err(AppError::Config("未找到同步目标".to_string())); }
+    if config.targets.len() == original {
+        return Err(AppError::Config("未找到同步目标".to_string()));
+    }
     write_json_file(&config_path(), &config)
 }
 
@@ -148,33 +207,67 @@ pub async fn discover_wsl_distributions() -> AppResult<Vec<String>> {
             let mut command = Command::new("wsl.exe");
             command.args(["--list", "--quiet"]);
             apply_no_window(&mut command);
-            let output = command.output()
+            let output = command
+                .output()
                 .map_err(|error| AppError::Other(format!("无法调用 WSL: {error}")))?;
-            if !output.status.success() { return Err(AppError::Config("WSL 未安装或没有可用发行版".to_string())); }
-            Ok(String::from_utf8_lossy(&output.stdout).lines()
+            if !output.status.success() {
+                return Err(AppError::Config("WSL 未安装或没有可用发行版".to_string()));
+            }
+            Ok(String::from_utf8_lossy(&output.stdout)
+                .lines()
                 .map(|line| line.trim_matches('\0').trim().to_string())
-                .filter(|line| !line.is_empty()).collect())
+                .filter(|line| !line.is_empty())
+                .collect())
         }
         #[cfg(not(windows))]
-        { Ok(Vec::new()) }
-    }).await.map_err(|error| AppError::Other(format!("WSL 检测任务异常结束: {error}")))?
+        {
+            Ok(Vec::new())
+        }
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("WSL 检测任务异常结束: {error}")))?
 }
 
 #[tauri::command]
 pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
-    let target = load_targets()?.targets.into_iter().find(|target| target.id == target_id)
+    let target = load_targets()?
+        .targets
+        .into_iter()
+        .find(|target| target.id == target_id)
         .ok_or_else(|| AppError::Config("未找到同步目标".to_string()))?;
     validate_target(&target)?;
     let root = get_app_config_dir();
     let mut changes = Vec::new();
-    let add = |item: SyncItem, source: PathBuf, remote_name: &str, changes: &mut Vec<SyncPreviewChange>| {
-        if source.exists() { changes.push(SyncPreviewChange { item, source_path: source.to_string_lossy().into_owned(), remote_path: format!("{}/{}", target.remote_root, remote_name), status: "create_or_replace".to_string() }); }
+    let add = |item: SyncItem,
+               source: PathBuf,
+               remote_name: &str,
+               changes: &mut Vec<SyncPreviewChange>| {
+        if source.exists() {
+            changes.push(SyncPreviewChange {
+                item,
+                source_path: source.to_string_lossy().into_owned(),
+                remote_path: format!("{}/{}", target.remote_root, remote_name),
+                status: "create_or_replace".to_string(),
+            });
+        }
     };
     for item in &target.items {
         match item {
-            SyncItem::ProviderPresets | SyncItem::Mcp | SyncItem::Prompts => add(item.clone(), root.join("app.db"), "app.db", &mut changes),
-            SyncItem::Skills => add(item.clone(), crate::config::paths::get_claude_skills_dir(), "skills", &mut changes),
-            SyncItem::SessionArchives => add(item.clone(), root.join("session-archives"), "session-archives", &mut changes),
+            SyncItem::ProviderPresets | SyncItem::Mcp | SyncItem::Prompts => {
+                add(item.clone(), root.join("app.db"), "app.db", &mut changes)
+            }
+            SyncItem::Skills => add(
+                item.clone(),
+                crate::config::paths::get_claude_skills_dir(),
+                "skills",
+                &mut changes,
+            ),
+            SyncItem::SessionArchives => add(
+                item.clone(),
+                root.join("session-archives"),
+                "session-archives",
+                &mut changes,
+            ),
         }
     }
     Ok(SyncPreview { target, changes, warnings: vec![
@@ -212,26 +305,38 @@ fn push_sync_archive_blocking(
     provider_targets: Option<Vec<crate::provider::ProviderTarget>>,
 ) -> AppResult<SyncPushResult> {
     let mut config = load_targets()?;
-    let index = config.targets.iter().position(|target| target.id == target_id)
+    let index = config
+        .targets
+        .iter()
+        .position(|target| target.id == target_id)
         .ok_or_else(|| AppError::Config("未找到同步目标".to_string()))?;
     let target = config.targets[index].clone();
     validate_target(&target)?;
     let include_api_keys = include_api_keys.unwrap_or(false);
-    let archive = crate::backup::export_library_backup(
-        None,
-        include_api_keys,
-        provider_targets.as_deref(),
-    )?;
+    let archive =
+        crate::backup::export_library_backup(None, include_api_keys, provider_targets.as_deref())?;
     let archive_path = PathBuf::from(&archive.archive_path);
-    let filename = archive_path.file_name().and_then(|name| name.to_str())
+    let filename = archive_path
+        .file_name()
+        .and_then(|name| name.to_str())
         .ok_or_else(|| AppError::Path("同步归档文件名无效".to_string()))?;
-    if !filename.chars().all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_')) {
+    if !filename
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_'))
+    {
         return Err(AppError::Path("同步归档文件名不安全".to_string()));
     }
-    let remote_path = format!("{}/incoming/{filename}", target.remote_root.trim_end_matches('/'));
+    let remote_path = format!(
+        "{}/incoming/{filename}",
+        target.remote_root.trim_end_matches('/')
+    );
     let password = password.and_then(|value| {
         let trimmed = value.trim().to_string();
-        if trimmed.is_empty() { None } else { Some(trimmed) }
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
     });
     stream_to_target(&target, &archive_path, &remote_path, password.as_deref())?;
     config.targets[index].last_synced_at = Some(chrono::Utc::now().timestamp_millis());
@@ -250,9 +355,11 @@ fn stream_to_target(
     remote_path: &str,
     password: Option<&str>,
 ) -> AppResult<()> {
-    let remote_parent = Path::new(remote_path).parent()
+    let remote_parent = Path::new(remote_path)
+        .parent()
         .ok_or_else(|| AppError::Path("远端同步路径无效".to_string()))?
-        .to_string_lossy().replace('\\', "/");
+        .to_string_lossy()
+        .replace('\\', "/");
     let script = format!(
         "set -eu; mkdir -p -- {}; tmp={}.part; cat > \"$tmp\"; mv -- \"$tmp\" {}",
         shell_quote(&remote_parent),
@@ -276,9 +383,12 @@ fn stream_to_target(
             let port = target.ssh_port.unwrap_or(22).to_string();
             let mut command = Command::new("ssh");
             command.args([
-                "-o", "StrictHostKeyChecking=yes",
-                "-o", "NumberOfPasswordPrompts=1",
-                "-p", &port,
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+                "NumberOfPasswordPrompts=1",
+                "-p",
+                &port,
             ]);
             if let Some(password) = password {
                 let artifacts = prepare_ssh_askpass(password)?;
@@ -288,8 +398,10 @@ fn stream_to_target(
                     command.env("DISPLAY", "localhost:0");
                 }
                 command.args([
-                    "-o", "PreferredAuthentications=password,keyboard-interactive,publickey",
-                    "-o", "PubkeyAuthentication=yes",
+                    "-o",
+                    "PreferredAuthentications=password,keyboard-interactive,publickey",
+                    "-o",
+                    "PubkeyAuthentication=yes",
                 ]);
                 askpass_cleanup = Some(artifacts);
             } else {
@@ -355,7 +467,11 @@ fn run_stream_copy(command: &mut Command, archive: &Path) -> AppResult<()> {
     if !status.success() {
         return Err(AppError::Config(format!(
             "同步传输失败: {}",
-            if detail.is_empty() { "远端命令返回错误" } else { &detail }
+            if detail.is_empty() {
+                "远端命令返回错误"
+            } else {
+                &detail
+            }
         )));
     }
     Ok(())
@@ -424,9 +540,11 @@ fn shell_quote(value: &str) -> String {
 }
 
 fn safe_ssh_host(value: &str) -> bool {
-    !value.is_empty() && !value.starts_with('-') && value.chars().all(|character| {
-        character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | '@')
-    })
+    !value.is_empty()
+        && !value.starts_with('-')
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | '@')
+        })
 }
 
 #[tauri::command]
@@ -444,13 +562,35 @@ mod tests {
     use super::*;
     #[test]
     fn target_validation_rejects_relative_remote_root() {
-        let target = SyncTarget { id: "id".to_string(), name: "WSL".to_string(), kind: SyncTargetKind::Wsl, wsl_distribution: Some("Ubuntu".to_string()), ssh_host: None, ssh_port: None, remote_root: "relative".to_string(), path_mappings: Vec::new(), items: vec![SyncItem::Skills], last_synced_at: None };
+        let target = SyncTarget {
+            id: "id".to_string(),
+            name: "WSL".to_string(),
+            kind: SyncTargetKind::Wsl,
+            wsl_distribution: Some("Ubuntu".to_string()),
+            ssh_host: None,
+            ssh_port: None,
+            remote_root: "relative".to_string(),
+            path_mappings: Vec::new(),
+            items: vec![SyncItem::Skills],
+            last_synced_at: None,
+        };
         assert!(validate_target(&target).is_err());
     }
 
     #[test]
     fn target_validation_rejects_windows_remote_root() {
-        let target = SyncTarget { id: "id".to_string(), name: "WSL".to_string(), kind: SyncTargetKind::Wsl, wsl_distribution: Some("Ubuntu".to_string()), ssh_host: None, ssh_port: None, remote_root: "C:\\Users\\admin".to_string(), path_mappings: Vec::new(), items: vec![SyncItem::Skills], last_synced_at: None };
+        let target = SyncTarget {
+            id: "id".to_string(),
+            name: "WSL".to_string(),
+            kind: SyncTargetKind::Wsl,
+            wsl_distribution: Some("Ubuntu".to_string()),
+            ssh_host: None,
+            ssh_port: None,
+            remote_root: "C:\\Users\\admin".to_string(),
+            path_mappings: Vec::new(),
+            items: vec![SyncItem::Skills],
+            last_synced_at: None,
+        };
         assert!(validate_target(&target).is_err());
     }
 

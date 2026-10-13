@@ -85,16 +85,24 @@ struct RegistryRemote {
 
 pub async fn search_mcp_registry(query: &str) -> AppResult<Vec<RegistryMcpServer>> {
     let response = request_servers(query).await?;
-    Ok(response.servers.into_iter().map(|entry| registry_card(entry.server)).collect())
+    Ok(response
+        .servers
+        .into_iter()
+        .map(|entry| registry_card(entry.server))
+        .collect())
 }
 
 pub async fn resolve_mcp_registry_server(name: &str) -> AppResult<Value> {
     let name = name.trim();
     if name.is_empty() {
-        return Err(AppError::Config("MCP Registry 条目名称不能为空".to_string()));
+        return Err(AppError::Config(
+            "MCP Registry 条目名称不能为空".to_string(),
+        ));
     }
     let response = request_servers(name).await?;
-    let server = response.servers.into_iter()
+    let server = response
+        .servers
+        .into_iter()
         .map(|entry| entry.server)
         .find(|server| server.name == name)
         .ok_or_else(|| AppError::Config(format!("官方 MCP Registry 未找到条目: {name}")))?;
@@ -118,9 +126,14 @@ async fn request_servers(query: &str) -> AppResult<RegistryListResponse> {
         .await
         .map_err(|e| AppError::Other(format!("访问官方 MCP Registry 失败: {e}")))?;
     if !response.status().is_success() {
-        return Err(AppError::Config(format!("官方 MCP Registry 请求失败（HTTP {}）", response.status())));
+        return Err(AppError::Config(format!(
+            "官方 MCP Registry 请求失败（HTTP {}）",
+            response.status()
+        )));
     }
-    let body = response.bytes().await
+    let body = response
+        .bytes()
+        .await
         .map_err(|e| AppError::Other(format!("读取官方 MCP Registry 响应失败: {e}")))?;
     serde_json::from_slice::<RegistryListResponse>(&body)
         .map_err(|e| AppError::Other(format!("解析官方 MCP Registry 响应失败: {e}")))
@@ -129,7 +142,11 @@ async fn request_servers(query: &str) -> AppResult<RegistryListResponse> {
 fn registry_card(server: RegistryServer) -> RegistryMcpServer {
     let support = server_config(&server);
     RegistryMcpServer {
-        title: if server.title.trim().is_empty() { server.name.clone() } else { server.title.clone() },
+        title: if server.title.trim().is_empty() {
+            server.name.clone()
+        } else {
+            server.title.clone()
+        },
         name: server.name,
         description: server.description,
         version: server.version,
@@ -145,7 +162,11 @@ fn server_config(server: &RegistryServer) -> Result<Value, String> {
             && !remote.url.contains('{')
             && remote.variables.is_null()
     }) {
-        let kind = if remote.kind == "streamable-http" { "http" } else { remote.kind.as_str() };
+        let kind = if remote.kind == "streamable-http" {
+            "http"
+        } else {
+            remote.kind.as_str()
+        };
         return Ok(json!({ "type": kind, "url": remote.url }));
     }
 
@@ -184,7 +205,10 @@ mod tests {
             }],
             ..Default::default()
         };
-        assert_eq!(server_config(&server).unwrap(), json!({"type": "http", "url": "https://example.com/mcp"}));
+        assert_eq!(
+            server_config(&server).unwrap(),
+            json!({"type": "http", "url": "https://example.com/mcp"})
+        );
     }
 
     #[test]
@@ -209,7 +233,9 @@ mod tests {
                 registry_type: "npm".to_string(),
                 identifier: "@example/mcp".to_string(),
                 version: "1.2.3".to_string(),
-                transport: RegistryTransport { kind: "stdio".to_string() },
+                transport: RegistryTransport {
+                    kind: "stdio".to_string(),
+                },
                 environment_variables: Vec::new(),
             }],
             ..Default::default()

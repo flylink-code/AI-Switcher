@@ -106,7 +106,9 @@ pub fn sync_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCodeS
     })
 }
 
-pub fn try_sync_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCodeSessionSyncResult> {
+pub fn try_sync_claude_code_session_usage_db(
+    db: &Database,
+) -> AppResult<ClaudeCodeSessionSyncResult> {
     let Some(_guard) = try_acquire_sync_lock() else {
         return Ok(ClaudeCodeSessionSyncResult {
             scanned_files: 0,
@@ -129,7 +131,9 @@ pub fn sync_claude_code_session_usage_db_blocking(
     sync_claude_code_session_usage_db(db)
 }
 
-pub fn rebuild_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCodeSessionSyncResult> {
+pub fn rebuild_claude_code_session_usage_db(
+    db: &Database,
+) -> AppResult<ClaudeCodeSessionSyncResult> {
     let Some(_guard) = wait_acquire_sync_lock(50) else {
         return Err(crate::error::AppError::Config(
             "Claude Code 会话用量同步繁忙，请稍后重试重建".into(),
@@ -372,9 +376,7 @@ mod tests {
         drop(file);
 
         let db = Database::memory().unwrap();
-        let inserted = db
-            .with_conn(|conn| sync_one_file(conn, &session))
-            .unwrap();
+        let inserted = db.with_conn(|conn| sync_one_file(conn, &session)).unwrap();
         assert_eq!(inserted.0, 1);
         assert_eq!(inserted.1, 1);
         let count: i64 = db

@@ -54,7 +54,9 @@ pub async fn ensure_access_token(account: &KiroAccount, force: bool) -> AppResul
 
 async fn refresh(account: &KiroAccount) -> AppResult<KiroAccount> {
     if account.refresh_token.trim().is_empty() {
-        return Err(AppError::Config("Kiro 账号没有 refreshToken，需要重新登录".into()));
+        return Err(AppError::Config(
+            "Kiro 账号没有 refreshToken，需要重新登录".into(),
+        ));
     }
     let client = build_async_client(20);
     let result = if account.auth_method == "social" {
@@ -115,7 +117,9 @@ async fn refresh_social(client: &reqwest::Client, account: &KiroAccount) -> AppR
 
 async fn refresh_idc(client: &reqwest::Client, account: &KiroAccount) -> AppResult<KiroAccount> {
     if account.client_id.trim().is_empty() || account.client_secret.trim().is_empty() {
-        return Err(AppError::Config("Builder ID 刷新需要 clientId 和 clientSecret".into()));
+        return Err(AppError::Config(
+            "Builder ID 刷新需要 clientId 和 clientSecret".into(),
+        ));
     }
     let region = account.region.trim();
     let url = format!("https://oidc.{region}.amazonaws.com/token");

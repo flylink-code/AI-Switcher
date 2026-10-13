@@ -282,7 +282,9 @@ pub async fn stop_service() -> AppResult<SmartGatewayStatus> {
             .as_mut()
             .ok_or_else(|| AppError::Other("智能网关尚未初始化".into()))?;
         manager.phase = "stopped".into();
-        let _ = manager.db.with_conn(|conn| set_setting(conn, ENABLED_SETTING, "0"));
+        let _ = manager
+            .db
+            .with_conn(|conn| set_setting(conn, ENABLED_SETTING, "0"));
         manager.runtime.take()
     };
     if let Some(runtime) = runtime {
@@ -305,9 +307,16 @@ pub async fn restore_if_enabled(db: Arc<Database>) {
         .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
         .ok()
         .flatten()
-        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .map(|value| {
+            matches!(
+                value.to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
         .unwrap_or(false);
-    let has_binding = db.with_conn(|conn| Ok(has_any_binding(conn))).unwrap_or(false);
+    let has_binding = db
+        .with_conn(|conn| Ok(has_any_binding(conn)))
+        .unwrap_or(false);
     if !enabled && !has_binding {
         return;
     }

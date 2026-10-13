@@ -45,5 +45,6 @@ pub async fn rollback_v34(
     crate::process_util::spawn_blocking_result(move || {
         db.export_rollback_v34(&path)?;
         Ok(path.to_string_lossy().into_owned())
-    }).await
+    })
+    .await
 }

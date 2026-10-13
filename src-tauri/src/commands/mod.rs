@@ -1,63 +1,57 @@
 //! Tauri command handlers exposed to the frontend.
-pub mod backend;
 pub mod agents;
 pub mod antigravity;
+pub mod app_update;
+pub mod backend;
+pub mod backup;
 pub mod claude_plugins;
 pub mod codex;
-pub mod codex_plugins;
 pub mod codex_oauth;
-pub mod app_update;
-pub mod backup;
-pub mod db;
+pub mod codex_plugins;
 pub mod data_root;
+pub mod db;
 pub mod deeplink;
-pub mod doctor;
 pub mod desktop_localization;
+pub mod doctor;
+pub mod gateway;
+pub mod kiro;
 pub mod localization;
 pub mod mcp;
+pub mod node_runtime;
 pub mod paths;
+pub mod pi;
 pub mod profiles;
 pub mod prompts;
+pub mod providers;
+pub mod proxy;
+pub mod quota;
 pub mod recovery;
 pub mod runtime_status;
 pub mod sessions;
-pub mod providers;
-pub mod proxy;
-pub mod gateway;
-pub mod kiro;
-pub mod quota;
 pub mod skills;
-pub mod system;
 pub mod sync;
-pub mod node_runtime;
-pub mod pi;
+pub mod system;
 pub mod tools;
 pub mod usage;
-pub use backend::ping;
-pub use agents::{
-    delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
-};
+pub use agents::{delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled};
 pub use antigravity::{
-    ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
-    get_antigravity_pool_warning, get_antigravity_recommended_account,
-    import_antigravity_accounts, list_antigravity_accounts, list_antigravity_models,
+    ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_fast_path_settings,
+    get_antigravity_gateway_status, get_antigravity_limiter_settings, get_antigravity_pool_warning,
+    get_antigravity_recommended_account, import_antigravity_accounts, list_antigravity_accounts,
+    list_antigravity_models, probe_antigravity_exit_latency, probe_antigravity_exit_proxy,
     refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
-    set_antigravity_account_model_access,
-    set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
-    set_antigravity_limiter_settings, get_antigravity_limiter_settings,
-    get_antigravity_fast_path_settings, set_antigravity_fast_path_settings,
-    set_antigravity_outbound_proxy, set_antigravity_exit_proxy, probe_antigravity_exit_proxy,
-    probe_antigravity_exit_latency,
-    start_antigravity_gateway,
+    set_antigravity_account_model_access, set_antigravity_active_account,
+    set_antigravity_exit_proxy, set_antigravity_fast_path_settings,
+    set_antigravity_gateway_api_key, set_antigravity_gateway_port,
+    set_antigravity_limiter_settings, set_antigravity_outbound_proxy, start_antigravity_gateway,
     start_antigravity_oauth_login, stop_antigravity_gateway, test_antigravity_account,
 };
-pub use kiro::{
-    ensure_kiro_provider, get_kiro_gateway_status, import_kiro_accounts, list_kiro_accounts,
-    probe_kiro_exit_latency, probe_kiro_exit_proxy, refresh_kiro_account_quota, refresh_kiro_quotas,
-    remove_kiro_account, set_kiro_exit_proxy, set_kiro_gateway_api_key, set_kiro_gateway_port,
-    set_kiro_outbound_proxy, start_kiro_builder_id_login, start_kiro_gateway, start_kiro_social_login,
-    stop_kiro_gateway, submit_kiro_login_callback, test_kiro_account, list_kiro_models,
-    refresh_kiro_models,
+pub use app_update::{check_app_update, install_app_update};
+pub use backend::ping;
+pub use backup::{
+    backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings,
+    preview_library_backup, restore_library_backup, restore_library_from_webdav,
+    set_webdav_settings, upload_library_to_webdav,
 };
 pub use claude_plugins::{
     add_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
@@ -66,9 +60,12 @@ pub use claude_plugins::{
     uninstall_claude_plugin, update_claude_plugin, update_claude_plugin_marketplace,
 };
 pub use codex::{
-    get_codex_auth_status, get_codex_web_search_mode, set_codex_web_search_mode,
-    get_codex_output_profile, set_codex_output_profile,
-    sync_codex_session_providers,
+    get_codex_auth_status, get_codex_output_profile, get_codex_web_search_mode,
+    set_codex_output_profile, set_codex_web_search_mode, sync_codex_session_providers,
+};
+pub use codex_oauth::{
+    ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
+    start_codex_oauth_login,
 };
 pub use codex_plugins::{
     add_codex_plugin_marketplace, check_codex_plugin_update, check_codex_plugin_updates,
@@ -76,29 +73,40 @@ pub use codex_plugins::{
     list_codex_plugins, remove_codex_plugin_marketplace, set_codex_plugin_enabled,
     uninstall_codex_plugin, update_codex_plugin, upgrade_codex_plugin_marketplace,
 };
-pub use codex_oauth::{
-    ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
-    start_codex_oauth_login,
-};
-pub use app_update::{check_app_update, install_app_update};
-pub use backup::{
-    backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings,
-    preview_library_backup, restore_library_backup, restore_library_from_webdav,
-    set_webdav_settings, upload_library_to_webdav,
-};
-pub use db::{get_db_info, rollback_v34};
 pub use data_root::{get_data_root, migrate_data_root};
+pub use db::{get_db_info, rollback_v34};
 pub use deeplink::{
-    build_mcp_deeplink, build_provider_deeplink, build_skill_deeplink, confirm_import_preview, preview_import_text,
-};
-pub use doctor::{
-    repair_doctor_check, repair_environment_visibility, run_environment_doctor,
+    build_mcp_deeplink, build_provider_deeplink, build_skill_deeplink, confirm_import_preview,
+    preview_import_text,
 };
 pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,
-    install_desktop_localization,
-    restore_desktop_localization, select_desktop_localization_pack,
+    install_desktop_localization, restore_desktop_localization, select_desktop_localization_pack,
     update_desktop_localization, validate_desktop_localization_pack,
+};
+pub use doctor::{repair_doctor_check, repair_environment_visibility, run_environment_doctor};
+pub use gateway::{
+    add_antigravity_gateway_upstream, add_kiro_gateway_upstream, bind_smart_gateway,
+    delete_gateway_upstream, discover_gateway_upstream_models,
+    discover_gateway_upstream_models_batch, get_agent_connection, get_gateway_upstream_policy,
+    get_local_gateway_enabled, get_smart_gateway_health_probe_secs,
+    get_smart_gateway_inbound_limits, get_smart_gateway_status,
+    import_gateway_upstreams_from_providers, list_gateway_upstream_health,
+    list_gateway_upstream_models, list_gateway_upstream_pressure, list_gateway_upstreams,
+    list_smart_gateway_bindings, list_upstream_daily_usage_stats, reorder_gateway_upstreams,
+    rotate_smart_gateway_api_key, set_agent_connection, set_gateway_upstream_enabled,
+    set_gateway_upstream_model_visible, set_gateway_upstream_policy, set_local_gateway_enabled,
+    set_smart_gateway_api_key, set_smart_gateway_health_probe_secs,
+    set_smart_gateway_inbound_limits, set_smart_gateway_port, start_smart_gateway,
+    stop_smart_gateway, unbind_smart_gateway, upsert_gateway_upstream,
+};
+pub use kiro::{
+    ensure_kiro_provider, get_kiro_gateway_status, import_kiro_accounts, list_kiro_accounts,
+    list_kiro_models, probe_kiro_exit_latency, probe_kiro_exit_proxy, refresh_kiro_account_quota,
+    refresh_kiro_models, refresh_kiro_quotas, remove_kiro_account, set_kiro_exit_proxy,
+    set_kiro_gateway_api_key, set_kiro_gateway_port, set_kiro_outbound_proxy,
+    start_kiro_builder_id_login, start_kiro_gateway, start_kiro_social_login, stop_kiro_gateway,
+    submit_kiro_login_callback, test_kiro_account,
 };
 pub use localization::{
     check_localization_upstream, get_localization_hub_status, install_claude_code_localization,
@@ -111,106 +119,84 @@ pub use mcp::{
     import_mcp_servers, install_mcp_registry_server, list_mcp_servers, reorder_mcp_servers,
     save_mcp_server, search_mcp_registry, toggle_mcp_server,
 };
+pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
 pub use paths::get_paths;
+pub use pi::{
+    delete_pi_prompt_template, detect_pi_cli, get_pi_settings, get_workspace_pi_prompt,
+    install_pi_cli, list_pi_prompt_templates, list_pi_sessions, read_pi_prompt_template,
+    read_pi_session_detail, save_pi_prompt_template, save_workspace_pi_prompt, update_pi_settings,
+};
 pub use profiles::{
-    apply_profile, create_workspace_profile, delete_workspace_profile,
-    get_current_profile_id, list_profiles, update_workspace_profile,
+    apply_profile, create_workspace_profile, delete_workspace_profile, get_current_profile_id,
+    list_profiles, update_workspace_profile,
 };
 pub use prompts::{
     activate_prompt, delete_prompt, import_live_prompt, list_prompts, read_live_prompt,
     read_prompt, rename_prompt, save_prompt,
 };
+pub use providers::{
+    batch_speedtest_upstream_endpoints, cancel_batch_speedtest, create_provider,
+    discover_provider_models, discover_provider_models_input, ensure_smart_gateway_provider,
+    export_gateway_upstreams, export_providers, get_agent_connection_mode,
+    get_agent_direct_model_mapping, get_cached_provider_models, get_claude_code_agent_settings,
+    get_claude_code_default_permission_mode, get_claude_desktop_auto_mode, get_current_provider,
+    get_gateway_catalog_hide_official, get_opencode_permission_mode, import_gateway_upstreams_json,
+    import_live_config_as_upstreams, import_providers_json, list_gateway_catalog_entries,
+    list_gateway_catalog_models, list_providers, set_agent_direct, set_agent_direct_model_mapping,
+    set_claude_code_agent_settings, set_claude_code_default_permission_mode,
+    set_claude_desktop_auto_mode, set_gateway_catalog_hide_official, set_opencode_permission_mode,
+    switch_provider, switch_to_official, test_provider_input, test_upstream_connection,
+};
+pub use proxy::{
+    get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_status,
+    get_proxy_streaming_idle_timeout_secs, set_proxy_failover_enabled, set_proxy_port,
+    set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, start_proxy,
+    stop_proxy,
+};
+pub use quota::{get_official_quota, get_provider_quota};
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use runtime_status::get_managed_apps_runtime_status;
 pub use sessions::{
     backup_all_sessions, backup_sessions, export_session, export_session_markdown, export_sessions,
-    get_session_backup_dir, import_session, list_session_backups,
-    list_trashed_sessions, load_session_messages,
+    get_session_auto_backup_settings, get_session_backup_dir, get_session_mirror_dir,
+    import_session, list_session_backups, list_trashed_sessions, load_session_messages,
     reset_session_backup_dir, restore_session_backup, restore_session_mirror,
-    restore_trashed_session, scan_sessions, search_session_contents, set_session_backup_dir,
-    get_session_auto_backup_settings, set_session_auto_backup_settings, get_session_mirror_dir,
-    trash_session,
+    restore_trashed_session, scan_sessions, search_session_contents,
+    set_session_auto_backup_settings, set_session_backup_dir, trash_session,
 };
-pub use providers::{
-    create_provider, discover_provider_models, discover_provider_models_input, export_providers,
-    get_cached_provider_models, get_current_provider,
-      get_claude_code_default_permission_mode,
-    get_claude_desktop_auto_mode,
-    get_claude_code_agent_settings,
-    get_opencode_permission_mode,
-    import_providers_json,
-    list_gateway_catalog_models, list_gateway_catalog_entries,
-    get_gateway_catalog_hide_official, set_gateway_catalog_hide_official, list_providers,
-    set_claude_code_default_permission_mode, set_claude_desktop_auto_mode, set_claude_code_agent_settings,
-    set_opencode_permission_mode,
-    batch_speedtest_upstream_endpoints, cancel_batch_speedtest,
-    switch_provider, switch_to_official, set_agent_direct, get_agent_connection_mode,
-    get_agent_direct_model_mapping, set_agent_direct_model_mapping,
-    test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
-    test_provider_input,
-    ensure_smart_gateway_provider,
-};
-pub use gateway::{
-    add_antigravity_gateway_upstream, add_kiro_gateway_upstream, delete_gateway_upstream, discover_gateway_upstream_models,
-    discover_gateway_upstream_models_batch, get_agent_connection, 
-    import_gateway_upstreams_from_providers,  
-    list_gateway_upstream_models, list_gateway_upstreams, set_agent_connection,
-    reorder_gateway_upstreams, get_local_gateway_enabled, set_local_gateway_enabled,
-    set_gateway_upstream_enabled, set_gateway_upstream_model_visible,   upsert_gateway_upstream,
-    get_smart_gateway_status, set_smart_gateway_port, set_smart_gateway_api_key,
-    rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
-    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, 
-     list_upstream_daily_usage_stats,
-     list_gateway_upstream_health,
-    get_gateway_upstream_policy, set_gateway_upstream_policy, list_gateway_upstream_pressure,
-    get_smart_gateway_inbound_limits, set_smart_gateway_inbound_limits, 
-     get_smart_gateway_health_probe_secs,
-    set_smart_gateway_health_probe_secs, 
-};
-pub use proxy::{
-    get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,
-    get_proxy_status, set_proxy_failover_enabled, set_proxy_retryable_status_codes,
-    set_proxy_streaming_idle_timeout_secs, set_proxy_port, start_proxy, stop_proxy,
-};
-pub use quota::{get_official_quota, get_provider_quota};
 pub use skills::{
-    add_skill_repository, check_skill_update, check_skill_updates, delete_skill, get_skill_repository,
-    get_skill_repository_snapshot, ignore_unmanaged_skill, install_github_repository_skills,
-    install_github_skill, install_zip_skill, list_github_repository_skills, list_skill_repositories,
-    list_skills, refresh_github_repository_skills, register_unmanaged_skill, remove_skill_repository,
+    add_skill_repository, check_skill_update, check_skill_updates, delete_skill,
+    get_skill_repository, get_skill_repository_snapshot, ignore_unmanaged_skill,
+    install_github_repository_skills, install_github_skill, install_zip_skill,
+    list_github_repository_skills, list_skill_repositories, list_skills,
+    refresh_github_repository_skills, register_unmanaged_skill, remove_skill_repository,
     scan_unmanaged_skills, set_skill_enabled, set_skill_repository, update_github_skills,
-};
-pub use system::{
-    dismiss_onboarding_tip, get_autostart_config, get_autostart_enabled, get_close_behavior,
-    get_dismissed_onboarding_tips, get_gateway_runtime_mode, set_gateway_runtime_mode,
-    report_frontend_performance, report_frontend_startup, resolve_close_request,
-    restart_app, restore_onboarding_tips, set_app_language, set_autostart_config, set_autostart_enabled,
-    set_close_behavior, get_update_mirror_settings, set_update_mirror_settings,
 };
 pub use sync::{
     delete_sync_target, discover_wsl_distributions, get_wsl_runtime_status, list_sync_targets,
     preview_sync, push_sync_archive, save_sync_target, sync_wsl_direct,
 };
-pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
-pub use pi::{
-    delete_pi_prompt_template, detect_pi_cli, get_pi_settings,
-    get_workspace_pi_prompt, install_pi_cli, list_pi_prompt_templates, list_pi_sessions, read_pi_prompt_template, read_pi_session_detail,
-    save_pi_prompt_template, save_workspace_pi_prompt,
-    update_pi_settings,
+pub use system::{
+    dismiss_onboarding_tip, get_autostart_config, get_autostart_enabled, get_close_behavior,
+    get_dismissed_onboarding_tips, get_gateway_runtime_mode, get_gateway_sidecar_status,
+    get_update_mirror_settings, report_frontend_performance, report_frontend_startup,
+    resolve_close_request, restart_app, restore_onboarding_tips, set_app_language,
+    set_autostart_config, set_autostart_enabled, set_close_behavior, set_gateway_runtime_mode,
+    set_update_mirror_settings,
 };
 pub use tools::{
-    get_claude_code_version, get_codex_cli_version, run_claude_code_update, run_codex_cli_update,
-    get_opencode_cli_version, run_opencode_cli_update, get_opencode_desktop_status,
-    get_claude_desktop_app_status, run_claude_desktop_app_update,
-    get_dsh_cli_version, run_dsh_cli_update, start_dsh_web,
+    get_claude_code_version, get_claude_desktop_app_status, get_codex_cli_version,
+    get_dsh_cli_version, get_opencode_cli_version, get_opencode_desktop_status,
+    run_claude_code_update, run_claude_desktop_app_update, run_codex_cli_update,
+    run_dsh_cli_update, run_opencode_cli_update, start_dsh_web,
 };
 pub use usage::{
-    delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_usage_dashboard, get_usage_trend, import_model_pricing_xlsx, list_model_pricing,
-    list_proxy_request_logs_cmd, maintain_proxy_logs, preview_proxy_log_maintenance,
-    rebuild_codex_session_usage_cmd, sync_codex_session_usage_cmd,
-    rebuild_claude_code_session_usage_cmd, sync_claude_code_session_usage_cmd,
-    rebuild_opencode_session_usage_cmd, sync_opencode_session_usage_cmd,
-    rebuild_pi_session_usage_cmd, sync_pi_session_usage_cmd,
-    rebuild_dsh_session_usage_cmd, sync_dsh_session_usage_cmd,
-    preview_model_pricing_xlsx, save_log_maintenance_policy, save_model_pricing,
+    delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy,
+    get_usage_dashboard, get_usage_trend, import_model_pricing_xlsx, list_model_pricing,
+    list_proxy_request_logs_cmd, maintain_proxy_logs, preview_model_pricing_xlsx,
+    preview_proxy_log_maintenance, rebuild_claude_code_session_usage_cmd,
+    rebuild_codex_session_usage_cmd, rebuild_dsh_session_usage_cmd,
+    rebuild_opencode_session_usage_cmd, rebuild_pi_session_usage_cmd, save_log_maintenance_policy,
+    save_model_pricing, sync_claude_code_session_usage_cmd, sync_codex_session_usage_cmd,
+    sync_dsh_session_usage_cmd, sync_opencode_session_usage_cmd, sync_pi_session_usage_cmd,
 };

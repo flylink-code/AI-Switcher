@@ -116,13 +116,20 @@ pub fn gateway_status() -> AppResult<KiroGatewayStatus> {
             .as_ref()
             .is_some_and(|runtime| !runtime.handle.is_finished())
     };
-    let effective_port = manager.runtime.as_ref().map(|runtime| runtime.port).unwrap_or(port);
+    let effective_port = manager
+        .runtime
+        .as_ref()
+        .map(|runtime| runtime.port)
+        .unwrap_or(port);
     let api_key = manager
         .api_key
         .lock()
         .map(|guard| guard.clone())
         .unwrap_or_else(|_| DEFAULT_API_KEY.to_string());
-    let account_count = super::account::store().list_public().map(|list| list.len()).unwrap_or(0);
+    let account_count = super::account::store()
+        .list_public()
+        .map(|list| list.len())
+        .unwrap_or(0);
     let outbound = outbound::load_view(&manager.db).unwrap_or(outbound::OutboundView {
         mode: OutboundMode::System,
         proxy_url: String::new(),
@@ -222,7 +229,10 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
             crate::sidecar::wait_until_up(crate::sidecar::GatewayKind::Kiro, SIDECAR_START_WAIT)
                 .await;
         if !up {
-            log::warn!("Kiro sidecar 网关尚未就绪（{}s 内）", SIDECAR_START_WAIT.as_secs());
+            log::warn!(
+                "Kiro sidecar 网关尚未就绪（{}s 内）",
+                SIDECAR_START_WAIT.as_secs()
+            );
         }
         return gateway_status();
     }
@@ -245,7 +255,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
             .as_ref()
             .is_some_and(|runtime| !runtime.handle.is_finished())
         {
-            let _ = manager.db.with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"));
+            let _ = manager
+                .db
+                .with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"));
             drop(slot);
             return gateway_status();
         }
@@ -253,7 +265,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
         manager
             .db
             .with_conn(|conn| set_setting(conn, PORT_SETTING, &bind_port.to_string()))?;
-        let _ = manager.db.with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"));
+        let _ = manager
+            .db
+            .with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"));
         if let Ok(settings) = outbound::load_settings(&manager.db) {
             outbound::apply_loaded(&settings);
         }
@@ -266,10 +280,13 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
         (state, bind_port, manager.db.clone())
     };
     let _ = tokio::task::spawn_blocking(|| super::account::store().reload_http_client()).await;
-    let listener = TcpListener::bind(("127.0.0.1", bind_port)).await.map_err(|error| {
-        AppError::Io(format!("无法绑定 Kiro 网关端口 {bind_port}: {error}"))
-    })?;
-    let actual_port = listener.local_addr().map(|addr| addr.port()).unwrap_or(bind_port);
+    let listener = TcpListener::bind(("127.0.0.1", bind_port))
+        .await
+        .map_err(|error| AppError::Io(format!("无法绑定 Kiro 网关端口 {bind_port}: {error}")))?;
+    let actual_port = listener
+        .local_addr()
+        .map(|addr| addr.port())
+        .unwrap_or(bind_port);
     let app = Router::new()
         .route("/health", get(handlers::health))
         .route("/healthz", get(handlers::health))
@@ -278,7 +295,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
         .route("/v1/messages", any(handlers::anthropic_messages))
         .route("/v1/chat/completions", any(handlers::openai_chat))
         .route("/v1/responses", any(handlers::openai_responses))
-        .layer(DefaultBodyLimit::max(crate::proxy::LOCAL_LISTENER_BODY_LIMIT))
+        .layer(DefaultBodyLimit::max(
+            crate::proxy::LOCAL_LISTENER_BODY_LIMIT,
+        ))
         .with_state(state)
         .layer(CorsLayer::permissive());
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -390,7 +409,8 @@ async fn watch_system_proxy(db: Arc<Database>) {
         if detected != previous {
             previous = detected.clone();
             outbound::resync_system_exit(&db);
-            let _ = tokio::task::spawn_blocking(|| super::account::store().reload_http_client()).await;
+            let _ =
+                tokio::task::spawn_blocking(|| super::account::store().reload_http_client()).await;
         }
     }
 }

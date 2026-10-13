@@ -14,8 +14,8 @@ use crate::antigravity::quota::{
     default_allowed_model_patterns, model_pattern_matches, QuotaSnapshot,
 };
 use crate::config;
-use crate::file_stamp::FileStamp;
 use crate::error::{AppError, AppResult};
+use crate::file_stamp::FileStamp;
 
 /// Public OAuth client used by the Antigravity / Cloud Code desktop product.
 /// Refresh tokens exported from that product must be refreshed with the same client.
@@ -135,7 +135,10 @@ impl AntigravityAccount {
         let patterns = if self.model_access_mode.eq_ignore_ascii_case("custom") {
             &self.allowed_model_patterns
         } else {
-            let tier = self.quota.as_ref().and_then(|quota| quota.subscription_tier.as_deref());
+            let tier = self
+                .quota
+                .as_ref()
+                .and_then(|quota| quota.subscription_tier.as_deref());
             return default_allowed_model_patterns(tier)
                 .iter()
                 .any(|pattern| model_pattern_matches(pattern, model));
@@ -828,15 +831,47 @@ fn load_accounts() -> AppResult<StoredAccounts> {
 
 fn persist(stored: &StoredAccounts) -> AppResult<()> {
     let path = accounts_path();
+    let raw = serde_json::to_string_pretty(stored)
+        .map_err(|error| AppError::Other(format!("序列化账号失败: {error}")))?;
+    if crate::sidecar::delegated() {
+        return crate::sidecar::commit_account_file(crate::sidecar::STORE_AG, &raw, &store().disk);
+    }
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|error| AppError::Io(format!("创建配置目录失败: {error}")))?;
     }
-    let raw = serde_json::to_string_pretty(stored)
-        .map_err(|error| AppError::Other(format!("序列化账号失败: {error}")))?;
     crate::config::atomic_write(&path, raw.as_bytes())?;
     store().disk.note_written(&path);
     Ok(())
+}
+
+/// Replace memory and the account file from a main-process snapshot.
+/// The baseline must still match the file, so a newer sidecar write is not lost.
+pub(crate) fn apply_committed_snapshot(
+    raw: &str,
+    base_exists: bool,
+    base_mtime_ns: &str,
+    base_len: u64,
+) -> AppResult<(String, u64)> {
+    let parsed: StoredAccounts = serde_json::from_str(raw)
+        .map_err(|error| AppError::Config(format!("Antigravity 账号快照无效: {error}")))?;
+    let path = accounts_path();
+    let mut guard = match store().inner.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if !crate::file_stamp::signature_matches(&path, base_exists, base_mtime_ns, base_len) {
+        return Err(AppError::Other("账号文件已被独立进程更新，请重试".into()));
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| AppError::Io(format!("创建配置目录失败: {error}")))?;
+    }
+    crate::config::atomic_write(&path, raw.as_bytes())?;
+    store().disk.note_written(&path);
+    let observed = store().disk.observed();
+    *guard = parsed;
+    Ok((observed.mtime_ns, observed.len))
 }
 
 fn parse_import_payload(value: &Value) -> AppResult<Vec<AntigravityAccount>> {

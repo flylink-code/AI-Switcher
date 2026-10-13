@@ -1138,7 +1138,10 @@ mod tests {
     #[test]
     fn default_model_access_patterns_are_conservative_and_tier_based() {
         assert_eq!(default_allowed_model_patterns(None), vec!["gemini-*flash*"]);
-        assert_eq!(default_allowed_model_patterns(Some("FREE")), vec!["gemini-*flash*"]);
+        assert_eq!(
+            default_allowed_model_patterns(Some("FREE")),
+            vec!["gemini-*flash*"]
+        );
 
         let paid = default_allowed_model_patterns(Some("Google AI Pro"));
         assert!(paid.iter().any(|pattern| pattern == "gemini-*flash*"));
@@ -1151,13 +1154,18 @@ mod tests {
 
     #[test]
     fn model_access_patterns_normalize_prefix_and_match_suffixes() {
-        assert!(model_pattern_matches("gemini-*flash*", "models/gemini-3.8-flash-high"));
+        assert!(model_pattern_matches(
+            "gemini-*flash*",
+            "models/gemini-3.8-flash-high"
+        ));
         assert!(model_pattern_matches("CLAUDE-*", "claude-sonnet-4-6"));
         assert!(model_pattern_matches("o*", "models/o4-mini"));
-        assert!(!model_pattern_matches("gemini-*pro*", "gemini-3.8-flash-high"));
+        assert!(!model_pattern_matches(
+            "gemini-*pro*",
+            "gemini-3.8-flash-high"
+        ));
         assert!(!model_pattern_matches("gpt-*", "claude-sonnet-4-6"));
     }
-
 
     #[test]
     fn parses_models_and_summary() {

@@ -211,7 +211,10 @@ pub async fn query_zhipu_quota(base_url: &str, api_key: &str) -> ProviderQuotaRe
         }
     };
 
-    let plan_name = data.get("level").and_then(Value::as_str).map(|s| format!("GLM {s}"));
+    let plan_name = data
+        .get("level")
+        .and_then(Value::as_str)
+        .map(|s| format!("GLM {s}"));
     let mut tiers = Vec::new();
 
     if let Some(limits) = data.get("limits").and_then(Value::as_array) {
@@ -223,7 +226,10 @@ pub async fn query_zhipu_quota(base_url: &str, api_key: &str) -> ProviderQuotaRe
                 continue;
             }
 
-            let percentage = item.get("percentage").and_then(Value::as_f64).unwrap_or(0.0);
+            let percentage = item
+                .get("percentage")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
             let reset_ms = item.get("nextResetTime").and_then(Value::as_i64);
             let resets_at = reset_ms.and_then(millis_to_iso8601);
 
@@ -433,8 +439,14 @@ pub async fn query_zenmux_quota(base_url: &str, api_key: &str) -> ProviderQuotaR
     let mut tiers = Vec::new();
 
     if let Some(q5h) = data.get("quota_5_hour") {
-        let usage_pct = q5h.get("usage_percentage").and_then(parse_f64).unwrap_or(0.0);
-        let resets_at = q5h.get("resets_at").and_then(Value::as_str).map(String::from);
+        let usage_pct = q5h
+            .get("usage_percentage")
+            .and_then(parse_f64)
+            .unwrap_or(0.0);
+        let resets_at = q5h
+            .get("resets_at")
+            .and_then(Value::as_str)
+            .map(String::from);
         let used_usd = q5h.get("used_value_usd").and_then(parse_f64);
         let max_usd = q5h.get("max_value_usd").and_then(parse_f64);
         tiers.push(QuotaTier {
@@ -447,8 +459,14 @@ pub async fn query_zenmux_quota(base_url: &str, api_key: &str) -> ProviderQuotaR
     }
 
     if let Some(q7d) = data.get("quota_7_day") {
-        let usage_pct = q7d.get("usage_percentage").and_then(parse_f64).unwrap_or(0.0);
-        let resets_at = q7d.get("resets_at").and_then(Value::as_str).map(String::from);
+        let usage_pct = q7d
+            .get("usage_percentage")
+            .and_then(parse_f64)
+            .unwrap_or(0.0);
+        let resets_at = q7d
+            .get("resets_at")
+            .and_then(Value::as_str)
+            .map(String::from);
         let used_usd = q7d.get("used_value_usd").and_then(parse_f64);
         let max_usd = q7d.get("max_value_usd").and_then(parse_f64);
         tiers.push(QuotaTier {
@@ -460,7 +478,11 @@ pub async fn query_zenmux_quota(base_url: &str, api_key: &str) -> ProviderQuotaR
         });
     }
 
-    let plan_tier = data.get("plan").and_then(|p| p.get("tier")).and_then(Value::as_str).unwrap_or("ZenMux");
+    let plan_tier = data
+        .get("plan")
+        .and_then(|p| p.get("tier"))
+        .and_then(Value::as_str)
+        .unwrap_or("ZenMux");
 
     ProviderQuotaResult::Subscription {
         provider_type: "zenmux".to_string(),

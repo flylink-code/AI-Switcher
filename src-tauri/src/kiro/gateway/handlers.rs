@@ -90,8 +90,20 @@ async fn handle(
     loop {
         attempts += 1;
         let Some(account) = retry_same.take().or_else(|| state.pool.select()) else {
-            let response = error_response(protocol, StatusCode::SERVICE_UNAVAILABLE, "没有可用的 Kiro 账号");
-            log_failure(&state, &headers, &incoming, protocol, started, 503, "no_account");
+            let response = error_response(
+                protocol,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "没有可用的 Kiro 账号",
+            );
+            log_failure(
+                &state,
+                &headers,
+                &incoming,
+                protocol,
+                started,
+                503,
+                "no_account",
+            );
             return response;
         };
         let account = match ensure_access_token(&account, false).await {
@@ -113,7 +125,9 @@ async fn handle(
         };
         let reply = upstream::generate(&account, &prepared.body).await;
         if let Some(message) = reply.network_error {
-            log_failure(&state, &headers, &incoming, protocol, started, 504, "network");
+            log_failure(
+                &state, &headers, &incoming, protocol, started, 504, "network",
+            );
             state.pool.note_failure(&account.id, FailureClass::Network);
             return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &message);
         }
@@ -141,18 +155,29 @@ async fn handle(
         }
         if !upstream_ok && (reply.status == 401 || class == FailureClass::Auth) {
             log_failure(&state, &headers, &incoming, protocol, started, 401, "auth");
-            return error_response(
-                protocol,
-                StatusCode::UNAUTHORIZED,
-                "Kiro 鉴权失败",
-            );
+            return error_response(protocol, StatusCode::UNAUTHORIZED, "Kiro 鉴权失败");
         }
         if !upstream_ok && class == FailureClass::Client {
-            log_failure(&state, &headers, &incoming, protocol, started, reply.status as i64, "client");
-            return error_response(protocol, StatusCode::BAD_REQUEST, &text.chars().take(400).collect::<String>());
+            log_failure(
+                &state,
+                &headers,
+                &incoming,
+                protocol,
+                started,
+                reply.status as i64,
+                "client",
+            );
+            return error_response(
+                protocol,
+                StatusCode::BAD_REQUEST,
+                &text.chars().take(400).collect::<String>(),
+            );
         }
         if !upstream_ok
-            && matches!(class, FailureClass::Rotate | FailureClass::CoolAndRotate | FailureClass::Disable)
+            && matches!(
+                class,
+                FailureClass::Rotate | FailureClass::CoolAndRotate | FailureClass::Disable
+            )
             && attempts < max_attempts
         {
             state.pool.note_failure(&account.id, class);
@@ -167,10 +192,24 @@ async fn handle(
                 StatusCode::BAD_GATEWAY
             };
             state.pool.note_failure(&account.id, class);
-            log_failure(&state, &headers, &incoming, protocol, started, status.as_u16() as i64, "upstream");
-            let mut response = error_response(protocol, status, &text.chars().take(400).collect::<String>());
+            log_failure(
+                &state,
+                &headers,
+                &incoming,
+                protocol,
+                started,
+                status.as_u16() as i64,
+                "upstream",
+            );
+            let mut response = error_response(
+                protocol,
+                status,
+                &text.chars().take(400).collect::<String>(),
+            );
             if status == StatusCode::TOO_MANY_REQUESTS {
-                response.headers_mut().insert(header::RETRY_AFTER, "5".parse().unwrap());
+                response
+                    .headers_mut()
+                    .insert(header::RETRY_AFTER, "5".parse().unwrap());
             }
             return response;
         }
@@ -231,7 +270,11 @@ fn authorize(state: &GatewayState, headers: &HeaderMap) -> Result<(), axum::resp
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
-        .or_else(|| headers.get("x-api-key").and_then(|value| value.to_str().ok()))
+        .or_else(|| {
+            headers
+                .get("x-api-key")
+                .and_then(|value| value.to_str().ok())
+        })
         .unwrap_or("")
         .trim();
     if provided == expected {
@@ -251,7 +294,11 @@ fn success_response(
     client_model: &str,
     reply: &CollectedReply,
 ) -> axum::response::Response {
-    let model = if client_model.is_empty() { DEFAULT_MODEL } else { client_model };
+    let model = if client_model.is_empty() {
+        DEFAULT_MODEL
+    } else {
+        client_model
+    };
     match (protocol, stream) {
         (WireProtocol::Anthropic, true) => (
             StatusCode::OK,
@@ -273,11 +320,17 @@ fn success_response(
             responses_sse(model, reply),
         )
             .into_response(),
-        (WireProtocol::OpenAiResponses, false) => Json(responses_json(model, reply)).into_response(),
+        (WireProtocol::OpenAiResponses, false) => {
+            Json(responses_json(model, reply)).into_response()
+        }
     }
 }
 
-fn error_response(protocol: WireProtocol, status: StatusCode, message: &str) -> axum::response::Response {
+fn error_response(
+    protocol: WireProtocol,
+    status: StatusCode,
+    message: &str,
+) -> axum::response::Response {
     let kind = match status {
         StatusCode::UNAUTHORIZED => "authentication_error",
         StatusCode::TOO_MANY_REQUESTS => "rate_limit_error",
@@ -285,7 +338,9 @@ fn error_response(protocol: WireProtocol, status: StatusCode, message: &str) -> 
         _ => "invalid_request_error",
     };
     let body = match protocol {
-        WireProtocol::Anthropic => json!({"type": "error", "error": {"type": kind, "message": message}}),
+        WireProtocol::Anthropic => {
+            json!({"type": "error", "error": {"type": kind, "message": message}})
+        }
         WireProtocol::OpenAiChat | WireProtocol::OpenAiResponses => {
             json!({"error": {"message": message, "type": kind}})
         }

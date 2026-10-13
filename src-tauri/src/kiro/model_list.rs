@@ -25,7 +25,8 @@ pub async fn refresh_models() -> AppResult<KiroModelList> {
             Err(error) => last_error = Some(error),
         }
     }
-    Err(last_error.unwrap_or_else(|| AppError::Config("还没有可用的 Kiro 账号，无法刷新模型列表".into())))
+    Err(last_error
+        .unwrap_or_else(|| AppError::Config("还没有可用的 Kiro 账号，无法刷新模型列表".into())))
 }
 
 async fn fetch_for_account(account: KiroAccount) -> AppResult<KiroModelList> {
@@ -35,7 +36,7 @@ async fn fetch_for_account(account: KiroAccount) -> AppResult<KiroModelList> {
         let (status, body) = request_models(&account).await?;
         if (200..300).contains(&status) {
             let models = parse_available_models(&body).map_err(AppError::Other)?;
-            return Ok(save_live_models(models, now_ms()));
+            return save_live_models(models, now_ms());
         }
         if should_force_refresh(status, &body, refreshed) {
             refreshed = true;
@@ -43,20 +44,31 @@ async fn fetch_for_account(account: KiroAccount) -> AppResult<KiroModelList> {
             continue;
         }
         let detail: String = body.chars().take(200).collect();
-        return Err(AppError::Other(format!("获取 Kiro 模型列表失败 HTTP {status}: {detail}")));
+        return Err(AppError::Other(format!(
+            "获取 Kiro 模型列表失败 HTTP {status}: {detail}"
+        )));
     }
 }
 
 async fn request_models(account: &KiroAccount) -> AppResult<(u16, String)> {
     let region = account.region.trim();
-    let region = if region.is_empty() { "us-east-1" } else { region };
+    let region = if region.is_empty() {
+        "us-east-1"
+    } else {
+        region
+    };
     let response = build_async_client(20)
-        .get(format!("https://q.{region}.amazonaws.com/ListAvailableModels"))
+        .get(format!(
+            "https://q.{region}.amazonaws.com/ListAvailableModels"
+        ))
         .query(&[
             ("origin", "AI_EDITOR"),
             ("profileArn", streaming_profile_arn(account).as_str()),
         ])
-        .header("authorization", format!("Bearer {}", account.access_token.trim()))
+        .header(
+            "authorization",
+            format!("Bearer {}", account.access_token.trim()),
+        )
         .header("accept", "application/json")
         .send()
         .await

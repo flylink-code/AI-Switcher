@@ -40,9 +40,8 @@ pub struct Harness {
 
 impl Harness {
     pub fn new() -> AppResult<Self> {
-        let home = tempfile::tempdir().map_err(|error| {
-            crate::error::AppError::Config(format!("temp home: {error}"))
-        })?;
+        let home = tempfile::tempdir()
+            .map_err(|error| crate::error::AppError::Config(format!("temp home: {error}")))?;
         let isolated = paths::enter_isolated_home(home.path());
         fs::create_dir_all(paths::get_claude_config_dir())?;
         fs::create_dir_all(paths::get_legacy_app_config_dir())?;
@@ -163,7 +162,10 @@ pub async fn sg_regress_independent_not_stolen(h: &Harness) -> AppResult<()> {
     })?;
     crate::commands::providers::push_bound_gateway_catalogs(&h.state).await?;
     let after = code_base_url();
-    assert_eq!(before, after, "editing gateway modes must not rewrite live Code env");
+    assert_eq!(
+        before, after,
+        "editing gateway modes must not rewrite live Code env"
+    );
     assert!(!after.contains(":15828"));
     assert!(!code_discovery_enabled());
     Ok(())
@@ -172,7 +174,8 @@ pub async fn sg_regress_independent_not_stolen(h: &Harness) -> AppResult<()> {
 pub async fn sg_regress_no_autobind(h: &Harness) -> AppResult<()> {
     h.state.db.with_conn(|conn| {
         ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-        let cloned = crate::database::dao::gateway::create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
+        let cloned =
+            crate::database::dao::gateway::create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
         crate::database::dao::gateway::delete_binding(conn, ProviderTarget::OpenCode)?;
         assert!(set_binding_profile(conn, ProviderTarget::OpenCode, &cloned.id).is_err());
         assert!(binding_for_target(conn, ProviderTarget::OpenCode)?.is_none());
@@ -297,15 +300,15 @@ pub async fn sg_p0_usage_inner_hop(h: &Harness) -> AppResult<()> {
         )?;
         update_proxy_log_hop(conn, &inner, Some("corr_sys"), Some("smart_gateway"))?;
         let hop: String = conn.query_row(
-            &format!(
-                "SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
-            ),
+            &format!("SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"),
             [],
             |row| row.get(0),
         )?;
         assert_eq!(hop, "smart_gateway");
         let counted: i64 = conn.query_row(
-            &format!("SELECT COUNT(*) FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"),
+            &format!(
+                "SELECT COUNT(*) FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
+            ),
             [],
             |row| row.get(0),
         )?;
@@ -434,19 +437,26 @@ pub async fn sg_p0_protocol_responses_translation_roundtrip(_h: &Harness) -> App
             post(
                 |State(sink): State<Arc<tokio::sync::Mutex<Option<Value>>>>,
                  axum::Json(body): axum::Json<Value>| async move {
-                    let assistants: Vec<&Value> = body["messages"].as_array()
-                        .into_iter().flatten()
+                    let assistants: Vec<&Value> = body["messages"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
                         .filter(|message| message["role"] == "assistant")
                         .collect();
                     let valid = assistants.len() == 1
                         && assistants[0]["content"] == "I will inspect the workspace files now."
                         && assistants[0]["tool_calls"].as_array().is_some_and(|calls| {
-                            calls.len() == 2 && calls[0]["id"] == "call_1" && calls[1]["id"] == "call_2"
+                            calls.len() == 2
+                                && calls[0]["id"] == "call_1"
+                                && calls[1]["id"] == "call_2"
                         });
                     if !valid {
-                        return (StatusCode::BAD_REQUEST, axum::Json(json!({
-                            "error": "assistant commentary and tool_calls must share one turn"
-                        })));
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            axum::Json(json!({
+                                "error": "assistant commentary and tool_calls must share one turn"
+                            })),
+                        );
                     }
                     let mut guard = sink.lock().await;
                     *guard = Some(body);

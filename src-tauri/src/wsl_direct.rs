@@ -37,17 +37,29 @@ pub fn detect_runtime() -> WslRuntimeStatus {
     let distro = default_distro();
     let linux_home = distro.as_deref().and_then(linux_home_for);
     let unc_root = distro.as_deref().and_then(|name| {
-        linux_home
-            .as_deref()
-            .map(|home| format!(r"\\wsl$\{}\{}", name, home.trim_start_matches('/').replace('/', "\\")))
+        linux_home.as_deref().map(|home| {
+            format!(
+                r"\\wsl$\{}\{}",
+                name,
+                home.trim_start_matches('/').replace('/', "\\")
+            )
+        })
     });
     WslRuntimeStatus {
-        location: if distro.is_some() { "wsl_unc".into() } else { "windows".into() },
+        location: if distro.is_some() {
+            "wsl_unc".into()
+        } else {
+            "windows".into()
+        },
         distro,
         linux_home,
         skip_copy: false,
-        claude_unc: unc_root.as_ref().map(|root| format!("{root}\\.claude\\settings.json")),
-        codex_unc: unc_root.as_ref().map(|root| format!("{root}\\.codex\\config.toml")),
+        claude_unc: unc_root
+            .as_ref()
+            .map(|root| format!("{root}\\.claude\\settings.json")),
+        codex_unc: unc_root
+            .as_ref()
+            .map(|root| format!("{root}\\.codex\\config.toml")),
     }
 }
 
@@ -71,12 +83,14 @@ fn copy_if_exists(src: &Path, dest: &Path) -> AppResult<()> {
     }
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent).map_err(|error| {
-            AppError::Config(format!("无法创建 WSL 目标目录 {}: {error}", parent.display()))
+            AppError::Config(format!(
+                "无法创建 WSL 目标目录 {}: {error}",
+                parent.display()
+            ))
         })?;
     }
-    std::fs::copy(src, dest).map_err(|error| {
-        AppError::Config(format!("同步到 {} 失败: {error}", dest.display()))
-    })?;
+    std::fs::copy(src, dest)
+        .map_err(|error| AppError::Config(format!("同步到 {} 失败: {error}", dest.display())))?;
     Ok(())
 }
 
@@ -97,7 +111,11 @@ fn default_distro() -> Option<String> {
             .collect::<Vec<_>>(),
     );
     let ascii = String::from_utf8_lossy(&output.stdout);
-    let combined = if text.trim().is_empty() { ascii.into_owned() } else { text };
+    let combined = if text.trim().is_empty() {
+        ascii.into_owned()
+    } else {
+        text
+    };
     combined
         .lines()
         .map(|line| line.trim().trim_matches('\u{0}').to_string())

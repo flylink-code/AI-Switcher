@@ -218,8 +218,9 @@ pub fn openai_to_gemini_request(
         .or_else(|| body.get("max_completion_tokens"))
         .and_then(Value::as_u64)
     {
-        generation["maxOutputTokens"] =
-            json!(model_catalog::clamp_claude_55_max_output(&model, max_tokens));
+        generation["maxOutputTokens"] = json!(model_catalog::clamp_claude_55_max_output(
+            &model, max_tokens
+        ));
     }
     let gemini_target = model.to_ascii_lowercase().starts_with("gemini-");
     // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.

@@ -115,7 +115,9 @@ impl CodexOauthManager {
             .user_agent(USER_AGENT)
             .build()
             .unwrap_or_else(|error| {
-                log::error!("Codex OAuth HTTP client build failed ({error}); using reqwest defaults");
+                log::error!(
+                    "Codex OAuth HTTP client build failed ({error}); using reqwest defaults"
+                );
                 Client::new()
             });
         Self {

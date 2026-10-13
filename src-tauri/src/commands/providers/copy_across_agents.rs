@@ -39,6 +39,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn default_model_follows_the_first_catalog_id() {
+        let catalog = vec![
+            "claude.gemini-3.8-flash".to_string(),
+            "claude.gpt-6-astra".to_string(),
+        ];
+        assert_eq!(
+            smart_gateway_default_model(Some("claude.sub2api.gpt-6-astra"), &catalog),
+            "claude.gemini-3.8-flash"
+        );
+        assert_eq!(
+            smart_gateway_default_model(Some("auto"), &catalog),
+            "claude.gemini-3.8-flash"
+        );
+    }
+
+    #[test]
+    fn default_model_keeps_a_concrete_id_when_the_catalog_is_empty() {
+        assert_eq!(
+            smart_gateway_default_model(Some("claude.gemini-3.8-flash"), &[]),
+            "claude.gemini-3.8-flash"
+        );
+        assert_eq!(smart_gateway_default_model(Some("auto"), &[]), "");
+        assert_eq!(smart_gateway_default_model(None, &[]), "");
+    }
+
+    #[test]
     fn discovered_models_are_trimmed_deduplicated_and_sorted() {
         let value = serde_json::json!({
             "data": [

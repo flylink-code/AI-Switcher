@@ -44,7 +44,10 @@ pub async fn query_provider_quota(provider: &Provider) -> ProviderQuotaResult {
     // 1. Coding Plans / Token Plans
     if base_url.contains("api.kimi.com/coding") {
         query_kimi_quota(api_key).await
-    } else if base_url.contains("open.bigmodel.cn") || base_url.contains("bigmodel.cn") || base_url.contains("api.z.ai") {
+    } else if base_url.contains("open.bigmodel.cn")
+        || base_url.contains("bigmodel.cn")
+        || base_url.contains("api.z.ai")
+    {
         query_zhipu_quota(&provider.base_url, api_key).await
     } else if base_url.contains("api.minimaxi.com") || base_url.contains("api.minimax.io") {
         query_minimax_quota(&provider.base_url, api_key).await
@@ -73,9 +76,7 @@ pub async fn query_official_quota(target: ProviderTarget) -> ProviderQuotaResult
         ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => {
             query_claude_official_quota().await
         }
-        ProviderTarget::Codex => {
-            query_codex_official_quota(None).await
-        }
+        ProviderTarget::Codex => query_codex_official_quota(None).await,
         _ => ProviderQuotaResult::Unsupported {
             reason: Some("该 Agent 暂无官方订阅查询接口".to_string()),
         },
@@ -85,7 +86,7 @@ pub async fn query_official_quota(target: ProviderTarget) -> ProviderQuotaResult
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::{ClaudeModelMapping, ProviderKind, ProviderTarget, ProtocolType};
+    use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderKind, ProviderTarget};
 
     fn sample(kind: ProviderKind, base_url: &str) -> Provider {
         Provider {
@@ -140,11 +141,10 @@ mod tests {
 
     #[test]
     fn skips_reserved_listener_ports() {
-        assert!(quota_probe_skip_reason(&sample(
-            ProviderKind::Standard,
-            "http://127.0.0.1:15828"
-        ))
-        .is_some());
+        assert!(
+            quota_probe_skip_reason(&sample(ProviderKind::Standard, "http://127.0.0.1:15828"))
+                .is_some()
+        );
         assert!(quota_probe_skip_reason(&sample(
             ProviderKind::Standard,
             "http://localhost:15830/v1"

@@ -19,8 +19,8 @@ use serde_json::{Map, Value};
 
 use crate::config::{
     get_claude_installed_plugins_path, get_claude_known_marketplaces_path,
-    get_claude_marketplaces_dir, get_claude_plugins_cache_dir,
-    get_claude_settings_path, read_json_file, write_json_file,
+    get_claude_marketplaces_dir, get_claude_plugins_cache_dir, get_claude_settings_path,
+    read_json_file, write_json_file,
 };
 use crate::error::{AppError, AppResult};
 

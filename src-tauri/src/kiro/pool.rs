@@ -43,7 +43,10 @@ impl AccountPool {
 
     pub fn note_failure(&self, account_id: &str, class: FailureClass) {
         match class {
-            FailureClass::Rotate | FailureClass::Network | FailureClass::Client | FailureClass::Auth => {}
+            FailureClass::Rotate
+            | FailureClass::Network
+            | FailureClass::Client
+            | FailureClass::Auth => {}
             FailureClass::CoolAndRotate => {
                 let _ = store().mark_cooldown(account_id, 60_000);
             }
@@ -91,7 +94,9 @@ pub fn is_monthly_limit(body: &str) -> bool {
         .ok()
         .map(|value| {
             let top = value.get("reason").and_then(|item| item.as_str());
-            let nested = value.pointer("/error/reason").and_then(|item| item.as_str());
+            let nested = value
+                .pointer("/error/reason")
+                .and_then(|item| item.as_str());
             [top, nested]
                 .into_iter()
                 .flatten()
@@ -120,7 +125,10 @@ mod tests {
             classify_upstream(429, "suspicious activity on this account", false),
             FailureClass::CoolAndRotate
         );
-        assert_eq!(classify_upstream(429, "high traffic", false), FailureClass::Rotate);
+        assert_eq!(
+            classify_upstream(429, "high traffic", false),
+            FailureClass::Rotate
+        );
         assert_eq!(
             classify_upstream(400, "Improperly formed request", false),
             FailureClass::Client

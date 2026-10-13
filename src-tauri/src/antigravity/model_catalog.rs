@@ -647,7 +647,10 @@ pub fn preferred_default_model() -> String {
     let ids = list_model_ids();
     ids.iter()
         .find(|id| id.as_str() == "claude-sonnet-5-5-medium")
-        .or_else(|| ids.iter().find(|id| id.as_str() == "claude-sonnet-5-5-high"))
+        .or_else(|| {
+            ids.iter()
+                .find(|id| id.as_str() == "claude-sonnet-5-5-high")
+        })
         .or_else(|| ids.iter().find(|id| id.as_str() == "claude-sonnet-4-6"))
         .cloned()
         .or_else(|| {
@@ -734,10 +737,14 @@ pub fn extend_flash_level_variants(ids: &mut Vec<String>) {
 
 pub fn preferred_claude_opus() -> Option<String> {
     let ids = list_model_ids();
-    ["claude-opus-5-5-medium", "claude-opus-5-5-high", "claude-opus-5-5-low"]
-        .into_iter()
-        .find_map(|id| ids.iter().find(|item| item.as_str() == id).cloned())
-        .or_else(|| ids.iter().find(|id| id.contains("opus")).cloned())
+    [
+        "claude-opus-5-5-medium",
+        "claude-opus-5-5-high",
+        "claude-opus-5-5-low",
+    ]
+    .into_iter()
+    .find_map(|id| ids.iter().find(|item| item.as_str() == id).cloned())
+    .or_else(|| ids.iter().find(|id| id.contains("opus")).cloned())
 }
 
 /// Claude 5.5 family (`opus` / `sonnet`) plus an optional effort suffix.
@@ -797,10 +804,7 @@ pub fn claude_55_level(id: &str) -> Option<&'static str> {
 fn pick_claude_55_tier_in(ids: &[String], family: &str) -> String {
     for level in CLAUDE_55_TIER_PREFERENCE {
         let candidate = format!("claude-{family}-5-5-{level}");
-        if ids
-            .iter()
-            .any(|id| id.eq_ignore_ascii_case(&candidate))
-        {
+        if ids.iter().any(|id| id.eq_ignore_ascii_case(&candidate)) {
             return candidate;
         }
     }
@@ -835,10 +839,7 @@ pub fn apply_claude_55_effort(id: &str, level: &str) -> String {
     };
     let candidate = format!("claude-{family}-5-5-{normalized}");
     let ids = list_model_ids();
-    if ids
-        .iter()
-        .any(|item| item.eq_ignore_ascii_case(&candidate))
-    {
+    if ids.iter().any(|item| item.eq_ignore_ascii_case(&candidate)) {
         candidate
     } else {
         pick_claude_55_tier(family)

@@ -7,7 +7,9 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::backup::{backup_file_named, load_manifest, verify_backup, DEFAULT_BACKUP_KEEP};
-use crate::config::{atomic_write, detect_claude_desktop, get_backup_dir, get_claude_settings_path};
+use crate::config::{
+    atomic_write, detect_claude_desktop, get_backup_dir, get_claude_settings_path,
+};
 use crate::database::dao;
 use crate::database::dao::settings::set_setting;
 use crate::error::{AppError, AppResult};
@@ -47,8 +49,14 @@ fn list_config_backups_blocking(
             if !is_backup_for_target(target, &name) {
                 return None;
             }
-            let created_at = entry.metadata().ok()?.modified().ok()?
-                .duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64;
+            let created_at = entry
+                .metadata()
+                .ok()?
+                .modified()
+                .ok()?
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()?
+                .as_millis() as i64;
             let manifest = load_manifest(&entry.path()).ok().flatten();
             Some(ConfigBackup {
                 name,
@@ -89,7 +97,10 @@ pub async fn restore_config_backup(
     verify_backup(&source)?;
     let destination = destination_for_backup(target, &name)?;
     if destination.exists() {
-        let stem = destination.file_name().and_then(|n| n.to_str()).unwrap_or("config.json");
+        let stem = destination
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("config.json");
         backup_file_named(&destination, stem, DEFAULT_BACKUP_KEEP)?;
     }
     atomic_write(&destination, &fs::read(source)?)?;
@@ -97,7 +108,9 @@ pub async fn restore_config_backup(
         dao::clear_current_provider(conn, target)?;
         match target {
             ProviderTarget::ClaudeCode => set_setting(conn, "p7.code_config_ownership", "")?,
-            ProviderTarget::ClaudeDesktop => set_setting(conn, "p7.desktop_original_applied_id", "")?,
+            ProviderTarget::ClaudeDesktop => {
+                set_setting(conn, "p7.desktop_original_applied_id", "")?
+            }
             ProviderTarget::Codex => set_setting(conn, "v040.codex_managed", "")?,
             ProviderTarget::OpenCode => set_setting(conn, "v131.opencode_managed", "")?,
             ProviderTarget::Pi => set_setting(conn, "v136.pi_managed", "")?,
@@ -126,15 +139,18 @@ fn resolve_backup_directory(directory: Option<&str>) -> AppResult<PathBuf> {
 }
 
 fn is_backup_for_target(target: ProviderTarget, name: &str) -> bool {
-    name.ends_with(".bak") && match target {
-        ProviderTarget::ClaudeCode => name.starts_with("settings.json_"),
-        ProviderTarget::ClaudeDesktop => name.starts_with("_meta.json_") || name.starts_with("claude-switcher.json_"),
-        ProviderTarget::Codex => name.starts_with("codex-"),
-        ProviderTarget::OpenCode => name.starts_with("opencode-"),
-        ProviderTarget::Pi => name.starts_with("pi-"),
-        ProviderTarget::Dsh => name.starts_with("dsh-"),
-        ProviderTarget::Cline => name.starts_with("cline-"),
-    }
+    name.ends_with(".bak")
+        && match target {
+            ProviderTarget::ClaudeCode => name.starts_with("settings.json_"),
+            ProviderTarget::ClaudeDesktop => {
+                name.starts_with("_meta.json_") || name.starts_with("claude-switcher.json_")
+            }
+            ProviderTarget::Codex => name.starts_with("codex-"),
+            ProviderTarget::OpenCode => name.starts_with("opencode-"),
+            ProviderTarget::Pi => name.starts_with("pi-"),
+            ProviderTarget::Dsh => name.starts_with("dsh-"),
+            ProviderTarget::Cline => name.starts_with("cline-"),
+        }
 }
 
 fn backup_path(target: ProviderTarget, name: &str, directory: Option<&str>) -> AppResult<PathBuf> {
@@ -153,14 +169,20 @@ fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<PathB
         ProviderTarget::ClaudeCode => Ok(get_claude_settings_path()),
         ProviderTarget::ClaudeDesktop => {
             let paths = detect_claude_desktop();
-            let library = paths.config_library.ok_or_else(|| AppError::Config("未检测到 Claude Desktop 配置目录".to_string()))?;
+            let library = paths
+                .config_library
+                .ok_or_else(|| AppError::Config("未检测到 Claude Desktop 配置目录".to_string()))?;
             if name.starts_with("_meta.json_") {
-                paths.meta_path.ok_or_else(|| AppError::Config("未检测到 Claude Desktop _meta.json".to_string()))
+                paths.meta_path.ok_or_else(|| {
+                    AppError::Config("未检测到 Claude Desktop _meta.json".to_string())
+                })
             } else {
                 Ok(library.join("claude-switcher.json"))
             }
         }
-        ProviderTarget::Codex => Err(AppError::Config("Codex 仅支持通过“切换官方配置”恢复原始文件".to_string())),
+        ProviderTarget::Codex => Err(AppError::Config(
+            "Codex 仅支持通过“切换官方配置”恢复原始文件".to_string(),
+        )),
         ProviderTarget::OpenCode => Err(AppError::Config(
             "OpenCode 仅支持通过“切换官方配置”恢复原始文件".to_string(),
         )),
@@ -178,13 +200,23 @@ fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<PathB
 
 fn redact(value: Value) -> Value {
     match value {
-        Value::Object(values) => Value::Object(values.into_iter().map(|(key, value)| {
-            let lower = key.to_ascii_lowercase();
-            let value = if lower.contains("key") || lower.contains("token") || lower.contains("authorization") {
-                Value::String("***REDACTED***".to_string())
-            } else { redact(value) };
-            (key, value)
-        }).collect()),
+        Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| {
+                    let lower = key.to_ascii_lowercase();
+                    let value = if lower.contains("key")
+                        || lower.contains("token")
+                        || lower.contains("authorization")
+                    {
+                        Value::String("***REDACTED***".to_string())
+                    } else {
+                        redact(value)
+                    };
+                    (key, value)
+                })
+                .collect(),
+        ),
         Value::Array(values) => Value::Array(values.into_iter().map(redact).collect()),
         other => other,
     }

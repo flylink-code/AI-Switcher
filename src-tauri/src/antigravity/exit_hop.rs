@@ -559,9 +559,8 @@ async fn run_latency(cfg: &ChainConfig, local_proxy: &str) -> ExitLatency {
 }
 
 fn proxy_probe_client(local_proxy: &str) -> Result<reqwest::Client, String> {
-    let proxy = reqwest::Proxy::all(local_proxy).map_err(|error| {
-        format!("隧道已建立，但延迟测试失败：{error}")
-    })?;
+    let proxy = reqwest::Proxy::all(local_proxy)
+        .map_err(|error| format!("隧道已建立，但延迟测试失败：{error}"))?;
     reqwest::Client::builder()
         .proxy(proxy)
         .connect_timeout(Duration::from_secs(20))
@@ -594,7 +593,9 @@ impl ExitRuntime {
                 shutdown,
                 thread: Some(thread),
             }),
-            Ok(Err(error)) => Err(AppError::Other(format!("链式代理出口IP转发器监听失败: {error}"))),
+            Ok(Err(error)) => Err(AppError::Other(format!(
+                "链式代理出口IP转发器监听失败: {error}"
+            ))),
             Err(_) => Err(AppError::Other("链式代理出口IP转发器启动超时".into())),
         }
     }

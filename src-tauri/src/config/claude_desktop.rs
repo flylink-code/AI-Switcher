@@ -53,7 +53,11 @@ impl ClaudeDesktopPaths {
 
 /// Whether Claude Desktop config management is supported on this OS.
 pub fn is_supported_platform() -> bool {
-    cfg!(any(target_os = "windows", target_os = "macos", target_os = "linux"))
+    cfg!(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux"
+    ))
 }
 
 /// Resolve platform paths. On supported platforms this always returns concrete
@@ -182,11 +186,7 @@ fn windows_msix_claude_dirs(local_app_data: &Path, threep: bool) -> Vec<PathBuf>
         if !is_claude_package {
             continue;
         }
-        dirs.push(
-            path.join("LocalCache")
-                .join("Roaming")
-                .join(exact_name),
-        );
+        dirs.push(path.join("LocalCache").join("Roaming").join(exact_name));
     }
     dirs.sort();
     dirs
@@ -305,7 +305,11 @@ pub fn validate_gateway_auth_header(auth_header: Option<&str>) -> AppResult<()> 
 
 /// Activate a provider for Claude Desktop by writing the configLibrary profile
 /// and updating `_meta.json`.
-pub fn apply_provider(provider: &Provider, proxy_port: u16, catalog_models: &[String]) -> AppResult<()> {
+pub fn apply_provider(
+    provider: &Provider,
+    proxy_port: u16,
+    catalog_models: &[String],
+) -> AppResult<()> {
     let paths = platform_paths()?;
     let config_library = paths
         .config_library
@@ -332,11 +336,7 @@ pub fn apply_provider(provider: &Provider, proxy_port: u16, catalog_models: &[St
     let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
     let legacy_profile_path = config_library.join(format!("{LEGACY_PROFILE_ID}.json"));
     if profile_path.exists() {
-        backup_file_named(
-            &profile_path,
-            &format!("{PROFILE_ID}.json"),
-            MAX_BACKUPS,
-        )?;
+        backup_file_named(&profile_path, &format!("{PROFILE_ID}.json"), MAX_BACKUPS)?;
     }
     if legacy_profile_path.exists() {
         backup_file_named(
@@ -384,11 +384,7 @@ pub fn clear_provider() -> AppResult<()> {
     for id in [PROFILE_ID, LEGACY_PROFILE_ID] {
         let profile_path = config_library.join(format!("{id}.json"));
         if profile_path.exists() {
-            backup_file_named(
-                &profile_path,
-                &format!("{id}.json"),
-                MAX_BACKUPS,
-            )?;
+            backup_file_named(&profile_path, &format!("{id}.json"), MAX_BACKUPS)?;
             std::fs::remove_file(&profile_path)?;
         }
     }
@@ -545,11 +541,7 @@ pub fn read_auto_mode_enabled() -> bool {
 pub fn apply_auto_mode_enabled(enabled: bool) -> AppResult<bool> {
     if let Ok(db) = crate::database::Database::init() {
         db.with_conn(|conn| {
-            set_setting(
-                conn,
-                DESKTOP_AUTO_MODE_KEY,
-                if enabled { "1" } else { "0" },
-            )
+            set_setting(conn, DESKTOP_AUTO_MODE_KEY, if enabled { "1" } else { "0" })
         })?;
     }
     patch_existing_auto_mode(enabled)?;
@@ -849,9 +841,9 @@ fn write_deployment_mode(path: &Path, mode: &str) -> AppResult<()> {
 
 fn write_meta(path: &Path, applied_id: Option<&str>, our_name: Option<&str>) -> AppResult<()> {
     let mut value = read_json_or_empty(path)?;
-    let obj = value.as_object_mut().ok_or_else(|| {
-        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
-    })?;
+    let obj = value
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config(format!("{} 无法写成 JSON 对象", path.display())))?;
 
     let mut entries = obj
         .get("entries")
@@ -895,8 +887,14 @@ mod tests {
     fn isolated_desktop_paths_ignore_host_appdata() {
         let home = tempdir().unwrap();
         crate::config::paths::with_isolated_home(home.path(), || {
-            assert_eq!(windows_local_app_data_dir(), home.path().join("AppData/Local"));
-            assert_eq!(windows_roaming_app_data_dir(), home.path().join("AppData/Roaming"));
+            assert_eq!(
+                windows_local_app_data_dir(),
+                home.path().join("AppData/Local")
+            );
+            assert_eq!(
+                windows_roaming_app_data_dir(),
+                home.path().join("AppData/Roaming")
+            );
             assert!(!active_profile_uses_local_proxy());
         });
     }
@@ -1088,7 +1086,10 @@ mod tests {
             profile["inferenceGatewayBaseUrl"],
             serde_json::json!("http://127.0.0.1:15821/claude-desktop")
         );
-        assert_eq!(profile["coworkEgressAllowedHosts"], serde_json::json!(["*"]));
+        assert_eq!(
+            profile["coworkEgressAllowedHosts"],
+            serde_json::json!(["*"])
+        );
         assert_eq!(profile["autoModeEnabled"], serde_json::json!(true));
     }
 
@@ -1099,8 +1100,14 @@ mod tests {
         provider.api_key = "gwt_desktop".into();
         provider.model = "auto".into();
         let profile = build_profile(&provider, 15_822, &[], true).expect("profile");
-        assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
-        assert_eq!(profile["inferenceGatewayAuthScheme"], serde_json::json!("bearer"));
+        assert_eq!(
+            profile["inferenceGatewayApiKey"],
+            serde_json::json!("gwt_desktop")
+        );
+        assert_eq!(
+            profile["inferenceGatewayAuthScheme"],
+            serde_json::json!("bearer")
+        );
         assert_eq!(profile["autoModeEnabled"], serde_json::json!(true));
         let disabled = build_profile(&provider, 15_822, &[], false).expect("profile");
         assert_eq!(disabled["autoModeEnabled"], serde_json::json!(false));

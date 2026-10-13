@@ -1,9 +1,9 @@
 //! 出站尝试的健康门禁和结果记录；仅在响应交给客户端之前执行。
 
+use super::first_output::{FirstOutputError, FirstOutputProbe};
 use super::*;
 use crate::gateway::health::{self, FailureKind};
 use crate::gateway::upstream_limits::Permit;
-use super::first_output::{FirstOutputError, FirstOutputProbe};
 
 #[derive(Debug, Clone)]
 struct LocalAttemptFailure {
@@ -11,16 +11,28 @@ struct LocalAttemptFailure {
     message: String,
 }
 
-fn local_failure(status: StatusCode, category: &str, message: &str, retry_after: Option<u64>) -> reqwest::Response {
-    let mut builder = http::Response::builder().status(status)
+fn local_failure(
+    status: StatusCode,
+    category: &str,
+    message: &str,
+    retry_after: Option<u64>,
+) -> reqwest::Response {
+    let mut builder = http::Response::builder()
+        .status(status)
         .header(header::CONTENT_TYPE, "application/json");
     if let Some(seconds) = retry_after {
         builder = builder.header(header::RETRY_AFTER, seconds.max(1).to_string());
     }
-    let mut response: reqwest::Response = builder.body(reqwest::Body::from(
-        serde_json::json!({"error":{"type":category,"message":message}}).to_string(),
-    )).expect("固定的本地错误响应有效").into();
-    response.extensions_mut().insert(LocalAttemptFailure { category: category.into(), message: message.into() });
+    let mut response: reqwest::Response = builder
+        .body(reqwest::Body::from(
+            serde_json::json!({"error":{"type":category,"message":message}}).to_string(),
+        ))
+        .expect("固定的本地错误响应有效")
+        .into();
+    response.extensions_mut().insert(LocalAttemptFailure {
+        category: category.into(),
+        message: message.into(),
+    });
     response
 }
 
@@ -34,11 +46,17 @@ fn first_output_failure(provider: &Provider, error: FirstOutputError) -> reqwest
     if !hop_manages_own_health(provider) {
         health::record_failure(&provider.id);
     }
-    let status = if error == FirstOutputError::Timeout { StatusCode::GATEWAY_TIMEOUT } else { StatusCode::BAD_GATEWAY };
+    let status = if error == FirstOutputError::Timeout {
+        StatusCode::GATEWAY_TIMEOUT
+    } else {
+        StatusCode::BAD_GATEWAY
+    };
     local_failure(status, error.category(), error.message(), None)
 }
 
-async fn prefetch_first_output(response: &mut reqwest::Response) -> Result<Vec<Bytes>, FirstOutputError> {
+async fn prefetch_first_output(
+    response: &mut reqwest::Response,
+) -> Result<Vec<Bytes>, FirstOutputError> {
     let mut probe = FirstOutputProbe::default();
     loop {
         match response.chunk().await {
@@ -48,7 +66,9 @@ async fn prefetch_first_output(response: &mut reqwest::Response) -> Result<Vec<B
                     // 网络 chunk 可大于预读上限；只解析上限内字节，剩余部分零拷贝回放。
                     return Ok(vec![probe.into_bytes(), chunk.slice(take..)]);
                 }
-                if take < chunk.len() { return Err(FirstOutputError::BufferLimit); }
+                if take < chunk.len() {
+                    return Err(FirstOutputError::BufferLimit);
+                }
             }
             Ok(None) | Err(_) => return Err(FirstOutputError::EarlyEof),
         }
@@ -56,28 +76,47 @@ async fn prefetch_first_output(response: &mut reqwest::Response) -> Result<Vec<B
 }
 
 // 许可放在真正的正文流中，而非会在 bytes_stream() 时被丢弃的 extensions。
-fn hold_upstream_response(response: reqwest::Response, permit: Option<Permit>, prefix: Vec<Bytes>) -> reqwest::Response {
-    let mut builder = http::Response::builder().status(response.status()).version(response.version());
+fn hold_upstream_response(
+    response: reqwest::Response,
+    permit: Option<Permit>,
+    prefix: Vec<Bytes>,
+) -> reqwest::Response {
+    let mut builder = http::Response::builder()
+        .status(response.status())
+        .version(response.version());
     *builder.headers_mut().expect("响应头存在") = response.headers().clone();
     let stream = response.bytes_stream();
-    let stream = futures_util::stream::unfold((Box::pin(stream), permit, prefix.into_iter()),
+    let stream = futures_util::stream::unfold(
+        (Box::pin(stream), permit, prefix.into_iter()),
         |(mut stream, permit, mut prefix)| async move {
             for bytes in prefix.by_ref() {
                 if !bytes.is_empty() {
                     return Some((Ok(bytes), (stream, permit, prefix)));
                 }
             }
-            stream.next().await.map(|chunk| (chunk, (stream, permit, prefix)))
-        });
-    builder.body(reqwest::Body::wrap_stream(stream)).expect("上游响应有效").into()
+            stream
+                .next()
+                .await
+                .map(|chunk| (chunk, (stream, permit, prefix)))
+        },
+    );
+    builder
+        .body(reqwest::Body::wrap_stream(stream))
+        .expect("上游响应有效")
+        .into()
 }
 
 #[derive(Debug, Clone, Copy)]
 struct ObservedFailure(FailureKind);
 
-pub(crate) fn should_try_explicit_response(provider: &Provider, response: &reqwest::Response) -> bool {
+pub(crate) fn should_try_explicit_response(
+    provider: &Provider,
+    response: &reqwest::Response,
+) -> bool {
     should_try_explicit_fallback(provider, response.status())
-        || response.extensions().get::<ObservedFailure>()
+        || response
+            .extensions()
+            .get::<ObservedFailure>()
             .is_some_and(|failure| failure.0 == FailureKind::ModelUnsupported)
 }
 
@@ -88,7 +127,8 @@ pub(crate) async fn send_observed_upstream_with_timing(
     streaming: bool,
 ) -> (Result<reqwest::Response, reqwest::Error>, Option<i64>) {
     let mut queue_wait_ms = None;
-    let result = send_observed_upstream_inner(builder, provider, state, streaming, &mut queue_wait_ms).await;
+    let result =
+        send_observed_upstream_inner(builder, provider, state, streaming, &mut queue_wait_ms).await;
     (result, queue_wait_ms)
 }
 
@@ -107,25 +147,42 @@ async fn send_observed_upstream_inner(
             }
         }
     }
-    let admission = if let Some(state) = state.filter(|state| state.listener_kind == ListenerKind::SmartGateway) {
+    let admission = if let Some(state) =
+        state.filter(|state| state.listener_kind == ListenerKind::SmartGateway)
+    {
         let queued_at = Instant::now();
-        let result = state.db.gateway_upstream_limiter.acquire(&provider.id).await;
+        let result = state
+            .db
+            .gateway_upstream_limiter
+            .acquire(&provider.id)
+            .await;
         *queue_wait_ms = Some(queued_at.elapsed().as_millis().min(i64::MAX as u128) as i64);
         match result {
             Ok(permit) => Some(permit),
-            Err(error) => return Ok(local_failure(StatusCode::TOO_MANY_REQUESTS,
-                error.category(), error.message(), Some(error.retry_after_secs()))),
+            Err(error) => {
+                return Ok(local_failure(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    error.category(),
+                    error.message(),
+                    Some(error.retry_after_secs()),
+                ))
+            }
         }
-    } else { None };
+    } else {
+        None
+    };
     let mut admission = admission;
     let Some(_permit) = health::acquire_permit(&provider.id, Some(&provider.model)) else {
         let retry_after = health::min_cooldown_remaining_secs(&provider.id, Some(&provider.model))
-            .unwrap_or(1).max(1);
+            .unwrap_or(1)
+            .max(1);
         return Ok(http::Response::builder()
             .status(StatusCode::TOO_MANY_REQUESTS)
             .header(header::CONTENT_TYPE, "application/json")
             .header(header::RETRY_AFTER, retry_after.to_string())
-            .body(reqwest::Body::from(r#"{"error":{"type":"rate_limit_error","message":"上游正在冷却，请稍后重试"}}"#))
+            .body(reqwest::Body::from(
+                r#"{"error":{"type":"rate_limit_error","message":"上游正在冷却，请稍后重试"}}"#,
+            ))
             .expect("固定的冷却响应有效")
             .into());
     };
@@ -133,7 +190,14 @@ async fn send_observed_upstream_inner(
     if let Some(permit) = admission.as_mut() {
         permit.commit_outbound();
     }
-    let timeout_ms = if streaming { admission.as_ref().map(Permit::first_output_timeout_ms).unwrap_or(0) } else { 0 };
+    let timeout_ms = if streaming {
+        admission
+            .as_ref()
+            .map(Permit::first_output_timeout_ms)
+            .unwrap_or(0)
+    } else {
+        0
+    };
     let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
     let result = if timeout_ms > 0 {
         match tokio::time::timeout_at(deadline, builder.send()).await {
@@ -160,11 +224,19 @@ async fn send_observed_upstream_inner(
                 Ok(Err(error)) => return Ok(first_output_failure(provider, error)),
                 Err(_) => return Ok(first_output_failure(provider, FirstOutputError::Timeout)),
             }
-        } else { Vec::new() };
-        health::record_model_success(&provider.id, &provider.model, Some(started.elapsed().as_millis() as i64));
+        } else {
+            Vec::new()
+        };
+        health::record_model_success(
+            &provider.id,
+            &provider.model,
+            Some(started.elapsed().as_millis() as i64),
+        );
         return Ok(if admission.is_some() || !prefix.is_empty() {
             hold_upstream_response(response, admission, prefix)
-        } else { response });
+        } else {
+            response
+        });
     }
     let status = response.status();
     let headers = response.headers().clone();
@@ -174,25 +246,50 @@ async fn send_observed_upstream_inner(
     while let Some(chunk) = response.chunk().await? {
         let remaining = MAX_UPSTREAM_ERROR_BYTES.saturating_sub(body.len());
         body.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
-        if body.len() >= MAX_UPSTREAM_ERROR_BYTES { break; }
+        if body.len() >= MAX_UPSTREAM_ERROR_BYTES {
+            break;
+        }
     }
     let text = String::from_utf8_lossy(&body);
     let kind = if hop_manages_own_health(provider) {
         // 429/504/5xx 已在反代或智能网关内部处理，不能在入口再封掉整个账号池 / 整张入口卡。
         let classified = health::classify_failure(status.as_u16(), Some(&headers), Some(&text));
-        if matches!(classified.kind, FailureKind::Auth | FailureKind::ModelUnsupported) {
-            health::record_http_failure(&provider.id, Some(&provider.model), status.as_u16(), Some(&headers), Some(&text));
+        if matches!(
+            classified.kind,
+            FailureKind::Auth | FailureKind::ModelUnsupported
+        ) {
+            health::record_http_failure(
+                &provider.id,
+                Some(&provider.model),
+                status.as_u16(),
+                Some(&headers),
+                Some(&text),
+            );
         }
         classified.kind
     } else {
-        health::record_http_failure(&provider.id, Some(&provider.model), status.as_u16(), Some(&headers), Some(&text))
+        health::record_http_failure(
+            &provider.id,
+            Some(&provider.model),
+            status.as_u16(),
+            Some(&headers),
+            Some(&text),
+        )
     };
     let mut rebuilt = http::Response::builder().status(status).version(version);
     *rebuilt.headers_mut().expect("响应头存在") = headers;
-    rebuilt.headers_mut().expect("响应头存在").remove(header::CONTENT_LENGTH);
-    rebuilt.headers_mut().expect("响应头存在").remove(header::TRANSFER_ENCODING);
-    let mut response: reqwest::Response = rebuilt.body(reqwest::Body::from(body))
-        .expect("上游响应状态与头有效").into();
+    rebuilt
+        .headers_mut()
+        .expect("响应头存在")
+        .remove(header::CONTENT_LENGTH);
+    rebuilt
+        .headers_mut()
+        .expect("响应头存在")
+        .remove(header::TRANSFER_ENCODING);
+    let mut response: reqwest::Response = rebuilt
+        .body(reqwest::Body::from(body))
+        .expect("上游响应状态与头有效")
+        .into();
     response.extensions_mut().insert(ObservedFailure(kind));
     Ok(response)
 }
@@ -208,7 +305,9 @@ pub(crate) fn build_request_attempt(
         Ok(response) => {
             let status_code = Some(response.status().as_u16());
             let success = response.status().is_success();
-            let (error_category, diagnostic) = if let Some(local) = response.extensions().get::<LocalAttemptFailure>() {
+            let (error_category, diagnostic) = if let Some(local) =
+                response.extensions().get::<LocalAttemptFailure>()
+            {
                 (Some(local.category.clone()), Some(local.message.clone()))
             } else if success {
                 (None, None)
@@ -217,16 +316,26 @@ pub(crate) fn build_request_attempt(
                 let (cat, diag) = match failure_kind {
                     Some(FailureKind::Auth) => (Some("auth"), Some("身份验证失败 (HTTP 401/403)")),
                     Some(FailureKind::Quota) => (Some("quota"), Some("额度不足或已用尽")),
-                    Some(FailureKind::RateLimit) => (Some("rate_limit"), Some("请求频次超限 (HTTP 429)")),
-                    Some(FailureKind::ModelUnsupported) => (Some("model_unsupported"), Some("模型不支持或不存在")),
-                    Some(FailureKind::Transient) => (Some("transient"), Some("上游服务暂时不可用 (5xx)")),
-                    Some(FailureKind::ClientErrorIgnored) => (Some("client_error"), Some("客户端请求错误")),
+                    Some(FailureKind::RateLimit) => {
+                        (Some("rate_limit"), Some("请求频次超限 (HTTP 429)"))
+                    }
+                    Some(FailureKind::ModelUnsupported) => {
+                        (Some("model_unsupported"), Some("模型不支持或不存在"))
+                    }
+                    Some(FailureKind::Transient) => {
+                        (Some("transient"), Some("上游服务暂时不可用 (5xx)"))
+                    }
+                    Some(FailureKind::ClientErrorIgnored) => {
+                        (Some("client_error"), Some("客户端请求错误"))
+                    }
                     None => {
                         let cat = if response.status().is_server_error() {
                             Some("transient")
                         } else if response.status() == StatusCode::TOO_MANY_REQUESTS {
                             Some("rate_limit")
-                        } else if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
+                        } else if response.status() == StatusCode::UNAUTHORIZED
+                            || response.status() == StatusCode::FORBIDDEN
+                        {
                             Some("auth")
                         } else {
                             Some("upstream")
@@ -321,27 +430,50 @@ mod tests {
             request_log: None,
             request_path: String::new(),
         };
-        db.gateway_upstream_limiter.apply(&provider.id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
-            max_concurrency: 1,
-            queue_timeout_ms: 30,
-            ..Default::default()
-        });
-        let held = db.gateway_upstream_limiter.acquire(&provider.id).await.unwrap();
+        db.gateway_upstream_limiter.apply(
+            &provider.id,
+            crate::gateway::upstream_limits::UpstreamLimitPolicy {
+                max_concurrency: 1,
+                queue_timeout_ms: 30,
+                ..Default::default()
+            },
+        );
+        let held = db
+            .gateway_upstream_limiter
+            .acquire(&provider.id)
+            .await
+            .unwrap();
         let (result, wait) = send_observed_upstream_with_timing(
-            state.client.post("http://127.0.0.1:1/"), &provider, Some(&state), false,
-        ).await;
-        assert_eq!(result.as_ref().unwrap().status(), StatusCode::TOO_MANY_REQUESTS);
+            state.client.post("http://127.0.0.1:1/"),
+            &provider,
+            Some(&state),
+            false,
+        )
+        .await;
+        assert_eq!(
+            result.as_ref().unwrap().status(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
         assert!(wait.unwrap() >= 20);
-        let attempt = build_request_attempt(0, &provider, "model", 30, &result).with_queue_wait_ms(wait);
-        assert_eq!(attempt.error_category.as_deref(), Some("local_queue_timeout"));
+        let attempt =
+            build_request_attempt(0, &provider, "model", 30, &result).with_queue_wait_ms(wait);
+        assert_eq!(
+            attempt.error_category.as_deref(),
+            Some("local_queue_timeout")
+        );
         assert_eq!(attempt.queue_wait_ms, wait);
         drop(held);
         let (result, wait) = send_observed_upstream_with_timing(
-            state.client.post("http://127.0.0.1:1/"), &provider, Some(&state), false,
-        ).await;
+            state.client.post("http://127.0.0.1:1/"),
+            &provider,
+            Some(&state),
+            false,
+        )
+        .await;
         assert!(result.is_err());
         assert!(wait.is_some());
-        let attempt = build_request_attempt(1, &provider, "model", 1, &result).with_queue_wait_ms(wait);
+        let attempt =
+            build_request_attempt(1, &provider, "model", 1, &result).with_queue_wait_ms(wait);
         assert_eq!(attempt.queue_wait_ms, wait);
         health::record_success(&provider.id, None);
     }
@@ -349,15 +481,23 @@ mod tests {
     #[tokio::test]
     async fn smart_gateway_entry_card_is_not_cooled_by_one_models_429() {
         use axum::{routing::post, Router};
-        let app = Router::new().route("/", post(|| async {
-            Response::builder().status(StatusCode::TOO_MANY_REQUESTS)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"error":{"type":"rate_limit_error","message":"upstream 429"}}"#))
-                .unwrap()
-        }));
+        let app = Router::new().route(
+            "/",
+            post(|| async {
+                Response::builder()
+                    .status(StatusCode::TOO_MANY_REQUESTS)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"error":{"type":"rate_limit_error","message":"upstream 429"}}"#,
+                    ))
+                    .unwrap()
+            }),
+        );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
         let client = Client::builder().no_proxy().build().unwrap();
 
         let mut entry = test_provider("sgw-entry-isolated", "gateway", "anthropic/aisw-0031052110");
@@ -365,26 +505,44 @@ mod tests {
         entry.target_app = ProviderTarget::ClaudeDesktop;
         for _ in 0..3 {
             let (result, _) = send_observed_upstream_with_timing(
-                client.post(format!("http://{addr}/")), &entry, None, false,
-            ).await;
+                client.post(format!("http://{addr}/")),
+                &entry,
+                None,
+                false,
+            )
+            .await;
             assert_eq!(result.unwrap().status(), StatusCode::TOO_MANY_REQUESTS);
         }
-        assert!(health::is_available(&entry.id, None), "entry card must stay available");
+        assert!(
+            health::is_available(&entry.id, None),
+            "entry card must stay available"
+        );
 
         // 换一个模型仍应发给下游，而不是被本地「上游正在冷却」拒绝。
         entry.model = "anthropic/aisw-1761822770".into();
         let (result, _) = send_observed_upstream_with_timing(
-            client.post(format!("http://{addr}/")), &entry, None, false,
-        ).await;
+            client.post(format!("http://{addr}/")),
+            &entry,
+            None,
+            false,
+        )
+        .await;
         let response = result.unwrap();
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert!(response.extensions().get::<LocalAttemptFailure>().is_none(), "must reach the downstream");
+        assert!(
+            response.extensions().get::<LocalAttemptFailure>().is_none(),
+            "must reach the downstream"
+        );
 
         // 普通上游仍按原规则冷却。
         let standard = test_provider("standard-still-cools", "standard", "model");
         let (result, _) = send_observed_upstream_with_timing(
-            client.post(format!("http://{addr}/")), &standard, None, false,
-        ).await;
+            client.post(format!("http://{addr}/")),
+            &standard,
+            None,
+            false,
+        )
+        .await;
         assert_eq!(result.unwrap().status(), StatusCode::TOO_MANY_REQUESTS);
         assert!(!health::is_available(&standard.id, None));
         health::record_success(&standard.id, None);
@@ -393,11 +551,13 @@ mod tests {
 
     #[test]
     fn legacy_attempt_without_queue_wait_remains_readable() {
-        let attempt: crate::database::dao::proxy_logs::ProxyRequestAttempt = serde_json::from_value(
-            serde_json::json!({"attemptIndex":0,"upstreamId":null,"providerName":null,
+        let attempt: crate::database::dao::proxy_logs::ProxyRequestAttempt =
+            serde_json::from_value(
+                serde_json::json!({"attemptIndex":0,"upstreamId":null,"providerName":null,
                 "model":"old","statusCode":200,"durationMs":1,"errorCategory":null,
                 "diagnostic":null,"success":true}),
-        ).unwrap();
+            )
+            .unwrap();
         assert_eq!(attempt.queue_wait_ms, None);
     }
 
@@ -442,23 +602,44 @@ mod tests {
     #[tokio::test]
     async fn first_output_ignores_heartbeats_and_rejects_early_eof() {
         let stream = futures_util::stream::once(async {
-            Ok::<_, std::io::Error>(Bytes::from_static(b": ping\n\ndata: {\"type\":\"message_start\"}\n\n"))
-        }).chain(futures_util::stream::pending());
-        let mut response: reqwest::Response = http::Response::new(reqwest::Body::wrap_stream(stream)).into();
-        assert!(tokio::time::timeout(Duration::from_millis(30), prefetch_first_output(&mut response)).await.is_err());
+            Ok::<_, std::io::Error>(Bytes::from_static(
+                b": ping\n\ndata: {\"type\":\"message_start\"}\n\n",
+            ))
+        })
+        .chain(futures_util::stream::pending());
+        let mut response: reqwest::Response =
+            http::Response::new(reqwest::Body::wrap_stream(stream)).into();
+        assert!(tokio::time::timeout(
+            Duration::from_millis(30),
+            prefetch_first_output(&mut response)
+        )
+        .await
+        .is_err());
         let mut response: reqwest::Response = http::Response::new(reqwest::Body::from(
             "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"\"}}\n\n",
-        )).into();
-        assert_eq!(prefetch_first_output(&mut response).await, Err(FirstOutputError::EarlyEof));
+        ))
+        .into();
+        assert_eq!(
+            prefetch_first_output(&mut response).await,
+            Err(FirstOutputError::EarlyEof)
+        );
     }
 
     #[tokio::test]
     async fn first_output_large_chunk_replays_tail_without_counting_it_as_prefetch() {
         let mut bytes = b"data: {\"type\":\"message_stop\"}\n\n".to_vec();
         bytes.extend(vec![b'x'; super::super::first_output::MAX_PREFETCH_BYTES]);
-        let mut response: reqwest::Response = http::Response::new(reqwest::Body::from(bytes.clone())).into();
+        let mut response: reqwest::Response =
+            http::Response::new(reqwest::Body::from(bytes.clone())).into();
         let prefix = prefetch_first_output(&mut response).await.unwrap();
-        assert_eq!(hold_upstream_response(response, None, prefix).bytes().await.unwrap().as_ref(), bytes);
+        assert_eq!(
+            hold_upstream_response(response, None, prefix)
+                .bytes()
+                .await
+                .unwrap()
+                .as_ref(),
+            bytes
+        );
     }
 
     #[test]
@@ -491,7 +672,8 @@ mod tests {
             .body(reqwest::Body::from("rate limited"))
             .unwrap()
             .into();
-        resp.extensions_mut().insert(ObservedFailure(FailureKind::RateLimit));
+        resp.extensions_mut()
+            .insert(ObservedFailure(FailureKind::RateLimit));
         let result: Result<reqwest::Response, reqwest::Error> = Ok(resp);
         let attempt = build_request_attempt(1, &provider, "claude-3-7-sonnet", 85, &result);
 
@@ -500,7 +682,10 @@ mod tests {
         assert_eq!(attempt.status_code, Some(429));
         assert!(!attempt.success);
         assert_eq!(attempt.error_category.as_deref(), Some("rate_limit"));
-        assert_eq!(attempt.diagnostic.as_deref(), Some("请求频次超限 (HTTP 429)"));
+        assert_eq!(
+            attempt.diagnostic.as_deref(),
+            Some("请求频次超限 (HTTP 429)")
+        );
     }
 
     #[tokio::test]
@@ -550,7 +735,9 @@ mod tests {
         // Attempt 0 -> hitting loopback, returns 429
         let req1 = client.post(format!("http://{addr}/v1/messages"));
         let start1 = Instant::now();
-        let res1 = send_observed_upstream_with_timing(req1, &provider1, None, false).await.0;
+        let res1 = send_observed_upstream_with_timing(req1, &provider1, None, false)
+            .await
+            .0;
         attempts.push(build_request_attempt(
             0,
             &provider1,
@@ -562,7 +749,9 @@ mod tests {
         // Attempt 1 -> hitting loopback, returns 200
         let req2 = client.post(format!("http://{addr}/v1/messages"));
         let start2 = Instant::now();
-        let res2 = send_observed_upstream_with_timing(req2, &provider2, None, false).await.0;
+        let res2 = send_observed_upstream_with_timing(req2, &provider2, None, false)
+            .await
+            .0;
         attempts.push(build_request_attempt(
             1,
             &provider2,

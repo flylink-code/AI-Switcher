@@ -3,18 +3,17 @@
 use serde::Serialize;
 
 use crate::coding::pi::config::{
-    get_pi_auth_path, get_pi_dir, get_pi_global_agents_path, get_pi_models_path, get_pi_settings_path,
+    get_pi_auth_path, get_pi_dir, get_pi_global_agents_path, get_pi_models_path,
+    get_pi_settings_path,
 };
 use crate::coding::pi::mcp::get_pi_mcp_path;
 use crate::coding::pi::session::get_pi_sessions_dir;
 use crate::config::{
-    claude_desktop::detect_claude_desktop,
-    get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_agents_dir,
-    get_claude_config_dir, get_claude_json_path, get_claude_settings_path, get_home_dir,
-    get_codex_auth_path, get_codex_config_dir, get_codex_config_path,
-    get_codex_plugins_cache_dir, get_codex_skills_dir,
-    get_opencode_config_dir, get_opencode_config_path,
-    get_dsh_config_dir, get_dsh_credentials_path, get_dsh_settings_path,
+    claude_desktop::detect_claude_desktop, get_app_config_dir, get_app_db_path, get_backup_dir,
+    get_claude_agents_dir, get_claude_config_dir, get_claude_json_path, get_claude_settings_path,
+    get_codex_auth_path, get_codex_config_dir, get_codex_config_path, get_codex_plugins_cache_dir,
+    get_codex_skills_dir, get_dsh_config_dir, get_dsh_credentials_path, get_dsh_settings_path,
+    get_home_dir, get_opencode_config_dir, get_opencode_config_path,
 };
 
 #[derive(Debug, Serialize)]

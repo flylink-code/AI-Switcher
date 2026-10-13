@@ -57,9 +57,9 @@ pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> 
         std::fs::create_dir_all(parent)?;
     }
 
-    let obj = value.as_object_mut().ok_or_else(|| {
-        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
-    })?;
+    let obj = value
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config(format!("{} 无法写成 JSON 对象", path.display())))?;
     if map.is_empty() {
         obj.remove("mcpServers");
     } else {

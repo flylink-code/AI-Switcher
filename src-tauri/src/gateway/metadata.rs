@@ -22,16 +22,26 @@ pub fn infer(model_id: &str) -> InferredMeta {
         reasoning_levels: vec!["off".into(), "low".into(), "medium".into(), "high".into()],
         capabilities: json!({ "tools": true, "vision": false, "web_search": false }),
     };
-    if lower.contains("gemini") || lower.contains("gpt-4") || lower.contains("gpt-5") || lower.contains("gpt-6")
-        || lower.contains("claude") || lower.contains("grok")
+    if lower.contains("gemini")
+        || lower.contains("gpt-4")
+        || lower.contains("gpt-5")
+        || lower.contains("gpt-6")
+        || lower.contains("claude")
+        || lower.contains("grok")
     {
         meta.capabilities["vision"] = json!(true);
     }
-    if lower.contains("gemini") || lower.contains("gpt-5") || lower.contains("gpt-6") || lower.contains("sonar")
+    if lower.contains("gemini")
+        || lower.contains("gpt-5")
+        || lower.contains("gpt-6")
+        || lower.contains("sonar")
     {
         meta.capabilities["web_search"] = json!(true);
     }
-    if lower.contains("flash") || lower.contains("haiku") || lower.contains("mini") || lower.contains("chat")
+    if lower.contains("flash")
+        || lower.contains("haiku")
+        || lower.contains("mini")
+        || lower.contains("chat")
     {
         meta.reasoning_levels = vec!["off".into(), "low".into()];
     }

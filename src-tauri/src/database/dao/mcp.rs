@@ -93,7 +93,8 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
             now,
         ],
     )?;
-    get_mcp_server(conn, &id)?.ok_or_else(|| AppError::Config("插入后未能读回 MCP 服务器".to_string()))
+    get_mcp_server(conn, &id)?
+        .ok_or_else(|| AppError::Config("插入后未能读回 MCP 服务器".to_string()))
 }
 
 /// Delete a server by id.
@@ -204,11 +205,10 @@ fn get_by_name(conn: &Connection, name: &str) -> AppResult<Option<McpServer>> {
 }
 
 fn next_sort_index(conn: &Connection) -> AppResult<i64> {
-    let max: Option<i64> = conn.query_row(
-        "SELECT MAX(sort_index) FROM mcp_servers;",
-        [],
-        |row| row.get(0),
-    )?;
+    let max: Option<i64> =
+        conn.query_row("SELECT MAX(sort_index) FROM mcp_servers;", [], |row| {
+            row.get(0)
+        })?;
     Ok(max.unwrap_or(-1) + 1)
 }
 
@@ -293,9 +293,13 @@ mod tests {
         db.with_conn(|conn| {
             let cfg = json!({"url": "http://x"});
             // First seen in Claude Code only.
-            assert!(import_mcp_entry(conn, "svc", &cfg, true, false, false, false, false, false)?);
+            assert!(import_mcp_entry(
+                conn, "svc", &cfg, true, false, false, false, false, false
+            )?);
             // Later seen in Desktop too: not a new row, flag raised.
-            assert!(!import_mcp_entry(conn, "svc", &cfg, false, true, false, false, false, false)?);
+            assert!(!import_mcp_entry(
+                conn, "svc", &cfg, false, true, false, false, false, false
+            )?);
             let s = list_mcp_servers(conn)?.pop().unwrap();
             assert!(s.enabled_claude_code && s.enabled_claude_desktop);
             Ok(())

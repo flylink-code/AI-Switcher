@@ -51,7 +51,6 @@ pub enum PromptTarget {
     Cline,
 }
 
-
 /// One preset in the library (list view; no content).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -116,10 +115,9 @@ fn validate_name(name: &str) -> AppResult<()> {
     if name.len() > 80 {
         return Err(AppError::Config("Prompt 名称过长（≤80 字符）".to_string()));
     }
-    if name
-        .chars()
-        .any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control())
-    {
+    if name.chars().any(|c| {
+        matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control()
+    }) {
         return Err(AppError::Config(format!("Prompt 名称含非法字符: {name}")));
     }
     Ok(())

@@ -752,6 +752,124 @@ fn collect_jsonl_files_with_mtime(
     Ok((truncated, timed_out))
 }
 
+/// Claude Code names `~/.claude/projects/<slug>` by replacing every
+/// non-alphanumeric with `-`. `C:\work` becomes `C--work`, and a leading `/`
+/// becomes a leading `-`. Hyphens and underscores in the real path are not
+/// recoverable from the slug; callers prefer the jsonl `cwd` when it is present.
+fn claude_project_dir_from_slug(name: &str) -> String {
+    let name = name.trim();
+    let mut chars = name.chars();
+    let encoded_drive = matches!(
+        (chars.next(), chars.next(), chars.next()),
+        (Some(letter), Some('-'), Some('-')) if letter.is_ascii_alphabetic()
+    );
+    if encoded_drive {
+        let letter = name.chars().next().unwrap_or('C');
+        let rest = name.get(3..).unwrap_or("");
+        let tail = rest.replace('-', "\\");
+        return if tail.is_empty() {
+            format!("{letter}:\\")
+        } else {
+            format!("{letter}:\\{tail}")
+        };
+    }
+    if let Some(rest) = name.strip_prefix('-') {
+        return if rest.is_empty() {
+            "/".to_string()
+        } else {
+            format!("/{}", rest.replace('-', "/"))
+        };
+    }
+    name.replace('-', std::path::MAIN_SEPARATOR_STR)
+}
+
+/// One real directory per project folder. The slug is only the fallback.
+fn claude_code_project_label(
+    session_path: &Path,
+    cache: &mut HashMap<PathBuf, String>,
+) -> Option<String> {
+    let dir = session_path.parent()?;
+    if let Some(label) = cache.get(dir) {
+        return Some(label.clone());
+    }
+    let label = read_project_cwd(dir).or_else(|| {
+        dir.file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .map(claude_project_dir_from_slug)
+    })?;
+    cache.insert(dir.to_path_buf(), label.clone());
+    Some(label)
+}
+
+fn read_project_cwd(dir: &Path) -> Option<String> {
+    let entries = fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if !name.ends_with(".jsonl") || name.starts_with("agent-") {
+            continue;
+        }
+        // One file per project. A missing cwd falls back to the slug.
+        return read_cwd_head(&entry.path());
+    }
+    None
+}
+
+fn read_cwd_head(path: &Path) -> Option<String> {
+    let mut file = open_session_head(path).ok()?;
+    let mut buf = vec![0u8; 512 * 1024];
+    let read = file.read(&mut buf).ok()?;
+    extract_cwd_display(&String::from_utf8_lossy(&buf[..read]))
+}
+
+fn open_session_head(path: &Path) -> std::io::Result<File> {
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // Cloud placeholders must not be hydrated; a recall can stall the process.
+        const FILE_FLAG_OPEN_NO_RECALL: u32 = 0x0010_0000;
+        options.custom_flags(FILE_FLAG_OPEN_NO_RECALL);
+    }
+    options.open(path)
+}
+
+fn extract_cwd_display(text: &str) -> Option<String> {
+    let key = "\"cwd\":\"";
+    let start = text.find(key)? + key.len();
+    let mut out = String::new();
+    let mut chars = text[start..].chars();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => match chars.next() {
+                Some('\\') => out.push('\\'),
+                Some('/') => out.push('/'),
+                Some('"') => out.push('"'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some(other) => out.push(other),
+                None => break,
+            },
+            '"' => break,
+            _ => out.push(ch),
+        }
+    }
+    let cwd = out.trim().trim_start_matches(r"\\?\").trim();
+    if cwd.is_empty() {
+        return None;
+    }
+    #[cfg(windows)]
+    {
+        Some(cwd.replace('/', "\\"))
+    }
+    #[cfg(not(windows))]
+    {
+        Some(cwd.to_string())
+    }
+}
+
 /// Build list-row metadata without opening the jsonl (avoids OS freezes).
 fn session_meta_from_path(
     provider: SessionProvider,
@@ -768,7 +886,7 @@ fn session_meta_from_path(
             .and_then(|parent| parent.file_name())
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
-            .map(|name| name.replace('-', "/")),
+            .map(claude_project_dir_from_slug),
         SessionProvider::Codex | SessionProvider::OpenCode | SessionProvider::Pi | SessionProvider::Dsh | SessionProvider::Cline => None,
     };
     let resume = match provider {

@@ -27,7 +27,10 @@ struct ProxyStatusUpdated {
 }
 
 #[tauri::command]
-pub async fn get_proxy_status(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
+pub async fn get_proxy_status(
+    target: Option<crate::provider::ProviderTarget>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ProxyStatusInfo> {
     let started = std::time::Instant::now();
     let target = target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop);
     let status = status_snapshot(&state, target).await;
@@ -89,7 +92,13 @@ pub async fn stop_proxy(
         Some(target) => {
             proxy.stop_target(target);
             drop(proxy);
-            let status = status_value(&state, target, get_saved_port(&state, target), "stopped", None);
+            let status = status_value(
+                &state,
+                target,
+                get_saved_port(&state, target),
+                "stopped",
+                None,
+            );
             publish_status(&app, &state, target, status.clone()).await;
             Ok(status)
         }
@@ -101,8 +110,13 @@ pub async fn stop_proxy(
                 crate::provider::ProviderTarget::ClaudeDesktop,
                 crate::provider::ProviderTarget::Codex,
             ] {
-                let status =
-                    status_value(&state, target, get_saved_port(&state, target), "stopped", None);
+                let status = status_value(
+                    &state,
+                    target,
+                    get_saved_port(&state, target),
+                    "stopped",
+                    None,
+                );
                 publish_status(&app, &state, target, status).await;
             }
             Ok(status_snapshot(&state, crate::provider::ProviderTarget::ClaudeDesktop).await)
@@ -111,45 +125,79 @@ pub async fn stop_proxy(
 }
 
 #[tauri::command]
-pub fn set_proxy_port(port: u16, target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    persist_port(&state, target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop), port)
+pub fn set_proxy_port(
+    port: u16,
+    target: Option<crate::provider::ProviderTarget>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    persist_port(
+        &state,
+        target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop),
+        port,
+    )
 }
 
 /// Automatic failover is deliberately opt-in so existing proxy configurations
 /// keep routing every request to their selected provider.
 #[tauri::command]
 pub fn get_proxy_failover_enabled(state: tauri::State<'_, AppState>) -> AppResult<bool> {
-    Ok(state.db.with_conn(|conn| get_setting(conn, crate::proxy::PROXY_FAILOVER_ENABLED_KEY))?
-        .as_deref() == Some("true"))
+    Ok(state
+        .db
+        .with_conn(|conn| get_setting(conn, crate::proxy::PROXY_FAILOVER_ENABLED_KEY))?
+        .as_deref()
+        == Some("true"))
 }
 
 #[tauri::command]
-pub fn set_proxy_failover_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    state.db.with_conn(|conn| set_setting(conn, crate::proxy::PROXY_FAILOVER_ENABLED_KEY, if enabled { "true" } else { "false" }))
+pub fn set_proxy_failover_enabled(
+    enabled: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    state.db.with_conn(|conn| {
+        set_setting(
+            conn,
+            crate::proxy::PROXY_FAILOVER_ENABLED_KEY,
+            if enabled { "true" } else { "false" },
+        )
+    })
 }
 
 #[tauri::command]
 pub fn get_proxy_retryable_status_codes(state: tauri::State<'_, AppState>) -> AppResult<String> {
-    let codes = state.db.with_conn(crate::proxy::load_retryable_status_codes)?;
+    let codes = state
+        .db
+        .with_conn(crate::proxy::load_retryable_status_codes)?;
     Ok(crate::proxy::format_retryable_status_codes(&codes))
 }
 
 #[tauri::command]
-pub fn set_proxy_retryable_status_codes(value: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub fn set_proxy_retryable_status_codes(
+    value: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
     let codes = crate::proxy::parse_retryable_status_codes(&value)?;
     let formatted = crate::proxy::format_retryable_status_codes(&codes);
     state.db.with_conn(|conn| {
-        set_setting(conn, crate::proxy::PROXY_RETRYABLE_STATUS_CODES_KEY, &formatted)
+        set_setting(
+            conn,
+            crate::proxy::PROXY_RETRYABLE_STATUS_CODES_KEY,
+            &formatted,
+        )
     })
 }
 
 #[tauri::command]
 pub fn get_proxy_streaming_idle_timeout_secs(state: tauri::State<'_, AppState>) -> AppResult<u64> {
-    state.db.with_conn(crate::proxy::load_streaming_idle_timeout_secs)
+    state
+        .db
+        .with_conn(crate::proxy::load_streaming_idle_timeout_secs)
 }
 
 #[tauri::command]
-pub fn set_proxy_streaming_idle_timeout_secs(secs: u64, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub fn set_proxy_streaming_idle_timeout_secs(
+    secs: u64,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
     let secs = secs.clamp(5, 3600);
     state.db.with_conn(|conn| {
         set_setting(
@@ -177,8 +225,7 @@ fn get_saved_port(state: &AppState, target: crate::provider::ProviderTarget) -> 
 }
 
 fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget) -> u16 {
-    db
-        .with_conn(|conn| get_setting(conn, port_key(target)))
+    db.with_conn(|conn| get_setting(conn, port_key(target)))
         .ok()
         .flatten()
         .and_then(|s| s.parse::<u16>().ok())
@@ -269,7 +316,15 @@ async fn status_snapshot(state: &AppState, target: crate::provider::ProviderTarg
         .await
         .get(&target)
         .cloned()
-        .unwrap_or_else(|| status_value(state, target, get_saved_port(state, target), "stopped", None))
+        .unwrap_or_else(|| {
+            status_value(
+                state,
+                target,
+                get_saved_port(state, target),
+                "stopped",
+                None,
+            )
+        })
 }
 
 pub(crate) async fn publish_status<R: tauri::Runtime>(
@@ -278,7 +333,11 @@ pub(crate) async fn publish_status<R: tauri::Runtime>(
     target: crate::provider::ProviderTarget,
     status: ProxyStatus,
 ) {
-    state.proxy_status.write().await.insert(target, status.clone());
+    state
+        .proxy_status
+        .write()
+        .await
+        .insert(target, status.clone());
     if let Err(error) = app.emit(
         "proxy-status-updated",
         ProxyStatusUpdated { target, status },
@@ -306,7 +365,13 @@ pub async fn publish_target_stopped<R: tauri::Runtime>(
     state: &AppState,
     target: crate::provider::ProviderTarget,
 ) {
-    let status = status_value(state, target, get_saved_port(state, target), "stopped", None);
+    let status = status_value(
+        state,
+        target,
+        get_saved_port(state, target),
+        "stopped",
+        None,
+    );
     publish_status(app, state, target, status).await;
 }
 
@@ -314,7 +379,11 @@ fn sanitize_status_error(value: &str) -> String {
     value.chars().take(300).collect()
 }
 
-fn persist_port(state: &AppState, target: crate::provider::ProviderTarget, port: u16) -> AppResult<()> {
+fn persist_port(
+    state: &AppState,
+    target: crate::provider::ProviderTarget,
+    port: u16,
+) -> AppResult<()> {
     state
         .db
         .with_conn(|conn| set_setting(conn, port_key(target), &port.to_string()))
@@ -328,15 +397,22 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
         crate::provider::ProviderTarget::Codex,
         crate::provider::ProviderTarget::Cline,
     ] {
-        let unified_connection = state.db.with_read_conn(|conn| {
-            crate::database::dao::gateway::binding_for_target(conn, target)
-        }).ok().flatten();
+        let unified_connection = state
+            .db
+            .with_read_conn(|conn| crate::database::dao::gateway::binding_for_target(conn, target))
+            .ok()
+            .flatten();
         if let Some(binding) = unified_connection.as_ref() {
             if target != crate::provider::ProviderTarget::ClaudeDesktop {
                 // 新直连不会留下 current 卡；迁移保留的旧卡继续提供原协议转换。
-                let legacy_direct_proxy = binding.mode == "direct" && state.db.with_read_conn(|conn| {
-                    Ok(get_current_provider(conn, target)?.is_some_and(|provider| provider.requires_local_proxy()))
-                }).unwrap_or(false);
+                let legacy_direct_proxy = binding.mode == "direct"
+                    && state
+                        .db
+                        .with_read_conn(|conn| {
+                            Ok(get_current_provider(conn, target)?
+                                .is_some_and(|provider| provider.requires_local_proxy()))
+                        })
+                        .unwrap_or(false);
                 if !legacy_direct_proxy {
                     continue;
                 }

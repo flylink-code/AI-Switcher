@@ -62,7 +62,11 @@ pub fn load_settings(db: &Database) -> AppResult<OutboundSettings> {
     })
 }
 
-pub fn save_settings(db: &Database, mode: OutboundMode, proxy_url: &str) -> AppResult<OutboundSettings> {
+pub fn save_settings(
+    db: &Database,
+    mode: OutboundMode,
+    proxy_url: &str,
+) -> AppResult<OutboundSettings> {
     let proxy_url = proxy_url.trim().to_string();
     if mode == OutboundMode::Custom && proxy_url.is_empty() {
         return Err(AppError::Config("自定义代理地址不能为空".into()));
@@ -152,7 +156,9 @@ fn attach_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
     builder.no_proxy()
 }
 
-fn attach_blocking_proxy(builder: reqwest::blocking::ClientBuilder) -> reqwest::blocking::ClientBuilder {
+fn attach_blocking_proxy(
+    builder: reqwest::blocking::ClientBuilder,
+) -> reqwest::blocking::ClientBuilder {
     if exit_hop_active() {
         return apply_exit_proxy(builder);
     }
@@ -280,7 +286,9 @@ pub fn load_view(db: &Database) -> AppResult<OutboundView> {
 pub fn save_exit_proxies(db: &Database, entries: Vec<ExitProxyEntry>) -> AppResult<OutboundView> {
     for entry in &entries {
         if entry.enabled && entry.proxy_url.trim().is_empty() {
-            return Err(AppError::Config("启用链式代理出口IP时主机和端口不能为空".into()));
+            return Err(AppError::Config(
+                "启用链式代理出口IP时主机和端口不能为空".into(),
+            ));
         }
         if !entry.proxy_url.trim().is_empty() {
             exit_hop::parse_proxy_endpoint(&entry.proxy_url)?;
@@ -306,7 +314,9 @@ pub async fn probe_exit_proxy(id: &str, proxy_url: &str) -> AppResult<ExitProxyP
     let chain = chain_for_probe(proxy_url)?;
     let probe = exit_hop::probe_detached(chain).await;
     if !id.is_empty() {
-        let mut guard = exit_probes().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = exit_probes()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         guard.insert(id.to_string(), probe.clone());
     }
     Ok(ExitProxyProbeResult {
@@ -322,7 +332,9 @@ pub async fn probe_exit_latency(id: &str, proxy_url: &str) -> AppResult<ExitProx
     let chain = chain_for_probe(proxy_url)?;
     let latency = exit_hop::probe_latency_detached(chain).await;
     if !id.is_empty() {
-        let mut guard = exit_latencies().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = exit_latencies()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         guard.insert(id.to_string(), latency.clone());
     }
     Ok(ExitProxyLatencyResult {
@@ -362,7 +374,9 @@ fn exit_hop_active() -> bool {
 fn chain_for_probe(proxy_url: &str) -> AppResult<exit_hop::ChainConfig> {
     let proxy_url = proxy_url.trim();
     if proxy_url.is_empty() {
-        return Err(AppError::Config("检测链式代理出口IP需要填写主机和端口".into()));
+        return Err(AppError::Config(
+            "检测链式代理出口IP需要填写主机和端口".into(),
+        ));
     }
     exit_hop::parse_proxy_endpoint(proxy_url)?;
     let cached = read_cache();
@@ -393,25 +407,37 @@ fn first_hop(cached: &CachedSettings) -> AppResult<exit_hop::FirstHop> {
             let url = crate::system_proxy::outbound_proxy_url().ok_or_else(|| {
                 AppError::Config("未检测到系统代理，无法经过出站代理使用链式代理出口IP".into())
             })?;
-            Ok(exit_hop::FirstHop::Proxy(exit_hop::parse_proxy_endpoint(&url)?))
+            Ok(exit_hop::FirstHop::Proxy(exit_hop::parse_proxy_endpoint(
+                &url,
+            )?))
         }
         OutboundMode::Custom => {
             let url = cached.proxy_url.trim();
             if url.is_empty() {
                 return Err(AppError::Config("自定义出站代理地址不能为空".into()));
             }
-            Ok(exit_hop::FirstHop::Proxy(exit_hop::parse_proxy_endpoint(url)?))
+            Ok(exit_hop::FirstHop::Proxy(exit_hop::parse_proxy_endpoint(
+                url,
+            )?))
         }
     }
 }
 
 fn active_exit(entries: &[ExitProxyEntry]) -> Option<&ExitProxyEntry> {
-    entries.iter().find(|entry| entry.enabled && !entry.proxy_url.trim().is_empty())
+    entries
+        .iter()
+        .find(|entry| entry.enabled && !entry.proxy_url.trim().is_empty())
 }
 
 fn view_of(cached: &CachedSettings) -> OutboundView {
-    let probes = exit_probes().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone();
-    let latencies = exit_latencies().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone();
+    let probes = exit_probes()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    let latencies = exit_latencies()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
     let exit_proxies = cached
         .exits
         .iter()
@@ -470,7 +496,12 @@ fn normalize_exit_entries(entries: Vec<ExitProxyEntry>) -> Vec<ExitProxyEntry> {
         if enabled {
             enabled_taken = true;
         }
-        out.push(ExitProxyEntry { id, name, enabled, proxy_url });
+        out.push(ExitProxyEntry {
+            id,
+            name,
+            enabled,
+            proxy_url,
+        });
     }
     out
 }
@@ -495,12 +526,16 @@ fn retain_exit_probes(entries: &[ExitProxyEntry]) {
 }
 
 fn write_cache(cached: CachedSettings) {
-    let mut guard = CACHE.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut guard = CACHE
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     *guard = Some(cached);
 }
 
 fn read_cache() -> CachedSettings {
-    let guard = CACHE.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let guard = CACHE
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     guard.clone().unwrap_or(CachedSettings {
         mode: OutboundMode::System,
         proxy_url: String::new(),

@@ -3,7 +3,9 @@
 //! Third-party packs are treated as data only. No script or executable from the
 //! selected directory is ever launched.
 
-use crate::config::{atomic_write, get_app_config_dir, get_backup_dir, read_json_file, write_json_file};
+use crate::config::{
+    atomic_write, get_app_config_dir, get_backup_dir, read_json_file, write_json_file,
+};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::store::AppState;
@@ -246,10 +248,7 @@ pub async fn download_desktop_localization_pack(
     let packs_root = get_app_config_dir().join("localization").join("packs");
     fs::create_dir_all(&packs_root)?;
     let target = packs_root.join(safe_component(&revision));
-    let stage = packs_root.join(format!(
-        ".download-{}",
-        uuid::Uuid::new_v4().simple()
-    ));
+    let stage = packs_root.join(format!(".download-{}", uuid::Uuid::new_v4().simple()));
     fs::create_dir_all(stage.join("resources"))?;
 
     let result = download_pack_to_stage(&client, &revision, &stage, &target).await;
@@ -265,13 +264,9 @@ pub async fn download_desktop_localization_pack(
         let _ = fs::remove_dir_all(&stage);
         return Err(error);
     }
-    state.db.with_conn(|conn| {
-        set_setting(
-            conn,
-            PACK_SETTING_KEY,
-            &target.to_string_lossy(),
-        )
-    })?;
+    state
+        .db
+        .with_conn(|conn| set_setting(conn, PACK_SETTING_KEY, &target.to_string_lossy()))?;
     Ok(info)
 }
 
@@ -369,9 +364,8 @@ async fn run_localization_action(
 
     #[cfg(windows)]
     {
-        let install = detect_install()?.ok_or_else(|| {
-            AppError::Config("未检测到可支持的 Claude Desktop 安装".to_string())
-        })?;
+        let install = detect_install()?
+            .ok_or_else(|| AppError::Config("未检测到可支持的 Claude Desktop 安装".to_string()))?;
         let jobs_dir = get_app_config_dir().join("localization-jobs");
         fs::create_dir_all(&jobs_dir)?;
         let job_id = uuid::Uuid::new_v4().simple().to_string();
@@ -390,12 +384,11 @@ async fn run_localization_action(
         let restart_install = job.install.clone();
         write_json_file(&job_path, &job)?;
         let worker_path = job_path.clone();
-        let worker_result = tokio::task::spawn_blocking(move || {
-            launch_elevated_worker(&worker_path, &result_path)
-        })
-        .await
-        .map_err(|error| AppError::Other(format!("中文化工作进程异常结束: {error}")))
-        .and_then(|result| result);
+        let worker_result =
+            tokio::task::spawn_blocking(move || launch_elevated_worker(&worker_path, &result_path))
+                .await
+                .map_err(|error| AppError::Other(format!("中文化工作进程异常结束: {error}")))
+                .and_then(|result| result);
         let _ = fs::remove_file(job_path);
         // 只在 worker 成功后重启（在非提权的应用进程里，避免 Claude 以管理员身份启动）。
         let restart_outcome = if worker_result.is_ok() {
@@ -483,9 +476,7 @@ async fn download_pack_to_stage(
     stage: &Path,
     final_target: &Path,
 ) -> AppResult<DesktopLocalizationPackInfo> {
-    let url = format!(
-        "https://api.github.com/repos/{UPSTREAM_REPOSITORY}/zipball/{revision}"
-    );
+    let url = format!("https://api.github.com/repos/{UPSTREAM_REPOSITORY}/zipball/{revision}");
     let mut response = client
         .get(url)
         .header("Accept", "application/vnd.github+json")
@@ -632,9 +623,7 @@ fn extract_pack_archive(bytes: &[u8], stage: &Path) -> AppResult<()> {
 
     for name in required {
         if !found.contains(name) {
-            return Err(AppError::Config(format!(
-                "中文资源 ZIP 缺少文件: {name}"
-            )));
+            return Err(AppError::Config(format!("中文资源 ZIP 缺少文件: {name}")));
         }
     }
     Ok(())
@@ -668,23 +657,17 @@ fn promote_downloaded_pack(stage: &Path, target: &Path) -> AppResult<()> {
     let parent = target
         .parent()
         .ok_or_else(|| AppError::Path("中文资源缓存目标目录无效".to_string()))?;
-    let previous = parent.join(format!(
-        ".previous-{}",
-        uuid::Uuid::new_v4().simple()
-    ));
+    let previous = parent.join(format!(".previous-{}", uuid::Uuid::new_v4().simple()));
     let had_previous = target.exists();
     if had_previous {
-        fs::rename(target, &previous).map_err(|error| {
-            AppError::Other(format!("无法暂存旧中文资源缓存: {error}"))
-        })?;
+        fs::rename(target, &previous)
+            .map_err(|error| AppError::Other(format!("无法暂存旧中文资源缓存: {error}")))?;
     }
     if let Err(error) = fs::rename(stage, target) {
         if had_previous {
             let _ = fs::rename(&previous, target);
         }
-        return Err(AppError::Other(format!(
-            "无法启用新中文资源缓存: {error}"
-        )));
+        return Err(AppError::Other(format!("无法启用新中文资源缓存: {error}")));
     }
     if had_previous {
         if let Err(error) = fs::remove_dir_all(&previous) {
@@ -999,7 +982,8 @@ fn detect_install_with_diagnostics() -> AppResult<InstallDetection> {
     }
     let text = String::from_utf8_lossy(&output.stdout);
     let mut parts = text.trim().split('|');
-    let (Some(path), Some(version), Some(count)) = (parts.next(), parts.next(), parts.next()) else {
+    let (Some(path), Some(version), Some(count)) = (parts.next(), parts.next(), parts.next())
+    else {
         diagnostics.push("未找到 Claude AppX 包".to_string());
         return Ok(InstallDetection {
             install: None,
@@ -1154,8 +1138,7 @@ fn launch_elevated_worker(
             "管理员权限请求被取消或中文化工作进程启动失败".to_string()
         }));
     }
-    let result: DesktopLocalizationActionResult =
-        serde_json::from_slice(&fs::read(result_path)?)?;
+    let result: DesktopLocalizationActionResult = serde_json::from_slice(&fs::read(result_path)?)?;
     let _ = fs::remove_file(result_path);
     if result.ok {
         Ok(result)
@@ -1242,12 +1225,9 @@ fn run_worker_job(job_path: &Path) -> AppResult<()> {
                 )
             }
         }
-        Err(error) => DesktopLocalizationActionResult::simple(
-            false,
-            0,
-            error.to_string(),
-            log_path,
-        ),
+        Err(error) => {
+            DesktopLocalizationActionResult::simple(false, 0, error.to_string(), log_path)
+        }
     };
     log.line(&format!(
         "{}：{}",
@@ -1286,9 +1266,8 @@ fn validate_worker_job(job_path: &Path, job: &LocalizationWorkerJob) -> AppResul
     }
     #[cfg(windows)]
     {
-        let detected = detect_install()?.ok_or_else(|| {
-            AppError::Config("提升后未检测到 Claude Desktop 安装".to_string())
-        })?;
+        let detected = detect_install()?
+            .ok_or_else(|| AppError::Config("提升后未检测到 Claude Desktop 安装".to_string()))?;
         if detected.app_path != job.install.app_path
             || detected.resources_path != job.install.resources_path
             || detected.exe_path != job.install.exe_path
@@ -1323,7 +1302,7 @@ struct LocalizationMutex(windows_sys::Win32::Foundation::HANDLE);
 impl LocalizationMutex {
     fn acquire() -> AppResult<Self> {
         use std::os::windows::ffi::OsStrExt;
-        use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError};
+        use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
         use windows_sys::Win32::System::Threading::CreateMutexW;
 
         let name: Vec<u16> = std::ffi::OsStr::new("Global\\ClaudeSwitcherDesktopLocalization")
@@ -1478,9 +1457,7 @@ fn restore_backup_dir_filtered(
             let source = backup_dir.join(name);
             let actual_sha256 = sha256_file(&source)?;
             if !source.is_file() || file.sha256.as_deref() != Some(actual_sha256.as_str()) {
-                return Err(AppError::Config(
-                    "中文化备份校验失败，拒绝恢复".to_string(),
-                ));
+                return Err(AppError::Config("中文化备份校验失败，拒绝恢复".to_string()));
             }
             atomic_write(&file.target, &fs::read(source)?)?;
         } else if file.target.exists() {
@@ -1624,10 +1601,7 @@ fn ensure_write_access(path: &Path) -> AppResult<()> {
     #[cfg(windows)]
     {
         let mut takeown = Command::new(windows_system_executable("takeown.exe"));
-        takeown
-            .args(["/F"])
-            .arg(path)
-            .args(["/A", "/R", "/D", "Y"]);
+        takeown.args(["/F"]).arg(path).args(["/A", "/R", "/D", "Y"]);
         hide_console_window(&mut takeown);
         let takeown_output = takeown.output()?;
         if !takeown_output.status.success() {
@@ -1642,13 +1616,7 @@ fn ensure_write_access(path: &Path) -> AppResult<()> {
         let mut icacls = Command::new(windows_system_executable("icacls.exe"));
         icacls
             .arg(path)
-            .args([
-                "/grant",
-                "*S-1-5-32-544:(OI)(CI)F",
-                "/T",
-                "/C",
-                "/Q",
-            ]);
+            .args(["/grant", "*S-1-5-32-544:(OI)(CI)F", "/T", "/C", "/Q"]);
         hide_console_window(&mut icacls);
         let icacls_output = icacls.output()?;
         if !icacls_output.status.success() {
@@ -1669,18 +1637,9 @@ fn verify_write_access(resources: &Path) -> AppResult<()> {
     for directory in [
         resources.to_path_buf(),
         resources.join("ion-dist").join("i18n"),
-        resources
-            .join("ion-dist")
-            .join("i18n")
-            .join("statsig"),
-        resources
-            .join("ion-dist")
-            .join("i18n")
-            .join("dynamic"),
-        resources
-            .join("ion-dist")
-            .join("assets")
-            .join("v1"),
+        resources.join("ion-dist").join("i18n").join("statsig"),
+        resources.join("ion-dist").join("i18n").join("dynamic"),
+        resources.join("ion-dist").join("assets").join("v1"),
     ] {
         if !directory.is_dir() {
             continue;
@@ -1746,7 +1705,6 @@ fn hide_console_window(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(CREATE_NO_WINDOW);
 }
-
 
 #[cfg(windows)]
 impl Drop for LocalizationMutex {
@@ -1832,7 +1790,10 @@ mod tests {
 
         let install = install_from_appx_path(app_path.clone(), "1.24012.9.0", false).unwrap();
 
-        assert_eq!(install.resources_path, app_path.join("app").join("resources"));
+        assert_eq!(
+            install.resources_path,
+            app_path.join("app").join("resources")
+        );
         assert_eq!(install.exe_path, app_path.join("app").join("Claude.exe"));
     }
 
@@ -1862,7 +1823,11 @@ mod tests {
             .join("ion-dist")
             .join("i18n")
             .join("zh-CN.json");
-        let locale_path = root.path().join("profile").join("Claude").join("config.json");
+        let locale_path = root
+            .path()
+            .join("profile")
+            .join("Claude")
+            .join("config.json");
         let install = LocalizationInstall {
             kind: "unpackaged".to_string(),
             app_path,
@@ -1930,8 +1895,7 @@ mod tests {
         fs::write(&second, b"second-external-change").unwrap();
         let targets = HashSet::from([first.clone()]);
 
-        let restored =
-            restore_backup_targets(&backup, &install, &[], &targets).unwrap();
+        let restored = restore_backup_targets(&backup, &install, &[], &targets).unwrap();
 
         assert_eq!(restored, 1);
         assert_eq!(fs::read(first).unwrap(), b"first-original");

@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Button, Checkbox, Select, Tag, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAppStore, type LayoutMode } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -13,6 +14,7 @@ import {
   autostartOptions,
   closeBehaviorOptions,
   gatewayRuntimeModeOptions,
+  gatewaySidecarStatusOptions,
 } from "@/lib/appQueries";
 import { useAppVersion } from "@/lib/useAppVersion";
 import {
@@ -21,6 +23,7 @@ import {
   setCloseBehavior,
   setGatewayRuntimeMode,
   type GatewayRuntimeMode,
+  type GatewaySidecarStatus,
 } from "@/services/api";
 import { SettingsSection, SettingsRow } from "@/components/settings";
 import type { AutostartMode, CloseBehavior, ProviderTarget } from "@/types/backend";
@@ -47,6 +50,10 @@ export default function SettingsPage() {
   const [autostartChanging, setAutostartChanging] = useState(false);
   const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const gatewayModeQuery = useQuery(gatewayRuntimeModeOptions);
+  const sidecarStatusQuery = useQuery({
+    ...gatewaySidecarStatusOptions,
+    refetchInterval: (query) => (query.state.data?.supervised ? 3_000 : false),
+  });
   const [gatewayModeChanging, setGatewayModeChanging] = useState(false);
   const [gatewayModePendingRestart, setGatewayModePendingRestart] = useState(false);
 
@@ -197,7 +204,7 @@ export default function SettingsPage() {
                 </Button>
               ) : null}
               <Select<GatewayRuntimeMode>
-                value={gatewayModeQuery.data ?? "inproc"}
+                value={gatewayModeQuery.data ?? "sidecar"}
                 loading={gatewayModeQuery.isPending || gatewayModeChanging}
                 disabled={gatewayModeChanging}
                 style={{ width: 190 }}
@@ -210,6 +217,12 @@ export default function SettingsPage() {
             </div>
           }
         />
+        {sidecarStatusQuery.data?.supervised ? (
+          <SettingsRow
+            title={t("settings.gatewaySidecarStatusTitle")}
+            description={sidecarStatusDescription(t, sidecarStatusQuery.data)}
+          />
+        ) : null}
         <SettingsRow
           title={t("settings.layout", { defaultValue: "布局" })}
           description={t("settings.layoutHint", { defaultValue: "顶栏或侧栏导航" })}
@@ -274,4 +287,29 @@ export default function SettingsPage() {
       </SettingsSection>
     </div>
   );
+}
+
+function sidecarStatusDescription(t: TFunction, status: GatewaySidecarStatus): string {
+  const base = status.running
+    ? t("settings.gatewaySidecarRunning", { pid: status.pid, restarts: status.restarts })
+    : t("settings.gatewaySidecarDown", { restarts: status.restarts });
+  const health = t("settings.gatewaySidecarHealth", {
+    ag: status.antigravityUp
+      ? t("settings.gatewaySidecarHealthUp")
+      : t("settings.gatewaySidecarHealthDown"),
+    kiro: status.kiroUp
+      ? t("settings.gatewaySidecarHealthUp")
+      : t("settings.gatewaySidecarHealthDown"),
+  });
+  const extra = [
+    status.lastExitCode != null
+      ? t("settings.gatewaySidecarExit", { code: status.lastExitCode })
+      : "",
+    !status.running && status.backoffMs > 0
+      ? t("settings.gatewaySidecarBackoff", {
+          seconds: Math.max(1, Math.round(status.backoffMs / 1000)),
+        })
+      : "",
+  ].filter((part) => part.length > 0);
+  return [base, health, ...extra].join(" · ");
 }

@@ -36,7 +36,9 @@ impl ImportResource {
             "provider" | "providers" => Ok(Self::Provider),
             "mcp" | "mcp_server" | "mcp_servers" => Ok(Self::Mcp),
             "skill" | "skills" => Ok(Self::Skill),
-            other => Err(AppError::Config(format!("不支持的 Deep Link 资源类型: {other}"))),
+            other => Err(AppError::Config(format!(
+                "不支持的 Deep Link 资源类型: {other}"
+            ))),
         }
     }
 }
@@ -103,7 +105,10 @@ pub fn parse_import_text(raw: &str) -> AppResult<ImportPreview> {
         return Err(AppError::Config("导入内容为空".to_string()));
     }
     let lower = trimmed.to_ascii_lowercase();
-    if lower.starts_with("ai-switcher://") || lower.starts_with("ccswitch://") || lower.starts_with("aiswitcher://") {
+    if lower.starts_with("ai-switcher://")
+        || lower.starts_with("ccswitch://")
+        || lower.starts_with("aiswitcher://")
+    {
         return parse_deeplink_url(trimmed);
     }
     parse_import_json(trimmed, "clipboard")
@@ -114,7 +119,9 @@ pub fn parse_deeplink_url(raw: &str) -> AppResult<ImportPreview> {
         .map_err(|error| AppError::Config(format!("Deep Link URL 无效: {error}")))?;
     let scheme = url.scheme().to_ascii_lowercase();
     if scheme != "ai-switcher" && scheme != "ccswitch" && scheme != "aiswitcher" {
-        return Err(AppError::Config("Deep Link scheme 必须是 ai-switcher:// 或 ccswitch://".to_string()));
+        return Err(AppError::Config(
+            "Deep Link scheme 必须是 ai-switcher:// 或 ccswitch://".to_string(),
+        ));
     }
     let host = url.host_str().unwrap_or("");
     let path = url.path().trim_matches('/');
@@ -143,15 +150,14 @@ pub fn parse_deeplink_url(raw: &str) -> AppResult<ImportPreview> {
         }
     }
     let resource = resource.ok_or_else(|| AppError::Config("缺少 resource 参数".to_string()))?;
-    let payload =
-        payload.ok_or_else(|| AppError::Config("缺少 payload 参数".to_string()))?;
+    let payload = payload.ok_or_else(|| AppError::Config("缺少 payload 参数".to_string()))?;
     let json = decode_payload(&payload)?;
     build_preview(resource, json, "deeplink")
 }
 
 pub fn parse_import_json(raw: &str, source: &str) -> AppResult<ImportPreview> {
-    let value: Value = serde_json::from_str(raw)
-        .map_err(|_| AppError::Config("导入 JSON 无效".to_string()))?;
+    let value: Value =
+        serde_json::from_str(raw).map_err(|_| AppError::Config("导入 JSON 无效".to_string()))?;
     let resource = detect_resource(&value)?;
     build_preview(resource, value, source)
 }
@@ -216,10 +222,7 @@ fn preview_providers(value: Value, source: &str) -> AppResult<ImportPreview> {
     let mut sanitized = Vec::new();
     for mut entry in bundle.providers {
         if provider_entry_has_secret(&entry) {
-            warnings.push(format!(
-                "「{}」包含密钥字段，已清空后导入",
-                entry.name
-            ));
+            warnings.push(format!("「{}」包含密钥字段，已清空后导入", entry.name));
             strip_provider_secrets(&mut entry);
         }
         let _ = normalize_base_url(&entry.base_url)?;
@@ -305,7 +308,11 @@ fn preview_mcp(value: Value, source: &str) -> AppResult<ImportPreview> {
 
 fn normalize_mcp_bundle(value: Value) -> AppResult<McpExportBundle> {
     if let Ok(bundle) = serde_json::from_value::<McpExportBundle>(value.clone()) {
-        let version = if bundle.version == 0 { 1 } else { bundle.version };
+        let version = if bundle.version == 0 {
+            1
+        } else {
+            bundle.version
+        };
         if version != 1 {
             return Err(AppError::Config(format!(
                 "不支持的 MCP 导入版本: {version}"
@@ -503,7 +510,11 @@ pub fn mcp_inputs_from_preview(preview: &ImportPreview) -> AppResult<Vec<McpServ
         .collect())
 }
 
-pub fn import_result_label(resource: ImportResource, imported: usize, skipped: usize) -> DeeplinkImportResult {
+pub fn import_result_label(
+    resource: ImportResource,
+    imported: usize,
+    skipped: usize,
+) -> DeeplinkImportResult {
     DeeplinkImportResult {
         resource,
         imported,

@@ -5,9 +5,6 @@
 //! injecting the real API key. Request summaries are written to the SQLite log
 //! table for the usage dashboard (P4).
 
-pub(crate) mod convert;
-pub(crate) mod desktop_alias;
-pub(crate) mod wire;
 mod codex;
 mod codex_anthropic;
 mod codex_auto_review;
@@ -15,16 +12,19 @@ pub(crate) mod codex_chat;
 mod codex_compact;
 mod codex_history;
 mod codex_moonshot_schema;
-mod web_tools;
-mod upstream_health;
-mod response_lifecycle;
+pub(crate) mod convert;
+pub(crate) mod desktop_alias;
 mod first_output;
+mod response_lifecycle;
+mod upstream_health;
+mod web_tools;
+pub(crate) mod wire;
 pub(crate) use upstream_health::{build_request_attempt, should_try_explicit_response};
 
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::convert::Infallible;
 
 use axum::body::Body;
 use axum::extract::{DefaultBodyLimit, Path, State};
@@ -41,19 +41,19 @@ use tokio::sync::{mpsc::UnboundedSender, oneshot};
 use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
+use crate::catalog::{
+    claude_discovery_model, claude_discovery_payload, find_catalog_entry, openai_models_payload,
+    rewrite_json_model, CatalogStyle,
+};
+use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::proxy_logs::{
     extract_usage_envelope_id, insert_proxy_log, maintain_proxy_logs as maintain_logs,
     update_proxy_log_diagnostic, update_proxy_log_hop, update_proxy_log_route,
     update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, ProxyRequestAttempt,
 };
-use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::catalog::{
-    claude_discovery_model, claude_discovery_payload, find_catalog_entry, openai_models_payload,
-    rewrite_json_model, CatalogStyle,
-};
 use crate::provider::{
     api_endpoint_url, protocol_endpoint_path_for_provider, resolve_upstream_model, ProtocolType,
     Provider, ProviderTarget,

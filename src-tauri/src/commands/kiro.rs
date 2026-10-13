@@ -4,14 +4,14 @@ use tauri::AppHandle;
 
 use crate::database::dao::providers as dao;
 use crate::error::{AppError, AppResult};
+use crate::kiro::model_list::refresh_models;
+use crate::kiro::models::{model_list, preferred_haiku, preferred_opus, KiroModelList};
 use crate::kiro::{
     gateway_status, import_accounts_json, list_accounts, login_builder_id, login_social,
     preferred_default_model, remove_account, set_gateway_api_key, set_gateway_port,
     set_outbound_proxy, start_gateway, stop_gateway, submit_login_callback, KiroAccountPublic,
     KiroGatewayStatus,
 };
-use crate::kiro::model_list::refresh_models;
-use crate::kiro::models::{model_list, preferred_haiku, preferred_opus, KiroModelList};
 use crate::provider::{
     ClaudeModelMapping, ProtocolType, Provider, ProviderInput, ProviderKind, ProviderTarget,
 };
@@ -239,5 +239,7 @@ pub async fn ensure_kiro_provider(
         thinking_config: None,
         custom_headers: None,
     };
-    state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
+    state
+        .db
+        .with_conn(|conn| dao::upsert_provider(conn, &input))
 }

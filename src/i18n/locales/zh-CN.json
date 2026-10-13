@@ -2773,9 +2773,17 @@
     "gatewayRuntimeModeRestart": "已保存，重启应用后生效",
     "gatewayRuntimeModeRestartNow": "立即重启",
     "gatewayRuntimeModes": {
-      "inproc": "主程序内（默认）",
-      "sidecar": "独立进程"
+      "inproc": "主程序内",
+      "sidecar": "独立进程（默认）"
     },
+    "gatewaySidecarStatusTitle": "独立进程状态",
+    "gatewaySidecarRunning": "运行中（PID {{pid}}），已自动重启 {{restarts}} 次",
+    "gatewaySidecarDown": "当前未在运行，已自动重启 {{restarts}} 次",
+    "gatewaySidecarExit": "上次退出码 {{code}}",
+    "gatewaySidecarBackoff": "{{seconds}} 秒后重试",
+    "gatewaySidecarHealth": "Antigravity {{ag}} · Kiro {{kiro}}",
+    "gatewaySidecarHealthUp": "正常",
+    "gatewaySidecarHealthDown": "无响应",
     "visibleAgents": "显示 Agent",
     "visibleAgentsHint": "勾选在全局和各页面切换器中显示的 Agent 工具",
     "proxyHint": "上游池、路由档案与本机入口；也可从主导航进入",

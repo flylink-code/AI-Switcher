@@ -456,4 +456,33 @@ mod tests {
         assert!(is_auto_backup_filename("claude-code-auto-backup-9.zip"));
         assert!(!is_auto_backup_filename("claude-code-all-backup-9.zip"));
     }
+
+    #[test]
+    fn claude_project_slug_uses_a_windows_drive() {
+        assert_eq!(claude_project_dir_from_slug("H--download"), r"H:\download");
+        assert_eq!(
+            claude_project_dir_from_slug("E--P-2026-10-PIO-New-04-Software-down"),
+            r"E:\P\2026\10\PIO\New\04\Software\down"
+        );
+        assert_eq!(
+            claude_project_dir_from_slug("-home-alice-work"),
+            "/home/alice/work"
+        );
+    }
+
+    #[test]
+    fn claude_project_label_prefers_the_session_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("E--P-2026-10-PIO-New-04-Software-down");
+        fs::create_dir(&project).unwrap();
+        let session = project.join("abc.jsonl");
+        fs::write(
+            &session,
+            r#"{"cwd":"E:\\P-2026-10-PIO-New\\04_Software\\down"}"#,
+        )
+        .unwrap();
+        let mut cache = std::collections::HashMap::new();
+        let label = claude_code_project_label(&session, &mut cache).unwrap();
+        assert_eq!(label, r"E:\P-2026-10-PIO-New\04_Software\down");
+    }
 }

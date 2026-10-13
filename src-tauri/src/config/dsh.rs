@@ -2,8 +2,8 @@
 //!
 //! 将 AI-Switcher 托管的供应商写回 `~/.dsh/settings.yaml` 与 `~/.dsh/.credentials.yaml`。
 
-use std::sync::Mutex;
 use serde_json::{json, Value};
+use std::sync::Mutex;
 
 use crate::config::atomic::ensure_dir_with_context;
 use crate::config::paths::{get_dsh_credentials_path, get_dsh_settings_path};
@@ -24,7 +24,10 @@ fn lock_dsh_config() -> AppResult<std::sync::MutexGuard<'static, ()>> {
 }
 
 fn managed_env_key(provider_id: &str) -> String {
-    format!("AISW_{}", provider_id.to_ascii_uppercase().replace('-', "_"))
+    format!(
+        "AISW_{}",
+        provider_id.to_ascii_uppercase().replace('-', "_")
+    )
 }
 
 fn dsh_api_protocol(protocol: ProtocolType) -> &'static str {
@@ -96,13 +99,17 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
     })?;
 
     // 追踪先前的托管列表，以便清理废弃供应商
-    let settings_obj = settings.as_object_mut().ok_or_else(|| {
-        AppError::Config("DeepSeek Harness settings.yaml 不是对象".to_string())
-    })?;
+    let settings_obj = settings
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config("DeepSeek Harness settings.yaml 不是对象".to_string()))?;
     let previously_managed: Vec<String> = settings_obj
         .get(DSH_MANAGED_KEY)
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
 
     let llm_pi_ai = settings_obj
@@ -114,7 +121,9 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
 
     let providers_val = llm_pi_ai
         .as_object_mut()
-        .ok_or_else(|| AppError::Config("DeepSeek Harness settings.yaml 的 llm-pi-ai 不是对象".to_string()))?
+        .ok_or_else(|| {
+            AppError::Config("DeepSeek Harness settings.yaml 的 llm-pi-ai 不是对象".to_string())
+        })?
         .entry("providers".to_string())
         .or_insert_with(|| json!({}));
     if !providers_val.is_object() {
@@ -146,14 +155,20 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
         if !provider.model.trim().is_empty() {
             models_list.push(dsh_model_entry(
                 provider.model.trim(),
-                Some(crate::catalog::advertised_context_window(provider, provider.model.trim())),
+                Some(crate::catalog::advertised_context_window(
+                    provider,
+                    provider.model.trim(),
+                )),
             ));
         }
         for m in extra_models {
             if m.trim() != provider.model.trim() && !m.trim().is_empty() {
                 models_list.push(dsh_model_entry(
                     m.trim(),
-                    Some(crate::catalog::advertised_context_window(provider, m.trim())),
+                    Some(crate::catalog::advertised_context_window(
+                        provider,
+                        m.trim(),
+                    )),
                 ));
             }
         }
@@ -161,7 +176,10 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
         let mut provider_cfg = serde_json::Map::new();
         provider_cfg.insert("displayName".to_string(), json!(provider.name));
         provider_cfg.insert("apiKeyEnv".to_string(), json!(env_key));
-        provider_cfg.insert("api".to_string(), json!(dsh_api_protocol(provider.protocol_type)));
+        provider_cfg.insert(
+            "api".to_string(),
+            json!(dsh_api_protocol(provider.protocol_type)),
+        );
         provider_cfg.insert("baseURL".to_string(), json!(provider.base_url));
         provider_cfg.insert("defaultInput".to_string(), json!(["text", "image"]));
         if !models_list.is_empty() {

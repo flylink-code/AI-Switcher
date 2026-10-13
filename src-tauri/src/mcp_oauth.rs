@@ -130,9 +130,8 @@ fn load_credentials_document() -> AppResult<Option<(String, Option<PathBuf>, Val
     let file_path = credentials_file_path();
     if file_path.exists() {
         let raw = fs::read_to_string(&file_path)?;
-        let value: Value = serde_json::from_str(&raw).map_err(|err| {
-            AppError::Config(format!("解析 .credentials.json 失败: {err}"))
-        })?;
+        let value: Value = serde_json::from_str(&raw)
+            .map_err(|err| AppError::Config(format!("解析 .credentials.json 失败: {err}")))?;
         return Ok(Some(("file".into(), Some(file_path), value)));
     }
 
@@ -177,9 +176,8 @@ fn read_keychain_credentials() -> AppResult<Option<Value>> {
         };
         match entry.get_password() {
             Ok(raw) => {
-                let value: Value = serde_json::from_str(&raw).map_err(|err| {
-                    AppError::Config(format!("解析 Keychain 凭证失败: {err}"))
-                })?;
+                let value: Value = serde_json::from_str(&raw)
+                    .map_err(|err| AppError::Config(format!("解析 Keychain 凭证失败: {err}")))?;
                 return Ok(Some(value));
             }
             Err(keyring::Error::NoEntry) => continue,
@@ -207,7 +205,11 @@ mod tests {
         });
         assert_eq!(
             mcp_oauth_server_names(&value),
-            vec!["github".to_string(), "notion".to_string(), "plain".to_string()]
+            vec![
+                "github".to_string(),
+                "notion".to_string(),
+                "plain".to_string()
+            ]
         );
     }
 

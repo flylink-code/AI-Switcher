@@ -1,6 +1,5 @@
 use crate::codex_oauth::{
-    manager, CodexOauthAccount, CodexOauthDeviceStart, CodexOauthPollResult,
-    CODEX_OAUTH_BASE_URL,
+    manager, CodexOauthAccount, CodexOauthDeviceStart, CodexOauthPollResult, CODEX_OAUTH_BASE_URL,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};

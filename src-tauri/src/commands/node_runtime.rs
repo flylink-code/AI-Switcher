@@ -77,12 +77,7 @@ pub fn parse_node_version(text: &str) -> Option<String> {
         .split_whitespace()
         .next()?
         .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+');
-    if token
-        .chars()
-        .next()
-        .is_some_and(|c| c.is_ascii_digit())
-        && token.contains('.')
-    {
+    if token.chars().next().is_some_and(|c| c.is_ascii_digit()) && token.contains('.') {
         Some(token.to_string())
     } else {
         None
@@ -173,9 +168,8 @@ fn run_output(command: Command) -> io::Result<Output> {
 
 fn run_output_timeout(mut command: Command, timeout: Duration) -> io::Result<Output> {
     configure_hidden(&mut command);
-    crate::process_util::output_with_timeout(&mut command, timeout).map_err(|error| {
-        io::Error::new(io::ErrorKind::TimedOut, error.to_string())
-    })
+    crate::process_util::output_with_timeout(&mut command, timeout)
+        .map_err(|error| io::Error::new(io::ErrorKind::TimedOut, error.to_string()))
 }
 
 fn home_dir() -> Option<PathBuf> {
@@ -703,7 +697,11 @@ pub fn npm_global_bin_dirs(npm: &Path, node: &Path) -> Vec<PathBuf> {
 }
 
 /// Global package install via PATH-anchored npm, using the npmmirror registry.
-pub fn run_anchored_npm_global_install(npm: &Path, node: &Path, package: &str) -> io::Result<Output> {
+pub fn run_anchored_npm_global_install(
+    npm: &Path,
+    node: &Path,
+    package: &str,
+) -> io::Result<Output> {
     run_anchored_npm_with_timeout(
         npm,
         node,
@@ -908,10 +906,8 @@ fn install_fnm_binary(github_mirror_base: Option<&str>) -> AppResult<PathBuf> {
                         "fnm download failed (zip: {zip_error}; script: {script_error})"
                     ))
                 })?;
-                let temp = std::env::temp_dir().join(format!(
-                    "fnm-install-{}.sh",
-                    std::process::id()
-                ));
+                let temp =
+                    std::env::temp_dir().join(format!("fnm-install-{}.sh", std::process::id()));
                 {
                     let mut file = std::fs::File::create(&temp)?;
                     file.write_all(&script_bytes)?;
@@ -1096,8 +1092,13 @@ mod tests {
             "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip",
             Some("https://gh-proxy.com/"),
         );
-        assert_eq!(urls[0], "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip");
-        assert!(urls.iter().any(|url| url.starts_with("https://gh-proxy.com/https://github.com/")));
+        assert_eq!(
+            urls[0],
+            "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip"
+        );
+        assert!(urls
+            .iter()
+            .any(|url| url.starts_with("https://gh-proxy.com/https://github.com/")));
     }
 
     #[test]

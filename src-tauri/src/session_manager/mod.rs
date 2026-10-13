@@ -10,8 +10,8 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use zip::{ZipArchive, ZipWriter};
 use zip::write::SimpleFileOptions;
+use zip::{ZipArchive, ZipWriter};
 
 use crate::config;
 use crate::error::{AppError, AppResult};
@@ -49,7 +49,6 @@ pub enum SessionProvider {
     #[serde(rename = "cline")]
     Cline,
 }
-
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -180,9 +179,7 @@ impl ScanItem {
     fn sort_ts(&self) -> i64 {
         match self {
             ScanItem::File(mtime, _, _) => *mtime,
-            ScanItem::Materialized(meta) => {
-                meta.last_active_at.or(meta.created_at).unwrap_or(0)
-            }
+            ScanItem::Materialized(meta) => meta.last_active_at.or(meta.created_at).unwrap_or(0),
         }
     }
 
@@ -282,14 +279,22 @@ pub fn scan_sessions(
         None => indexed,
     };
 
-    // List view must NEVER open session files. Opening cloud placeholders /
-    // antivirus-locked jsonl on Windows can stall the kernel and freeze the OS.
-    // Codex names / pins come from SQLite thread index instead.
+    // Codex names / pins come from SQLite. Claude Code's folder name encodes
+    // every separator, colon, hyphen and underscore as '-', so the list reads
+    // `cwd` from one jsonl per project instead of decoding that slug.
+    let mut claude_project_labels = HashMap::new();
     let sessions = page
         .into_iter()
         .filter_map(|item| match item {
             ScanItem::File(mtime, path, session_provider) => {
                 let mut session = session_meta_from_path(session_provider, &path, mtime)?;
+                if session_provider == SessionProvider::ClaudeCode {
+                    if let Some(label) =
+                        claude_code_project_label(&path, &mut claude_project_labels)
+                    {
+                        session.project_dir = Some(label);
+                    }
+                }
                 if session_provider == SessionProvider::Codex {
                     apply_codex_thread_meta(&mut session, &path, &codex_index);
                 }
@@ -366,7 +371,9 @@ pub fn search_session_contents(
 fn load_pi_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
     let path = Path::new(source_path);
     if !path.exists() {
-        return Err(AppError::Config(format!("Pi 会话文件不存在: {source_path}")));
+        return Err(AppError::Config(format!(
+            "Pi 会话文件不存在: {source_path}"
+        )));
     }
     let content = fs::read_to_string(path)?;
     let mut messages = Vec::new();
@@ -375,26 +382,50 @@ fn load_pi_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
         if let Ok(val) = serde_json::from_str::<Value>(&content) {
             if let Some(arr) = val.get("messages").and_then(Value::as_array) {
                 for item in arr {
-                    let role = item.get("role").and_then(Value::as_str).unwrap_or("user").to_string();
-                    let text = item.get("content").and_then(Value::as_str)
+                    let role = item
+                        .get("role")
+                        .and_then(Value::as_str)
+                        .unwrap_or("user")
+                        .to_string();
+                    let text = item
+                        .get("content")
+                        .and_then(Value::as_str)
                         .or_else(|| item.get("text").and_then(Value::as_str))
-                        .unwrap_or("").to_string();
+                        .unwrap_or("")
+                        .to_string();
                     if !text.is_empty() {
-                        messages.push(SessionMessage { role, content: text, timestamp: None });
+                        messages.push(SessionMessage {
+                            role,
+                            content: text,
+                            timestamp: None,
+                        });
                     }
                 }
             }
         }
     } else {
         for line in content.lines() {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             if let Ok(val) = serde_json::from_str::<Value>(line) {
-                let role = val.get("role").and_then(Value::as_str).unwrap_or("user").to_string();
-                let text = val.get("content").and_then(Value::as_str)
+                let role = val
+                    .get("role")
+                    .and_then(Value::as_str)
+                    .unwrap_or("user")
+                    .to_string();
+                let text = val
+                    .get("content")
+                    .and_then(Value::as_str)
                     .or_else(|| val.get("text").and_then(Value::as_str))
-                    .unwrap_or("").to_string();
+                    .unwrap_or("")
+                    .to_string();
                 if !text.is_empty() {
-                    messages.push(SessionMessage { role, content: text, timestamp: None });
+                    messages.push(SessionMessage {
+                        role,
+                        content: text,
+                        timestamp: None,
+                    });
                 }
             }
         }
@@ -415,10 +446,16 @@ fn dsh_text(content: Option<&Value>) -> String {
     content
         .and_then(Value::as_array)
         .map(|blocks| {
-            blocks.iter().filter_map(|block| {
-                block.get("text").and_then(Value::as_str)
-                    .or_else(|| block.get("content").and_then(Value::as_str))
-            }).collect::<Vec<_>>().join("\n")
+            blocks
+                .iter()
+                .filter_map(|block| {
+                    block
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| block.get("content").and_then(Value::as_str))
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
         })
         .unwrap_or_default()
 }
@@ -426,8 +463,8 @@ fn dsh_text(content: Option<&Value>) -> String {
 fn load_dsh_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
     let root = crate::config::get_dsh_config_dir().join("sessions");
     let source = validate_session_path_in_root(&root, Path::new(source_path))?;
-    let events = crate::usage::session_usage_dsh::read_dsh_events(&source)
-        .map_err(AppError::Config)?;
+    let events =
+        crate::usage::session_usage_dsh::read_dsh_events(&source).map_err(AppError::Config)?;
     let mut messages = Vec::new();
     for event in events {
         let timestamp = event.get("time").and_then(Value::as_i64);
@@ -436,14 +473,22 @@ fn load_dsh_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
                 let data = event.get("data");
                 let content = dsh_text(data.and_then(|value| value.get("content")));
                 if !content.is_empty() {
-                    messages.push(SessionMessage { role: "user".to_string(), content, timestamp });
+                    messages.push(SessionMessage {
+                        role: "user".to_string(),
+                        content,
+                        timestamp,
+                    });
                 }
             }
             Some("assistant/message") => {
                 let message = event.pointer("/data/message");
                 let content = dsh_text(message.and_then(|value| value.get("content")));
                 if !content.is_empty() {
-                    messages.push(SessionMessage { role: "assistant".to_string(), content, timestamp });
+                    messages.push(SessionMessage {
+                        role: "assistant".to_string(),
+                        content,
+                        timestamp,
+                    });
                 }
             }
             _ => {}
@@ -476,15 +521,28 @@ pub fn load_session_messages(
 
 /// Provider-aware session archive operations. The legacy Claude Code helpers
 /// below intentionally remain as IPC-compatible wrappers.
-pub fn export_session(provider: SessionProvider, source_path: &str, destination_dir: Option<&str>) -> AppResult<SessionArchiveInfo> {
+pub fn export_session(
+    provider: SessionProvider,
+    source_path: &str,
+    destination_dir: Option<&str>,
+) -> AppResult<SessionArchiveInfo> {
     let (source, relative) = validated_session(provider, source_path)?;
     let content = fs::read(&source)?;
-    let meta = parse_session(provider, &source)?.ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+    let meta = parse_session(provider, &source)?
+        .ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
     let manifest = session_manifest(provider, &meta, relative, &content);
     let dir = resolve_export_dir(destination_dir, "session-archives")?;
-    let archive_path = dir.join(format!("{}-{}.zip", safe_session_name(&manifest.session_id), manifest.created_at));
+    let archive_path = dir.join(format!(
+        "{}-{}.zip",
+        safe_session_name(&manifest.session_id),
+        manifest.created_at
+    ));
     write_session_archive(&archive_path, &manifest, &content)?;
-    Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
+    Ok(SessionArchiveInfo {
+        archive_path: archive_path.to_string_lossy().into_owned(),
+        session_id: manifest.session_id,
+        created_at: manifest.created_at,
+    })
 }
 
 pub fn export_session_markdown(
@@ -501,8 +559,14 @@ pub fn export_session_markdown(
         .and_then(|m| m.title.as_deref())
         .or_else(|| meta.as_ref().map(|m| m.session_id.as_str()))
         .unwrap_or("Untitled Session");
-    let session_id = meta.as_ref().map(|m| m.session_id.as_str()).unwrap_or("unknown");
-    let project_dir = meta.as_ref().and_then(|m| m.project_dir.as_deref()).unwrap_or("N/A");
+    let session_id = meta
+        .as_ref()
+        .map(|m| m.session_id.as_str())
+        .unwrap_or("unknown");
+    let project_dir = meta
+        .as_ref()
+        .and_then(|m| m.project_dir.as_deref())
+        .unwrap_or("N/A");
 
     let mut md = String::new();
     md.push_str(&format!("# Session: {title}\n\n"));
@@ -530,112 +594,204 @@ pub fn export_session_markdown(
     }
 
     let dir = resolve_export_dir(destination_dir, "session-markdown")?;
-    let filename = format!("{}-{}.md", safe_session_name(session_id), chrono::Utc::now().timestamp());
+    let filename = format!(
+        "{}-{}.md",
+        safe_session_name(session_id),
+        chrono::Utc::now().timestamp()
+    );
     let export_path = dir.join(filename);
     fs::write(&export_path, md)?;
 
     Ok(export_path.to_string_lossy().into_owned())
 }
 
-pub fn backup_sessions(provider: SessionProvider, source_paths: &[String]) -> AppResult<SessionBatchBackupInfo> {
+pub fn backup_sessions(
+    provider: SessionProvider,
+    source_paths: &[String],
+) -> AppResult<SessionBatchBackupInfo> {
     let source_paths = unique_session_paths(source_paths)?;
     let mut archives = Vec::with_capacity(source_paths.len());
-    for source_path in source_paths { archives.push(export_session(provider, &source_path, None)?); }
+    for source_path in source_paths {
+        archives.push(export_session(provider, &source_path, None)?);
+    }
     Ok(SessionBatchBackupInfo { archives })
 }
 
-pub fn export_sessions(provider: SessionProvider, source_paths: &[String], destination_dir: Option<&str>) -> AppResult<SessionBatchExportInfo> {
+pub fn export_sessions(
+    provider: SessionProvider,
+    source_paths: &[String],
+    destination_dir: Option<&str>,
+) -> AppResult<SessionBatchExportInfo> {
     let source_paths = unique_session_paths(source_paths)?;
     let mut sessions = Vec::with_capacity(source_paths.len());
     for source_path in source_paths {
         let (source, relative) = validated_session(provider, &source_path)?;
         let content = fs::read(&source)?;
-        let meta = parse_session(provider, &source)?.ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
-        sessions.push((session_manifest(provider, &meta, relative, &content), content));
+        let meta = parse_session(provider, &source)?
+            .ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+        sessions.push((
+            session_manifest(provider, &meta, relative, &content),
+            content,
+        ));
     }
     let created_at = chrono::Utc::now().timestamp_millis();
     let dir = resolve_export_dir(destination_dir, "session-exports")?;
-    let name = match provider { SessionProvider::Codex => "codex", _ => "claude-code" };
+    let name = match provider {
+        SessionProvider::Codex => "codex",
+        _ => "claude-code",
+    };
     let archive_path = dir.join(format!("{name}-sessions-{created_at}.zip"));
     write_batch_session_archive(&archive_path, created_at, &sessions)?;
-    Ok(SessionBatchExportInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_count: sessions.len(), created_at })
+    Ok(SessionBatchExportInfo {
+        archive_path: archive_path.to_string_lossy().into_owned(),
+        session_count: sessions.len(),
+        created_at,
+    })
 }
 
 pub fn import_session(provider: SessionProvider, archive_path: &str) -> AppResult<SessionMeta> {
     if is_batch_session_archive(Path::new(archive_path))? {
-        return import_sessions(provider, archive_path)?.into_iter().next().ok_or_else(|| AppError::Config("会话批量归档为空".to_string()));
+        return import_sessions(provider, archive_path)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| AppError::Config("会话批量归档为空".to_string()));
     }
     let (manifest, content) = read_session_archive(Path::new(archive_path))?;
     validate_manifest_provider(provider, &manifest)?;
     let target = import_target(provider, &manifest.relative_path)?;
     if target.exists() {
-        if hex::encode(Sha256::digest(fs::read(&target)?)) != manifest.content_sha256 { return Err(AppError::Config("目标位置已有不同的会话，已拒绝覆盖".to_string())); }
+        if hex::encode(Sha256::digest(fs::read(&target)?)) != manifest.content_sha256 {
+            return Err(AppError::Config(
+                "目标位置已有不同的会话，已拒绝覆盖".to_string(),
+            ));
+        }
     } else {
-        if let Some(parent) = target.parent() { fs::create_dir_all(parent)?; }
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
         crate::config::atomic_write(&target, &content)?;
     }
-    parse_session(provider, &target)?.ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))
+    parse_session(provider, &target)?
+        .ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))
 }
 
-pub fn import_sessions(provider: SessionProvider, archive_path: &str) -> AppResult<Vec<SessionMeta>> {
+pub fn import_sessions(
+    provider: SessionProvider,
+    archive_path: &str,
+) -> AppResult<Vec<SessionMeta>> {
     let (batch, contents) = read_batch_session_archive(Path::new(archive_path))?;
     let mut targets = Vec::with_capacity(batch.sessions.len());
     let mut target_paths = std::collections::HashSet::new();
     for (manifest, content) in batch.sessions.iter().zip(contents.iter()) {
         validate_manifest_provider(provider, manifest)?;
         let target = import_target(provider, &manifest.relative_path)?;
-        if !target_paths.insert(target.clone()) { return Err(AppError::Config("会话批量归档包含重复的目标路径".to_string())); }
-        if target.exists() && hex::encode(Sha256::digest(fs::read(&target)?)) != manifest.content_sha256 { return Err(AppError::Config("目标位置已有不同的会话，已拒绝覆盖".to_string())); }
+        if !target_paths.insert(target.clone()) {
+            return Err(AppError::Config(
+                "会话批量归档包含重复的目标路径".to_string(),
+            ));
+        }
+        if target.exists()
+            && hex::encode(Sha256::digest(fs::read(&target)?)) != manifest.content_sha256
+        {
+            return Err(AppError::Config(
+                "目标位置已有不同的会话，已拒绝覆盖".to_string(),
+            ));
+        }
         targets.push((target, content));
     }
     let mut imported = Vec::with_capacity(targets.len());
     for (target, content) in targets {
-        if !target.exists() { if let Some(parent) = target.parent() { fs::create_dir_all(parent)?; } crate::config::atomic_write(&target, content)?; }
-        imported.push(parse_session(provider, &target)?.ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))?);
+        if !target.exists() {
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            crate::config::atomic_write(&target, content)?;
+        }
+        imported.push(
+            parse_session(provider, &target)?
+                .ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))?,
+        );
     }
     Ok(imported)
 }
 
-pub fn trash_session(provider: SessionProvider, source_path: &str) -> AppResult<SessionArchiveInfo> {
+pub fn trash_session(
+    provider: SessionProvider,
+    source_path: &str,
+) -> AppResult<SessionArchiveInfo> {
     let (source, relative) = validated_session(provider, source_path)?;
     let content = fs::read(&source)?;
-    let meta = parse_session(provider, &source)?.ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+    let meta = parse_session(provider, &source)?
+        .ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
     let manifest = session_manifest(provider, &meta, relative, &content);
     let dir = session_trash_dir(provider);
     fs::create_dir_all(&dir)?;
-    let archive_path = dir.join(format!("{}-{}.zip", safe_session_name(&manifest.session_id), manifest.created_at));
+    let archive_path = dir.join(format!(
+        "{}-{}.zip",
+        safe_session_name(&manifest.session_id),
+        manifest.created_at
+    ));
     write_session_archive(&archive_path, &manifest, &content)?;
     fs::remove_file(source)?;
-    Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
+    Ok(SessionArchiveInfo {
+        archive_path: archive_path.to_string_lossy().into_owned(),
+        session_id: manifest.session_id,
+        created_at: manifest.created_at,
+    })
 }
 
-pub fn restore_trashed_session(provider: SessionProvider, archive_path: &str) -> AppResult<SessionMeta> {
-    let archive = Path::new(archive_path).canonicalize().map_err(|_| AppError::Config("找不到会话回收站归档".to_string()))?;
-    let in_current_trash = session_trash_dir(provider).canonicalize().is_ok_and(|trash| archive.starts_with(trash));
-    let in_legacy_claude_trash = provider == SessionProvider::ClaudeCode && config::get_app_config_dir()
-        .join("session-trash").canonicalize().is_ok_and(|legacy| archive.starts_with(legacy));
-    if (!in_current_trash && !in_legacy_claude_trash) || archive.extension().and_then(|value| value.to_str()) != Some("zip") { return Err(AppError::Path("只能恢复对应回收站中的会话归档".to_string())); }
+pub fn restore_trashed_session(
+    provider: SessionProvider,
+    archive_path: &str,
+) -> AppResult<SessionMeta> {
+    let archive = Path::new(archive_path)
+        .canonicalize()
+        .map_err(|_| AppError::Config("找不到会话回收站归档".to_string()))?;
+    let in_current_trash = session_trash_dir(provider)
+        .canonicalize()
+        .is_ok_and(|trash| archive.starts_with(trash));
+    let in_legacy_claude_trash = provider == SessionProvider::ClaudeCode
+        && config::get_app_config_dir()
+            .join("session-trash")
+            .canonicalize()
+            .is_ok_and(|legacy| archive.starts_with(legacy));
+    if (!in_current_trash && !in_legacy_claude_trash)
+        || archive.extension().and_then(|value| value.to_str()) != Some("zip")
+    {
+        return Err(AppError::Path("只能恢复对应回收站中的会话归档".to_string()));
+    }
     import_session(provider, &archive.to_string_lossy())
 }
 
 pub fn list_trashed_sessions(provider: SessionProvider) -> AppResult<Vec<SessionArchiveInfo>> {
     let mut archives = Vec::new();
     let mut directories = vec![session_trash_dir(provider)];
-    if provider == SessionProvider::ClaudeCode { directories.push(config::get_app_config_dir().join("session-trash")); }
+    if provider == SessionProvider::ClaudeCode {
+        directories.push(config::get_app_config_dir().join("session-trash"));
+    }
     for dir in directories {
-        if !dir.is_dir() { continue; }
+        if !dir.is_dir() {
+            continue;
+        }
         for entry in fs::read_dir(&dir)? {
             let path = entry?.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("zip") { continue; }
+            if path.extension().and_then(|value| value.to_str()) != Some("zip") {
+                continue;
+            }
             if let Ok((manifest, _)) = read_session_archive(&path) {
-                if manifest.provider == provider { archives.push(SessionArchiveInfo { archive_path: path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at }); }
+                if manifest.provider == provider {
+                    archives.push(SessionArchiveInfo {
+                        archive_path: path.to_string_lossy().into_owned(),
+                        session_id: manifest.session_id,
+                        created_at: manifest.created_at,
+                    });
+                }
             }
         }
     }
     archives.sort_by_key(|item| std::cmp::Reverse(item.created_at));
     Ok(archives)
 }
-
 
 include!("pi.rs");
 include!("dsh.rs");

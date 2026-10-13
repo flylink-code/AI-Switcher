@@ -144,9 +144,10 @@ async fn fetch_remote_release_version(settings: &UpdateMirrorSettings) -> AppRes
                 let body_text = response.text().await.map_err(|error| {
                     AppError::Other(format!("更新元数据读取失败 ({endpoint}): {error}"))
                 })?;
-                let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|error| {
-                    AppError::Other(format!("更新元数据解析失败 ({endpoint}): {error}"))
-                })?;
+                let body: serde_json::Value =
+                    serde_json::from_str(&body_text).map_err(|error| {
+                        AppError::Other(format!("更新元数据解析失败 ({endpoint}): {error}"))
+                    })?;
                 let Some(version_text) = body.get("version").and_then(|value| value.as_str())
                 else {
                     last_error = Some(AppError::Other(format!(
@@ -169,9 +170,7 @@ async fn fetch_remote_release_version(settings: &UpdateMirrorSettings) -> AppRes
             }
         }
     }
-    Err(last_error.unwrap_or_else(|| {
-        AppError::Other("无法从更新通道读取版本信息".to_string())
-    }))
+    Err(last_error.unwrap_or_else(|| AppError::Other("无法从更新通道读取版本信息".to_string())))
 }
 
 fn parse_release_version(raw: &str) -> AppResult<Version> {
@@ -219,7 +218,10 @@ mod tests {
     #[test]
     fn parses_release_versions_with_optional_v_prefix() {
         assert_eq!(parse_release_version("0.7.4").unwrap().to_string(), "0.7.4");
-        assert_eq!(parse_release_version("v0.7.4").unwrap().to_string(), "0.7.4");
+        assert_eq!(
+            parse_release_version("v0.7.4").unwrap().to_string(),
+            "0.7.4"
+        );
     }
 
     #[test]

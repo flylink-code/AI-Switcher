@@ -122,10 +122,9 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
                 }
                 _ if id.starts_with(PROFILE_PREFIX) => {
                     let profile_id = &id[PROFILE_PREFIX.len()..];
-                    if let Err(e) = tauri::async_runtime::block_on(apply_profile_from_tray(
-                        app,
-                        profile_id,
-                    )) {
+                    if let Err(e) =
+                        tauri::async_runtime::block_on(apply_profile_from_tray(app, profile_id))
+                    {
                         log::error!("托盘应用配置快照失败: {e}");
                     } else {
                         refresh_tray_on_switch(app);
@@ -176,26 +175,28 @@ fn refresh_tray_on_switch<R: Runtime>(app: &AppHandle<R>) {
 
 fn create_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult<Menu<R>> {
     let labels = tray_labels(language);
-    let code_menu =
-        build_provider_menu(app, ProviderTarget::ClaudeCode, "Claude Code", labels.official)?;
-    let codex_menu =
-        build_provider_menu(app, ProviderTarget::Codex, "Codex", labels.official)?;
-    let opencode_menu =
-        build_t2_menu(app, ProviderTarget::OpenCode, "OpenCode", labels.manage_providers)?;
-    let pi_menu =
-        build_t2_menu(app, ProviderTarget::Pi, "Pi", labels.manage_providers)?;
-    let cline_menu =
-        build_t2_menu(app, ProviderTarget::Cline, "Cline", labels.manage_providers)?;
+    let code_menu = build_provider_menu(
+        app,
+        ProviderTarget::ClaudeCode,
+        "Claude Code",
+        labels.official,
+    )?;
+    let codex_menu = build_provider_menu(app, ProviderTarget::Codex, "Codex", labels.official)?;
+    let opencode_menu = build_t2_menu(
+        app,
+        ProviderTarget::OpenCode,
+        "OpenCode",
+        labels.manage_providers,
+    )?;
+    let pi_menu = build_t2_menu(app, ProviderTarget::Pi, "Pi", labels.manage_providers)?;
+    let cline_menu = build_t2_menu(app, ProviderTarget::Cline, "Cline", labels.manage_providers)?;
     let profiles_menu = build_profiles_menu(app, labels.projects)?;
 
     let show = MenuItem::with_id(app, "show", labels.show, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
-    let sep1 =
-        PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
-    let sep2 =
-        PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
-    let sep3 =
-        PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
+    let sep1 = PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
+    let sep2 = PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
+    let sep3 = PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
     let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
 
@@ -352,9 +353,12 @@ fn build_provider_menu<R: Runtime>(
     }
 
     let mut items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![&official, &gateway];
-    items.extend(provider_items.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>));
-    Submenu::with_items(app, label, true, &items)
-        .map_err(|e| AppError::Tauri(e.to_string()))
+    items.extend(
+        provider_items
+            .iter()
+            .map(|item| item as &dyn tauri::menu::IsMenuItem<R>),
+    );
+    Submenu::with_items(app, label, true, &items).map_err(|e| AppError::Tauri(e.to_string()))
 }
 
 fn build_t2_menu<R: Runtime>(
@@ -367,19 +371,13 @@ fn build_t2_menu<R: Runtime>(
     let item = MenuItem::with_id(app, item_id, action_label, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
     let items: [&dyn tauri::menu::IsMenuItem<R>; 1] = [&item];
-    Submenu::with_items(app, label, true, &items)
-        .map_err(|e| AppError::Tauri(e.to_string()))
+    Submenu::with_items(app, label, true, &items).map_err(|e| AppError::Tauri(e.to_string()))
 }
 
-fn build_profiles_menu<R: Runtime>(
-    app: &AppHandle<R>,
-    label: &str,
-) -> AppResult<Submenu<R>> {
+fn build_profiles_menu<R: Runtime>(app: &AppHandle<R>, label: &str) -> AppResult<Submenu<R>> {
     let state = app.state::<AppState>();
     let profiles = state.db.with_conn(dao::profiles::list_profiles)?;
-    let current_id = state
-        .db
-        .with_conn(dao::profiles::get_current_profile_id)?;
+    let current_id = state.db.with_conn(dao::profiles::get_current_profile_id)?;
     let mut items: Vec<MenuItem<R>> = Vec::new();
     for profile in profiles {
         let item_label = if current_id.as_deref() == Some(profile.id.as_str()) {
@@ -404,10 +402,11 @@ fn build_profiles_menu<R: Runtime>(
                 .map_err(|e| AppError::Tauri(e.to_string()))?,
         );
     }
-    let refs: Vec<&dyn tauri::menu::IsMenuItem<R>> =
-        items.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>).collect();
-    Submenu::with_items(app, label, true, &refs)
-        .map_err(|e| AppError::Tauri(e.to_string()))
+    let refs: Vec<&dyn tauri::menu::IsMenuItem<R>> = items
+        .iter()
+        .map(|item| item as &dyn tauri::menu::IsMenuItem<R>)
+        .collect();
+    Submenu::with_items(app, label, true, &refs).map_err(|e| AppError::Tauri(e.to_string()))
 }
 
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
@@ -446,15 +445,17 @@ async fn switch_provider<R: Runtime>(
     Ok(())
 }
 
-async fn switch_to_official<R: Runtime>(app: &AppHandle<R>, target: ProviderTarget) -> AppResult<()> {
+async fn switch_to_official<R: Runtime>(
+    app: &AppHandle<R>,
+    target: ProviderTarget,
+) -> AppResult<()> {
     let state = app.state::<AppState>();
     crate::commands::providers::switch_to_official_for_target(target, Some(app), &state).await
 }
 
 async fn apply_profile_from_tray<R: Runtime>(app: &AppHandle<R>, id: &str) -> AppResult<()> {
     let state = app.state::<AppState>();
-    let result =
-        crate::commands::profiles::apply_profile_for_id(id, true, app, &state).await?;
+    let result = crate::commands::profiles::apply_profile_for_id(id, true, app, &state).await?;
     if !result.warnings.is_empty() {
         log::warn!(
             "配置快照 {} 已应用，但有 {} 条警告",

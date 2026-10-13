@@ -66,7 +66,10 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
 }
 
 /// The current provider for one target application, if any.
-pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppResult<Option<Provider>> {
+pub fn get_current_provider(
+    conn: &Connection,
+    target: ProviderTarget,
+) -> AppResult<Option<Provider>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index,
                 is_current, created_at,
@@ -141,8 +144,10 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         input.target_app,
         input.model_mapping.clone(),
     ))?;
-    let auto_review_model_override =
-        normalized_auto_review_model_override(input.target_app, input.auto_review_model_override.clone());
+    let auto_review_model_override = normalized_auto_review_model_override(
+        input.target_app,
+        input.auto_review_model_override.clone(),
+    );
     let thinking_config_json = serde_json::to_string(
         input
             .thinking_config
@@ -161,23 +166,23 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {
         if let Some(existing) = get_provider(conn, id)? {
-        if existing.target_app != input.target_app {
-            return Err(AppError::Config("不能跨应用更新供应商".to_string()));
-        }
-        if input.clear_api_key && !input.api_key.trim().is_empty() {
-            return Err(AppError::Config("不能同时替换和删除 API Key".to_string()));
-        }
-        // Determine the DB column value without allowing an implicit empty-key
-        // update to erase an existing credential.
-        let api_key_col = if is_codex_oauth || input.clear_api_key {
-            String::new()
-        } else if !input.api_key.trim().is_empty() {
-            secrets::store_key(id, input.api_key.trim())?;
-            secrets::keyring_ref(id)
-        } else {
-            existing.api_key.clone()
-        };
-        conn.execute(
+            if existing.target_app != input.target_app {
+                return Err(AppError::Config("不能跨应用更新供应商".to_string()));
+            }
+            if input.clear_api_key && !input.api_key.trim().is_empty() {
+                return Err(AppError::Config("不能同时替换和删除 API Key".to_string()));
+            }
+            // Determine the DB column value without allowing an implicit empty-key
+            // update to erase an existing credential.
+            let api_key_col = if is_codex_oauth || input.clear_api_key {
+                String::new()
+            } else if !input.api_key.trim().is_empty() {
+                secrets::store_key(id, input.api_key.trim())?;
+                secrets::keyring_ref(id)
+            } else {
+                existing.api_key.clone()
+            };
+            conn.execute(
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
                 auto_review_model_override = ?, provider_kind = ?, auth_binding = ?,
@@ -197,11 +202,12 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 id,
             ],
         )?;
-        if input.clear_api_key || is_codex_oauth {
-            secrets::delete_key(id)?;
-        }
-        let updated = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
-        return Ok(updated);
+            if input.clear_api_key || is_codex_oauth {
+                secrets::delete_key(id)?;
+            }
+            let updated = get_provider(conn, id)?
+                .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+            return Ok(updated);
         }
     }
 
@@ -213,7 +219,9 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     let next_sort = next_sort_index(conn, input.target_app)?;
     // Create: store key (if provided) before inserting the row.
     if input.clear_api_key {
-        return Err(AppError::Config("新建供应商时不能删除不存在的 API Key".to_string()));
+        return Err(AppError::Config(
+            "新建供应商时不能删除不存在的 API Key".to_string(),
+        ));
     }
     let api_key_col = if is_codex_oauth {
         String::new()
@@ -310,9 +318,8 @@ pub fn get_provider_model_cache(
     conn: &Connection,
     provider_id: &str,
 ) -> AppResult<Option<ProviderModelCache>> {
-    let mut stmt = conn.prepare(
-        "SELECT models_json, checked_at FROM provider_models WHERE provider_id = ?;",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT models_json, checked_at FROM provider_models WHERE provider_id = ?;")?;
     let mut rows = stmt.query(params![provider_id])?;
     let Some(row) = rows.next()? else {
         return Ok(None);
@@ -368,7 +375,8 @@ pub fn migrate_plaintext_api_keys(conn: &Connection) -> AppResult<()> {
 /// so a leftover `is_current` marker must not block the last remaining row.
 /// Also removes the stored credential from the OS keyring (best-effort).
 pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
-    let provider = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+    let provider =
+        get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
     if provider.is_smart_gateway() {
         return Err(AppError::Config("不能删除智能网关 Auto 卡".to_string()));
     }
@@ -380,8 +388,14 @@ pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
     }
     let upstream_shares_id = super::gateway::get_upstream_provider(conn, id)?.is_some();
     let tx = conn.unchecked_transaction()?;
-    tx.execute("DELETE FROM provider_models WHERE provider_id = ?;", params![id])?;
-    tx.execute("DELETE FROM provider_health WHERE provider_id = ?;", params![id])?;
+    tx.execute(
+        "DELETE FROM provider_models WHERE provider_id = ?;",
+        params![id],
+    )?;
+    tx.execute(
+        "DELETE FROM provider_health WHERE provider_id = ?;",
+        params![id],
+    )?;
     tx.execute("DELETE FROM providers WHERE id = ?;", params![id])?;
     tx.commit()?;
     // Shared-id legacy mirrors keep the keyring; imported `up_*` rows have their own secret.
@@ -395,13 +409,17 @@ pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
 
 /// Mark `id` as the sole active provider for its target application.
 pub fn set_current_provider(conn: &Connection, id: &str) -> AppResult<()> {
-    let provider = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+    let provider =
+        get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "UPDATE providers SET is_current = 0 WHERE target_app = ?;",
         params![provider.target_app.as_str()],
     )?;
-    tx.execute("UPDATE providers SET is_current = 1 WHERE id = ?;", params![id])?;
+    tx.execute(
+        "UPDATE providers SET is_current = 1 WHERE id = ?;",
+        params![id],
+    )?;
     tx.commit()?;
     Ok(())
 }
@@ -417,7 +435,11 @@ pub fn clear_current_provider(conn: &Connection, target: ProviderTarget) -> AppR
 
 /// Reorder provider ids within their target application.
 #[allow(dead_code)]
-pub fn reorder_providers(conn: &Connection, ordered_ids: &[String], target: ProviderTarget) -> AppResult<()> {
+pub fn reorder_providers(
+    conn: &Connection,
+    ordered_ids: &[String],
+    target: ProviderTarget,
+) -> AppResult<()> {
     for (idx, id) in ordered_ids.iter().enumerate() {
         conn.execute(
             "UPDATE providers SET sort_index = ? WHERE id = ? AND target_app = ?;",
@@ -609,10 +631,7 @@ mod tests {
             let mut create =
                 provider_input("https://gateway.example.test/openai/v1/chat/completions");
             create.model_mapping.sonnet = "sonnet-upstream".to_string();
-            let created = upsert_provider(
-                conn,
-                &create,
-            )?;
+            let created = upsert_provider(conn, &create)?;
             assert_eq!(created.base_url, "https://gateway.example.test/openai/v1");
             assert_eq!(created.model_mapping.sonnet, "sonnet-upstream");
 
