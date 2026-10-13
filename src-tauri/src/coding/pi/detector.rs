@@ -263,7 +263,35 @@ pub fn apply_pi_latest(mut info: PiCliVersionInfo, latest: Option<String>) -> Pi
         .current_version
         .as_deref()
         .zip(latest.as_deref())
-        .map(|(current, latest)| current != latest)
+        .map(|(current, latest)| crate::commands::tools::update_available(current, latest))
         .unwrap_or(false);
     info
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn info_with(current: Option<&str>, latest: Option<&str>) -> PiCliVersionInfo {
+        let mut info = empty_info(None);
+        info.installed = current.is_some();
+        info.current_version = current.map(str::to_string);
+        apply_pi_latest(info, latest.map(str::to_string))
+    }
+
+    #[test]
+    fn pi_newer_latest_has_update() {
+        assert!(info_with(Some("0.8.0"), Some("0.9.0")).update_available);
+    }
+
+    #[test]
+    fn pi_current_higher_than_latest_has_no_update() {
+        assert!(!info_with(Some("0.9.0"), Some("0.8.0")).update_available);
+    }
+
+    #[test]
+    fn pi_same_or_unknown_latest_has_no_update() {
+        assert!(!info_with(Some("0.9.0"), Some("0.9.0")).update_available);
+        assert!(!info_with(Some("0.9.0"), None).update_available);
+    }
 }

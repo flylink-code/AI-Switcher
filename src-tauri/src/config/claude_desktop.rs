@@ -256,6 +256,7 @@ pub const PROFILE_ID: &str = "c765dca5-1e8f-4a6d-9b04-2a76a8b94e31";
 pub const LEGACY_PROFILE_ID: &str = "claude-switcher";
 const PROFILE_NAME: &str = "Claude Switcher";
 const GATEWAY_TOKEN_KEY: &str = "claude_desktop_gateway_token";
+const DESKTOP_AUTO_MODE_KEY: &str = "claude_desktop_auto_mode_enabled";
 /// Claude Desktop appends `/v1/messages` to this base path segment.
 pub const CLAUDE_DESKTOP_PROXY_PREFIX: &str = "/claude-desktop";
 const MAX_BACKUPS: usize = 10;
@@ -345,7 +346,12 @@ pub fn apply_provider(provider: &Provider, proxy_port: u16, catalog_models: &[St
         )?;
     }
 
-    let profile = build_profile(provider, proxy_port, catalog_models)?;
+    let profile = build_profile(
+        provider,
+        proxy_port,
+        catalog_models,
+        read_auto_mode_enabled(),
+    )?;
     write_json_file(&profile_path, &profile)?;
     write_meta(meta_path, Some(PROFILE_ID), Some(PROFILE_NAME))?;
     if legacy_profile_path.exists() {
@@ -527,7 +533,99 @@ fn profile_uses_legacy_role_routes(profile: &Value) -> bool {
         })
 }
 
-fn build_profile(provider: &Provider, proxy_port: u16, _catalog_models: &[String]) -> AppResult<Value> {
+/// Whether Claude Desktop's model picker should offer Auto.
+/// Missing preference stays on, matching profiles written before the switch existed.
+pub fn read_auto_mode_enabled() -> bool {
+    if let Some(stored) = stored_auto_mode_setting() {
+        return stored;
+    }
+    live_profile_auto_mode().unwrap_or(true)
+}
+
+pub fn apply_auto_mode_enabled(enabled: bool) -> AppResult<bool> {
+    if let Ok(db) = crate::database::Database::init() {
+        db.with_conn(|conn| {
+            set_setting(
+                conn,
+                DESKTOP_AUTO_MODE_KEY,
+                if enabled { "1" } else { "0" },
+            )
+        })?;
+    }
+    patch_existing_auto_mode(enabled)?;
+    Ok(enabled)
+}
+
+fn stored_auto_mode_setting() -> Option<bool> {
+    let db = crate::database::Database::init().ok()?;
+    let value = db
+        .with_conn(|conn| get_setting(conn, DESKTOP_AUTO_MODE_KEY))
+        .ok()
+        .flatten()?;
+    parse_auto_mode_setting(&value)
+}
+
+fn parse_auto_mode_setting(value: &str) -> Option<bool> {
+    match value.trim() {
+        "1" | "true" => Some(true),
+        "0" | "false" => Some(false),
+        _ => None,
+    }
+}
+
+fn live_profile_auto_mode() -> Option<bool> {
+    let paths = platform_paths().ok()?;
+    let config_library = paths.config_library?;
+    for id in [PROFILE_ID, LEGACY_PROFILE_ID] {
+        let path = config_library.join(format!("{id}.json"));
+        let Ok(Some(profile)) = read_json_file::<Value>(&path) else {
+            continue;
+        };
+        if let Some(enabled) = profile.get("autoModeEnabled").and_then(Value::as_bool) {
+            return Some(enabled);
+        }
+    }
+    None
+}
+
+fn patch_existing_auto_mode(enabled: bool) -> AppResult<()> {
+    let mut libraries = Vec::new();
+    if let Ok(paths) = platform_paths() {
+        if let Some(library) = paths.config_library {
+            libraries.push(library);
+        }
+    }
+    #[cfg(windows)]
+    {
+        for dir in all_windows_claude_dirs(true) {
+            libraries.push(dir.join(CONFIG_LIBRARY_DIR));
+        }
+    }
+    libraries.sort();
+    libraries.dedup();
+    for library in libraries {
+        for id in [PROFILE_ID, LEGACY_PROFILE_ID] {
+            let path = library.join(format!("{id}.json"));
+            if !path.exists() {
+                continue;
+            }
+            let mut value = read_json_or_empty(&path)?;
+            let Some(object) = value.as_object_mut() else {
+                continue;
+            };
+            object.insert("autoModeEnabled".to_string(), Value::Bool(enabled));
+            write_json_file(&path, &value)?;
+        }
+    }
+    Ok(())
+}
+
+fn build_profile(
+    provider: &Provider,
+    proxy_port: u16,
+    _catalog_models: &[String],
+    auto_mode_enabled: bool,
+) -> AppResult<Value> {
     let role_routes = provider.requires_local_proxy() && !provider.is_smart_gateway();
     let (base_url, api_key) = if provider.is_smart_gateway() {
         let token = crate::gateway::resolved_gateway_token(&provider.api_key)
@@ -550,9 +648,9 @@ fn build_profile(provider: &Provider, proxy_port: u16, _catalog_models: &[String
         "inferenceGatewayApiKey": api_key,
         "inferenceGatewayAuthScheme": "bearer",
         "disableDeploymentModeChooser": true,
-        // Keep Claude Desktop's automatic model-selection mode available after
-        // every managed provider switch.
-        "autoModeEnabled": true,
+        // Agent settings choose whether Desktop's model picker offers Auto.
+        // Provider switches must keep that choice.
+        "autoModeEnabled": auto_mode_enabled,
     });
 
     // Smart gateway: Desktop lists GET /v1/models itself. Writing catalog ids
@@ -985,7 +1083,7 @@ mod tests {
             health_latency_ms: None,
             enabled: true,
         };
-        let profile = build_profile(&provider, 15_821, &[]).expect("profile");
+        let profile = build_profile(&provider, 15_821, &[], true).expect("profile");
         assert_eq!(
             profile["inferenceGatewayBaseUrl"],
             serde_json::json!("http://127.0.0.1:15821/claude-desktop")
@@ -1000,21 +1098,23 @@ mod tests {
         provider.provider_kind = ProviderKind::SmartGateway;
         provider.api_key = "gwt_desktop".into();
         provider.model = "auto".into();
-        let profile = build_profile(&provider, 15_822, &[]).expect("profile");
+        let profile = build_profile(&provider, 15_822, &[], true).expect("profile");
         assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
         assert_eq!(profile["inferenceGatewayAuthScheme"], serde_json::json!("bearer"));
         assert_eq!(profile["autoModeEnabled"], serde_json::json!(true));
+        let disabled = build_profile(&provider, 15_822, &[], false).expect("profile");
+        assert_eq!(disabled["autoModeEnabled"], serde_json::json!(false));
         assert!(profile.get("inferenceModels").is_none());
 
         provider.model = "claude.ag.gemini-3.8-flash-high".into();
-        let named = build_profile(&provider, 15_822, &[]).expect("profile");
+        let named = build_profile(&provider, 15_822, &[], true).expect("profile");
         assert!(named.get("inferenceModels").is_none());
 
         let catalog = vec![
             "claude.auto".to_string(),
             "claude.ag.gemini-3.8-flash-high".to_string(),
         ];
-        let catalog_profile = build_profile(&provider, 15_822, &catalog).expect("profile");
+        let catalog_profile = build_profile(&provider, 15_822, &catalog, true).expect("profile");
         assert!(catalog_profile.get("inferenceModels").is_none());
         let rendered = catalog_profile.to_string();
         assert!(!rendered.contains("claude.auto"));
@@ -1022,7 +1122,7 @@ mod tests {
 
         provider.model_mapping = ClaudeModelMapping::default();
         provider.model = "default-upstream".into();
-        let unmapped = build_profile(&provider, 15_822, &catalog).expect("profile");
+        let unmapped = build_profile(&provider, 15_822, &catalog, true).expect("profile");
         assert!(unmapped.get("inferenceModels").is_none());
         assert!(!unmapped.to_string().contains("claude.auto"));
     }
@@ -1032,7 +1132,7 @@ mod tests {
         let mut provider = mapped_provider();
         provider.provider_kind = ProviderKind::SmartGateway;
         provider.api_key = "kr://sgw_claude_desktop".into();
-        let err = build_profile(&provider, 15_822, &[]).unwrap_err();
+        let err = build_profile(&provider, 15_822, &[], true).unwrap_err();
         assert!(err.to_string().contains("入口凭据"));
     }
 

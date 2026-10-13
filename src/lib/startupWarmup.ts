@@ -66,7 +66,8 @@ export async function runStartupWarmup(
     run: () => preloadPage(key),
   }));
   const backgroundPageTasks = PAGE_KEYS
-    .filter((key) => key !== "localization" || language === "zh-CN")
+    // localization 键现在重定向到 agentHub（前台已预加载），无需重复预加载。
+    .filter((key) => key !== "localization")
     .filter((key) => !FOREGROUND_PAGES.includes(key as (typeof FOREGROUND_PAGES)[number]))
     .map((key) => ({ id: `${key}Page`, run: () => preloadPage(key) }));
   const enabledSlowTasks = slowTasks.filter(

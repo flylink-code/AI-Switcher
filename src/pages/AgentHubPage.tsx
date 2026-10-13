@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { Alert, Button, Select, Space, Switch, Typography, message } from "antd";
+import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
+import { Alert, Button, Dropdown, Modal, Segmented, Select, Space, Switch, Tag, Typography, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AgentConnectionCard } from "@/components/AgentConnectionCard";
 import { CodexAdvancedSettings } from "@/components/agent/CodexAdvancedSettings";
+import { ClaudeCodeLocalizationSection } from "@/components/agent/localization/ClaudeCodeLocalizationSection";
+import { ClaudeDesktopLocalizationSection } from "@/components/agent/localization/ClaudeDesktopLocalizationSection";
 import {
   claudeDesktopAppOptions,
   claudeVersionOptions,
@@ -17,14 +20,25 @@ import {
   piCliVersionOptions,
 } from "@/lib/appQueries";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+  getOpenCodeAction,
+  getOpenCodeUpdateState,
+  getToolUpdateState,
+  getUpgradeButton,
+  opencodePackageName,
+  resolveOpenCodeChannel,
+  type OpenCodeChannel,
+} from "@/lib/cliUpdate";
 import { errMsg } from "@/lib/errMsg";
 import { useNavigatePage } from "@/lib/navigation";
+import { useAppStore } from "@/stores/appStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ClaudeCodeAgentSettings, ProviderTarget } from "@/types/backend";
 import {
   ensureNodeRuntimeViaFnm,
   getClaudeCodeAgentSettings,
   getClaudeCodeDefaultPermissionMode,
+  getClaudeDesktopAutoMode,
   getOpenCodePermissionMode,
   getPiSettings,
   readLivePrompt,
@@ -35,6 +49,7 @@ import {
   runPiCliUpdate,
   setClaudeCodeAgentSettings,
   setClaudeCodeDefaultPermissionMode,
+  setClaudeDesktopAutoMode,
   setOpenCodePermissionMode,
   updatePiSettings,
 } from "@/services/api";
@@ -54,9 +69,14 @@ export default function AgentHubPage() {
   const navigate = useNavigatePage();
   const queryClient = useQueryClient();
   const setWorkspaceTarget = usePagePreferencesStore((state) => state.setWorkspaceTarget);
+  // 中文化仅 zh-CN 界面开放（沿用原汉化页的门槛）。
+  const showLocalization = useAppStore((s) => s.language) === "zh-CN";
   const [piThinkingLevel, setPiThinkingLevel] = useState("medium");
   const [busyTarget, setBusyTarget] = useState<BusyTarget | null>(null);
   const [installingNode, setInstallingNode] = useState(false);
+  // 手动选择的 OpenCode 通道；null 表示跟随检测到的通道（未安装默认 v2）。
+  const [opencodeChannelOverride, setOpencodeChannelOverride] = useState<OpenCodeChannel | null>(null);
+  const [opencodeSwitchOpen, setOpencodeSwitchOpen] = useState(false);
 
   const nodeQuery = useQuery(nodeRuntimeStatusOptions);
   const claudeQuery = useQuery({ ...claudeVersionOptions, placeholderData: () => queryClient.getQueryData(localClaudeVersionOptions.queryKey) });
@@ -74,7 +94,12 @@ export default function AgentHubPage() {
   const opencodeInfo = opencodeQuery.data ?? localOpenCodeQuery.data;
   const piInfo = piQuery.data ?? localPiQuery.data;
   const desktopInfo = desktopQuery.data;
+  const opencodeChannel = resolveOpenCodeChannel(opencodeInfo, opencodeChannelOverride);
 
+  const desktopAutoModeQuery = useQuery({
+    queryKey: ["claude-desktop-auto-mode"],
+    queryFn: getClaudeDesktopAutoMode,
+  });
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
     queryFn: getClaudeCodeDefaultPermissionMode,
@@ -136,7 +161,7 @@ export default function AgentHubPage() {
     await queryClient.invalidateQueries({ queryKey: [key] });
   };
 
-  const runToolUpdate = async (target: ToolTarget) => {
+  const runToolUpdate = async (target: ToolTarget, channel?: OpenCodeChannel) => {
     if (!nodeQuery.data?.meetsMinimum) {
       void message.warning(t("about.cliInstallNeedNode", { defaultValue: "需要 Node.js 22 或更高版本" }));
       return;
@@ -149,9 +174,10 @@ export default function AgentHubPage() {
           : target === "codex"
             ? await runCodexCliUpdate()
             : target === "opencode"
-              ? await runOpenCodeCliUpdate("v2")
+              ? await runOpenCodeCliUpdate(channel ?? opencodeChannel)
               : await runPiCliUpdate();
       void message.success(result);
+      if (target === "opencode") setOpencodeChannelOverride(null);
       await refreshTool(target);
     } catch (error) {
       void message.error(errMsg(error));
@@ -198,6 +224,16 @@ export default function AgentHubPage() {
     }
   };
 
+  const handleDesktopAutoModeChange = async (enabled: boolean) => {
+    try {
+      await setClaudeDesktopAutoMode(enabled);
+      await desktopAutoModeQuery.refetch();
+      void message.success(t("providers.desktopAutoModeSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
   const handleDefaultPermissionModeChange = async (mode: string) => {
     try {
       await setClaudeCodeDefaultPermissionMode(mode);
@@ -226,10 +262,26 @@ export default function AgentHubPage() {
 
   const installed: Partial<Record<ProviderTarget, boolean>> = {};
   if (claudeInfo) installed.claude_code = claudeInfo.installed;
-  if (codexInfo) installed.codex = codexInfo.installed;
+  // Codex 允许只装桌面版（无 CLI）：故意不进 installed，卡片始终可用。
   if (opencodeInfo) installed.opencode = opencodeInfo.installed;
   if (piInfo) installed.pi = piInfo.installed;
   if (desktopInfo) installed.claude_desktop = desktopInfo.installed;
+
+  // 更新状态只对四个 CLI 类 Agent 有意义；Claude Desktop 等返回 null。
+  const updateStateFor = (target: ProviderTarget) => {
+    switch (target) {
+      case "claude_code":
+        return getToolUpdateState(claudeInfo);
+      case "codex":
+        return getToolUpdateState(codexInfo);
+      case "opencode":
+        return getOpenCodeUpdateState(opencodeInfo, opencodeChannel);
+      case "pi":
+        return getToolUpdateState(piInfo);
+      default:
+        return null;
+    }
+  };
 
   const renderHeaderExtra = (target: ProviderTarget) => {
     const info = toolInfo(target);
@@ -243,12 +295,57 @@ export default function AgentHubPage() {
         );
       }
       if (target === "cline" || target === "dsh") return null;
+      if (target === "codex") {
+        // Codex 可只装桌面版：CLI 可选，不抢眼的安装按钮。
+        return (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("agentHub.codexCliOptional", { defaultValue: "CLI 未安装（可选）" })}
+          </Text>
+        );
+      }
+      if (target === "opencode") {
+        // 未安装：主按钮装 v2，下拉可装 v1。
+        return (
+          <Space.Compact>
+            <Button
+              size="small"
+              type="primary"
+              loading={busyTarget === "opencode"}
+              onClick={() => void runToolUpdate("opencode", "v2")}
+            >
+              {t("agentHub.install", { defaultValue: "安装" })}
+            </Button>
+            <Dropdown
+              trigger={["click"]}
+              disabled={busyTarget === "opencode"}
+              menu={{
+                items: [
+                  {
+                    key: "v1",
+                    label: t("agentHub.installOpenCodeV1", { defaultValue: "安装 v1 (opencode-ai)" }),
+                  },
+                ],
+                onClick: () => void runToolUpdate("opencode", "v1"),
+              }}
+            >
+              <Button
+                size="small"
+                type="primary"
+                disabled={busyTarget === "opencode"}
+                icon={<DownOutlined />}
+                aria-label={t("agentHub.installOpenCodeV1", { defaultValue: "安装 v1 (opencode-ai)" })}
+              />
+            </Dropdown>
+          </Space.Compact>
+        );
+      }
       return (
         <Button size="small" type="primary" loading={busyTarget === target} onClick={() => void runToolUpdate(target)}>
           {t("agentHub.install", { defaultValue: "安装" })}
         </Button>
       );
     }
+    const updateState = updateStateFor(target);
     return (
       <>
         {info.currentVersion ? (
@@ -258,6 +355,14 @@ export default function AgentHubPage() {
           <span aria-hidden style={{ color: "#34c759", marginRight: 4 }}>●</span>
           {t("agentHub.installed", { defaultValue: "已安装" })}
         </Text>
+        {updateState?.hasUpdate ? (
+          <Tag color="warning" style={{ marginInlineEnd: 0 }}>
+            {t("agentHub.updateAvailable", {
+              version: updateState.latestVersion ?? "",
+              defaultValue: "有新版本 {{version}}",
+            })}
+          </Tag>
+        ) : null}
       </>
     );
   };
@@ -265,28 +370,83 @@ export default function AgentHubPage() {
   const renderAdvanced = (target: ProviderTarget) => {
     if (target === "claude_desktop") {
       return (
-        <Space>
-          <Button size="small" onClick={() => void queryClient.invalidateQueries({ queryKey: ["claude-desktop-app"] })}>
-            {t("agentHub.detect", { defaultValue: "检测" })}
-          </Button>
-          <Button size="small" loading={busyTarget === "claude_desktop"} onClick={() => void runDesktopUpdate()}>
-            {t("agentHub.upgrade", { defaultValue: "升级" })}
-          </Button>
-          <Button size="small" type="link" onClick={() => navigate("localProxy")}>
-            {t("agentHub.viewLocalProxy", { defaultValue: "查看本地代理" })}
-          </Button>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <SettingRow label={t("providers.desktopAutoMode")}>
+            <Switch
+              checked={desktopAutoModeQuery.data ?? true}
+              onChange={(checked) => void handleDesktopAutoModeChange(checked)}
+            />
+          </SettingRow>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("providers.desktopAutoModeHint")}
+          </Text>
+          {showLocalization ? <ClaudeDesktopLocalizationSection /> : null}
+          <Space>
+            <Button size="small" onClick={() => void queryClient.invalidateQueries({ queryKey: ["claude-desktop-app"] })}>
+              {t("agentHub.detect", { defaultValue: "检测" })}
+            </Button>
+            <Button size="small" loading={busyTarget === "claude_desktop"} onClick={() => void runDesktopUpdate()}>
+              {t("agentHub.upgrade", { defaultValue: "升级" })}
+            </Button>
+            <Button size="small" type="link" onClick={() => navigate("localProxy")}>
+              {t("agentHub.viewLocalProxy", { defaultValue: "查看本地代理" })}
+            </Button>
+          </Space>
         </Space>
       );
     }
     const info = toolInfo(target);
+    const updateState = updateStateFor(target);
+    const opencodeAction = target === "opencode" ? getOpenCodeAction(opencodeInfo, opencodeChannel) : null;
+    const isSwitch = opencodeAction?.kind === "switch";
+    // 跨通道“切换”按钮始终可点；其余按最新版本状态决定 primary / 已是最新。
+    const upgradeButton = updateState && !isSwitch ? getUpgradeButton(updateState) : null;
+    // Codex 未安装 CLI（桌面版用户）：把“升级”换成“安装 CLI”。
+    const codexCliMissing = target === "codex" && codexInfo != null && !codexInfo.installed;
+    // OpenCode 未安装时按钮实际执行安装，文案用安装/切换，不写“升级”。
+    const upgradeLabel = opencodeAction && opencodeAction.kind !== "upgrade"
+      ? t(opencodeAction.labelKey)
+      : upgradeButton?.labelKey === "upToDate"
+        ? t("agentHub.upToDate", { defaultValue: "已是最新" })
+        : t("agentHub.upgrade", { defaultValue: "升级" });
     const maintenance = info && target !== "cline" && target !== "dsh" ? (
       <Space>
+        {target === "opencode" ? (
+          <Segmented
+            size="small"
+            value={opencodeChannel}
+            disabled={busyTarget === "opencode"}
+            options={[
+              { value: "v1", label: t("about.opencodeChannelV1") },
+              { value: "v2", label: t("about.opencodeChannelV2") },
+            ]}
+            onChange={(value) => setOpencodeChannelOverride(value as OpenCodeChannel)}
+          />
+        ) : null}
         <Button size="small" onClick={() => void refreshTool(target)}>
           {t("agentHub.detect", { defaultValue: "检测" })}
         </Button>
-        <Button size="small" loading={busyTarget === target} onClick={() => void runToolUpdate(target)}>
-          {t("agentHub.upgrade", { defaultValue: "升级" })}
-        </Button>
+        {codexCliMissing ? (
+          <Button size="small" type="primary" loading={busyTarget === "codex"} onClick={() => void runToolUpdate("codex")}>
+            {t("agentHub.installCodexCli", { defaultValue: "安装 CLI" })}
+          </Button>
+        ) : (
+          <Button
+            size="small"
+            type={upgradeButton?.type ?? "default"}
+            disabled={upgradeButton?.disabled ?? false}
+            loading={busyTarget === target}
+            onClick={() => {
+              if (opencodeAction?.needsConfirm) {
+                setOpencodeSwitchOpen(true);
+                return;
+              }
+              void runToolUpdate(target, target === "opencode" ? opencodeChannel : undefined);
+            }}
+          >
+            {upgradeLabel}
+          </Button>
+        )}
         <Button size="small" type="link" onClick={() => navigate("localProxy")}>
           {t("agentHub.viewLocalProxy", { defaultValue: "查看本地代理" })}
         </Button>
@@ -358,6 +518,7 @@ export default function AgentHubPage() {
               ]}
             />
           </SettingRow>
+          {showLocalization ? <ClaudeCodeLocalizationSection /> : null}
           {maintenance}
         </Space>
       );
@@ -445,6 +606,37 @@ export default function AgentHubPage() {
             : t("about.installNodeViaFnm", { defaultValue: "安装 Node.js" })}
         </Button>
       </Text>
+      {/* v1↔v2 切换会卸载另一个包：App 级 Modal 确认（禁用 Modal.confirm）。 */}
+      <Modal
+        open={opencodeSwitchOpen}
+        title={t("agentHub.opencodeSwitchConfirmTitle", {
+          channel: opencodeChannel,
+          defaultValue: "切换到 OpenCode {{channel}}？",
+        })}
+        okText={t(getOpenCodeAction(opencodeInfo, opencodeChannel).labelKey)}
+        cancelText={t("common.cancel", { defaultValue: "取消" })}
+        confirmLoading={busyTarget === "opencode"}
+        onCancel={() => setOpencodeSwitchOpen(false)}
+        onOk={async () => {
+          // 先执行再关闭，confirmLoading 才能显示安装进度。
+          try {
+            await runToolUpdate("opencode", opencodeChannel);
+          } finally {
+            setOpencodeSwitchOpen(false);
+          }
+        }}
+      >
+        <Text>
+          {t("agentHub.opencodeSwitchConfirmBody", {
+            from: opencodeInfo?.channel ?? "",
+            to: opencodeChannel,
+            fromPkg: opencodeInfo?.channel ? opencodePackageName(opencodeInfo.channel) : "",
+            toPkg: opencodePackageName(opencodeChannel),
+            defaultValue:
+              "将卸载 {{fromPkg}}（{{from}}）并安装 {{toPkg}}（{{to}}）。两者共用 opencode 命令；配置仍在 ~/.config/opencode，不会被改动。",
+          })}
+        </Text>
+      </Modal>
     </Space>
   );
 }

@@ -14,6 +14,8 @@ const SCENARIOS = [
   "./scenarios/sg-agent-direct-mapping.mjs",
   "./scenarios/sg-gateway-ui-reliability.mjs",
   "./scenarios/sg-upstream-limits-ui.mjs",
+  "./scenarios/sg-codex-cli-optional-ui.mjs",
+  "./scenarios/sg-localization-agentcards-ui.mjs",
   "./scenarios/sg-ui-layout-matrix.mjs",
 ];
 

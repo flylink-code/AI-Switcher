@@ -9,7 +9,10 @@ import {
   codexPluginCatalogOptions,
   codexPluginMarketplacesOptions,
   codexPluginsOptions,
+  localCodexCliVersionOptions,
 } from "@/lib/appQueries";
+import { isCodexCliMissing } from "@/lib/cliUpdate";
+import { useNavigatePage } from "@/lib/navigation";
 import {
   addCodexPluginMarketplace,
   checkCodexPluginUpdate,
@@ -31,9 +34,14 @@ const PLUGIN_PAGE_SIZE = 8;
 export default function CodexPluginsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigatePage();
   const pluginsQuery = useQuery(codexPluginsOptions);
-  const catalogQuery = useQuery(codexPluginCatalogOptions);
-  const marketplacesQuery = useQuery(codexPluginMarketplacesOptions);
+  // 仅本地探测（不查 registry）；加载中不判定，避免闪烁。
+  const cliQuery = useQuery(localCodexCliVersionOptions);
+  const cliKnownMissing = cliQuery.data?.installed === false;
+  // 市场源/目录依赖 Codex CLI：已知缺失时不再拉起子进程。
+  const catalogQuery = useQuery({ ...codexPluginCatalogOptions, enabled: !cliKnownMissing });
+  const marketplacesQuery = useQuery({ ...codexPluginMarketplacesOptions, enabled: !cliKnownMissing });
   const [busyPluginId, setBusyPluginId] = useState<string | null>(null);
   const [marketplaceBusy, setMarketplaceBusy] = useState(false);
   const [marketplaceSource, setMarketplaceSource] = useState("");
@@ -55,12 +63,26 @@ export default function CodexPluginsPage() {
       : pluginsQuery.error
         ? String(pluginsQuery.error)
         : null;
+  const cliMissing = cliKnownMissing || isCodexCliMissing(marketplacesQuery.error);
+  // CLI 缺失已由顶部提示覆盖，不再重复显示红色加载错误。
   const marketplaceError =
-    marketplacesQuery.error instanceof Error
-      ? marketplacesQuery.error.message
-      : marketplacesQuery.error
-        ? String(marketplacesQuery.error)
-        : null;
+    isCodexCliMissing(marketplacesQuery.error)
+      ? null
+      : marketplacesQuery.error instanceof Error
+        ? marketplacesQuery.error.message
+        : marketplacesQuery.error
+          ? String(marketplacesQuery.error)
+          : null;
+
+  const showError = (error: unknown) => {
+    void message.error(
+      isCodexCliMissing(error)
+        ? t("codexPlugins.cliMissingShort", { defaultValue: "需要先安装 Codex CLI" })
+        : error instanceof Error
+          ? error.message
+          : String(error),
+    );
+  };
 
   const refreshAll = async () => {
     await Promise.all([
@@ -84,7 +106,7 @@ export default function CodexPluginsPage() {
       await queryClient.invalidateQueries({ queryKey: ["codexPlugins"] });
       void message.success(t("codexPlugins.toggled"));
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       setBusyPluginId(null);
     }
@@ -97,7 +119,7 @@ export default function CodexPluginsPage() {
       void message.success(result.message || t("codexPlugins.uninstalled"));
       await refreshAll();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       setBusyPluginId(null);
     }
@@ -113,7 +135,7 @@ export default function CodexPluginsPage() {
       setMarketplaceSource("");
       await refreshMarketplaces();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       hide();
       setMarketplaceBusy(false);
@@ -127,7 +149,7 @@ export default function CodexPluginsPage() {
       void message.success(result.message || t("codexPlugins.marketplaceRemoved"));
       await refreshMarketplaces();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       setMarketplaceBusy(false);
     }
@@ -144,7 +166,7 @@ export default function CodexPluginsPage() {
       setInstallId(undefined);
       await refreshAll();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       hide();
       setInstallBusy(false);
@@ -159,7 +181,7 @@ export default function CodexPluginsPage() {
       void message.success(result.message || t("codexPlugins.marketplaceUpdated"));
       await refreshMarketplaces();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       hide();
       setMarketplaceBusy(false);
@@ -173,7 +195,7 @@ export default function CodexPluginsPage() {
       setUpdateStatuses((current) => ({ ...current, [plugin.pluginId]: status }));
       void message.info(status.message);
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       setCheckingPluginId(null);
     }
@@ -189,7 +211,7 @@ export default function CodexPluginsPage() {
       void message.success(t("codexPlugins.checkUpdatesDone", { available, total: statuses.length }));
       await refreshAll();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       hide();
       setCheckingUpdates(false);
@@ -206,7 +228,7 @@ export default function CodexPluginsPage() {
       setUpdateStatuses((current) => ({ ...current, [plugin.pluginId]: status }));
       await refreshAll();
     } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
+      showError(error);
     } finally {
       hide();
       setUpdatingPluginId(null);
@@ -241,6 +263,22 @@ export default function CodexPluginsPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      {cliMissing ? (
+        <Alert
+          type="warning"
+          showIcon
+          message={t("codexPlugins.cliMissingTitle", { defaultValue: "未检测到 Codex CLI" })}
+          description={t("codexPlugins.cliMissingDesc", {
+            defaultValue:
+              "添加/移除/升级市场源、安装/更新/卸载插件需要 Codex CLI；仅安装桌面版时，仍可启停已有插件。",
+          })}
+          action={
+            <Button size="small" onClick={() => navigate("agentHub")}>
+              {t("codexPlugins.cliMissingGoAgent", { defaultValue: "前往 Agent 页安装" })}
+            </Button>
+          }
+        />
+      ) : null}
       <Card
         className="page-surface"
         title={t("codexPlugins.marketplaceTitle")}
@@ -248,7 +286,7 @@ export default function CodexPluginsPage() {
           <Space>
             <Button
               loading={marketplaceBusy}
-              disabled={marketplaceBusyUi}
+              disabled={marketplaceBusyUi || cliMissing}
               onClick={() => void refreshMarketplaceSources()}
             >
               {t("codexPlugins.marketplaceUpdate")}
@@ -256,6 +294,7 @@ export default function CodexPluginsPage() {
             <Button
               icon={<ReloadOutlined />}
               loading={marketplaceBusyUi}
+              disabled={cliMissing}
               onClick={() => void refreshMarketplaces()}
             >
               {t("codexPlugins.marketplaceRefresh")}
@@ -268,6 +307,7 @@ export default function CodexPluginsPage() {
           <Input
             placeholder={t("codexPlugins.marketplaceSourcePlaceholder")}
             value={marketplaceSource}
+            disabled={cliMissing}
             onChange={(event) => setMarketplaceSource(event.target.value)}
             onPressEnter={() => void addMarketplace()}
           />
@@ -275,7 +315,7 @@ export default function CodexPluginsPage() {
             type="primary"
             icon={<PlusOutlined />}
             loading={marketplaceBusy}
-            disabled={!marketplaceSource.trim()}
+            disabled={cliMissing || !marketplaceSource.trim()}
             onClick={() => void addMarketplace()}
           >
             {t("codexPlugins.marketplaceAdd")}
@@ -327,7 +367,7 @@ export default function CodexPluginsPage() {
                   title={t("codexPlugins.confirmRemoveMarketplace")}
                   onConfirm={() => void removeMarketplace(row.name)}
                 >
-                  <Button size="small" danger icon={<DeleteOutlined />} disabled={marketplaceBusyUi}>
+                  <Button size="small" danger icon={<DeleteOutlined />} disabled={marketplaceBusyUi || cliMissing}>
                     {t("codexPlugins.marketplaceRemove")}
                   </Button>
                 </Popconfirm>
@@ -344,14 +384,14 @@ export default function CodexPluginsPage() {
           <Space>
             <Button
               loading={checkingUpdates}
-              disabled={installBusy || marketplaceBusy || plugins.length === 0}
+              disabled={cliMissing || installBusy || marketplaceBusy || plugins.length === 0}
               onClick={() => void checkAllUpdates()}
             >
               {t("codexPlugins.checkAllUpdates")}
             </Button>
             <Button
               type="primary"
-              disabled={!updateAvailableIds.length || checkingUpdates || updatingPluginId !== null}
+              disabled={cliMissing || !updateAvailableIds.length || checkingUpdates || updatingPluginId !== null}
               onClick={() => void applyAvailableUpdates()}
             >
               {t("codexPlugins.updateSelected", { count: updateAvailableIds.length })}
@@ -384,7 +424,7 @@ export default function CodexPluginsPage() {
             placeholder={t("codexPlugins.installSelectPlaceholder")}
             value={installId}
             loading={catalogQuery.isLoading}
-            disabled={installBusy}
+            disabled={cliMissing || installBusy}
             options={catalogOptions}
             optionFilterProp="pluginId"
             optionRender={(option) => {
@@ -447,7 +487,7 @@ export default function CodexPluginsPage() {
             type="primary"
             icon={<PlusOutlined />}
             loading={installBusy}
-            disabled={!installId?.trim()}
+            disabled={cliMissing || !installId?.trim()}
             onClick={() => void install()}
             style={{ flexShrink: 0 }}
           >
@@ -566,6 +606,7 @@ export default function CodexPluginsPage() {
                     size="small"
                     loading={checkingPluginId === plugin.pluginId}
                     disabled={
+                      cliMissing ||
                       checkingUpdates ||
                       (checkingPluginId !== null && checkingPluginId !== plugin.pluginId) ||
                       updatingPluginId !== null
@@ -580,7 +621,7 @@ export default function CodexPluginsPage() {
                       type="link"
                       size="small"
                       loading={updatingPluginId === plugin.pluginId}
-                      disabled={updatingPluginId !== null && updatingPluginId !== plugin.pluginId}
+                      disabled={cliMissing || (updatingPluginId !== null && updatingPluginId !== plugin.pluginId)}
                       onClick={() => void applyUpdate(plugin)}
                     >
                       {t("codexPlugins.update")}
@@ -595,7 +636,7 @@ export default function CodexPluginsPage() {
                       danger
                       icon={<DeleteOutlined />}
                       loading={busyPluginId === plugin.pluginId}
-                      disabled={busyPluginId !== null && busyPluginId !== plugin.pluginId}
+                      disabled={cliMissing || (busyPluginId !== null && busyPluginId !== plugin.pluginId)}
                     >
                       {t("codexPlugins.uninstall")}
                     </Button>

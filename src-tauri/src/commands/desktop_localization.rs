@@ -16,7 +16,8 @@ use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, SystemTime};
 use zip::ZipArchive;
 
 const PACK_SETTING_KEY: &str = "desktop_localization_pack_path";
@@ -65,6 +66,14 @@ pub struct DesktopLocalizationStatus {
     pub pack_fetched_at: Option<i64>,
     pub backup_available: bool,
     pub message: String,
+    /// `partial` 时逐条说明原因（中文）；其它状态为空。
+    pub partial_reasons: Vec<String>,
+    /// 最近一次成功安装时已补丁的前端 JS 数（仅展示，来自 desktop-last-install.json）。
+    pub patched_js_count: Option<usize>,
+    pub log_path: Option<String>,
+    pub last_installed_at: Option<i64>,
+    /// 当前 Claude 是否带 `dynamic/en-US.json`（带则必须有 `dynamic/zh-CN.json`）。
+    pub dynamic_catalog_required: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +102,30 @@ pub struct DesktopLocalizationActionResult {
     pub changed_files: usize,
     pub message: String,
     pub log_path: Option<String>,
+    #[serde(default)]
+    pub claude_version: Option<String>,
+    #[serde(default)]
+    pub patched_js_count: Option<usize>,
+    /// `restarted` | `failed` | `skipped`
+    #[serde(default)]
+    pub restart: Option<String>,
+    #[serde(default)]
+    pub restart_detail: Option<String>,
+}
+
+impl DesktopLocalizationActionResult {
+    fn simple(ok: bool, changed_files: usize, message: String, log_path: Option<String>) -> Self {
+        Self {
+            ok,
+            changed_files,
+            message,
+            log_path,
+            claude_version: None,
+            patched_js_count: None,
+            restart: None,
+            restart_detail: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,13 +189,22 @@ struct LocalizationBackupFile {
 }
 
 #[tauri::command]
-pub fn get_desktop_localization_status(
+pub async fn get_desktop_localization_status(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<DesktopLocalizationStatus> {
     let pack_path = state
         .db
         .with_conn(|conn| get_setting(conn, PACK_SETTING_KEY))?;
-    localization_status(pack_path.as_deref())
+    // 深度判定会全量扫描前端 bundle（百 MB 级），不能占用主线程。
+    localization_status_blocking(pack_path).await
+}
+
+async fn localization_status_blocking(
+    pack_path: Option<String>,
+) -> AppResult<DesktopLocalizationStatus> {
+    tokio::task::spawn_blocking(move || localization_status(pack_path.as_deref()))
+        .await
+        .map_err(|error| AppError::Other(format!("中文化状态检测异常结束: {error}")))?
 }
 
 #[tauri::command]
@@ -292,7 +334,7 @@ pub async fn update_desktop_localization(
         let pack_path = state
             .db
             .with_conn(|conn| get_setting(conn, PACK_SETTING_KEY))?;
-        localization_status(pack_path.as_deref())?.state == "installed"
+        localization_status_blocking(pack_path).await?.state == "installed"
     };
     let info = download_desktop_localization_pack(state.clone()).await?;
     if was_installed {
@@ -306,6 +348,10 @@ pub async fn update_desktop_localization(
             info.version.unwrap_or_else(|| "latest".to_string())
         ),
         log_path: None,
+        claude_version: None,
+        patched_js_count: None,
+        restart: None,
+        restart_detail: None,
     })
 }
 
@@ -341,17 +387,31 @@ async fn run_localization_action(
             result_path: result_path.clone(),
             log_path,
         };
-        let claude_executable = job.install.exe_path.clone();
+        let restart_install = job.install.clone();
         write_json_file(&job_path, &job)?;
         let worker_path = job_path.clone();
         let worker_result = tokio::task::spawn_blocking(move || {
             launch_elevated_worker(&worker_path, &result_path)
         })
         .await
-        .map_err(|error| AppError::Other(format!("中文化工作进程异常结束: {error}")));
+        .map_err(|error| AppError::Other(format!("中文化工作进程异常结束: {error}")))
+        .and_then(|result| result);
         let _ = fs::remove_file(job_path);
-        restart_claude(&claude_executable);
-        worker_result?
+        // 只在 worker 成功后重启（在非提权的应用进程里，避免 Claude 以管理员身份启动）。
+        let restart_outcome = if worker_result.is_ok() {
+            Some(
+                tokio::task::spawn_blocking(move || restart_claude(&restart_install))
+                    .await
+                    .unwrap_or_else(|error| {
+                        RestartOutcome::failed("none", format!("重启任务异常结束: {error}"))
+                    }),
+            )
+        } else {
+            None
+        };
+        finish_action(worker_result, action, move || {
+            restart_outcome.unwrap_or_else(RestartOutcome::skipped)
+        })
     }
 }
 
@@ -701,6 +761,11 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             pack_fetched_at: current_pack.as_ref().and_then(|pack| pack.fetched_at),
             backup_available: false,
             message: "Claude Desktop 中文化首版仅支持 Windows".to_string(),
+            partial_reasons: Vec::new(),
+            patched_js_count: None,
+            log_path: None,
+            last_installed_at: None,
+            dynamic_catalog_required: false,
         });
     }
 
@@ -731,6 +796,11 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
                 pack_fetched_at: current_pack.as_ref().and_then(|pack| pack.fetched_at),
                 backup_available: false,
                 message: "未检测到 Claude Desktop".to_string(),
+                partial_reasons: Vec::new(),
+                patched_js_count: None,
+                log_path: None,
+                last_installed_at: None,
+                dynamic_catalog_required: false,
             });
         };
         let frontend = install
@@ -747,16 +817,36 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             .join("i18n")
             .join("statsig")
             .join(STATSIG_FILE.replace("statsig-", ""));
-        let present = [frontend.exists(), desktop.exists(), statsig.exists()]
-            .into_iter()
-            .filter(|present| *present)
-            .count();
         let locale_is_zh = configured_locale.as_deref() == Some(LOCALIZATION_LOCALE);
-        let localized_state = match (present, locale_is_zh) {
-            (3, true) => "installed",
-            (0, false) => "notInstalled",
-            _ => "partial",
+        let dynamic_required = dynamic_en_us_path(&install.resources_path).is_file();
+        let dynamic_present = dynamic_zh_cn_path(&install.resources_path).is_file();
+        let last_install = read_last_install(&last_install_dir());
+        let files_ready = frontend.is_file()
+            && desktop.is_file()
+            && statsig.is_file()
+            && (!dynamic_required || dynamic_present)
+            && locale_is_zh;
+        // 便宜检查全部就绪后才做全量扫描（带缓存）。
+        let (scan, scan_error) = if files_ready {
+            match cached_scan(&install.resources_path) {
+                Ok(scan) => (Some(scan), None),
+                Err(error) => (None, Some(error.to_string())),
+            }
+        } else {
+            (None, None)
         };
+        let (localized_state, partial_reasons) = evaluate_install_state(&StateInputs {
+            frontend: frontend.is_file(),
+            desktop: desktop.is_file(),
+            statsig: statsig.is_file(),
+            dynamic_required,
+            dynamic_present,
+            locale_is_zh,
+            scan,
+            scan_error,
+            last_install: last_install.clone(),
+            claude_version: install.version.clone(),
+        });
         let backup_available =
             latest_backup_dir(&get_backup_dir().join("desktop-localization"), &install)
                 .ok()
@@ -784,9 +874,17 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             backup_available,
             message: match localized_state {
                 "installed" => "简体中文资源已安装".to_string(),
-                "partial" => "检测到不完整的中文化状态，可重新安装或恢复".to_string(),
+                "partial" => partial_reasons
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "检测到不完整的中文化状态，可重新安装或恢复".to_string()),
                 _ => "尚未安装简体中文资源".to_string(),
             },
+            partial_reasons,
+            patched_js_count: last_install.as_ref().map(|info| info.patched_js_count),
+            log_path: last_install.as_ref().map(|info| info.log_path.clone()),
+            last_installed_at: last_install.as_ref().map(|info| info.installed_at),
+            dynamic_catalog_required: dynamic_required,
         })
     }
 }
@@ -1095,36 +1193,67 @@ fn run_worker_job(job_path: &Path) -> AppResult<()> {
     let job: LocalizationWorkerJob = serde_json::from_slice(&fs::read(job_path)?)?;
     validate_worker_job(job_path, &job)?;
     let _mutex = LocalizationMutex::acquire()?;
-    let result = perform_worker_action(&job);
+    let log = JobLog::new(job.log_path.clone());
+    log.line(&format!(
+        "开始 {}（Claude {}，安装路径 {}）",
+        job.action,
+        job.install.version,
+        job.install.app_path.display()
+    ));
+    let log_path = Some(job.log_path.to_string_lossy().into_owned());
+    let result = perform_worker_action(&job, &log);
     let action_result = match result {
-        Ok(changed_files) => DesktopLocalizationActionResult {
-            ok: true,
-            changed_files,
-            message: if job.action == "restore" {
+        Ok(outcome) => {
+            let message = if job.action == "restore" {
                 "Claude Desktop 已恢复为中文化前状态".to_string()
             } else {
-                "Claude Desktop 简体中文资源安装完成".to_string()
-            },
-            log_path: Some(job.log_path.to_string_lossy().into_owned()),
-        },
-        Err(error) => DesktopLocalizationActionResult {
-            ok: false,
-            changed_files: 0,
-            message: error.to_string(),
-            log_path: Some(job.log_path.to_string_lossy().into_owned()),
-        },
-    };
-    if let Some(parent) = job.log_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(
-        &job.log_path,
-        format!(
-            "{}\r\n{}\r\n",
-            Utc::now().to_rfc3339(),
-            action_result.message
+                format!(
+                    "Claude Desktop 简体中文资源安装完成（Claude {}，已补丁 {} 个前端文件，{} 处语言白名单）",
+                    job.install.version, outcome.patched_js_count, outcome.lists_registered
+                )
+            };
+            if job.action == "install" {
+                let info = LastInstallInfo {
+                    claude_version: job.install.version.clone(),
+                    install_path: job.install.app_path.to_string_lossy().into_owned(),
+                    pack_version: job
+                        .pack_path
+                        .as_deref()
+                        .and_then(|path| pack_info(path.to_str(), true))
+                        .and_then(|info| info.version),
+                    patched_js_count: outcome.patched_js_count,
+                    installed_at: Utc::now().timestamp_millis(),
+                    log_path: job.log_path.to_string_lossy().into_owned(),
+                };
+                if let Err(error) = write_last_install(&last_install_dir(), &info) {
+                    log.line(&format!("写入安装记录失败（不影响安装结果）: {error}"));
+                }
+            } else {
+                clear_last_install(&last_install_dir());
+            }
+            DesktopLocalizationActionResult {
+                claude_version: Some(job.install.version.clone()),
+                patched_js_count: (job.action == "install").then_some(outcome.patched_js_count),
+                ..DesktopLocalizationActionResult::simple(
+                    true,
+                    outcome.changed_files,
+                    message,
+                    log_path,
+                )
+            }
+        }
+        Err(error) => DesktopLocalizationActionResult::simple(
+            false,
+            0,
+            error.to_string(),
+            log_path,
         ),
-    )?;
+    };
+    log.line(&format!(
+        "{}：{}",
+        if action_result.ok { "完成" } else { "失败" },
+        action_result.message
+    ));
     write_json_file(&job.result_path, &action_result)?;
     if action_result.ok {
         Ok(())
@@ -1215,266 +1344,10 @@ impl LocalizationMutex {
     }
 }
 
-fn perform_worker_action(job: &LocalizationWorkerJob) -> AppResult<usize> {
-    stop_claude();
-    
-    (|| {
-        if job.install.kind == "appx" {
-            ensure_write_access(&job.install.resources_path)?;
-        }
-        if job.action == "restore" {
-            restore_latest_backup(&job.backup_root, &job.install, &job.locale_paths)
-        } else if job.action == "install" {
-            perform_install(job)
-        } else {
-            Err(AppError::Config("未知的中文化操作".to_string()))
-        }
-    })()
-}
-
-fn perform_install(job: &LocalizationWorkerJob) -> AppResult<usize> {
-    let pack_path = job
-        .pack_path
-        .as_ref()
-        .ok_or_else(|| AppError::Config("中文资源包路径缺失".to_string()))?;
-    let pack = validate_pack(pack_path)?;
-
-    let installed_frontend = job
-        .install
-        .resources_path
-        .join("ion-dist")
-        .join("i18n")
-        .join("zh-CN.json");
-    if installed_frontend.exists()
-        && latest_backup_dir(&job.backup_root, &job.install)?.is_some() {
-            restore_latest_backup(&job.backup_root, &job.install, &job.locale_paths)?;
-        }
-
-    let changes = collect_install_changes(&job.install, &pack, &job.locale_paths)?;
-    if changes.is_empty() {
-        return Err(AppError::Config(
-            "没有生成任何中文化文件修改".to_string(),
-        ));
-    }
-    let backup_dir = create_backup(&job.backup_root, &job.install, &changes)?;
-    let mut applied_targets = HashSet::new();
-    for change in &changes {
-        if let Err(error) = atomic_write(&change.target, &change.bytes) {
-            let install_error = format!(
-                "写入中文化文件失败 {}: {error}",
-                change.target.display()
-            );
-            if applied_targets.is_empty() {
-                return Err(AppError::Other(format!(
-                    "安装失败，尚未写入任何文件：{install_error}"
-                )));
-            }
-            let rollback_error = restore_backup_targets(
-                &backup_dir,
-                &job.install,
-                &job.locale_paths,
-                &applied_targets,
-            )
-            .err();
-            return Err(AppError::Other(match rollback_error {
-                Some(rollback) => {
-                    format!("安装失败且自动回滚失败：{install_error}；{rollback}")
-                }
-                None => format!("安装失败，已自动回滚：{install_error}"),
-            }));
-        }
-        applied_targets.insert(change.target.clone());
-    }
-    if let Err(error) = prune_backups(&job.backup_root, &job.install) {
-        log::warn!("轮换中文化备份失败（安装已完成）: {error}");
-    }
-    Ok(changes.len())
-}
-
-fn collect_install_changes(
-    install: &LocalizationInstall,
-    pack: &ValidatedPack,
-    locale_paths: &[PathBuf],
-) -> AppResult<Vec<FileChange>> {
-    let mut changes = Vec::new();
-    for (source, target) in [
-        (
-            pack.resources.join(FRONTEND_FILE),
-            install
-                .resources_path
-                .join("ion-dist")
-                .join("i18n")
-                .join("zh-CN.json"),
-        ),
-        (
-            pack.resources.join(DESKTOP_FILE),
-            install.resources_path.join("zh-CN.json"),
-        ),
-        (
-            pack.resources.join(STATSIG_FILE),
-            install
-                .resources_path
-                .join("ion-dist")
-                .join("i18n")
-                .join("statsig")
-                .join("zh-CN.json"),
-        ),
-    ] {
-        changes.push(FileChange {
-            target,
-            bytes: fs::read(source)?,
-        });
-    }
-
-    let replacements = load_hardcoded_replacements(&pack.resources.join(HARDCODED_FILE))?;
-    let assets = install
-        .resources_path
-        .join("ion-dist")
-        .join("assets")
-        .join("v1");
-    let js_files = fs::read_dir(&assets)
-        .map_err(|_| AppError::Config(format!("未找到 Claude 前端资源目录: {}", assets.display())))?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("js"))
-        .collect::<Vec<_>>();
-    if js_files.is_empty() {
-        return Err(AppError::Config("未找到 Claude 前端 JS bundle".to_string()));
-    }
-    let mut language_registered = false;
-    for path in js_files {
-        let original = fs::read_to_string(&path)
-            .map_err(|_| AppError::Config(format!("无法读取 UTF-8 前端资源: {}", path.display())))?;
-        let (mut patched, registered) = register_language(&original);
-        language_registered |= registered;
-        apply_hardcoded_replacements(&mut patched, &replacements);
-        if patched != original {
-            changes.push(FileChange {
-                target: path,
-                bytes: patched.into_bytes(),
-            });
-        }
-    }
-    if !language_registered {
-        return Err(AppError::Config(
-            "未能注册 zh-CN，当前 Claude 前端结构可能已变化".to_string(),
-        ));
-    }
-
-    for path in locale_paths {
-        let mut value = if path.is_file() {
-            read_json_file::<Value>(path)?.ok_or_else(|| {
-                AppError::Config(format!("无法读取 Claude locale 配置: {}", path.display()))
-            })?
-        } else {
-            serde_json::json!({})
-        };
-        let object = value.as_object_mut().ok_or_else(|| {
-            AppError::Config(format!("Claude locale 配置不是 JSON 对象: {}", path.display()))
-        })?;
-        object.insert(
-            "locale".to_string(),
-            Value::String(LOCALIZATION_LOCALE.to_string()),
-        );
-        changes.push(FileChange {
-            target: path.clone(),
-            bytes: serde_json::to_vec_pretty(&value)?,
-        });
-    }
-
-    let mut seen = HashSet::new();
-    changes.retain(|change| seen.insert(change.target.clone()));
-    Ok(changes)
-}
-
-fn register_language(text: &str) -> (String, bool) {
-    let Some(start) = text.find(BASE_LANGUAGES) else {
-        return (text.to_string(), false);
-    };
-    let tail = &text[start + BASE_LANGUAGES.len()..];
-    let Some(end_offset) = tail.find(']') else {
-        return (text.to_string(), false);
-    };
-    let end = start + BASE_LANGUAGES.len() + end_offset;
-    let existing = &text[start..=end];
-    if existing.contains(",\"zh-CN\"") {
-        return (text.to_string(), true);
-    }
-    let without_chinese = existing
-        .replace(",\"zh-CN\"", "")
-        .replace(",\"zh-TW\"", "")
-        .replace(",\"zh-HK\"", "");
-    let replacement = format!("{},\"zh-CN\"]", without_chinese.trim_end_matches(']'));
-    let mut result = String::with_capacity(text.len() + 10);
-    result.push_str(&text[..start]);
-    result.push_str(&replacement);
-    result.push_str(&text[end + 1..]);
-    (result, true)
-}
-
-fn load_hardcoded_replacements(path: &Path) -> AppResult<Vec<(String, String)>> {
-    let value: Value = serde_json::from_slice(&fs::read(path)?)?;
-    let array = value
-        .as_array()
-        .ok_or_else(|| AppError::Config("硬编码翻译映射必须是数组".to_string()))?;
-    if array.len() > MAX_HARDCODED_REPLACEMENTS {
-        return Err(AppError::Config("硬编码翻译映射条目过多".to_string()));
-    }
-    let structural = [
-        "hour", "hours", "minute", "minutes", "second", "seconds", "day", "days",
-        "week", "weeks", "month", "months", "year", "years",
-    ];
-    let mut replacements = Vec::new();
-    for item in array {
-        let pair = item
-            .as_array()
-            .filter(|pair| pair.len() == 2)
-            .ok_or_else(|| AppError::Config("硬编码翻译映射条目格式无效".to_string()))?;
-        let source = pair[0]
-            .as_str()
-            .ok_or_else(|| AppError::Config("硬编码翻译源文本无效".to_string()))?;
-        let target = pair[1]
-            .as_str()
-            .ok_or_else(|| AppError::Config("硬编码翻译目标文本无效".to_string()))?;
-        if source.is_empty()
-            || target.is_empty()
-            || source == target
-            || source.len() > 1_000
-            || target.len() > 2_000
-            || source.contains('\n')
-            || structural.contains(&source)
-            || source == "\"Search\""
-        {
-            continue;
-        }
-        replacements.push((source.to_string(), target.to_string()));
-    }
-    replacements.sort_by_key(|item| std::cmp::Reverse(item.0.len()));
-    Ok(replacements)
-}
-
-fn apply_hardcoded_replacements(text: &mut String, replacements: &[(String, String)]) {
-    for (source, target) in replacements {
-        if source
-            .chars()
-            .any(|character| matches!(character, '\\' | '"' | '\'' | '`' | '=' | ';'))
-            || source.contains("=>")
-        {
-            continue;
-        }
-        let source_json = match serde_json::to_string(source) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        if text.contains(&source_json) {
-            let target_json = match serde_json::to_string(target) {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
-            *text = text.replace(&source_json, &target_json);
-        }
-    }
-}
+include!("desktop_localization_parts/patch.rs");
+include!("desktop_localization_parts/job.rs");
+include!("desktop_localization_parts/process.rs");
+include!("desktop_localization_parts/state.rs");
 
 fn create_backup(
     backup_root: &Path,
@@ -1543,12 +1416,20 @@ fn restore_latest_backup(
     install: &LocalizationInstall,
     locale_paths: &[PathBuf],
 ) -> AppResult<usize> {
-    let backup_dir = latest_backup_dir(backup_root, install)?.ok_or_else(|| {
-        AppError::Config(format!(
-            "没有找到与 Claude Desktop {} 匹配的中文化备份",
-            install.version
-        ))
-    })?;
+    let Some(backup_dir) = latest_clean_backup_dir(backup_root, install, locale_paths)? else {
+        // 有备份但都被旧版中文化污染过：恢复到脏备份等于没恢复。
+        return Err(AppError::Config(
+            if latest_backup_dir(backup_root, install)?.is_some() {
+                "没有找到未被中文化污染的备份，请通过应用商店修复或重装 Claude Desktop 后再安装"
+                    .to_string()
+            } else {
+                format!(
+                    "没有找到与 Claude Desktop {} 匹配的中文化备份",
+                    install.version
+                )
+            },
+        ));
+    };
     restore_backup_dir(&backup_dir, install, locale_paths)
 }
 
@@ -1557,7 +1438,12 @@ fn restore_backup_dir(
     install: &LocalizationInstall,
     locale_paths: &[PathBuf],
 ) -> AppResult<usize> {
-    restore_backup_dir_filtered(backup_dir, install, locale_paths, None)
+    let restored = restore_backup_dir_filtered(backup_dir, install, locale_paths, None)?;
+    // 旧版逻辑装过 dynamic/zh-CN.json 但备份没记录：整份恢复后补删。
+    let manifest: LocalizationBackupManifest =
+        serde_json::from_slice(&fs::read(backup_dir.join("manifest.json"))?)?;
+    restore_orphan_dynamic_catalog(install, &manifest, locale_paths)?;
+    Ok(restored)
 }
 
 fn restore_backup_targets(
@@ -1665,6 +1551,7 @@ fn validate_restore_target(
             .join("i18n")
             .join("statsig")
             .join("zh-CN.json"),
+        dynamic_zh_cn_path(&install.resources_path),
     ];
     let assets_dir = install
         .resources_path
@@ -1685,7 +1572,12 @@ fn validate_restore_target(
     )))
 }
 
-fn prune_backups(backup_root: &Path, install: &LocalizationInstall) -> AppResult<()> {
+/// 保留最新 `BACKUPS_TO_KEEP` 份；另外永远保留最新的一份干净备份（防止唯一基线被轮换掉）。
+fn prune_backups(
+    backup_root: &Path,
+    install: &LocalizationInstall,
+    locale_paths: &[PathBuf],
+) -> AppResult<()> {
     let version_dir = backup_root.join(safe_component(&install.version));
     let mut candidates = fs::read_dir(version_dir)?
         .flatten()
@@ -1693,7 +1585,11 @@ fn prune_backups(backup_root: &Path, install: &LocalizationInstall) -> AppResult
         .filter(|path| path.is_dir())
         .collect::<Vec<_>>();
     candidates.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+    let keep_clean = latest_clean_backup_dir(backup_root, install, locale_paths)?;
     for old in candidates.into_iter().skip(BACKUPS_TO_KEEP) {
+        if keep_clean.as_ref() == Some(&old) {
+            continue;
+        }
         if let Err(error) = fs::remove_dir_all(&old) {
             log::warn!("删除过期中文化备份失败 {}: {error}", old.display());
         }
@@ -1779,6 +1675,10 @@ fn verify_write_access(resources: &Path) -> AppResult<()> {
             .join("statsig"),
         resources
             .join("ion-dist")
+            .join("i18n")
+            .join("dynamic"),
+        resources
+            .join("ion-dist")
             .join("assets")
             .join("v1"),
     ] {
@@ -1822,24 +1722,6 @@ fn command_failure_summary(output: &std::process::Output) -> String {
         format!("exit {}", output.status)
     } else {
         summary.chars().take(800).collect()
-    }
-}
-
-fn stop_claude() {
-    #[cfg(windows)]
-    {
-        let mut command = Command::new(windows_system_executable("taskkill.exe"));
-        command.args(["/IM", "Claude.exe", "/T", "/F"]);
-        hide_console_window(&mut command);
-        let _ = command.status();
-    }
-}
-
-fn restart_claude(executable: &Path) {
-    if executable.is_file() {
-        if let Err(error) = Command::new(executable).spawn() {
-            log::warn!("中文化完成后无法重启 Claude Desktop: {error}");
-        }
     }
 }
 
@@ -1915,11 +1797,12 @@ mod tests {
     #[test]
     fn language_registration_is_idempotent() {
         let original = format!("const languages={BASE_LANGUAGES}];");
-        let (patched, registered) = register_language(&original);
-        assert!(registered);
+        let (patched, registration) = register_language(&original);
+        assert_eq!(registration.lists_found, 1);
         assert!(patched.contains(",\"zh-CN\"]"));
-        let (again, registered_again) = register_language(&patched);
-        assert!(registered_again);
+        let (again, registration_again) = register_language(&patched);
+        assert_eq!(registration_again.lists_found, 1);
+        assert_eq!(registration_again.lists_changed, 0);
         assert_eq!(again, patched);
     }
 
@@ -2216,6 +2099,13 @@ mod tests {
         assert_eq!(info.source, "local");
         assert!(!info.valid);
     }
+}
+
+#[cfg(test)]
+mod localization_fix_tests {
+    use super::*;
+
+    include!("desktop_localization_parts/tests.rs");
 }
 
 #[cfg(not(windows))]

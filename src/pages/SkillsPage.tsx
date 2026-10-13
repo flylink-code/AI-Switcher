@@ -49,7 +49,27 @@ import {
   unmanagedSkillsOptions,
 } from "@/lib/appQueries";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
+/** 技能描述在表格里最多显示的行数，超出省略，悬停查看全文。 */
+const DESCRIPTION_MAX_ROWS = 2;
+const DESCRIPTION_MAX_WIDTH = 420;
+
+/** 表格里的技能描述：限制行数和宽度，避免长描述撑满整行；悬停显示全文。 */
+function SkillDescription({ value }: { value?: string | null }) {
+  const text = value?.trim();
+  if (!text) return <Text type="secondary">—</Text>;
+  return (
+    <Paragraph
+      style={{ margin: 0, maxWidth: DESCRIPTION_MAX_WIDTH }}
+      ellipsis={{
+        rows: DESCRIPTION_MAX_ROWS,
+        tooltip: { title: text, overlayStyle: { maxWidth: 520 } },
+      }}
+    >
+      {text}
+    </Paragraph>
+  );
+}
 const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
 const SKILLS_TARGET_KEY = "cs.skillsTarget";
 const DISCOVERY_PAGE_SIZE = 5;
@@ -427,7 +447,7 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
           locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.discoveryEmpty")} /> }}
           columns={[
             { title: t("skills.name"), dataIndex: "directory", render: (name: string) => <Text strong>{name}</Text> },
-            { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
+            { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => <SkillDescription value={value} /> },
             {
               title: t("skills.discoveryFoundIn"),
               dataIndex: "foundIn",
@@ -504,7 +524,7 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
           locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.empty")} /> }}
           columns={[
             { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
-            { title: t("skills.descriptionLabel"), render: (_: unknown, skill: Skill) => (i18n.language === "zh-CN" ? skill.descriptionZh ?? skill.description : skill.description) || <Text type="secondary">—</Text> },
+            { title: t("skills.descriptionLabel"), render: (_: unknown, skill: Skill) => <SkillDescription value={i18n.language === "zh-CN" ? skill.descriptionZh ?? skill.description : skill.description} /> },
             { title: t("skills.source"), render: (_: unknown, skill: Skill) => skill.source?.sourceUrl ? <Text copyable={{ text: skill.source.sourceUrl }} ellipsis style={{ maxWidth: 220 }}>{skill.source.sourceUrl}</Text> : <Text type="secondary">—</Text> },
             { title: t("skills.enabled"), render: (_: unknown, skill: Skill) => <Switch checked={skill.enabled} disabled={busy} onChange={(checked) => void toggle(skill, checked)} /> },
             { title: t("skills.updateStatus"), render: (_: unknown, skill: Skill) => <SkillStatus status={updateStatuses[skill.name]} t={t} /> },
@@ -603,7 +623,7 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
               columns={[
                 { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
                 { title: t("skills.path"), dataIndex: "path", render: (path: string) => path || <Text type="secondary">/</Text> },
-                { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
+                { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => <SkillDescription value={value} /> },
               ]}
             />
           </Space>

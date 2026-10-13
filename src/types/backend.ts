@@ -460,6 +460,12 @@ export interface DesktopLocalizationStatus {
   packFetchedAt?: number | null;
   backupAvailable: boolean;
   message: string;
+  /** partial 时逐条原因（中文，后端生成）。旧 mock 可能缺字段，读取处用 ?? []。 */
+  partialReasons?: string[];
+  patchedJsCount?: number | null;
+  logPath?: string | null;
+  lastInstalledAt?: number | null;
+  dynamicCatalogRequired?: boolean;
 }
 
 export interface DesktopLocalizationPackInfo {
@@ -482,6 +488,10 @@ export interface DesktopLocalizationActionResult {
   changedFiles: number;
   message: string;
   logPath?: string | null;
+  claudeVersion?: string | null;
+  patchedJsCount?: number | null;
+  restart?: "restarted" | "failed" | "skipped" | null;
+  restartDetail?: string | null;
 }
 
 export interface ClaudeCodeLocalizationStatus {

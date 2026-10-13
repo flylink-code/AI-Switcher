@@ -1,6 +1,7 @@
 # Reference examples (vendored, not part of our source)
 .zcode/
 .claude/
+.agents/
 
 # Dependencies
 node_modules/

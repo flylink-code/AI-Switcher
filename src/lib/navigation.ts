@@ -28,7 +28,8 @@ export function resolvePageNavigation(key: PageKey): PageKey {
     setWorkspaceTab("sessions");
     return "workspace";
   }
-  if (key === "agentTools") {
+  // 中文化已迁入 Agent 页对应卡的「高级设置」；旧 `localization` 键仍有效，落到 Agent 页。
+  if (key === "agentTools" || key === "localization") {
     return "agentHub";
   }
   return key;

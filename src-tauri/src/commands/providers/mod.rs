@@ -129,6 +129,16 @@ pub fn set_claude_code_default_permission_mode(mode: String) -> AppResult<String
 }
 
 #[tauri::command]
+pub fn get_claude_desktop_auto_mode() -> AppResult<bool> {
+    Ok(claude_desktop::read_auto_mode_enabled())
+}
+
+#[tauri::command]
+pub fn set_claude_desktop_auto_mode(enabled: bool) -> AppResult<bool> {
+    claude_desktop::apply_auto_mode_enabled(enabled)
+}
+
+#[tauri::command]
 pub fn get_claude_code_agent_settings() -> AppResult<claude_code::ClaudeCodeAgentSettings> {
     claude_code::read_agent_settings()
 }

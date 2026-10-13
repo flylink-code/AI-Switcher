@@ -25,10 +25,13 @@ export function MetricTrendBars({
   data,
   period,
   metric,
+  fill = false,
 }: {
   data: UsageTrendPoint[];
   period: OverviewPeriod;
   metric: TrendMetric;
+  /** 填满父级剩余高度（父级需为 flex 列）；默认沿用固定高度。 */
+  fill?: boolean;
 }) {
   const { t } = useTranslation();
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -47,8 +50,17 @@ export function MetricTrendBars({
   if (buckets.length === 0) return null;
 
   return (
-    <div ref={scrollerRef} className={`metric-trend-bars ${hourly ? "metric-trend-bars-hour" : "metric-trend-bars-day"}`} style={{ marginTop: 8 }}>
-      <div className="hourly-bars" role="img" aria-label={t("workbench.trendChart", { defaultValue: "用量趋势" })} style={{ height: 112 }}>
+    <div
+      ref={scrollerRef}
+      className={`metric-trend-bars ${hourly ? "metric-trend-bars-hour" : "metric-trend-bars-day"}${fill ? " metric-trend-bars-fill" : ""}`}
+      style={{ marginTop: 8 }}
+    >
+      <div
+        className="hourly-bars"
+        role="img"
+        aria-label={t("workbench.trendChart", { defaultValue: "用量趋势" })}
+        style={fill ? undefined : { height: 112 }}
+      >
         {buckets.map((item, index) => {
           const level = intensityLevel(item.value, max);
           const heightPct = max > 0 ? (item.value / max) * 100 : 0;

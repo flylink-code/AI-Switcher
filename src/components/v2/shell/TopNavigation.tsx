@@ -92,7 +92,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
     if (
       key === "settings" ||
       key === "environment" ||
-      key === "localization" ||
       key === "about" ||
       key === "localProxy"
     ) {

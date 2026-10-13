@@ -39,7 +39,7 @@ export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   ) {
     return true;
   }
-  if (navKey === "settings" && ["settings", "about", "environment", "localization", "localProxy"].includes(activeKey)) {
+  if (navKey === "settings" && ["settings", "about", "environment", "localProxy"].includes(activeKey)) {
     return true;
   }
   return false;

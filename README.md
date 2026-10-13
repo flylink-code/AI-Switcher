@@ -29,7 +29,7 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 - **Kiro 网关**：`127.0.0.1:15831`，账号池与额度调度。可导入 Builder ID、Social、Kiro IDE token，或用设备码 / Social PKCE 登录。用量只计 Kiro 这一跳。个人自用，请自行评估上游条款。
 - **工作区**：MCP、Prompts、Skills、Agents、插件、项目快照；按当前 Agent 只显示其支持的 Tab。
 - **会话与用量**：浏览、搜索、备份本地会话；合并代理日志与会话事件估算费用。
-- **工具与汉化**：安装/更新各 Agent CLI；Claude Code、VS Code/Cursor 中文包（对照 GitHub latest，可装可卸）。
+- **工具与汉化**：安装/更新各 Agent CLI；Claude Code、VS Code/Cursor、Claude Desktop 中文包（对照 GitHub latest，可装可卸）。中文化在 Agent 页 Claude Code / Claude Desktop 卡的「高级设置」里，默认只显示状态与一键安装/卸载，点「查看详情」看版本与路径。
 
 ## 路径
 

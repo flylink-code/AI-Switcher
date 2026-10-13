@@ -220,6 +220,14 @@ export async function setClaudeCodeDefaultPermissionMode(mode: string): Promise<
   return call<string>("set_claude_code_default_permission_mode", { mode });
 }
 
+export async function getClaudeDesktopAutoMode(): Promise<boolean> {
+  return call<boolean>("get_claude_desktop_auto_mode");
+}
+
+export async function setClaudeDesktopAutoMode(enabled: boolean): Promise<boolean> {
+  return call<boolean>("set_claude_desktop_auto_mode", { enabled });
+}
+
 export async function getClaudeCodeAgentSettings(): Promise<ClaudeCodeAgentSettings> {
   return call<ClaudeCodeAgentSettings>("get_claude_code_agent_settings");
 }

@@ -135,25 +135,42 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
     checks.push(check_codex_plugins());
 
     let codex_info = get_codex_cli_version(Some(false)).await?;
-    checks.push(DoctorCheck::new(
-        "codex_cli",
-        "Codex CLI",
-        codex_info.installed && !codex_info.installed_but_broken,
-        match (
-            codex_info.installed,
-            codex_info.current_version.as_deref(),
-            codex_info.executable_path.as_deref(),
-            codex_info.error.as_deref(),
-        ) {
-            (true, Some(version), Some(path), _) => format!("已安装 {version} @ {path}"),
-            (true, Some(version), None, _) => format!("已安装 {version}"),
-            (true, None, Some(path), _) => format!("已检测到可执行文件: {path}"),
-            (_, _, _, Some(error)) => error.to_string(),
-            _ => "未检测到 Codex CLI".into(),
-        },
+    checks.push(codex_cli_check(
+        codex_info.installed,
+        codex_info.installed_but_broken,
+        codex_info.current_version.as_deref(),
+        codex_info.executable_path.as_deref(),
+        codex_info.error.as_deref(),
     ));
 
     Ok(DoctorReport { checks })
+}
+
+/// Codex CLI 为可选依赖（仅装桌面版时配置写入与切换不受影响）：
+/// 未安装时按提示级处理（ok=true，文案说明可选）；已安装但损坏仍报失败。
+fn codex_cli_check(
+    installed: bool,
+    broken: bool,
+    version: Option<&str>,
+    path: Option<&str>,
+    error: Option<&str>,
+) -> DoctorCheck {
+    if !installed {
+        return DoctorCheck::new(
+            "codex_cli",
+            "Codex CLI",
+            true,
+            "未安装 Codex CLI（可选）：配置写入与切换不依赖 CLI，仅插件市场需要；仅用桌面版可忽略。",
+        );
+    }
+    let detail = match (version, path, error) {
+        (Some(version), Some(path), _) => format!("已安装 {version} @ {path}"),
+        (Some(version), None, _) => format!("已安装 {version}"),
+        (None, Some(path), _) => format!("已检测到可执行文件: {path}"),
+        (_, _, Some(error)) => error.to_string(),
+        _ => "未检测到 Codex CLI".into(),
+    };
+    DoctorCheck::new("codex_cli", "Codex CLI", !broken, detail)
 }
 
 /// Sync Codex provider visibility + session usage for Codex/Claude Code.
@@ -629,4 +646,30 @@ fn truncate(text: &str, max: usize) -> String {
     }
     let shortened: String = trimmed.chars().take(max).collect();
     format!("{shortened}…")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codex_cli_missing_is_optional_hint() {
+        let check = codex_cli_check(false, false, None, None, Some("program not found"));
+        assert!(check.ok);
+        assert!(check.detail.contains("可选"));
+        assert!(!check.detail.contains("program not found"));
+    }
+
+    #[test]
+    fn codex_cli_broken_still_fails() {
+        let check = codex_cli_check(true, true, None, Some("C:/codex.cmd"), Some("boom"));
+        assert!(!check.ok);
+    }
+
+    #[test]
+    fn codex_cli_installed_reports_version() {
+        let check = codex_cli_check(true, false, Some("0.153.4"), Some("C:/codex.cmd"), None);
+        assert!(check.ok);
+        assert!(check.detail.contains("0.153.4"));
+    }
 }

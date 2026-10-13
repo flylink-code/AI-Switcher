@@ -209,17 +209,6 @@ export default function SettingsPage() {
         />
       </SettingsSection>
 
-      {/* Localization (zh-CN only feature) */}
-      {language === "zh-CN" && (
-        <SettingsSection title={t("settings.sectionLocalization", { defaultValue: "本地化" })}>
-          <SettingsRow
-            title={t("nav.localization", { defaultValue: "汉化与本地化" })}
-            description={t("settings.localizationHint", { defaultValue: "客户端汉化与翻译配置" })}
-            onClick={() => navigate("localization")}
-          />
-        </SettingsSection>
-      )}
-
       {/* About */}
       <SettingsSection title={t("settings.sectionAbout", { defaultValue: "关于" })}>
         <SettingsRow

@@ -1,14 +1,17 @@
-import { useMemo, useState } from "react";
-import { Alert, Button, Card, Segmented, Tooltip, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Card, Popover, Segmented, Tooltip, Typography } from "antd";
 import ArrowRightOutlined from "@ant-design/icons/es/icons/ArrowRightOutlined";
-import CheckCircleFilled from "@ant-design/icons/es/icons/CheckCircleFilled";
+import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import CloudServerOutlined from "@ant-design/icons/es/icons/CloudServerOutlined";
+import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
+import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
 import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { MetricTrendBars, type TrendMetric } from "@/components/usage/MetricTrendBars";
 import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
-import { usageSourceIcon, isUsageSourceFilter, usageSourceLabelKey } from "@/components/UsageSourceIcons";
+import { isUsageSourceFilter, usageSourceLabelKey } from "@/components/UsageSourceIcons";
 import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
 import { Metric } from "@/components/ui";
 import {
@@ -43,7 +46,9 @@ type OverviewPeriod = "today" | "24h" | 7 | 30;
 const OVERVIEW_PERIODS: OverviewPeriod[] = ["today", "24h", 7, 30];
 
 /**
- * 概览：状态条 → 所选时间范围的用量统计与趋势 → Agent 活动与排行 → 需要关注。
+ * 概览：状态条（异常明细在浮层）→ 所选时间范围的用量统计与趋势（弹性高度）
+ * → Agent 活动 | 模型与供应商排行 → 过去一年日历。
+ * 页面撑满外壳可用高度，大窗口下不出现纵向滚动；窗口过小时按最小高度滚动。
  * 连接关系在 Agent 页；请求明细在用量统计。
  */
 export default function WorkbenchPage() {
@@ -323,105 +328,127 @@ export default function WorkbenchPage() {
   }
   const healthy = attentionItems.length === 0;
   const heroEmpty = dashboardQuery.data != null && requestCount === 0;
-  const recentGroups = [...activityGroups.values()].sort((a, b) => b.lastAt - a.lastAt).slice(0, 6);
+  // 窗口高度较矮时切到紧凑档：日历格更小（其余间距由 CSS 媒体查询处理）
+  const compactHeight = useMediaQuery("(max-height: 800px)");
+
+  const attentionContent = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 260 }}>
+      {attentionItems.map((item) => (
+        <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, minHeight: 22 }}>
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", flex: "0 0 auto", backgroundColor: "var(--color-warning, #faad14)" }} />
+          <span>{item.text}</span>
+          <Button type="link" size="small" icon={<ArrowRightOutlined />} iconPosition="end" onClick={() => navigate(item.page)} style={{ marginLeft: "auto", fontSize: 12, padding: 0 }}>
+            {item.action}
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div
-      className="dashboard-container"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "14px",
-        maxWidth: 1360,
-        margin: "0 auto",
-        width: "100%",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          minHeight: 48,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "0 4px",
-          fontSize: 12.5,
-          color: "var(--color-text-secondary)",
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          aria-hidden
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            flex: "0 0 auto",
-            backgroundColor: healthy ? "var(--color-success, #52c41a)" : "var(--color-warning, #faad14)",
-          }}
-        />
-        <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>
-          {healthy
-            ? t("workbench.stripHealthy", { defaultValue: "系统运行正常" })
-            : t("workbench.stripAttention", { defaultValue: "需要关注" })}
-        </span>
-        <span aria-hidden style={{ color: "var(--color-text-tertiary)" }}>·</span>
-        <span>
-          {providersLoaded
-            ? t("workbench.stripProviders", { count: providerCount, defaultValue: "{{count}} 个供应商" })
-            : "…"}
-        </span>
-        <span aria-hidden style={{ color: "var(--color-text-tertiary)" }}>·</span>
-        <span>
-          {t("workbench.stripReverseAccounts", {
-            count: reverseAccountCount,
-            defaultValue: "{{count}} 个反代账号",
-          })}
-        </span>
-        <span aria-hidden style={{ color: "var(--color-text-tertiary)" }}>·</span>
-        <span>
-          {agentRunningCount != null
-            ? t("workbench.stripAgentsActive", {
-                count: agentRunningCount,
-                defaultValue: "{{count}} 个 Agent 活跃",
-              })
-            : "…"}
-        </span>
+    <div className="dashboard-container">
+      <div className="overview-status-strip" role="group" aria-label={t("workbench.stripAria", { defaultValue: "概览状态" })}>
+        {healthy ? (
+          <span className="overview-status-pill" data-tone="ok">
+            <span className="overview-status-dot" aria-hidden />
+            {t("workbench.stripHealthy", { defaultValue: "系统运行正常" })}
+          </span>
+        ) : (
+          <Popover trigger={["click", "hover"]} placement="bottomLeft" content={attentionContent}>
+            <Button type="text" className="overview-status-pill" data-tone="warn" aria-haspopup="dialog">
+              <span className="overview-status-dot" aria-hidden />
+              {`${t("workbench.stripAttention", { defaultValue: "需要关注" })} · ${attentionItems.length}`}
+              <DownOutlined aria-hidden className="overview-status-caret" />
+            </Button>
+          </Popover>
+        )}
+        <div className="overview-status-stats">
+          {/* 统计 chip：窄条时标签视觉隐藏、改显图标；title 给完整句子 */}
+          <span
+            className="overview-stat-chip"
+            title={providersLoaded ? t("workbench.stripProviders", { count: providerCount, defaultValue: "{{count}} 个供应商" }) : undefined}
+          >
+            <CloudServerOutlined className="overview-stat-icon" aria-hidden />
+            <span className="overview-stat-label">{t("workbench.stripChipProviders", { defaultValue: "供应商" })}</span>
+            <b className="overview-stat-num">{providersLoaded ? providerCount : "…"}</b>
+          </span>
+          <span
+            className="overview-stat-chip"
+            title={t("workbench.stripReverseAccounts", { count: reverseAccountCount, defaultValue: "{{count}} 个反代账号" })}
+          >
+            <ApiOutlined className="overview-stat-icon" aria-hidden />
+            <span className="overview-stat-label">{t("workbench.stripChipReverse", { defaultValue: "反代账号" })}</span>
+            <b className="overview-stat-num">{reverseAccountCount}</b>
+          </span>
+          <span
+            className="overview-stat-chip"
+            title={
+              agentRunningCount != null
+                ? t("workbench.stripAgentsActive", { count: agentRunningCount, defaultValue: "{{count}} 个 Agent 活跃" })
+                : undefined
+            }
+          >
+            <RobotOutlined className="overview-stat-icon" aria-hidden />
+            <span className="overview-stat-label">{t("workbench.stripChipAgents", { defaultValue: "Agent 活跃" })}</span>
+            <b className="overview-stat-num">{agentRunningCount ?? "…"}</b>
+          </span>
+        </div>
         <Button
-          type="link"
+          type="text"
           size="small"
+          className="overview-status-link"
           icon={<ArrowRightOutlined />}
           iconPosition="end"
           onClick={() => navigate("providers")}
-          style={{ marginLeft: "auto", fontSize: 12, padding: 0 }}
         >
-          {t("workbench.stripViewStatus", { defaultValue: "查看状态" })}
+          <span className="overview-status-link-text">{t("workbench.stripViewStatus", { defaultValue: "查看状态" })}</span>
         </Button>
       </div>
-
-      <Card size="small" className="page-surface workbench-chart-card" styles={{ body: { padding: "14px 20px 12px" } }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-          <Segmented<OverviewPeriod>
-            size="small"
-            value={period}
-            onChange={setPeriod}
-            options={OVERVIEW_PERIODS.map((value) => ({
-              value,
-              label: t(overviewPeriodKey(value), { defaultValue: overviewPeriodFallback(value) }),
-            }))}
-          />
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+      <Card size="small" className="page-surface overview-trend-card">
+        <div className="overview-trend-head">
+          <div className="overview-trend-filters">
+            <Segmented<OverviewPeriod>
+              size="small"
+              value={period}
+              onChange={setPeriod}
+              aria-label={t("usage.timeRange", { defaultValue: "时间范围" })}
+              options={OVERVIEW_PERIODS.map((value) => ({
+                value,
+                label: t(overviewPeriodKey(value), { defaultValue: overviewPeriodFallback(value) }),
+              }))}
+            />
             <UsageSourceFilterSelect value={heatmapSource} onChange={setHeatmapSource} t={t} />
-            <Button type="link" size="small" icon={<ArrowRightOutlined />} iconPosition="end" onClick={() => navigate("usage")} style={{ fontSize: 12, padding: 0 }}>
+          </div>
+          <div className="overview-trend-actions">
+            {dashboardQuery.error || heroEmpty ? null : (
+              <Segmented<TrendMetric>
+                size="small"
+                value={trendMetric}
+                onChange={setTrendMetric}
+                aria-label={t("usage.metric", { defaultValue: "图表指标" })}
+                options={[
+                  { value: "requests", label: t("usage.requests", { defaultValue: "请求" }) },
+                  { value: "tokens", label: "Tokens" },
+                  { value: "cost", label: t("usage.estimatedCost", { defaultValue: "成本" }) },
+                ]}
+              />
+            )}
+            <Button
+              type="link"
+              size="small"
+              className="overview-trend-link"
+              icon={<ArrowRightOutlined />}
+              iconPosition="end"
+              onClick={() => navigate("usage")}
+            >
               {t("dashboard.viewUsage", { defaultValue: "用量详情" })}
             </Button>
           </div>
         </div>
-
         {dashboardQuery.error ? (
           <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
         ) : heroEmpty ? (
-          <div style={{ padding: "36px 0 32px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, textAlign: "center" }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>
               {t("workbench.emptyUsageTitle", { defaultValue: "所选时间范围内暂无请求" })}
             </span>
@@ -431,7 +458,7 @@ export default function WorkbenchPage() {
           </div>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+            <div className="overview-metric-grid">
               <Metric label={t("usage.requests", { defaultValue: "请求数" })} value={formatCompactNumber(requestCount)} supporting={deltaText(deltas.requests)} />
               <Metric label={t("usage.totalTokens", { defaultValue: "Tokens" })} value={formatCompactNumber(totalTokens)} supporting={deltaText(deltas.tokens)} />
               <Metric
@@ -463,121 +490,83 @@ export default function WorkbenchPage() {
                 }
               />
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-              <Segmented<TrendMetric>
-                size="small"
-                value={trendMetric}
-                onChange={setTrendMetric}
-                options={[
-                  { value: "requests", label: t("usage.requests", { defaultValue: "请求" }) },
-                  { value: "tokens", label: "Tokens" },
-                  { value: "cost", label: t("usage.estimatedCost", { defaultValue: "成本" }) },
-                ]}
-              />
-            </div>
-            <MetricTrendBars data={trend} period={period} metric={trendMetric} />
+            <MetricTrendBars data={trend} period={period} metric={trendMetric} fill />
           </>
         )}
       </Card>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 14 }}>
-        <Card size="small" className="page-surface" styles={{ body: { padding: "14px 20px" } }}>
+      <div className="overview-mid-grid">
+        <Card size="small" className="page-surface overview-panel-card">
           <span style={{ fontSize: 13, fontWeight: 600 }}>{t("workbench.agentActivity", { defaultValue: "Agent 活动" })}</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          <div className="overview-agent-list">
             {visibleTargets.map((target) => {
               const group = activityGroups.get(target);
               const running = isAgentProcessRunning(target);
+              const name = activityAgentLabel(target);
+              const statusText = running
+                ? t("workbench.agentRunning", { defaultValue: "活跃" })
+                : t("workbench.agentIdle", { defaultValue: "空闲" });
+              const tokensText = group ? formatCompactNumber(group.tokens) : "0";
+              const requestsText = String(group?.requests ?? 0);
+              const lastText = group ? relativeTime(group.lastAt) : "—";
+              // 窄卡隐藏的列通过整行 title 悬停可见
+              const rowTitle = [
+                name,
+                statusText,
+                `${t("usage.totalTokens", { defaultValue: "总 Token" })} ${tokensText}`,
+                `${t("usage.requests", { defaultValue: "请求数" })} ${requestsText}`,
+                lastText,
+              ].join(" · ");
               return (
-                <div key={target} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: running ? "var(--color-success, #52c41a)" : "var(--color-text-tertiary)" }} />
-                  <Text ellipsis style={{ flex: "1 1 auto", fontSize: 12 }}>{activityAgentLabel(target)}</Text>
-                  <span style={{ color: "var(--color-text-tertiary)" }}>
-                    {running
-                      ? t("workbench.agentRunning", { defaultValue: "活跃" })
-                      : t("workbench.agentIdle", { defaultValue: "空闲" })}
-                  </span>
-                  <span style={{ minWidth: 72, textAlign: "right", color: "var(--color-text-secondary)" }}>
-                    {group ? `${formatCompactNumber(group.tokens)}` : "0"}
-                  </span>
-                  <span style={{ minWidth: 48, textAlign: "right", color: "var(--color-text-tertiary)" }}>
-                    {group?.requests ?? 0}
-                  </span>
-                  <span style={{ minWidth: 64, textAlign: "right", color: "var(--color-text-tertiary)" }}>
-                    {group ? relativeTime(group.lastAt) : "—"}
-                  </span>
+                <div key={target} className="overview-agent-row" data-running={running} title={rowTitle}>
+                  <span className="overview-agent-dot" aria-hidden />
+                  <span className="overview-agent-name">{name}</span>
+                  <span className="overview-agent-status">{statusText}</span>
+                  <span className="overview-agent-num overview-agent-tokens">{tokensText}</span>
+                  <span className="overview-agent-num overview-agent-count">{requestsText}</span>
+                  <span className="overview-agent-num overview-agent-last">{lastText}</span>
                 </div>
-              );
-            })}
+              );            })}
           </div>
         </Card>
-        <Card size="small" className="page-surface" styles={{ body: { padding: "14px 20px" } }}>
+        <Card size="small" className="page-surface overview-panel-card">
           <span style={{ fontSize: 13, fontWeight: 600 }}>{t("workbench.rankings", { defaultValue: "排行" })}</span>
-          <RankingList
-            title={t("usage.byModel", { defaultValue: "按模型" })}
-            rows={dashboardQuery.data?.byModel ?? []}
-          />
-          <RankingList
-            title={t("usage.byProvider", { defaultValue: "按供应商" })}
-            rows={dashboardQuery.data?.byProvider ?? []}
-          />
+          <div className="overview-rank-grid">
+            <RankingList
+              title={t("usage.byModel", { defaultValue: "按模型" })}
+              rows={dashboardQuery.data?.byModel ?? []}
+            />
+            <RankingList
+              title={t("usage.byProvider", { defaultValue: "按供应商" })}
+              rows={dashboardQuery.data?.byProvider ?? []}
+            />
+          </div>
         </Card>
       </div>
 
-      <Card size="small" className="page-surface" styles={{ body: { padding: 0 } }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-          <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{t("workbench.attentionTitle", { defaultValue: "需要关注" })}</span>
-            {healthy ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--color-text-secondary)", fontSize: 12 }}>
-                <CheckCircleFilled style={{ color: "var(--color-success, #52c41a)", fontSize: 12 }} />
-                {t("workbench.attentionAllClear", { defaultValue: "当前无异常" })}
-              </div>
-            ) : (
-              attentionItems.map((item) => (
-                <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, minHeight: 22 }}>
-                  <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--color-warning, #faad14)" }} />
-                  <span>{item.text}</span>
-                  <Button type="link" size="small" icon={<ArrowRightOutlined />} iconPosition="end" onClick={() => navigate(item.page)} style={{ marginLeft: "auto", fontSize: 12, padding: 0 }}>
-                    {item.action}
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-          <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 6, minWidth: 0, borderLeft: "1px solid var(--color-border-subtle, rgba(0,0,0,0.06))" }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{t("workbench.activityTitle", { defaultValue: "最近活动" })}</span>
-            {activityQuery.error ? (
-              <Alert type="error" showIcon message={errMsg(activityQuery.error)} />
-            ) : recentGroups.length === 0 ? (
-              <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>{t("workbench.activityEmpty", { defaultValue: "暂无活动记录" })}</span>
-            ) : (
-              recentGroups.map((group) => (
-                <div key={group.targetApp ?? "__unknown__"} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                  {group.targetApp && isUsageSourceFilter(group.targetApp) ? usageSourceIcon(group.targetApp, { size: 13 }) : null}
-                  <Text ellipsis style={{ fontSize: 12, flex: "1 1 auto" }}>{activityAgentLabel(group.targetApp)}</Text>
-                  <span style={{ color: "var(--color-text-secondary)" }}>
-                    {group.usageAvailable ? `${formatCompactNumber(group.tokens)} Token` : "—"}
-                  </span>
-                  <span style={{ color: "var(--color-text-tertiary)", minWidth: 52, textAlign: "right" }}>{relativeTime(group.lastAt)}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+      <Card size="small" className="page-surface overview-calendar-card">
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{t("workbench.pastYear", { defaultValue: "过去一年" })}</span>
+        {yearTrendQuery.error ? (
+          <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
+        ) : (
+          <UsageCalendar data={yearTrendQuery.data?.trend ?? []} period={365} compact maxCellSize={compactHeight ? 11 : 16} />
+        )}
       </Card>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{t("workbench.pastYear", { defaultValue: "过去一年" })}</span>
-        <Card size="small" className="page-surface workbench-chart-card" styles={{ body: { padding: "10px 16px 12px" } }}>
-          {yearTrendQuery.error ? (
-            <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
-          ) : (
-            <UsageCalendar data={yearTrendQuery.data?.trend ?? []} period={365} compact maxCellSize={16} />
-          )}
-        </Card>
-      </section>
     </div>
   );
+}
+
+/** 订阅 CSS 媒体查询结果（仅用于需要在 JS 里取值的紧凑档）。 */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+  return matches;
 }
 
 function RankingList({ title, rows }: { title: string; rows: UsageBreakdown[] }) {
@@ -585,7 +574,7 @@ function RankingList({ title, rows }: { title: string; rows: UsageBreakdown[] })
     .sort((a, b) => b.requestCount - a.requestCount)
     .slice(0, 5);
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ minWidth: 0 }}>
       <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginBottom: 4 }}>{title}</div>
       {top.length === 0 ? (
         <div style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>—</div>

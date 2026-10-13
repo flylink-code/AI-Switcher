@@ -149,7 +149,7 @@ export function checkUpstreamDirectCompatibility(
 
 
 export interface AgentConnectionCardProps {
-  /** When false, the agent is not installed: hide connection controls. */
+  /** When false, the agent is not installed: hide connection controls. Codex is intentionally exempt (CLI optional; see AgentHubPage). */
   installed?: Partial<Record<ProviderTarget, boolean>>;
   renderHeaderExtra?: (target: ProviderTarget) => ReactNode;
   renderAdvanced?: (target: ProviderTarget) => ReactNode;

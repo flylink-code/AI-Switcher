@@ -89,12 +89,6 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
           parentKey: "settings" as PageKey,
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };
-      case "localization":
-        return {
-          title: t("nav.localization", { defaultValue: "汉化与本地化" }),
-          parentKey: "settings" as PageKey,
-          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
-        };
       case "localProxy":
         return {
           title: t("nav.localProxy", { defaultValue: "本地代理" }),

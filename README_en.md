@@ -29,7 +29,7 @@ Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and l
 - **Kiro gateway:** `127.0.0.1:15831` with an account pool and quota-aware scheduling. Import a Builder ID, Social, or Kiro IDE token, or sign in with a device code or Social PKCE. Usage counts only the Kiro hop. Personal use; review upstream terms yourself.
 - **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.
 - **Sessions & usage:** Browse, search, and back up local sessions; estimate cost from proxy logs plus session events.
-- **Tools & localization:** Install/update each agent CLI. Claude Code and VS Code/Cursor Chinese packs (compare against GitHub latest; install or remove).
+- **Tools & localization:** Install/update each agent CLI. Claude Code, VS Code/Cursor and Claude Desktop Chinese packs (compare against GitHub latest; install or remove). Localization lives in the Advanced settings of the Claude Code / Claude Desktop cards on the Agent page (Chinese UI only); it shows status and a one-click install/uninstall by default, with versions and paths under "Show details".
 
 ## Paths
 

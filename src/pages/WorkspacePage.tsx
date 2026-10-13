@@ -15,13 +15,14 @@ import type { ProviderTarget } from "@/types/backend";
  * Workspace resource pages supported per agent.
  */
 const AGENT_SUPPORTED_TABS: Record<ProviderTarget, WorkspaceResourceTab[]> = {
-  claude_code: ["profiles", "mcp", "prompts", "skills", "agents", "plugins", "sessions"],
+  // 会话是最常用的入口，排在每个 Agent 的 Tab 最前面（Claude Code 在「项目」之前）。
+  claude_code: ["sessions", "profiles", "mcp", "prompts", "skills", "agents", "plugins"],
   claude_desktop: ["profiles", "mcp"],
-  codex: ["mcp", "prompts", "skills", "agents", "plugins", "sessions"],
-  opencode: ["mcp", "prompts", "sessions"],
-  pi: ["mcp", "prompts", "skills", "sessions"],
+  codex: ["sessions", "mcp", "prompts", "skills", "agents", "plugins"],
+  opencode: ["sessions", "mcp", "prompts"],
+  pi: ["sessions", "mcp", "prompts", "skills"],
   dsh: [],
-  cline: ["mcp", "prompts", "skills", "sessions"],
+  cline: ["sessions", "mcp", "prompts", "skills"],
 };
 
 const WORKSPACE_PAGES: WorkspaceResourceTab[] = [
@@ -38,7 +39,7 @@ function isWorkspacePage(key: string): key is WorkspaceResourceTab {
   return WORKSPACE_PAGES.some((page) => page === key);
 }
 
-/** Beyond this many tabs, the rest (plugins, sessions) fold into a "More" menu. */
+/** Beyond this many tabs, the trailing ones (agents, plugins) fold into a "More" menu. */
 const MAX_VISIBLE_TABS = 5;
 /** Matches no option, so the segmented control shows no selection while a "More" tab is active. */
 const NO_SEGMENT_SELECTED = "__more__" as WorkspaceResourceTab;

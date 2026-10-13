@@ -745,7 +745,8 @@ fn version_parts(version: &str) -> Vec<u64> {
         .collect()
 }
 
-fn update_available(current: &str, latest: &str) -> bool {
+/// 按数值比较版本：仅当 latest 严格高于 current 才算有更新（current 更高不算）。
+pub(crate) fn update_available(current: &str, latest: &str) -> bool {
     current != latest && version_parts(latest) > version_parts(current)
 }
 
@@ -1473,13 +1474,18 @@ pub(crate) fn resolve_codex_cli_path() -> Option<PathBuf> {
     }
 }
 
+/// 稳定错误前缀：前端据此识别“未安装 Codex CLI”（与 `NODE_RUNTIME_MISSING:` 同一套路）。
+const CODEX_CLI_MISSING_PREFIX: &str = "CODEX_CLI_MISSING:";
+
+fn codex_cli_missing_error() -> AppError {
+    AppError::Other(format!(
+        "{CODEX_CLI_MISSING_PREFIX} 无法启动 Codex CLI（请确认已安装并在 PATH 中）: program not found"
+    ))
+}
+
 /// Run Codex CLI with discovered executable (npm `.cmd` etc.), not bare `codex` PATH lookup.
 pub(crate) fn run_codex_cli(args: &[&str]) -> AppResult<Output> {
-    let path = resolve_codex_cli_path().ok_or_else(|| {
-        AppError::Other(
-            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: program not found".into(),
-        )
-    })?;
+    let path = resolve_codex_cli_path().ok_or_else(codex_cli_missing_error)?;
     run_tool_at_path(&path, args).map_err(|error| {
         AppError::Other(format!(
             "无法启动 Codex CLI（请确认已安装并在 PATH 中）: {error}"
@@ -1488,11 +1494,7 @@ pub(crate) fn run_codex_cli(args: &[&str]) -> AppResult<Output> {
 }
 
 pub(crate) fn run_codex_cli_timeout(args: &[&str], timeout: Duration) -> AppResult<Output> {
-    let path = resolve_codex_cli_path().ok_or_else(|| {
-        AppError::Other(
-            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: program not found".into(),
-        )
-    })?;
+    let path = resolve_codex_cli_path().ok_or_else(codex_cli_missing_error)?;
     let mut command = command_for_tool_at_path(&path, args);
     crate::process_util::output_with_timeout(&mut command, timeout).map_err(|error| {
         AppError::Other(format!(
@@ -2741,6 +2743,13 @@ mod tests {
             Some("1.32885.2".into())
         );
         assert_eq!(parse_apt_policy_field("Installed: (none)", "Installed"), None);
+    }
+
+    #[test]
+    fn codex_cli_missing_error_has_stable_prefix() {
+        let message = codex_cli_missing_error().to_string();
+        assert!(message.starts_with("CODEX_CLI_MISSING:"));
+        assert!(message.contains("无法启动 Codex CLI"));
     }
 
     #[test]

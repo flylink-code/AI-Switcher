@@ -144,12 +144,6 @@ export default function App() {
   }, [finishStartup]);
 
   useEffect(() => {
-    if (language !== "zh-CN" && activeKey === "localization") {
-      setActiveKey("workbench");
-    }
-  }, [activeKey, language]);
-
-  useEffect(() => {
     if (!startupReady) return;
     let active = true;
     const checkForUpdate = async () => {
