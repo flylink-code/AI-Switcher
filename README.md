@@ -1,10 +1,10 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.17-beta.1（本地测试版）**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.6.0**
 
-**Beta 测试（未正式发布）**：统一供应商池，所有 Agent 共用一份上游配置；连接方式为智能网关、直连或官方。此包用于本地安装测试，尚未完成 GUI 与真实出网验收；最新正式版仍为 v1.5.16。
+统一供应商池：所有 Agent 共用一份上游配置，连接方式为智能网关、直连或官方。Antigravity / Kiro 反代默认在独立进程中运行。
 
-**升级注意**：开发版主资料库升级至 Schema 34，自动合并旧供应商并保留旧卡。迁移前生成 SQLite 一致性备份 `app.db.v33.bak`；旧版不能直接打开 Schema 34，降级前须退出新版并恢复备份或回滚导出库。建议另行备份 `~/.claude-switcher`。1.4.xx 热修仍走 `release/1.4.x`，不回写新 Schema。
+**升级注意**：主资料库升级至 Schema 36。从 1.5.16（Schema 33）升级前生成 `app.db.v33.bak`。旧版不能打开新库；降级前须退出 1.6.0 并恢复备份。建议另行备份 `~/.claude-switcher`。1.4.xx 热修仍走 `release/1.4.x`，不回写新 Schema。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

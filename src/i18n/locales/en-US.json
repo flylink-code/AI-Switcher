@@ -2077,6 +2077,17 @@
     "changelogTitle": "What’s new",
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
+      "1_6_0": [
+        "Stable release: one global upstream pool shared by Claude Code, Codex, OpenCode, and Pi. Connections are smart gateway, direct, or official.",
+        "Direct mode does not copy provider cards. Claude Code direct is Anthropic only, Codex direct is OpenAI only, and Codex OAuth must use the smart gateway.",
+        "The main database upgrades to Schema 36 and drops the old route-mode tables. Upgrading from Schema 33 writes app.db.v33.bak first. Older builds cannot open the new database; exit this version and restore the backup before downgrading.",
+        "The Antigravity / Kiro proxies run in a separate process by default, so a proxy crash no longer takes down the app. Settings can switch back to in-process; restart to apply, and the page shows process status and health.",
+        "In separate-process mode only that process writes account files. The main app submits snapshots over the existing pipe.",
+        "Kiro usage is recorded: exact token counts when present, otherwise the context-usage percentage, otherwise a length estimate. The smart-gateway hop records them too.",
+        "Claude Code and Pi session lists show the real working directory instead of a mangled folder name or an unknown directory.",
+        "The smart gateway card defaults to the first published catalog model. Claude Code / Desktop direct role mapping is edited on the Agent page.",
+        "Settings can switch between the top bar and the sidebar. Claude Desktop and Codex CLI localization live in each Agent card’s advanced settings."
+      ],
       "1_3_23": [
         "Antigravity gateway limiter: waiting for a concurrency slot no longer bypasses the gate; deadlines return 429 and outbound network failures return 504 instead of 502."
       ],

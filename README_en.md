@@ -1,10 +1,10 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.17-beta.1 (local test build)**
+Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.6.0**
 
-**Beta testing (not a stable release):** A unified provider pool shared by all agents, with smart gateway, direct, and official connection modes. This installer is for local testing; GUI and live upstream acceptance checks remain pending. The latest stable release is still v1.5.16.
+One upstream pool is shared by every agent. Connections are smart gateway, direct, or official. The Antigravity / Kiro proxies run in a separate process by default.
 
-**Upgrade note:** This development build migrates the main database to Schema 34, merging legacy providers while retaining their rows. A consistent SQLite backup is created as `app.db.v33.bak` before migration. Older builds cannot open Schema 34: exit the new build and restore the backup or rollback export before downgrading. Back up `~/.claude-switcher` separately as well. 1.4.xx hotfixes stay on `release/1.4.x` without the new schema.
+**Upgrade note:** The main database migrates to Schema 36. Upgrading from 1.5.16 (Schema 33) writes `app.db.v33.bak` first. Older builds cannot open the new database: exit 1.6.0 and restore the backup before downgrading. Back up `~/.claude-switcher` separately as well. 1.4.xx hotfixes stay on `release/1.4.x` without the new schema.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

@@ -2,11 +2,11 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AI-Switcher",
   "mainBinaryName": "AISwitcher",
-  "version": "1.5.17-beta.1",
+  "version": "1.6.0",
   "identifier": "com.claude-switcher.desktop",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://127.0.0.1:5251",
+    "devUrl": "http://localhost:5250",
     "beforeDevCommand": "corepack pnpm dev",
     "beforeBuildCommand": "corepack pnpm build"
   },
@@ -51,7 +51,7 @@
     "windows": {
       "wix": {
         "language": "zh-CN",
-        "version": "1.5.17.1"
+        "version": "1.6.0"
       },
       "nsis": {
         "installMode": "currentUser",
