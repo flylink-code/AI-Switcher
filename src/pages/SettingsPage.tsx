@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Checkbox, Select, Tag, message } from "antd";
+import { Button, Checkbox, Select, Tag, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAppStore, type LayoutMode } from "@/stores/appStore";
@@ -9,9 +9,19 @@ import { PROVIDER_TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwi
 import { filterUiAgents } from "@/lib/agentVisibility";
 import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
-import { autostartOptions, closeBehaviorOptions } from "@/lib/appQueries";
+import {
+  autostartOptions,
+  closeBehaviorOptions,
+  gatewayRuntimeModeOptions,
+} from "@/lib/appQueries";
 import { useAppVersion } from "@/lib/useAppVersion";
-import { setAutostartConfig, setCloseBehavior } from "@/services/api";
+import {
+  restartApp,
+  setAutostartConfig,
+  setCloseBehavior,
+  setGatewayRuntimeMode,
+  type GatewayRuntimeMode,
+} from "@/services/api";
 import { SettingsSection, SettingsRow } from "@/components/settings";
 import type { AutostartMode, CloseBehavior, ProviderTarget } from "@/types/backend";
 
@@ -36,6 +46,22 @@ export default function SettingsPage() {
   const closeBehaviorQuery = useQuery(closeBehaviorOptions);
   const [autostartChanging, setAutostartChanging] = useState(false);
   const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
+  const gatewayModeQuery = useQuery(gatewayRuntimeModeOptions);
+  const [gatewayModeChanging, setGatewayModeChanging] = useState(false);
+  const [gatewayModePendingRestart, setGatewayModePendingRestart] = useState(false);
+
+  const onGatewayModeChange = useCallback(async (mode: GatewayRuntimeMode) => {
+    setGatewayModeChanging(true);
+    try {
+      const saved = await setGatewayRuntimeMode(mode);
+      queryClient.setQueryData(gatewayRuntimeModeOptions.queryKey, saved);
+      setGatewayModePendingRestart(true);
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGatewayModeChanging(false);
+    }
+  }, [queryClient]);
 
   const onAutostartChange = useCallback(async (mode: AutostartMode) => {
     setAutostartChanging(true);
@@ -154,6 +180,34 @@ export default function SettingsPage() {
               ]}
               onChange={(behavior) => void onCloseBehaviorChange(behavior)}
             />
+          }
+        />
+        <SettingsRow
+          title={t("settings.gatewayRuntimeMode")}
+          description={
+            gatewayModePendingRestart
+              ? t("settings.gatewayRuntimeModeRestart")
+              : t("settings.gatewayRuntimeModeHint")
+          }
+          control={
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {gatewayModePendingRestart ? (
+                <Button size="small" type="primary" onClick={() => void restartApp()}>
+                  {t("settings.gatewayRuntimeModeRestartNow")}
+                </Button>
+              ) : null}
+              <Select<GatewayRuntimeMode>
+                value={gatewayModeQuery.data ?? "inproc"}
+                loading={gatewayModeQuery.isPending || gatewayModeChanging}
+                disabled={gatewayModeChanging}
+                style={{ width: 190 }}
+                options={[
+                  { value: "inproc", label: t("settings.gatewayRuntimeModes.inproc") },
+                  { value: "sidecar", label: t("settings.gatewayRuntimeModes.sidecar") },
+                ]}
+                onChange={(mode) => void onGatewayModeChange(mode)}
+              />
+            </div>
           }
         />
         <SettingsRow

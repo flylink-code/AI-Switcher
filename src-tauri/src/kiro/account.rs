@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use crate::config::get_app_config_dir;
 use crate::error::{AppError, AppResult};
+use crate::file_stamp::FileStamp;
 
 use super::outbound::build_blocking_client;
 
@@ -83,6 +84,8 @@ pub struct KiroAccountPublic {
 pub struct AccountStore {
     client: Mutex<Client>,
     inner: Mutex<StoredAccounts>,
+    /// Detects rewrites by the other process when gateways run as a sidecar.
+    disk: FileStamp,
 }
 
 pub fn store() -> &'static AccountStore {
@@ -96,14 +99,23 @@ fn accounts_path() -> PathBuf {
 
 impl AccountStore {
     fn new() -> Self {
+        let disk = FileStamp::new(&accounts_path());
         Self {
             client: Mutex::new(build_blocking_client(30)),
             inner: Mutex::new(load_accounts().unwrap_or_default()),
+            disk,
         }
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, StoredAccounts> {
-        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        let mut guard = self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if self.disk.changed(&accounts_path()) {
+            match load_accounts() {
+                Ok(fresh) => *guard = fresh,
+                Err(error) => log::warn!("Kiro 账号文件外部变更后重载失败: {error}"),
+            }
+        }
+        guard
     }
 
     pub fn list_public(&self) -> AppResult<Vec<KiroAccountPublic>> {
@@ -348,7 +360,8 @@ fn save_accounts(stored: &StoredAccounts) -> AppResult<()> {
         fs::create_dir_all(parent)?;
     }
     let raw = serde_json::to_string_pretty(stored)?;
-    fs::write(path, raw)?;
+    fs::write(&path, raw)?;
+    store().disk.note_written(&path);
     Ok(())
 }
 

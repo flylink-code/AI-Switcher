@@ -67,6 +67,7 @@ pub struct AntigravityGatewayStatus {
 }
 
 const SYSTEM_PROXY_WATCH_SECS: u64 = 10;
+const SIDECAR_START_WAIT: Duration = Duration::from_secs(10);
 
 struct GatewayRuntime {
     handle: JoinHandle<()>,
@@ -145,10 +146,14 @@ fn with_manager<T>(f: impl FnOnce(&mut GatewayManager) -> AppResult<T>) -> AppRe
 pub fn gateway_status() -> AppResult<AntigravityGatewayStatus> {
     with_manager(|manager| {
         let port = saved_port(&manager.db);
-        let running = manager
-            .runtime
-            .as_ref()
-            .is_some_and(|runtime| !runtime.handle.is_finished());
+        let running = if crate::sidecar::delegated() {
+            crate::sidecar::gateway_up(crate::sidecar::GatewayKind::Antigravity)
+        } else {
+            manager
+                .runtime
+                .as_ref()
+                .is_some_and(|runtime| !runtime.handle.is_finished())
+        };
         let effective_port = manager
             .runtime
             .as_ref()
@@ -212,6 +217,7 @@ pub fn set_limiter_settings(settings: LimiterSettings) -> AppResult<LimiterSetti
         })?;
         Ok(())
     })?;
+    crate::sidecar::notify_settings_changed();
     get_limiter_settings()
 }
 
@@ -239,6 +245,7 @@ pub fn set_fast_path_settings(settings: FastPathSettings) -> AppResult<FastPathS
         })?;
         Ok(())
     })?;
+    crate::sidecar::notify_settings_changed();
     get_fast_path_settings()
 }
 
@@ -258,6 +265,7 @@ pub fn set_outbound_proxy(mode: &str, proxy_url: &str) -> AppResult<AntigravityG
         );
         Ok(())
     })?;
+    crate::sidecar::notify_settings_changed();
     gateway_status()
 }
 
@@ -273,6 +281,7 @@ pub fn set_exit_proxies(entries: Vec<ExitProxyEntry>) -> AppResult<AntigravityGa
         );
         Ok(())
     })?;
+    crate::sidecar::notify_settings_changed();
     gateway_status()
 }
 
@@ -303,7 +312,9 @@ pub fn set_gateway_port(port: u16) -> AppResult<()> {
             .db
             .with_conn(|conn| set_setting(conn, PORT_SETTING, &port.to_string()))?;
         Ok(())
-    })
+    })?;
+    crate::sidecar::notify_settings_changed();
+    Ok(())
 }
 
 pub fn set_gateway_api_key(api_key: String) -> AppResult<()> {
@@ -319,7 +330,9 @@ pub fn set_gateway_api_key(api_key: String) -> AppResult<()> {
             *guard = trimmed;
         }
         Ok(())
-    })
+    })?;
+    crate::sidecar::notify_settings_changed();
+    Ok(())
 }
 
 enum TrackedSystemProxy {
@@ -418,6 +431,20 @@ async fn poll_system_proxy(
 }
 
 pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewayStatus> {
+    if crate::sidecar::delegated() {
+        if let Some(port) = port {
+            set_gateway_port(port)?;
+        }
+        set_enabled_flag(true);
+        crate::sidecar::request_restart();
+        let up =
+            crate::sidecar::wait_until_up(crate::sidecar::GatewayKind::Antigravity, SIDECAR_START_WAIT)
+                .await;
+        if !up {
+            log::warn!("Antigravity sidecar 网关尚未就绪（{}s 内）", SIDECAR_START_WAIT.as_secs());
+        }
+        return gateway_status();
+    }
     // Prepare bind/config without holding the manager lock across await points.
     let (state, bind_port, db) = {
         let mut slot = lock_manager();
@@ -555,12 +582,18 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
 }
 
 pub async fn stop_gateway() -> AppResult<AntigravityGatewayStatus> {
-    let runtime = with_manager(|manager| {
-        let _ = manager
-            .db
-            .with_conn(|conn| set_setting(conn, ENABLED_SETTING, "0"));
-        Ok(manager.runtime.take())
-    })?;
+    set_enabled_flag(false);
+    if crate::sidecar::delegated() {
+        crate::sidecar::request_restart();
+        crate::sidecar::mark_down(crate::sidecar::GatewayKind::Antigravity);
+        return gateway_status();
+    }
+    stop_gateway_keep_flag().await
+}
+
+/// Stop the listener without touching the persisted enabled flag (sidecar shutdown).
+pub async fn stop_gateway_keep_flag() -> AppResult<AntigravityGatewayStatus> {
+    let runtime = with_manager(|manager| Ok(manager.runtime.take()))?;
     if let Some(runtime) = runtime {
         runtime.watch_abort.abort();
         let _ = runtime.shutdown_tx.send(());
@@ -578,38 +611,7 @@ pub async fn stop_gateway() -> AppResult<AntigravityGatewayStatus> {
 /// If the user left the gateway enabled, or an Antigravity provider is current,
 /// start it after app launch.
 pub async fn restore_gateway_if_enabled() {
-    let should_start = with_manager(|manager| {
-        let flagged = manager
-            .db
-            .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
-            .ok()
-            .flatten()
-            .is_some_and(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"));
-        if flagged {
-            return Ok(true);
-        }
-        // First-time / pre-flag installs: keep gateway up when AG is active.
-        let active = manager.db.with_conn(|conn| {
-            use crate::database::dao;
-            use crate::provider::{ProviderKind, ProviderTarget};
-            for target in [
-                ProviderTarget::ClaudeCode,
-                ProviderTarget::ClaudeDesktop,
-                ProviderTarget::Codex,
-                ProviderTarget::OpenCode,
-            ] {
-                if let Some(provider) = dao::get_current_provider(conn, target)? {
-                    if provider.provider_kind == ProviderKind::Antigravity {
-                        return Ok(true);
-                    }
-                }
-            }
-            Ok(false)
-        })?;
-        Ok(active)
-    })
-    .unwrap_or(false);
-    if !should_start {
+    if !should_autostart() {
         return;
     }
     match start_gateway(None).await {
@@ -637,6 +639,63 @@ pub fn builtin_api_key() -> String {
         .and_then(|manager| manager.api_key.lock().ok().map(|guard| guard.clone()))
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| DEFAULT_API_KEY.to_string())
+}
+
+/// Persisted listen port (what the gateway binds, in-process or in the sidecar).
+pub fn configured_port() -> u16 {
+    lock_manager()
+        .as_ref()
+        .map(|manager| saved_port(&manager.db))
+        .unwrap_or(DEFAULT_GATEWAY_PORT)
+}
+
+/// Only the persisted enabled flag; see `should_autostart` for the legacy fallback.
+pub fn enabled_flag() -> bool {
+    lock_manager()
+        .as_ref()
+        .and_then(|manager| {
+            manager
+                .db
+                .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
+                .ok()
+                .flatten()
+        })
+        .is_some_and(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"))
+}
+
+pub fn set_enabled_flag(enabled: bool) {
+    if let Some(manager) = lock_manager().as_ref() {
+        let _ = manager
+            .db
+            .with_conn(|conn| set_setting(conn, ENABLED_SETTING, if enabled { "1" } else { "0" }));
+    }
+}
+
+/// Enabled flag, or (first-time / pre-flag installs) an Antigravity provider is current.
+pub fn should_autostart() -> bool {
+    if enabled_flag() {
+        return true;
+    }
+    with_manager(|manager| {
+        manager.db.with_conn(|conn| {
+            use crate::database::dao;
+            use crate::provider::{ProviderKind, ProviderTarget};
+            for target in [
+                ProviderTarget::ClaudeCode,
+                ProviderTarget::ClaudeDesktop,
+                ProviderTarget::Codex,
+                ProviderTarget::OpenCode,
+            ] {
+                if let Some(provider) = dao::get_current_provider(conn, target)? {
+                    if provider.provider_kind == ProviderKind::Antigravity {
+                        return Ok(true);
+                    }
+                }
+            }
+            Ok(false)
+        })
+    })
+    .unwrap_or(false)
 }
 
 fn saved_port(db: &Database) -> u16 {

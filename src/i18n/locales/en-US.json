@@ -2768,6 +2768,14 @@
     "themeHint": "Appearance and color mode",
     "autostartHint": "Choose whether AI-Switcher starts automatically when you sign in",
     "closeBehaviorHint": "Choose the default behavior for the window close button",
+    "gatewayRuntimeMode": "Proxy gateway runtime",
+    "gatewayRuntimeModeHint": "Run the Antigravity / Kiro proxies inside the app or in a separate process; restart the app after changing",
+    "gatewayRuntimeModeRestart": "Saved. Restart the app to apply.",
+    "gatewayRuntimeModeRestartNow": "Restart now",
+    "gatewayRuntimeModes": {
+      "inproc": "In app (default)",
+      "sidecar": "Separate process"
+    },
     "visibleAgents": "Visible Agents",
     "visibleAgentsHint": "Select agent tools to show in application pickers and switchers",
     "proxyHint": "Upstream pool, routing profile, and local listeners. Also available from the main nav.",

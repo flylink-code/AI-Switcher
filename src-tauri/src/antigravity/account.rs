@@ -14,6 +14,7 @@ use crate::antigravity::quota::{
     default_allowed_model_patterns, model_pattern_matches, QuotaSnapshot,
 };
 use crate::config;
+use crate::file_stamp::FileStamp;
 use crate::error::{AppError, AppResult};
 
 /// Public OAuth client used by the Antigravity / Cloud Code desktop product.
@@ -244,6 +245,8 @@ struct StoredAccounts {
 pub struct AccountStore {
     client: Mutex<Client>,
     inner: Mutex<StoredAccounts>,
+    /// Detects rewrites by the other process when gateways run as a sidecar.
+    disk: FileStamp,
 }
 
 pub fn store() -> &'static AccountStore {
@@ -258,21 +261,30 @@ fn accounts_path() -> PathBuf {
 impl AccountStore {
     fn new() -> Self {
         let client = crate::antigravity::outbound::build_blocking_client(30);
+        let disk = FileStamp::new(&accounts_path());
         let inner = load_accounts().unwrap_or_default();
         Self {
             client: Mutex::new(client),
             inner: Mutex::new(inner),
+            disk,
         }
     }
 
     fn lock_accounts(&self) -> std::sync::MutexGuard<'_, StoredAccounts> {
-        match self.inner.lock() {
+        let mut guard = match self.inner.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
                 log::error!("Antigravity account store mutex was poisoned; recovering inner state");
                 poisoned.into_inner()
             }
+        };
+        if self.disk.changed(&accounts_path()) {
+            match load_accounts() {
+                Ok(fresh) => *guard = fresh,
+                Err(error) => log::warn!("Antigravity 账号文件外部变更后重载失败: {error}"),
+            }
         }
+        guard
     }
 
     fn lock_http_client(&self) -> std::sync::MutexGuard<'_, Client> {
@@ -822,7 +834,9 @@ fn persist(stored: &StoredAccounts) -> AppResult<()> {
     }
     let raw = serde_json::to_string_pretty(stored)
         .map_err(|error| AppError::Other(format!("序列化账号失败: {error}")))?;
-    crate::config::atomic_write(&path, raw.as_bytes())
+    crate::config::atomic_write(&path, raw.as_bytes())?;
+    store().disk.note_written(&path);
+    Ok(())
 }
 
 fn parse_import_payload(value: &Value) -> AppResult<Vec<AntigravityAccount>> {

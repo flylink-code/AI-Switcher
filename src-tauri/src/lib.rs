@@ -29,6 +29,7 @@ mod config;
 mod database;
 mod deeplink;
 mod error;
+mod file_stamp;
 mod log_redact;
 mod mcp;
 mod mcp_oauth;
@@ -42,6 +43,7 @@ mod proxy;
 mod secrets;
 mod session_backup;
 mod session_manager;
+mod sidecar;
 mod skills;
 mod store;
 mod system_proxy;
@@ -158,6 +160,7 @@ use crate::commands::{
     set_app_language, get_update_mirror_settings, set_update_mirror_settings,
     restart_app,
     dismiss_onboarding_tip, get_close_behavior, get_dismissed_onboarding_tips, migrate_data_root,
+    get_gateway_runtime_mode, set_gateway_runtime_mode,
     resolve_close_request, restore_onboarding_tips, set_close_behavior,
     apply_profile, create_workspace_profile, delete_workspace_profile, get_current_profile_id,
     list_profiles, update_workspace_profile,
@@ -555,6 +558,8 @@ pub fn run() {
             restore_onboarding_tips,
             get_close_behavior,
             set_close_behavior,
+            get_gateway_runtime_mode,
+            set_gateway_runtime_mode,
             resolve_close_request,
             list_profiles,
             get_current_profile_id,
@@ -567,11 +572,16 @@ pub fn run() {
     match builder.build(tauri::generate_context!()) {
         Ok(app) => app.run(|_, event| {
             if matches!(event, tauri::RunEvent::Exit) {
+                sidecar::shutdown();
                 antigravity::thought_sig::shutdown();
             }
         }),
         Err(error) => report_startup_failure(&error.to_string()),
     }
+}
+/// `--gateway-sidecar`: run the Antigravity / Kiro gateways without the UI.
+pub fn run_gateway_sidecar_if_requested() -> bool {
+    sidecar::run_sidecar_if_requested()
 }
 pub fn run_localization_worker_if_requested() -> bool {
     commands::desktop_localization::run_worker_from_args()
@@ -625,9 +635,13 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(config::get_backup_dir())?;
     log::info!("AI-Switcher starting; data directory: {}", app_config_dir.display());
     usage_events::init(app.handle().clone());
-    tauri::async_runtime::spawn_blocking(antigravity::thought_sig::init_early);
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
+    let sidecar_mode = sidecar::read_mode(&db) == sidecar::MODE_SIDECAR;
+    if !sidecar_mode {
+        // thought-signatures.db is owned by the sidecar when the gateways run there.
+        tauri::async_runtime::spawn_blocking(antigravity::thought_sig::init_early);
+    }
     log::info!(
         "Database initialization completed: duration_ms={}",
         setup_started.elapsed().as_millis()
@@ -660,6 +674,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     });
     crate::antigravity::gateway::init_gateway(Arc::clone(&db));
     crate::kiro::gateway::init_gateway(Arc::clone(&db));
+    if sidecar_mode {
+        log::info!("网关运行方式: sidecar（外置进程）");
+        sidecar::start_supervisor(Arc::clone(&db));
+    }
     crate::gateway::service::init_service(Arc::clone(&db));
     commands::proxy::spawn_proxy_lifecycle_listener(
         app.handle().clone(),
@@ -705,8 +723,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             proxy_started.elapsed().as_millis(),
             background_started.elapsed().as_millis()
         );
-        crate::antigravity::gateway::restore_gateway_if_enabled().await;
-        crate::kiro::gateway::restore_gateway_if_enabled().await;
+        if !sidecar::delegated() {
+            crate::antigravity::gateway::restore_gateway_if_enabled().await;
+            crate::kiro::gateway::restore_gateway_if_enabled().await;
+        }
         crate::gateway::service::restore_if_enabled(Arc::clone(&state.db)).await;
         crate::gateway::service::emit_status(&app_handle);
         // Post-update NSIS relaunch can still leave ports busy after the first
@@ -725,7 +745,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     spawn_opencode_session_usage_sync(Arc::clone(&db));
     spawn_pi_session_usage_sync(Arc::clone(&db));
     spawn_dsh_session_usage_sync(Arc::clone(&db));
-    spawn_antigravity_quota_refresh(app.handle().clone());
+    if !sidecar_mode {
+        // In sidecar mode the sidecar owns token/quota refresh (single writer).
+        spawn_antigravity_quota_refresh(app.handle().clone());
+    }
     crate::session_backup::spawn_session_auto_backup_loop(Arc::clone(&db));
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {

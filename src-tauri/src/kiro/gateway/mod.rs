@@ -25,6 +25,7 @@ const PORT_SETTING: &str = "kiro_gateway_port";
 const API_KEY_SETTING: &str = "kiro_gateway_api_key";
 const ENABLED_SETTING: &str = "kiro_gateway_enabled";
 const DEFAULT_API_KEY: &str = "sk-ai-switcher-kiro";
+const SIDECAR_START_WAIT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct GatewayState {
@@ -107,10 +108,14 @@ pub fn gateway_status() -> AppResult<KiroGatewayStatus> {
         .as_mut()
         .ok_or_else(|| AppError::Other("Kiro 网关尚未初始化".into()))?;
     let port = saved_port(&manager.db);
-    let running = manager
-        .runtime
-        .as_ref()
-        .is_some_and(|runtime| !runtime.handle.is_finished());
+    let running = if crate::sidecar::delegated() {
+        crate::sidecar::gateway_up(crate::sidecar::GatewayKind::Kiro)
+    } else {
+        manager
+            .runtime
+            .as_ref()
+            .is_some_and(|runtime| !runtime.handle.is_finished())
+    };
     let effective_port = manager.runtime.as_ref().map(|runtime| runtime.port).unwrap_or(port);
     let api_key = manager
         .api_key
@@ -151,7 +156,10 @@ pub fn set_gateway_port(port: u16) -> AppResult<()> {
         .ok_or_else(|| AppError::Other("Kiro 网关尚未初始化".into()))?;
     manager
         .db
-        .with_conn(|conn| set_setting(conn, PORT_SETTING, &port.to_string()))
+        .with_conn(|conn| set_setting(conn, PORT_SETTING, &port.to_string()))?;
+    drop(slot);
+    crate::sidecar::notify_settings_changed();
+    Ok(())
 }
 
 pub fn set_gateway_api_key(api_key: String) -> AppResult<()> {
@@ -169,6 +177,8 @@ pub fn set_gateway_api_key(api_key: String) -> AppResult<()> {
     if let Ok(mut guard) = manager.api_key.lock() {
         *guard = trimmed;
     }
+    drop(slot);
+    crate::sidecar::notify_settings_changed();
     Ok(())
 }
 
@@ -181,6 +191,7 @@ pub fn set_outbound_proxy(mode: &str, proxy_url: &str) -> AppResult<KiroGatewayS
     let _ = outbound::load_view(&manager.db);
     super::account::store().reload_http_client();
     drop(slot);
+    crate::sidecar::notify_settings_changed();
     gateway_status()
 }
 
@@ -196,10 +207,25 @@ pub fn set_exit_proxies(
     };
     super::outbound::save_exit_proxies(&db, entries)?;
     super::account::store().reload_http_client();
+    crate::sidecar::notify_settings_changed();
     gateway_status()
 }
 
 pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
+    if crate::sidecar::delegated() {
+        if let Some(port) = port {
+            set_gateway_port(port)?;
+        }
+        set_enabled_flag(true);
+        crate::sidecar::request_restart();
+        let up =
+            crate::sidecar::wait_until_up(crate::sidecar::GatewayKind::Kiro, SIDECAR_START_WAIT)
+                .await;
+        if !up {
+            log::warn!("Kiro sidecar 网关尚未就绪（{}s 内）", SIDECAR_START_WAIT.as_secs());
+        }
+        return gateway_status();
+    }
     let (state, bind_port, db) = {
         let mut slot = lock_manager();
         let manager = slot
@@ -283,12 +309,22 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
 }
 
 pub async fn stop_gateway() -> AppResult<KiroGatewayStatus> {
+    set_enabled_flag(false);
+    if crate::sidecar::delegated() {
+        crate::sidecar::request_restart();
+        crate::sidecar::mark_down(crate::sidecar::GatewayKind::Kiro);
+        return gateway_status();
+    }
+    stop_gateway_keep_flag().await
+}
+
+/// Stop the listener without touching the persisted enabled flag (sidecar shutdown).
+pub async fn stop_gateway_keep_flag() -> AppResult<KiroGatewayStatus> {
     let runtime = {
         let mut slot = lock_manager();
         let manager = slot
             .as_mut()
             .ok_or_else(|| AppError::Other("Kiro 网关尚未初始化".into()))?;
-        let _ = manager.db.with_conn(|conn| set_setting(conn, ENABLED_SETTING, "0"));
         manager.runtime.take()
     };
     if let Some(runtime) = runtime {
@@ -299,15 +335,38 @@ pub async fn stop_gateway() -> AppResult<KiroGatewayStatus> {
     gateway_status()
 }
 
-pub async fn restore_gateway_if_enabled() {
-    let enabled = lock_manager().as_ref().and_then(|manager| {
-        manager
+/// Persisted listen port (what the gateway binds, in-process or in the sidecar).
+pub fn configured_port() -> u16 {
+    lock_manager()
+        .as_ref()
+        .map(|manager| saved_port(&manager.db))
+        .unwrap_or(DEFAULT_GATEWAY_PORT)
+}
+
+pub fn enabled_flag() -> bool {
+    lock_manager()
+        .as_ref()
+        .and_then(|manager| {
+            manager
+                .db
+                .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
+                .ok()
+                .flatten()
+        })
+        .as_deref()
+        == Some("1")
+}
+
+pub fn set_enabled_flag(enabled: bool) {
+    if let Some(manager) = lock_manager().as_ref() {
+        let _ = manager
             .db
-            .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
-            .ok()
-            .flatten()
-    });
-    if enabled.as_deref() == Some("1") {
+            .with_conn(|conn| set_setting(conn, ENABLED_SETTING, if enabled { "1" } else { "0" }));
+    }
+}
+
+pub async fn restore_gateway_if_enabled() {
+    if enabled_flag() {
         if let Err(error) = start_gateway(None).await {
             log::warn!("恢复 Kiro 网关失败: {error}");
         }

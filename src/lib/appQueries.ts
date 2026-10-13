@@ -10,6 +10,7 @@ import {
   getPiCliVersion,
   getNodeRuntimeStatus,
   getCloseBehavior,
+  getGatewayRuntimeMode,
   getDbInfo,
   getDataRoot,
   getDesktopLocalizationStatus,
@@ -263,6 +264,12 @@ export const autostartOptions = queryOptions({
 export const closeBehaviorOptions = queryOptions({
   queryKey: ["environment", "close-behavior"] as const,
   queryFn: getCloseBehavior,
+  staleTime: Number.POSITIVE_INFINITY,
+});
+
+export const gatewayRuntimeModeOptions = queryOptions({
+  queryKey: ["environment", "gateway-runtime-mode"] as const,
+  queryFn: getGatewayRuntimeMode,
   staleTime: Number.POSITIVE_INFINITY,
 });
 

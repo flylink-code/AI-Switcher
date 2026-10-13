@@ -88,6 +88,20 @@ pub(crate) fn read_close_behavior(db: &Database) -> AppResult<CloseBehavior> {
         .unwrap_or(CloseBehavior::Ask))
 }
 
+/// `inproc` | `sidecar`: where the Antigravity / Kiro gateways run. Applied after restart.
+#[tauri::command]
+pub fn get_gateway_runtime_mode(state: tauri::State<'_, AppState>) -> AppResult<String> {
+    Ok(crate::sidecar::read_mode(&state.db))
+}
+
+#[tauri::command]
+pub fn set_gateway_runtime_mode(
+    mode: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    crate::sidecar::write_mode(&state.db, &mode)
+}
+
 #[tauri::command]
 pub fn get_close_behavior(state: tauri::State<'_, AppState>) -> AppResult<CloseBehavior> {
     read_close_behavior(&state.db)

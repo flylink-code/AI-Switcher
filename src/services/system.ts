@@ -79,6 +79,19 @@ export async function getCloseBehavior(): Promise<CloseBehavior> {
   return call<CloseBehavior>("get_close_behavior", {});
 }
 
+export type GatewayRuntimeMode = "inproc" | "sidecar";
+
+/** Where the Antigravity / Kiro gateways run; a change applies after restart. */
+export async function getGatewayRuntimeMode(): Promise<GatewayRuntimeMode> {
+  return call<GatewayRuntimeMode>("get_gateway_runtime_mode", {});
+}
+
+export async function setGatewayRuntimeMode(
+  mode: GatewayRuntimeMode,
+): Promise<GatewayRuntimeMode> {
+  return call<GatewayRuntimeMode>("set_gateway_runtime_mode", { mode });
+}
+
 export async function setCloseBehavior(behavior: CloseBehavior): Promise<void> {
   return call<void>("set_close_behavior", { behavior });
 }

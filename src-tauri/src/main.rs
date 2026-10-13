@@ -12,6 +12,9 @@ fn main() {
         }
     }
 
+    if claude_switcher_lib::run_gateway_sidecar_if_requested() {
+        return;
+    }
     if claude_switcher_lib::run_localization_worker_if_requested() {
         return;
     }

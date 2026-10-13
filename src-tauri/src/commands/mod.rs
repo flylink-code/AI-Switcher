@@ -182,7 +182,7 @@ pub use skills::{
 };
 pub use system::{
     dismiss_onboarding_tip, get_autostart_config, get_autostart_enabled, get_close_behavior,
-    get_dismissed_onboarding_tips,
+    get_dismissed_onboarding_tips, get_gateway_runtime_mode, set_gateway_runtime_mode,
     report_frontend_performance, report_frontend_startup, resolve_close_request,
     restart_app, restore_onboarding_tips, set_app_language, set_autostart_config, set_autostart_enabled,
     set_close_behavior, get_update_mirror_settings, set_update_mirror_settings,
