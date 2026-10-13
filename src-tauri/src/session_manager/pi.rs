@@ -20,7 +20,7 @@ fn scan_pi_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
         session_id: item.id.clone(),
         title: item.title,
         summary: item.model.map(|m| format!("Model: {m}")),
-        project_dir: None,
+        project_dir: item.cwd.filter(|value| !value.is_empty()),
         created_at: item.created_at.map(|s| s as i64 * 1000),
         last_active_at: item.updated_at.map(|s| s as i64 * 1000),
         source_path: item.file_path,

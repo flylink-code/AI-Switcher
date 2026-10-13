@@ -20,6 +20,9 @@ pub struct PiSessionItem {
     pub token_count: Option<u64>,
     pub model: Option<String>,
     pub provider: Option<String>,
+    /// Working directory from the session header (`cwd`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
 }
 
 pub fn get_pi_sessions_dir() -> PathBuf {
@@ -92,6 +95,7 @@ fn parse_session_file(path: &Path) -> Option<PiSessionItem> {
     let mut model: Option<String> = None;
     let mut provider: Option<String> = None;
     let mut token_count: Option<u64> = None;
+    let mut cwd: Option<String> = None;
 
     if path.extension().is_some_and(|e| e == "json") {
         if let Ok(val) = serde_json::from_str::<Value>(&content) {
@@ -112,6 +116,7 @@ fn parse_session_file(path: &Path) -> Option<PiSessionItem> {
                 .get("tokenCount")
                 .and_then(Value::as_u64)
                 .or_else(|| val.get("tokens").and_then(Value::as_u64));
+            cwd = string_field(&val, "cwd").map(|value| normalize_pi_cwd(&value));
         }
     } else if path.extension().is_some_and(|e| e == "jsonl") {
         // jsonl: 首行通常为 session 元数据，次行为消息
@@ -141,6 +146,9 @@ fn parse_session_file(path: &Path) -> Option<PiSessionItem> {
                         .and_then(Value::as_str)
                         .map(|s| s.to_string());
                 }
+                if cwd.is_none() {
+                    cwd = string_field(&val, "cwd").map(|value| normalize_pi_cwd(&value));
+                }
             }
         }
     }
@@ -158,7 +166,29 @@ fn parse_session_file(path: &Path) -> Option<PiSessionItem> {
         token_count,
         model,
         provider,
+        cwd: cwd.filter(|value| !value.is_empty()),
     })
+}
+
+fn string_field(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string)
+}
+
+fn normalize_pi_cwd(raw: &str) -> String {
+    let cwd = raw.trim().trim_start_matches(r"\\?\").trim();
+    #[cfg(windows)]
+    {
+        cwd.replace('/', "\\")
+    }
+    #[cfg(not(windows))]
+    {
+        cwd.to_string()
+    }
 }
 
 /// 读取单个会话文件完整内容文本（以供格式化预览/导出）
@@ -168,4 +198,28 @@ pub fn read_pi_session_file_content(file_path: &str) -> AppResult<String> {
         return Err(AppError::Config(format!("会话文件不存在: {file_path}")));
     }
     fs::read_to_string(path).map_err(|e| AppError::Io(format!("读取会话文件失败: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jsonl_header_cwd_becomes_the_session_directory() {
+        let dir = std::env::temp_dir().join(format!("aisw-pi-cwd-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("session.jsonl");
+        fs::write(
+            &path,
+            "{\"type\":\"session\",\"id\":\"abc\",\"cwd\":\"E:\\\\W-AI_WorkSpace\\\\demo\"}\n{\"type\":\"message\",\"content\":\"hi\"}\n",
+        )
+        .unwrap();
+        let item = parse_session_file(&path).unwrap();
+        assert_eq!(
+            item.cwd.as_deref(),
+            Some(r"E:\W-AI_WorkSpace\demo")
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
