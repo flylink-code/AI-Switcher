@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -6,7 +6,6 @@ import {
   Collapse,
   Descriptions,
   Modal,
-  Segmented,
   Space,
   Tag,
   Typography,
@@ -56,43 +55,14 @@ import { errMsg } from "@/lib/errMsg";
 
 const { Text, Paragraph } = Typography;
 
-type OpenCodeChannel = "v1" | "v2";
-
-function isOpenCodeChannel(value: string | null | undefined): value is OpenCodeChannel {
-  return value === "v1" || value === "v2";
-}
-
-function opencodePackageName(channel: OpenCodeChannel): string {
-  switch (channel) {
-    case "v1":
-      return "opencode-ai";
-    case "v2":
-      return "@opencode/cli";
-    default: {
-      const unexpected: never = channel;
-      return unexpected;
-    }
-  }
-}
-
 function openCodeActionLabel(input: {
   meetsMinimum: boolean;
   installed: boolean;
-  detected: string | null | undefined;
-  selected: OpenCodeChannel;
   installNode: string;
-  installV1: string;
   installV2: string;
-  switchV1: string;
-  switchV2: string;
 }): string | undefined {
   if (!input.meetsMinimum && !input.installed) return input.installNode;
-  if (!input.installed) {
-    return input.selected === "v2" ? input.installV2 : input.installV1;
-  }
-  if (isOpenCodeChannel(input.detected) && input.detected !== input.selected) {
-    return input.selected === "v2" ? input.switchV2 : input.switchV1;
-  }
+  if (!input.installed) return input.installV2;
   return undefined;
 }
 
@@ -149,8 +119,6 @@ export default function AgentToolsPage() {
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [updatingCodex, setUpdatingCodex] = useState(false);
   const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
-  const [opencodeChannel, setOpencodeChannel] = useState<OpenCodeChannel>("v2");
-  const [opencodeChannelTouched, setOpencodeChannelTouched] = useState(false);
   const [updatingPi, setUpdatingPi] = useState(false);
   const [updatingDsh, setUpdatingDsh] = useState(false);
   const [updatingDesktop, setUpdatingDesktop] = useState(false);
@@ -309,18 +277,11 @@ export default function AgentToolsPage() {
     await runInstall();
   };
 
-  useEffect(() => {
-    if (opencodeChannelTouched || !opencodeInfo) return;
-    if (isOpenCodeChannel(opencodeInfo.channel)) {
-      setOpencodeChannel(opencodeInfo.channel);
-    }
-  }, [opencodeChannelTouched, opencodeInfo]);
-
   const updateOpenCodeCli = async () => {
     const runInstall = async () => {
       setUpdatingOpenCode(true);
       try {
-        const result = await runOpenCodeCliUpdate(opencodeChannel);
+        const result = await runOpenCodeCliUpdate();
         void message.success(result);
         await queryClient.invalidateQueries({ queryKey: ["opencode-cli-version"] });
       } catch (e) {
@@ -407,16 +368,11 @@ export default function AgentToolsPage() {
     return t("about.nodeRuntimeMissing");
   };
 
-  const opencodeCommand = `npm i -g ${opencodePackageName(opencodeChannel)}@latest`;
-  const selectedOpenCodeLatest = opencodeChannel === "v2"
-    ? opencodeInfo?.v2LatestVersion
-    : opencodeInfo?.v1LatestVersion;
+  const opencodeCommand = "npm i -g @opencode/cli@latest";
   const opencodeDisplayInfo = opencodeInfo
     ? {
         ...opencodeInfo,
-        latestVersion: selectedOpenCodeLatest ?? opencodeInfo.latestVersion,
-        updateAvailable:
-          opencodeInfo.channel === opencodeChannel && opencodeInfo.updateAvailable,
+        latestVersion: opencodeInfo.v2LatestVersion ?? opencodeInfo.latestVersion,
         installCommand: opencodeCommand,
         updateCommand: opencodeCommand,
       }
@@ -424,13 +380,8 @@ export default function AgentToolsPage() {
   const opencodePrimaryLabel = openCodeActionLabel({
     meetsMinimum: nodeRuntime?.meetsMinimum ?? false,
     installed: opencodeInfo?.installed ?? false,
-    detected: opencodeInfo?.channel,
-    selected: opencodeChannel,
     installNode: t("about.installNodeViaFnm"),
-    installV1: t("about.runOpenCodeInstallV1"),
     installV2: t("about.runOpenCodeInstallV2"),
-    switchV1: t("about.runOpenCodeSwitchV1"),
-    switchV2: t("about.runOpenCodeSwitchV2"),
   });
 
   return (
@@ -634,23 +585,6 @@ export default function AgentToolsPage() {
           onRefresh={() => void opencodeQuery.refetch()}
           onCopy={(command) => void copyCommand(command)}
           onInstallOrUpdate={() => void updateOpenCodeCli()}
-          extra={
-            <Segmented
-              size="small"
-              value={opencodeChannel}
-              disabled={updatingOpenCode || installingNode}
-              onChange={(value) => {
-                if (value !== "v1" && value !== "v2") return;
-                setOpencodeChannelTouched(true);
-                setOpencodeChannel(value);
-              }}
-              options={[
-                { value: "v1", label: t("about.opencodeChannelV1") },
-                { value: "v2", label: t("about.opencodeChannelV2") },
-              ]}
-            />
-          }
-          footnote={t("about.opencodeChannelHint")}
           primaryLabel={opencodePrimaryLabel}
           labels={{
             current: t("about.opencodeCurrentVersion"),

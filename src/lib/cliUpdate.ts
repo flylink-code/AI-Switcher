@@ -1,7 +1,10 @@
-// Agent CLI 版本提示与 OpenCode 通道决策的纯函数。
+// Agent CLI 版本提示与 OpenCode 升级动作的纯函数。
 // 注意：本文件不得有运行时 import（scripts/test-cli-update.mjs 用 transpile + vm 直接执行它）。
 
 export type OpenCodeChannel = "v1" | "v2";
+
+/** 产品只安装这一条。v1（opencode-ai）不再提供，官方会直接升到 v2。 */
+export const OPENCODE_V2_PACKAGE = "@opencode/cli";
 
 /** Claude Code / Codex / OpenCode / Pi 四种版本信息共有字段的最小结构。 */
 export interface CliInfoLike {
@@ -10,8 +13,6 @@ export interface CliInfoLike {
   latestVersion?: string | null;
   updateAvailable?: boolean;
   channel?: string | null;
-  v1LatestVersion?: string | null;
-  v2LatestVersion?: string | null;
 }
 
 export interface ToolUpdateState {
@@ -57,59 +58,32 @@ export function getUpgradeButton(state: ToolUpdateState): UpgradeButtonState {
   return { type: "default", disabled: false, labelKey: "upgrade" };
 }
 
-export function isOpenCodeChannel(value: string | null | undefined): value is OpenCodeChannel {
-  return value === "v1" || value === "v2";
-}
-
 export function opencodePackageName(channel: OpenCodeChannel): string {
-  return channel === "v1" ? "opencode-ai" : "@opencode/cli";
+  return channel === "v1" ? "opencode-ai" : OPENCODE_V2_PACKAGE;
 }
 
-/** 未手动选择时跟随检测到的通道；未安装默认 v2。 */
-export function resolveOpenCodeChannel(
-  info: CliInfoLike | null | undefined,
-  override: OpenCodeChannel | null | undefined,
-): OpenCodeChannel {
-  if (override) return override;
-  return isOpenCodeChannel(info?.channel) ? info.channel : "v2";
-}
-
-/** 仅当所选通道 = 检测通道时才比较更新；跨通道时 hasUpdate 恒为 false。 */
-export function getOpenCodeUpdateState(
-  info: CliInfoLike | null | undefined,
-  selected: OpenCodeChannel,
-): ToolUpdateState {
-  const base = getToolUpdateState(info);
-  if (!base.installed || !isOpenCodeChannel(info?.channel)) return base;
-  if (info.channel === selected) {
-    const latestVersion = info.latestVersion ?? (selected === "v1" ? info.v1LatestVersion : info.v2LatestVersion) ?? null;
-    return { ...base, latestVersion, latestKnown: latestVersion != null, hasUpdate: base.hasUpdate };
-  }
-  const latestVersion = (selected === "v1" ? info.v1LatestVersion : info.v2LatestVersion) ?? null;
-  return { ...base, latestVersion, latestKnown: latestVersion != null, hasUpdate: false };
-}
-
-export function getOpenCodeAction(
-  info: CliInfoLike | null | undefined,
-  selected: OpenCodeChannel,
-): OpenCodeAction {
+/**
+ * 安装与升级只走 v2。已装 v1 时升级会卸载 opencode-ai 再装 @opencode/cli，需要确认。
+ * 版本比较由后端对 v2 最新版完成，这里不再做通道选择。
+ */
+export function getOpenCodeAction(info: CliInfoLike | null | undefined): OpenCodeAction {
   if (!info?.installed) {
     return {
       kind: "install",
-      channel: selected,
+      channel: "v2",
       needsConfirm: false,
-      labelKey: selected === "v2" ? "about.runOpenCodeInstallV2" : "about.runOpenCodeInstallV1",
+      labelKey: "agentHub.install",
     };
   }
-  if (isOpenCodeChannel(info.channel) && info.channel !== selected) {
+  if (info.channel === "v1") {
     return {
       kind: "switch",
-      channel: selected,
+      channel: "v2",
       needsConfirm: true,
-      labelKey: selected === "v2" ? "about.runOpenCodeSwitchV2" : "about.runOpenCodeSwitchV1",
+      labelKey: "agentHub.upgrade",
     };
   }
-  return { kind: "upgrade", channel: selected, needsConfirm: false, labelKey: "agentHub.upgrade" };
+  return { kind: "upgrade", channel: "v2", needsConfirm: false, labelKey: "agentHub.upgrade" };
 }
 
 /** 后端 run_codex_cli* 在未安装 Codex CLI 时返回的稳定前缀。 */

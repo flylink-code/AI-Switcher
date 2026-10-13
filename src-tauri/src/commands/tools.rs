@@ -1646,8 +1646,9 @@ pub struct OpenCodeCliVersionInfo {
     pub current_version: Option<String>,
     /// `v1` or `v2` when a version was probed. Empty when OpenCode is missing.
     pub channel: Option<String>,
-    /// Latest release of the installed line. Empty when nothing is installed.
+    /// Latest `@opencode/cli` release. Empty when nothing is installed or the lookup failed.
     pub latest_version: Option<String>,
+    /// Kept for older clients. Always empty; v1 is no longer a selectable line.
     pub v1_latest_version: Option<String>,
     pub v2_latest_version: Option<String>,
     pub update_available: bool,
@@ -1660,7 +1661,7 @@ pub struct OpenCodeCliVersionInfo {
     pub installed_but_broken: bool,
 }
 
-/// `2.*` and newer use the v2 package. Older installs stay on v1.
+/// `2.*` and newer are the v2 package. Older binaries are the retired v1 package.
 fn opencode_channel_from_version(version: &str) -> &'static str {
     let major = version_parts(version).first().copied().unwrap_or(0);
     if major >= 2 {
@@ -1670,27 +1671,8 @@ fn opencode_channel_from_version(version: &str) -> &'static str {
     }
 }
 
-fn opencode_package_for_channel(channel: &str) -> AppResult<&'static str> {
-    match channel {
-        "v1" => Ok(OPENCODE_V1_NPM_PACKAGE),
-        "v2" => Ok(OPENCODE_V2_NPM_PACKAGE),
-        _ => Err(AppError::Config(format!(
-            "未知的 OpenCode 安装线: {channel}"
-        ))),
-    }
-}
-
-fn opencode_other_package(channel: &str) -> &'static str {
-    if channel == "v2" {
-        OPENCODE_V1_NPM_PACKAGE
-    } else {
-        OPENCODE_V2_NPM_PACKAGE
-    }
-}
-
-fn opencode_install_command(channel: &str) -> String {
-    let package = opencode_package_for_channel(channel).unwrap_or(OPENCODE_V2_NPM_PACKAGE);
-    format!("npm i -g {package}@latest")
+fn opencode_install_command() -> String {
+    format!("npm i -g {OPENCODE_V2_NPM_PACKAGE}@latest")
 }
 
 fn opencode_executable_candidates(dir: &Path) -> Vec<PathBuf> {
@@ -1802,14 +1784,13 @@ async fn fetch_npm_package_latest(package: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn opencode_update_command_for(installation: Option<&Installation>, channel: &str) -> String {
-    let package = opencode_package_for_channel(channel).unwrap_or(OPENCODE_V2_NPM_PACKAGE);
+fn opencode_update_command_for(installation: Option<&Installation>) -> String {
     let Some(installation) = installation else {
-        return format!("npm i -g {package}@latest");
+        return opencode_install_command();
     };
     let npm = find_command_near("npm", installation);
     format!(
-        "{} i -g {package}@latest",
+        "{} i -g {OPENCODE_V2_NPM_PACKAGE}@latest",
         quoted(&npm.display().to_string())
     )
 }
@@ -1830,8 +1811,7 @@ fn install_opencode_with_npmjs_retry(node: &Path, npm: &Path, package: &str) -> 
     Ok(ensure_npm_cli_after_install(node, npm, "opencode", retry))
 }
 
-fn run_opencode_install_or_update(channel: &str) -> AppResult<Output> {
-    let package = opencode_package_for_channel(channel)?;
+fn run_opencode_install_or_update() -> AppResult<Output> {
     let runtime = crate::commands::node_runtime::require_node_for_npm()?;
     let probe = probe_opencode_installation();
     let (npm, installed_channel) = match &probe {
@@ -1850,32 +1830,31 @@ fn run_opencode_install_or_update(channel: &str) -> AppResult<Output> {
         }
         Probe::NotFound(_) => (runtime.npm_path.clone(), None),
     };
-    if installed_channel.is_some_and(|current| current != channel) {
+    // v1（opencode-ai）与 v2 共用 opencode 命令。升级到 v2 前先卸掉旧包。
+    if installed_channel == Some("v1") {
         let removed = crate::commands::node_runtime::run_anchored_npm_global_uninstall(
             &npm,
             &runtime.node_path,
-            opencode_other_package(channel),
+            OPENCODE_V1_NPM_PACKAGE,
         )
-        .map_err(|error| AppError::Other(format!("无法卸载另一条 OpenCode: {error}")))?;
+        .map_err(|error| AppError::Other(format!("无法卸载 OpenCode v1: {error}")))?;
         if !removed.status.success() {
             return Ok(removed);
         }
     }
-    install_opencode_with_npmjs_retry(&runtime.node_path, &npm, package)
+    install_opencode_with_npmjs_retry(&runtime.node_path, &npm, OPENCODE_V2_NPM_PACKAGE)
 }
 
 #[tauri::command]
 pub async fn get_opencode_cli_version(include_latest: Option<bool>) -> AppResult<OpenCodeCliVersionInfo> {
     let probe_task = tokio::task::spawn_blocking(probe_opencode_installation);
-    let (probe_result, v1_latest_version, v2_latest_version) = if include_latest.unwrap_or(true) {
-        let (probe_result, v1_latest_version, v2_latest_version) = tokio::join!(
+    let (probe_result, v2_latest_version) = if include_latest.unwrap_or(true) {
+        tokio::join!(
             probe_task,
-            fetch_npm_package_latest(OPENCODE_V1_NPM_PACKAGE),
             fetch_npm_package_latest(OPENCODE_V2_NPM_PACKAGE),
-        );
-        (probe_result, v1_latest_version, v2_latest_version)
+        )
     } else {
-        (probe_task.await, None, None)
+        (probe_task.await, None)
     };
     let probe = probe_result
         .map_err(|error| AppError::Other(format!("OpenCode CLI version probe failed: {error}")))?;
@@ -1890,27 +1869,27 @@ pub async fn get_opencode_cli_version(include_latest: Option<bool>) -> AppResult
         .as_deref()
         .map(opencode_channel_from_version)
         .map(str::to_string);
-    let latest_version = match channel.as_deref() {
-        Some("v2") => v2_latest_version.clone(),
-        Some("v1") => v1_latest_version.clone(),
-        _ => None,
+    // 无论当前是 v1 还是 v2，可升级目标都是 @opencode/cli 的最新版。
+    let latest_version = if installation.is_some() {
+        v2_latest_version.clone()
+    } else {
+        None
     };
     let has_update = current_version
         .as_deref()
         .zip(latest_version.as_deref())
         .is_some_and(|(current, latest)| update_available(current, latest));
-    let command_channel = channel.as_deref().unwrap_or("v2").to_string();
 
     Ok(OpenCodeCliVersionInfo {
         installed: installation.is_some(),
         current_version,
         channel,
         latest_version,
-        v1_latest_version,
+        v1_latest_version: None,
         v2_latest_version,
         update_available: has_update,
-        install_command: opencode_install_command(&command_channel),
-        update_command: opencode_update_command_for(installation, &command_channel),
+        install_command: opencode_install_command(),
+        update_command: opencode_update_command_for(installation),
         error,
         executable_path: installation.map(|value| value.path.clone()),
         source: installation.map(|value| value.source.clone()),
@@ -1922,10 +1901,8 @@ pub async fn get_opencode_cli_version(include_latest: Option<bool>) -> AppResult
 }
 
 #[tauri::command]
-pub async fn run_opencode_cli_update(channel: String) -> AppResult<String> {
-    let channel = channel.trim().to_string();
-    opencode_package_for_channel(&channel)?;
-    let result = tokio::task::spawn_blocking(move || run_opencode_install_or_update(&channel))
+pub async fn run_opencode_cli_update() -> AppResult<String> {
+    let result = tokio::task::spawn_blocking(run_opencode_install_or_update)
         .await
         .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
 
@@ -2839,30 +2816,13 @@ mod tests {
     }
 
     #[test]
-    fn opencode_package_matches_channel() {
+    fn opencode_install_command_targets_v2_package() {
         assert_eq!(
-            opencode_package_for_channel("v1").unwrap(),
-            "opencode-ai"
-        );
-        assert_eq!(
-            opencode_package_for_channel("v2").unwrap(),
-            "@opencode/cli"
-        );
-        assert!(opencode_package_for_channel("v3").is_err());
-        assert_eq!(opencode_other_package("v2"), "opencode-ai");
-        assert_eq!(opencode_other_package("v1"), "@opencode/cli");
-    }
-
-    #[test]
-    fn opencode_install_command_names_the_selected_package() {
-        assert_eq!(
-            opencode_install_command("v1"),
-            "npm i -g opencode-ai@latest"
-        );
-        assert_eq!(
-            opencode_install_command("v2"),
+            opencode_install_command(),
             "npm i -g @opencode/cli@latest"
         );
+        assert_eq!(OPENCODE_V1_NPM_PACKAGE, "opencode-ai");
+        assert_eq!(OPENCODE_V2_NPM_PACKAGE, "@opencode/cli");
     }
 
     #[test]

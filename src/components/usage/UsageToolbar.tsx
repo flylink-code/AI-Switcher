@@ -122,8 +122,8 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   ];
 
   return (
-    <div className={`cc-workbench-header ${className}`.trim()} style={style}>
-      <div className="cc-header-left">
+    <div className={`page-strip cc-workbench-header ${className}`.trim()} style={style}>
+      <div className="page-strip-main cc-header-left">
         <Segmented<UsageSourceFilter>
           className="app-segmented-switcher"
           size="small"
@@ -146,6 +146,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
       </div>
       <div className="cc-header-right">
         <Select<UsagePeriod>
+          size="small"
           value={period}
           style={{ width: 148 }}
           aria-label={t("usage.period", { defaultValue: "统计时间" })}
@@ -159,6 +160,9 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
           onChange={onPeriodChange}
         />
         <Button
+          size="small"
+          type="text"
+          className="page-strip-quiet"
           icon={<ReloadOutlined spin={refreshing} />}
           loading={refreshing}
           onClick={onRefresh}
@@ -166,7 +170,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
           {t("common.refresh", { defaultValue: "刷新" })}
         </Button>
         <Dropdown menu={{ items: moreItems }} trigger={["click"]}>
-          <Button loading={maintaining}>
+          <Button size="small" type="text" className="page-strip-quiet" loading={maintaining}>
             {t("common.moreActions", { defaultValue: "更多操作" })}
             <DownOutlined style={{ marginLeft: 6, fontSize: 11 }} />
           </Button>

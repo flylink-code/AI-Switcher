@@ -13,8 +13,6 @@ vm.runInNewContext(js, { exports });
 const {
   getToolUpdateState,
   getUpgradeButton,
-  resolveOpenCodeChannel,
-  getOpenCodeUpdateState,
   getOpenCodeAction,
   opencodePackageName,
   isCodexCliMissing,
@@ -59,66 +57,30 @@ for (const empty of [undefined, null]) {
   });
 }
 
-// ---- Task 3：OpenCode 通道 ----
+// ---- Task 3：OpenCode 只走 v2；已装 v1 时升级需确认 ----
 const oc = (channel, extra = {}) => ({
   installed: true, currentVersion: "1.0.0", channel,
-  latestVersion: channel === "v1" ? "1.5.0" : "2.0.0",
-  v1LatestVersion: "1.5.0", v2LatestVersion: "2.0.0", updateAvailable: true, ...extra,
+  latestVersion: "2.0.0", updateAvailable: true, ...extra,
 });
 const notInstalled = { installed: false, currentVersion: null, channel: null, latestVersion: null, updateAvailable: false };
 
 assert.equal(opencodePackageName("v1"), "opencode-ai");
 assert.equal(opencodePackageName("v2"), "@opencode/cli");
 
-// resolveOpenCodeChannel：跟随检测，override 优先，未安装默认 v2
-assert.equal(resolveOpenCodeChannel(notInstalled, null), "v2");
-assert.equal(resolveOpenCodeChannel(undefined, null), "v2");
-assert.equal(resolveOpenCodeChannel(oc("v1"), null), "v1");
-assert.equal(resolveOpenCodeChannel(oc("v2"), null), "v2");
-assert.equal(resolveOpenCodeChannel(oc("v1"), "v2"), "v2");
-assert.equal(resolveOpenCodeChannel(oc(null), null), "v2");
-
-// 未安装：install，不需确认
-for (const [sel, key] of [["v1", "about.runOpenCodeInstallV1"], ["v2", "about.runOpenCodeInstallV2"]]) {
-  assert.deepEqual({ ...getOpenCodeAction(notInstalled, sel) }, {
-    kind: "install", channel: sel, needsConfirm: false, labelKey: key,
-  });
-}
-// 装 v1：选 v1 → upgrade；选 v2 → switch（需确认）
-assert.deepEqual({ ...getOpenCodeAction(oc("v1"), "v1") }, {
-  kind: "upgrade", channel: "v1", needsConfirm: false, labelKey: "agentHub.upgrade",
+assert.deepEqual({ ...getOpenCodeAction(notInstalled) }, {
+  kind: "install", channel: "v2", needsConfirm: false, labelKey: "agentHub.install",
 });
-assert.deepEqual({ ...getOpenCodeAction(oc("v1"), "v2") }, {
-  kind: "switch", channel: "v2", needsConfirm: true, labelKey: "about.runOpenCodeSwitchV2",
+assert.deepEqual({ ...getOpenCodeAction(undefined) }, {
+  kind: "install", channel: "v2", needsConfirm: false, labelKey: "agentHub.install",
 });
-// 装 v2：选 v2 → upgrade；选 v1 → switch
-assert.deepEqual({ ...getOpenCodeAction(oc("v2"), "v2") }, {
+assert.deepEqual({ ...getOpenCodeAction(oc("v1")) }, {
+  kind: "switch", channel: "v2", needsConfirm: true, labelKey: "agentHub.upgrade",
+});
+assert.deepEqual({ ...getOpenCodeAction(oc("v2")) }, {
   kind: "upgrade", channel: "v2", needsConfirm: false, labelKey: "agentHub.upgrade",
 });
-assert.deepEqual({ ...getOpenCodeAction(oc("v2"), "v1") }, {
-  kind: "switch", channel: "v1", needsConfirm: true, labelKey: "about.runOpenCodeSwitchV1",
-});
-// 通道未知（已安装但 channel=null）：不触发切换确认
-assert.equal(getOpenCodeAction(oc(null), "v1").kind, "upgrade");
-
-// 更新状态：同通道才比较；跨通道不显示更新，latest 取所选线
-const sameLine = getOpenCodeUpdateState(oc("v2"), "v2");
-assert.equal(sameLine.hasUpdate, true);
-assert.equal(sameLine.latestVersion, "2.0.0");
-const crossLine = getOpenCodeUpdateState(oc("v2"), "v1");
-assert.equal(crossLine.hasUpdate, false);
-assert.equal(crossLine.latestVersion, "1.5.0");
-assert.equal(crossLine.latestKnown, true);
-const crossUnknown = getOpenCodeUpdateState(oc("v2", { v1LatestVersion: null }), "v1");
-assert.equal(crossUnknown.latestKnown, false);
-assert.equal(crossUnknown.hasUpdate, false);
-// 同通道最新版本为 null 时回退所选线
-const fallback = getOpenCodeUpdateState(oc("v1", { latestVersion: null, updateAvailable: false }), "v1");
-assert.equal(fallback.latestVersion, "1.5.0");
-assert.equal(fallback.hasUpdate, false);
-// 未安装：退化为 getToolUpdateState
-assert.equal(getOpenCodeUpdateState(notInstalled, "v2").hasUpdate, false);
-assert.equal(getOpenCodeUpdateState(undefined, "v1").installed, false);
+assert.equal(getOpenCodeAction(oc(null)).kind, "upgrade");
+assert.equal(getOpenCodeAction(oc(null)).needsConfirm, false);
 
 // ---- Task 5：isCodexCliMissing ----
 assert.equal(isCodexCliMissing("CODEX_CLI_MISSING: 无法启动 Codex CLI"), true);

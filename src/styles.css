@@ -1350,6 +1350,148 @@ body {
   }
 }
 
+/* 页面第一栏：与概览状态条同一套表面。左=身份/筛选，右=操作。
+   放得下时左侧伸开、操作靠右；放不下时操作整组换行，从左边起排。 */
+.page-strip {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px 12px;
+  padding: 6px 10px 6px 12px;
+  border: 1px solid var(--as-border-card, var(--ant-color-border-secondary));
+  border-radius: 12px;
+  background: var(--ant-color-bg-container, var(--color-bg-surface));
+}
+
+.page-strip.cc-workbench-header {
+  margin-bottom: 0;
+}
+
+.page-strip-status {
+  --pill: var(--color-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.page-strip-status[data-tone="ok"] {
+  --pill: var(--color-success);
+  background: var(--color-success-subtle);
+  border-color: color-mix(in srgb, var(--pill) 35%, transparent);
+}
+
+.page-strip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pill);
+  flex: 0 0 auto;
+}
+
+.page-strip-meta {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.page-strip-main,
+.page-strip > .cc-header-left {
+  flex: 1 1 auto;
+  min-width: min(100%, max-content);
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.page-strip-main .ant-segmented,
+.page-strip > .cc-header-left .ant-segmented {
+  flex: 0 0 auto;
+}
+
+.page-strip-actions,
+.page-strip > .cc-header-right {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+  margin-left: 0;
+}
+
+.page-strip .ant-btn {
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.page-strip .page-strip-quiet.ant-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.page-strip .page-strip-quiet.ant-btn:hover {
+  background: var(--color-bg-subtle) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.page-strip .ant-select.ant-select-sm {
+  height: 28px;
+  min-height: 28px;
+  --ant-select-height: 28px;
+  --ant-select-padding-vertical: 0px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+}
+
+.page-strip .ant-select.ant-select-sm .ant-select-content {
+  align-self: center;
+  display: flex;
+  align-items: center;
+}
+
+.page-strip .ant-segmented {
+  font-size: 12px;
+}
+
+/* 工作区：上面选 Agent，下面同一组分段列出该 Agent 的资源。 */
+.workspace-strip.page-strip {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.workspace-resource-row {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workspace-resource-row::-webkit-scrollbar {
+  display: none;
+}
+
 .overview-trend-card.ant-card {
   flex: 1 1 0;
   min-height: var(--overview-trend-min);

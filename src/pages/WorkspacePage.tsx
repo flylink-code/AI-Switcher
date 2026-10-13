@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
-import { Button, Dropdown, Segmented, Space, Spin } from "antd";
-import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
+import { Segmented, Spin } from "antd";
 import { useTranslation } from "react-i18next";
 import {
   getLoadedPage,
@@ -39,11 +38,6 @@ function isWorkspacePage(key: string): key is WorkspaceResourceTab {
   return WORKSPACE_PAGES.some((page) => page === key);
 }
 
-/** Beyond this many tabs, the trailing ones (agents, plugins) fold into a "More" menu. */
-const MAX_VISIBLE_TABS = 5;
-/** Matches no option, so the segmented control shows no selection while a "More" tab is active. */
-const NO_SEGMENT_SELECTED = "__more__" as WorkspaceResourceTab;
-
 const NAV_FALLBACKS: Record<string, string> = {
   profiles: "项目",
   mcp: "MCP 服务",
@@ -51,7 +45,7 @@ const NAV_FALLBACKS: Record<string, string> = {
   skills: "技能",
   agents: "Agent 智能体",
   plugins: "插件",
-  sessions: "会话",
+  sessions: "会话管理",
 };
 
 /**
@@ -71,10 +65,6 @@ export default function WorkspacePage() {
   );
   const activeTab: WorkspaceResourceTab = supportedTabs.includes(workspaceTab) ? workspaceTab : (supportedTabs[0] ?? "mcp");
 
-  const hasOverflow = supportedTabs.length > MAX_VISIBLE_TABS;
-  const visibleTabs = hasOverflow ? supportedTabs.slice(0, MAX_VISIBLE_TABS) : supportedTabs;
-  const overflowTabs = hasOverflow ? supportedTabs.slice(MAX_VISIBLE_TABS) : [];
-  const overflowActive = overflowTabs.includes(activeTab);
   const tabOption = (key: WorkspaceResourceTab) => ({
     value: key,
     label: t(`nav.${key}`, { defaultValue: NAV_FALLBACKS[key] ?? key }),
@@ -96,51 +86,25 @@ export default function WorkspacePage() {
         minWidth: 0,
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <Space wrap>
-          <AgentTargetSwitcher
-            value={workspaceTarget}
-            onChange={setWorkspaceTarget}
-            targets={PROVIDER_TARGET_OPTIONS}
-          />
-        </Space>
-        {supportedTabs.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {visibleTabs.length > 0 && (
+      <div className="page-strip workspace-strip" role="group" aria-label={t("workspace.target", { defaultValue: "工作区" })}>
+        <AgentTargetSwitcher
+          value={workspaceTarget}
+          onChange={setWorkspaceTarget}
+          targets={PROVIDER_TARGET_OPTIONS}
+        />
+        {supportedTabs.length > 0 ? (
+          <div className="workspace-resource-row">
             <Segmented<WorkspaceResourceTab>
               className="app-segmented-switcher"
               size="small"
-              value={overflowActive ? NO_SEGMENT_SELECTED : activeTab}
+              value={activeTab}
               onChange={(key) => {
                 if (isWorkspacePage(key)) setWorkspaceTab(key);
               }}
-              options={visibleTabs.map((key) => tabOption(key))}
+              options={supportedTabs.map((key) => tabOption(key))}
             />
-          )}
-          {overflowTabs.length > 0 && (
-            <Dropdown
-              trigger={["click"]}
-              menu={{
-                selectedKeys: overflowActive ? [activeTab] : [],
-                items: overflowTabs.map((key) => ({
-                  key,
-                  label: t(`nav.${key}`, { defaultValue: NAV_FALLBACKS[key] ?? key }),
-                })),
-                onClick: ({ key }) => {
-                  if (isWorkspacePage(key)) setWorkspaceTab(key);
-                },
-              }}
-            >
-              <Button size="small" type={overflowActive ? "primary" : "default"} aria-label="workspace-more-tabs">
-                {overflowActive
-                  ? t(`nav.${activeTab}`, { defaultValue: NAV_FALLBACKS[activeTab] ?? activeTab })
-                  : t("nav.more", { defaultValue: "更多" })}
-                <DownOutlined />
-              </Button>
-            </Dropdown>
-          )}
-        </div>
-        )}
+          </div>
+        ) : null}
       </div>
       {supportedTabs.length > 0 && <EmbeddedPage pageKey={activeTab} target={workspaceTarget} />}
     </div>

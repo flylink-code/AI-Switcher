@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Input, InputNumber, Modal, Segmented, Space, Typography, message } from "antd";
+import { Alert, Button, Input, InputNumber, Modal, Segmented, Space, Typography, message } from "antd";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -120,13 +120,16 @@ export function SmartGatewaySection() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Badge status={running ? "processing" : "default"} />
-        <Text strong>
-          {t("gateway.tabSmart", { defaultValue: "智能网关" })} :{status?.port ?? 15828}
-        </Text>
-        <Text type="secondary">{running ? t("proxy.running") : t("proxy.stopped")}</Text>
-        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
+      <div className="page-strip" role="group" aria-label={t("gateway.tabSmart", { defaultValue: "智能网关" })}>
+        <div className="page-strip-main">
+          <span className="page-strip-status" data-tone={running ? "ok" : "idle"}>
+            <span className="page-strip-dot" aria-hidden />
+            {t("gateway.tabSmart", { defaultValue: "智能网关" })}
+            <span className="page-strip-meta">{running ? t("proxy.running") : t("proxy.stopped")}</span>
+          </span>
+          <span className="overview-stat-chip">:{status?.port ?? 15828}</span>
+        </div>
+        <div className="page-strip-actions">
           {running ? (
             <Button danger size="small" icon={<StopOutlined />} loading={busy} onClick={() => void handleStop()}>
               {t("proxy.stop")}
@@ -136,13 +139,13 @@ export function SmartGatewaySection() {
               {t("proxy.start")}
             </Button>
           )}
-          <Button size="small" onClick={() => setAccessOpen(true)}>
+          <Button type="text" size="small" className="page-strip-quiet" onClick={() => setAccessOpen(true)}>
             {t("providers.accessInfo", { defaultValue: "接入信息" })}
           </Button>
-          <Button size="small" onClick={() => setLimitsOpen(true)}>
+          <Button type="text" size="small" className="page-strip-quiet" onClick={() => setLimitsOpen(true)}>
             {t("providers.limits", { defaultValue: "限额" })}
           </Button>
-        </span>
+        </div>
       </div>
       {status?.lastError ? <Alert type="error" showIcon message={status.lastError} /> : null}
       <GatewayUpstreamPanel allowlistTarget="claude_code" />

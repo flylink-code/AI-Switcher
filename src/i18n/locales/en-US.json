@@ -1644,7 +1644,7 @@
     "codexCliOptional": "CLI not installed (optional)",
     "installCodexCli": "Install CLI",
     "installOpenCodeV1": "Install v1 (opencode-ai)",
-    "opencodeSwitchConfirmTitle": "Switch to OpenCode {{channel}}?",
+    "opencodeSwitchConfirmTitle": "Upgrade to OpenCode v2?",
     "opencodeSwitchConfirmBody": "This will uninstall {{fromPkg}} ({{from}}) and install {{toPkg}} ({{to}}). Both share the opencode command; configuration stays in ~/.config/opencode and is not modified.",
     "localization": {
       "title": "Localization",

@@ -1644,7 +1644,7 @@
     "codexCliOptional": "CLI 未安装（可选）",
     "installCodexCli": "安装 CLI",
     "installOpenCodeV1": "安装 v1 (opencode-ai)",
-    "opencodeSwitchConfirmTitle": "切换到 OpenCode {{channel}}？",
+    "opencodeSwitchConfirmTitle": "升级到 OpenCode v2？",
     "opencodeSwitchConfirmBody": "将卸载 {{fromPkg}}（{{from}}）并安装 {{toPkg}}（{{to}}）。两者共用 opencode 命令；配置仍在 ~/.config/opencode，不会被改动。",
     "localization": {
       "title": "中文化",
