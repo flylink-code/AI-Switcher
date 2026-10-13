@@ -505,6 +505,188 @@ body {
   opacity: 0.75;
 }
 
+/* Title bar right cluster: quiet version, one tool tray, then caption buttons */
+.titlebar-actions {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  height: 100%;
+  flex: 0 0 auto;
+}
+
+.titlebar-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 0 12px 0 8px;
+}
+
+.titlebar-tools .app-titlebar-version,
+.titlebar-tools .app-titlebar-update {
+  margin: 0;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.titlebar-tool-tray {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 2px;
+  gap: 1px;
+  border-radius: 9px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  box-sizing: border-box;
+}
+
+.titlebar-tool-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  background: var(--color-border-strong);
+  opacity: 0.55;
+  flex: 0 0 auto;
+}
+
+.titlebar-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+
+.titlebar-layout-switch.ant-segmented {
+  background: transparent !important;
+  padding: 0 !important;
+  height: 26px !important;
+  min-height: 0 !important;
+  border: none !important;
+  border-radius: 7px;
+  box-shadow: none !important;
+}
+
+.titlebar-layout-switch.ant-segmented .ant-segmented-group {
+  align-items: center;
+  height: 26px;
+  gap: 0;
+}
+
+.titlebar-layout-switch.ant-segmented .ant-segmented-item {
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.titlebar-layout-switch.ant-segmented .ant-segmented-item-label {
+  min-height: 24px !important;
+  height: 24px !important;
+  padding: 0 8px !important;
+  line-height: 1 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.titlebar-layout-switch.ant-segmented .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
+  color: var(--color-text-primary);
+  background: transparent;
+}
+
+.titlebar-layout-switch.ant-segmented .ant-segmented-item-selected,
+.titlebar-layout-switch.ant-segmented .ant-segmented-thumb {
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme="dark"] .titlebar-layout-switch.ant-segmented .ant-segmented-item-selected,
+[data-theme="dark"] .titlebar-layout-switch.ant-segmented .ant-segmented-thumb {
+  background: var(--color-bg-elevated) !important;
+  box-shadow: none !important;
+}
+
+.titlebar-icon-select.ant-select {
+  --ant-select-height: 26px;
+  --ant-select-padding-horizontal: 0px;
+  --ant-select-padding-vertical: 0px;
+  --ant-select-border-size: 0px;
+  --ant-select-background-color: transparent;
+  --ant-select-border-color: transparent;
+  width: 28px;
+  height: 26px;
+  min-width: 28px;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 7px;
+}
+
+.titlebar-icon-select.ant-select:hover,
+.titlebar-icon-select.ant-select.ant-select-focused,
+.titlebar-icon-select.ant-select.ant-select-open {
+  --ant-select-background-color: transparent;
+  --ant-select-border-color: transparent;
+  box-shadow: none;
+}
+
+.titlebar-icon-select.ant-select:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.titlebar-icon-select.ant-select .ant-select-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-inline-end: 0;
+}
+
+.titlebar-icon-select.ant-select .ant-select-content-value,
+.titlebar-icon-select.ant-select .ant-select-selection-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  overflow: visible;
+}
+
+.titlebar-icon-select.ant-select .ant-select-suffix {
+  display: none;
+}
+
+.titlebar-actions .app-titlebar-controls {
+  height: 100%;
+  margin-left: 2px;
+  border-left: 1px solid var(--color-border);
+}
+
+.titlebar-actions .app-titlebar-controls button {
+  width: 46px;
+  height: 100%;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.titlebar-actions .app-titlebar-controls .app-titlebar-close:hover,
+.titlebar-actions .app-titlebar-controls .app-titlebar-close:active {
+  color: #fff;
+}
+
 /* ===== UI Optimization Guide v1.0 palette (light / dark via data-theme) ===== */
 /* ===== UI Optimization Guide v1.0 palette (macOS Light / Dark via data-theme) ===== */
 :root {

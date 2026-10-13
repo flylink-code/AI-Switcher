@@ -1,22 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Select, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
-import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
-import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
-import CloseOutlined from "@ant-design/icons/es/icons/CloseOutlined";
-import FullscreenExitOutlined from "@ant-design/icons/es/icons/FullscreenExitOutlined";
-import FullscreenOutlined from "@ant-design/icons/es/icons/FullscreenOutlined";
-import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
-import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
-import MinusOutlined from "@ant-design/icons/es/icons/MinusOutlined";
-import { languages } from "@/i18n";
 import type { PageKey } from "@/lib/pageRegistry";
-import { useAppStore } from "@/stores/appStore";
-import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
-import { LayoutModeSwitcher } from "@/components/layout/LayoutModeSwitcher";
+import { useThemeStore } from "@/stores/themeStore";
+import { TitlebarActions } from "@/components/layout/TitlebarActions";
 import { WINDOW_CHROME_HEIGHT } from "@/components/layout/WindowChrome";
-import { TitlebarVersionButton } from "@/components/layout/TitlebarVersionButton";
 import { AppBrand } from "./AppBrand";
 import { TopNavigation } from "./TopNavigation";
 import { ContextHeader } from "@/components/layout/ContextHeader";
@@ -30,12 +18,6 @@ export interface DesktopShellProps {
   onOpenUpdate?: () => void;
   children: React.ReactNode;
 }
-
-const themeIcons: Record<ThemeMode, React.ReactNode> = {
-  light: <BulbOutlined />,
-  dark: <BulbFilled />,
-  system: <LaptopOutlined />,
-};
 
 const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
@@ -53,31 +35,9 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
   onOpenUpdate,
   children,
 }) => {
-  const { t, i18n } = useTranslation();
-  const [maximized, setMaximized] = useState(false);
-
-  const themeMode = useThemeStore((s) => s.mode);
-  const setThemeMode = useThemeStore((s) => s.setMode);
+  const { t } = useTranslation();
   const resolvedTheme = useThemeStore((s) => s.resolved);
-  const language = useAppStore((s) => s.language);
-  const setLanguage = useAppStore((s) => s.setLanguage);
-
   const isDark = resolvedTheme === "dark";
-
-  useEffect(() => {
-    let disposed = false;
-    const sync = () => {
-      void appWindow.isMaximized().then((v) => {
-        if (!disposed) setMaximized(v);
-      });
-    };
-    sync();
-    const unlisten = appWindow.onResized(sync);
-    return () => {
-      disposed = true;
-      void unlisten.then((f) => f());
-    };
-  }, []);
 
   const isPrimaryPage = PRIMARY_PAGES.has(activeKey);
 
@@ -128,7 +88,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
           height: WINDOW_CHROME_HEIGHT,
           minHeight: WINDOW_CHROME_HEIGHT,
           display: "flex",
-          alignItems: "center",
+          alignItems: "stretch",
           justifyContent: "space-between",
           paddingLeft: "16px",
           paddingRight: "0px",
@@ -174,126 +134,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
           </div>
         </div>
 
-        {/* Right: Actions, Theme, Language, UI Mode Toggle, Window Controls */}
-        <div
-          className="no-drag v2-titlebar-actions"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            height: "100%",
-            gap: "4px",
-            flex: "0 0 auto",
-            paddingRight: 0,
-          }}
-        >
-          <TitlebarVersionButton updateVersion={updateVersion} onOpenUpdate={onOpenUpdate} />
-
-          <LayoutModeSwitcher />
-
-          <Tooltip title={t("common.theme")}>
-            <Select<ThemeMode>
-              size="small"
-              variant="borderless"
-              value={themeMode}
-              onChange={setThemeMode}
-              style={{ width: 36 }}
-              popupMatchSelectWidth={false}
-              suffixIcon={null}
-              labelRender={() => (
-                <span style={{ display: "inline-flex", alignItems: "center" }}>{themeIcons[themeMode]}</span>
-              )}
-              options={[
-                { value: "light", label: t("common.themeLight") },
-                { value: "dark", label: t("common.themeDark") },
-                { value: "system", label: t("common.themeSystem") },
-              ]}
-            />
-          </Tooltip>
-
-          <Tooltip title={t("common.language")}>
-            <Select
-              size="small"
-              variant="borderless"
-              value={language}
-              onChange={(v) => {
-                setLanguage(v);
-                void i18n.changeLanguage(v);
-              }}
-              style={{ width: 36 }}
-              popupMatchSelectWidth={false}
-              suffixIcon={null}
-              labelRender={() => (
-                <span style={{ display: "inline-flex", alignItems: "center" }}>
-                  <GlobalOutlined />
-                </span>
-              )}
-              options={languages.map((l) => ({ value: l.value, label: l.label }))}
-            />
-          </Tooltip>
-
-          {/* Native Window Controls */}
-          <div style={{ display: "flex", alignItems: "stretch", height: "100%", marginLeft: "4px" }}>
-            <button
-              type="button"
-              onClick={() => void appWindow.minimize()}
-              style={{
-                width: "44px",
-                height: "100%",
-                border: "none",
-                background: "transparent",
-                color: isDark ? "#9CA3AF" : "#64748B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              <MinusOutlined />
-            </button>
-            <button
-              type="button"
-              onClick={() => void appWindow.toggleMaximize()}
-              style={{
-                width: "44px",
-                height: "100%",
-                border: "none",
-                background: "transparent",
-                color: isDark ? "#9CA3AF" : "#64748B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              {maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-            </button>
-            <button
-              type="button"
-              onClick={() => void appWindow.close()}
-              style={{
-                width: "44px",
-                height: "100%",
-                border: "none",
-                background: "transparent",
-                color: isDark ? "#9CA3AF" : "#64748B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#E81123";
-                e.currentTarget.style.color = "#FFFFFF";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = isDark ? "#9CA3AF" : "#64748B";
-              }}
-            >
-              <CloseOutlined />
-            </button>
-          </div>
-        </div>
+        <TitlebarActions updateVersion={updateVersion} onOpenUpdate={onOpenUpdate} />
       </header>
 
       {/* Secondary Sub-Header for Detail Navigation */}

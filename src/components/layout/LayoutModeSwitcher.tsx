@@ -8,13 +8,17 @@ import { useAppStore, type LayoutMode } from "@/stores/appStore";
 export interface LayoutModeSwitcherProps {
   /** Compact icon-only segmented control for the title bar. */
   size?: "small" | "middle";
+  className?: string;
 }
 
 /**
  * Title-bar control to switch chrome layout — left sidebar vs top navigation —
  * similar to a browser's default tabs vs vertical tabs.
  */
-export const LayoutModeSwitcher: React.FC<LayoutModeSwitcherProps> = ({ size = "small" }) => {
+export const LayoutModeSwitcher: React.FC<LayoutModeSwitcherProps> = ({
+  size = "small",
+  className,
+}) => {
   const { t } = useTranslation();
   const layoutMode = useAppStore((s) => s.layoutMode);
   const setLayoutMode = useAppStore((s) => s.setLayoutMode);
@@ -30,6 +34,7 @@ export const LayoutModeSwitcher: React.FC<LayoutModeSwitcherProps> = ({ size = "
       mouseEnterDelay={0.35}
     >
       <Segmented<LayoutMode>
+        className={className}
         size={size}
         value={layoutMode}
         onChange={(value) => setLayoutMode(value)}
