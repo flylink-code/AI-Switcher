@@ -38,18 +38,31 @@ pub(crate) fn select_gateway_runtime_provider_with(
     } else {
         let session = conversation_model::session_key(_headers);
         let remembered = conversation_model::recall(session.as_deref());
-        let followed = crate::catalog::follow_conversation_model(
+        let pins = if state.target == ProviderTarget::ClaudeCode {
+            configured_model_pins(state, profile.as_ref())
+        } else {
+            Vec::new()
+        };
+        let role_followed = crate::catalog::follow_conversation_model(
             &original_model,
             &entries,
             remembered.as_deref(),
         );
+        let followed = crate::catalog::follow_model_pin(
+            &role_followed,
+            remembered.as_deref(),
+            &pins,
+        )
+        .unwrap_or(role_followed);
+        let pin = crate::catalog::is_configured_model_pin(&original_model, &pins);
         if followed == original_model
+            && !pin
             && crate::catalog::is_explicit_catalog_passthrough(&entries, &original_model)
         {
             conversation_model::remember(session.as_deref(), &original_model);
         } else if followed != original_model {
             log::info!(
-                "Claude role {original_model} follows conversation model {followed}"
+                "Claude model {original_model} follows conversation model {followed}"
             );
         }
         followed
@@ -102,6 +115,28 @@ pub(crate) fn select_gateway_runtime_provider_with(
         decision.requested_model, decision.normalized_model, provider.name, upstream
     );
     Ok(Some((provider, upstream, false, decision, plan)))
+}
+
+fn configured_model_pins(
+    state: &ProxyState,
+    profile: Option<&crate::database::dao::gateway::GatewayProfile>,
+) -> Vec<String> {
+    let mut pins = Vec::new();
+    if let Some(profile) = profile {
+        let subagent = profile.subagent_model.trim();
+        if !subagent.is_empty() {
+            pins.push(subagent.to_string());
+        }
+    }
+    if let Ok(Some(provider)) = state.db.with_read_conn(|conn| {
+        crate::database::dao::get_current_provider(conn, state.target)
+    }) {
+        let model = provider.model.trim();
+        if !model.is_empty() {
+            pins.push(model.to_string());
+        }
+    }
+    pins
 }
 
 pub(crate) fn remember_gateway_success_upstream(

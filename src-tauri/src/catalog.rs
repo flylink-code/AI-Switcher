@@ -420,6 +420,52 @@ pub fn follow_conversation_model(
     requested.to_string()
 }
 
+/// `ANTHROPIC_MODEL` / `CLAUDE_CODE_SUBAGENT_MODEL` are not a picker selection.
+/// `claude.<model>` and the bare model name are the same pin; a provider-qualified
+/// id such as `claude.<provider>.<model>` is not.
+pub fn is_configured_model_pin(requested: &str, pins: &[String]) -> bool {
+    let requested = requested.trim();
+    if requested.is_empty() {
+        return false;
+    }
+    pins.iter().any(|pin| pin_matches(requested, pin))
+}
+
+fn pin_matches(requested: &str, pin: &str) -> bool {
+    let pin = pin.trim();
+    if pin.is_empty() || is_auto_public_id(pin) {
+        return false;
+    }
+    if requested.eq_ignore_ascii_case(pin) {
+        return true;
+    }
+    match (
+        requested.strip_prefix("claude."),
+        pin.strip_prefix("claude."),
+    ) {
+        (Some(rest), None) => rest.eq_ignore_ascii_case(pin),
+        (None, Some(rest)) => rest.eq_ignore_ascii_case(requested),
+        _ => false,
+    }
+}
+
+/// When Claude Code sends its configured default instead of the model picked
+/// in the conversation, keep the picked model. Returns None when `requested`
+/// is not a pin or nothing else has been picked yet.
+pub fn follow_model_pin(
+    requested: &str,
+    remembered: Option<&str>,
+    pins: &[String],
+) -> Option<String> {
+    if !is_configured_model_pin(requested, pins) {
+        return None;
+    }
+    remembered
+        .map(str::trim)
+        .filter(|main| !main.is_empty() && !main.eq_ignore_ascii_case(requested.trim()))
+        .map(str::to_string)
+}
+
 fn is_haiku_or_subagent_slug(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
     lower.contains("haiku") || lower.contains("subagent")
@@ -1894,6 +1940,36 @@ mod tests {
             follow_conversation_model(CLAUDE_SONNET_ROLE_ID, &catalog, None),
             CLAUDE_SONNET_ROLE_ID
         );
+    }
+
+    #[test]
+    fn configured_default_follows_the_conversation_model() {
+        let pins = vec![
+            "claude.gemini-3.8-flash".to_string(),
+            "claude.antigravity--built-in.gemini-3.8-flash-high".to_string(),
+        ];
+        assert!(is_configured_model_pin("claude.gemini-3.8-flash", &pins));
+        assert!(is_configured_model_pin("gemini-3.8-flash", &pins));
+        assert!(is_configured_model_pin(
+            "claude.antigravity--built-in.gemini-3.8-flash-high",
+            &pins
+        ));
+        assert!(!is_configured_model_pin(
+            "claude.antigravity--built-in.gemini-3.8-flash",
+            &pins
+        ));
+        assert!(!is_configured_model_pin("claude-sonnet-5.5", &pins));
+        assert_eq!(
+            follow_model_pin(
+                "claude.gemini-3.8-flash",
+                Some("claude-sonnet-5.5"),
+                &pins
+            )
+            .as_deref(),
+            Some("claude-sonnet-5.5")
+        );
+        assert!(follow_model_pin("claude.gemini-3.8-flash", None, &pins).is_none());
+        assert!(follow_model_pin("claude-sonnet-5.5", Some("gemini-3.8-flash"), &pins).is_none());
     }
 
     #[test]

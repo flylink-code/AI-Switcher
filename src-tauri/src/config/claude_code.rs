@@ -650,28 +650,22 @@ fn inject_proxy_models(env: &mut Map<String, Value>, provider: &Provider) {
 
 /// Catalog mode: keep stable role ids for Explore/classifier, but do not advertise
 /// custom `*_NAME` aliases (those show up as "Custom Haiku/Opus model" in `/model`).
+///
+/// `ANTHROPIC_MODEL` is left unset. Claude Code prefers that env var over the
+/// model the user picked in the conversation. Subagent model is written only
+/// when the caller passes one; otherwise Claude Code inherits the conversation model.
 fn inject_catalog_proxy_models(
     env: &mut Map<String, Value>,
-    provider: &Provider,
+    _provider: &Provider,
     subagent_model: Option<&str>,
 ) {
     for (model_key, stable_model, _) in PROXY_ROLE_MODELS {
         set_str(env, model_key, stable_model);
         set_str(env, &format!("{model_key}_NAME"), stable_model);
     }
-    let default = crate::gateway::normalize_live_model_for(
-        crate::provider::ProviderTarget::ClaudeCode,
-        &provider.model,
-    );
-    if !default.is_empty() {
-        set_str(env, "ANTHROPIC_MODEL", &default);
+    if let Some(subagent) = subagent_model.map(str::trim).filter(|value| !value.is_empty()) {
+        set_str(env, "CLAUDE_CODE_SUBAGENT_MODEL", subagent);
     }
-    let subagent = subagent_model
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| default);
-    set_str(env, "CLAUDE_CODE_SUBAGENT_MODEL", &subagent);
 }
 
 fn proxy_auth_token(provider: &Provider, catalog_discovery: bool) -> AppResult<String> {
@@ -931,27 +925,35 @@ mod tests {
             env["CLAUDE_CODE_SUBAGENT_MODEL"],
             "claude.ag.gemini-3.7-flash"
         );
-        assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
+        assert!(env.get("ANTHROPIC_MODEL").is_none());
         assert_eq!(env["ANTHROPIC_API_KEY"], "sk-deepseek");
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
     }
 
     #[test]
-    fn catalog_proxy_subagent_follows_main_model_when_unset() {
+    fn catalog_proxy_leaves_conversation_model_to_the_picker() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
-        // 上一代配置遗留的子代理模型必须被覆盖，而不是沿用。
+        // 上一代写死的默认模型和子代理模型必须清掉，对话里的选择才能生效。
         fs::write(
             &path,
-            json!({ "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "old-subagent" } }).to_string(),
+            json!({
+                "model": "claude-sonnet-5.5",
+                "env": {
+                    "ANTHROPIC_MODEL": "claude.gemini-3.8-flash",
+                    "CLAUDE_CODE_SUBAGENT_MODEL": "old-subagent"
+                }
+            })
+            .to_string(),
         )
         .unwrap();
         apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_828, &path, true, None)
             .unwrap();
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = written["env"].as_object().unwrap();
-        assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
-        assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "deepseek-v4-pro");
+        assert_eq!(written["model"], "claude-sonnet-5.5");
+        assert!(env.get("ANTHROPIC_MODEL").is_none());
+        assert!(env.get("CLAUDE_CODE_SUBAGENT_MODEL").is_none());
     }
 
     #[test]

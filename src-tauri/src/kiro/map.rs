@@ -8,6 +8,10 @@ use super::account::{streaming_profile_arn, KiroAccount};
 use super::event_stream::Frame;
 use super::models::{clamped_thinking_budget, map_model, thinking_requested, DEFAULT_MODEL};
 
+/// Kiro rejects `userInputMessage.content == ""` with REQUEST_BODY_INVALID.
+/// Claude Code tool-result turns often have no text block.
+const TOOL_TURN_PLACEHOLDER: &str = "tool result";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WireProtocol {
     Anthropic,
@@ -211,45 +215,67 @@ fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Valu
         } else {
             openai_tool_uses(message)
         };
+        if content.trim().is_empty() && tool_uses.is_empty() {
+            return None;
+        }
         let mut assistant = json!({ "content": content });
         if !tool_uses.is_empty() {
             assistant["toolUses"] = Value::Array(tool_uses);
         }
         return Some(json!({ "assistantResponseMessage": assistant }));
     }
-    let content = text_of(message.get("content")).unwrap_or_else(|| {
-        message
-            .get("content")
-            .and_then(|item| item.as_str())
-            .unwrap_or("")
-            .to_string()
-    });
-    Some(json!({
+    let mut content = message_text(message);
+    let tool_results = if anthropic {
+        anthropic_tool_results(message.get("content"))
+    } else {
+        Vec::new()
+    };
+    if content.trim().is_empty() {
+        if tool_results.is_empty() {
+            return None;
+        }
+        content = TOOL_TURN_PLACEHOLDER.to_string();
+    }
+    let mut user = json!({
         "userInputMessage": {
             "content": content,
             "modelId": model,
             "origin": "AI_EDITOR"
         }
-    }))
+    });
+    if !tool_results.is_empty() {
+        user["userInputMessage"]["userInputMessageContext"]["toolResults"] =
+            Value::Array(tool_results);
+    }
+    Some(user)
 }
 
 fn current_from(message: &Value, anthropic: bool) -> CurrentTurn {
-    let content = message.get("content");
-    CurrentTurn {
-        content: text_of(content).unwrap_or_else(|| {
-            message
-                .get("content")
-                .and_then(|item| item.as_str())
-                .unwrap_or("")
-                .to_string()
-        }),
-        tool_results: if anthropic {
-            anthropic_tool_results(content)
-        } else {
-            Vec::new()
-        },
-        images: anthropic_images(content),
+    let raw = message.get("content");
+    let tool_results = if anthropic {
+        anthropic_tool_results(raw)
+    } else {
+        Vec::new()
+    };
+    let mut content = message_text(message);
+    if content.trim().is_empty() && !tool_results.is_empty() {
+        content = TOOL_TURN_PLACEHOLDER.to_string();
     }
+    CurrentTurn {
+        content,
+        tool_results,
+        images: anthropic_images(raw),
+    }
+}
+
+fn message_text(message: &Value) -> String {
+    text_of(message.get("content")).unwrap_or_else(|| {
+        message
+            .get("content")
+            .and_then(|item| item.as_str())
+            .unwrap_or("")
+            .to_string()
+    })
 }
 
 fn text_of(content: Option<&Value>) -> Option<String> {
@@ -962,6 +988,41 @@ mod tests {
         assert!(prepared.body["additionalModelRequestFields"]
             .get("outputConfig")
             .is_none());
+    }
+
+    #[test]
+    fn tool_result_only_turn_keeps_nonempty_content() {
+        let incoming = json!({
+            "model": "claude-sonnet-5.5",
+            "messages": [
+                {"role":"user","content":"list files"},
+                {"role":"assistant","content":[
+                    {"type":"tool_use","id":"toolu_1","name":"Bash","input":{"command":"ls"}}
+                ]},
+                {"role":"user","content":[
+                    {"type":"tool_result","tool_use_id":"toolu_1","content":"a.txt"}
+                ]}
+            ]
+        });
+        let prepared = prepare(WireProtocol::Anthropic, &incoming, &account()).unwrap();
+        let current = &prepared.body["conversationState"]["currentMessage"]["userInputMessage"];
+        assert_eq!(current["content"], "tool result");
+        assert_eq!(
+            current["userInputMessageContext"]["toolResults"][0]["toolUseId"],
+            "toolu_1"
+        );
+        assert_eq!(
+            current["userInputMessageContext"]["toolResults"][0]["content"][0]["text"],
+            "a.txt"
+        );
+        let history = prepared.body["conversationState"]["history"]
+            .as_array()
+            .unwrap();
+        assert_eq!(history[0]["userInputMessage"]["content"], "list files");
+        assert_eq!(
+            history[1]["assistantResponseMessage"]["toolUses"][0]["name"],
+            "Bash"
+        );
     }
 
     #[test]

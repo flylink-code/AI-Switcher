@@ -30,7 +30,8 @@ const ANTHROPIC_BETA_CLAUDE_CODE: &str = "claude-code-20250219";
 /// How a Cloud Code 429 should be handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RateLimitKind {
-    /// Daily URL/RPM 限流，可尝试回退到 Sandbox。
+    /// Generic RESOURCE_EXHAUSTED on Daily or Sandbox. Try the next host.
+    /// The same body on Prod is an account limit and stops the walk.
     UrlLevel,
     /// Account/project RPM on a SKU; same-host backoff only.
     AccountRateLimit,
@@ -64,9 +65,10 @@ pub fn classify_rate_limit_429(body: &str, host_index: usize) -> RateLimitKind {
     if !generic {
         return RateLimitKind::AccountRateLimit;
     }
-    // 泛化 RESOURCE_EXHAUSTED 仅在 Daily 主机可视为 URL 级限流；
-    // Sandbox/Prod 仍视为账号或项目限流，不再跨主机扩散。
-    if host_index == 0 {
+    // Daily 和 Sandbox 上的泛化 RESOURCE_EXHAUSTED 继续换下一个主机。
+    // 网页抓取这类大请求经常两个预发主机都返回这句话，而账号本身还有额度；
+    // 正式主机上的同一句话才视为账号限流，避免再向外扩散。
+    if host_index < 2 {
         RateLimitKind::UrlLevel
     } else {
         RateLimitKind::AccountRateLimit
@@ -256,7 +258,6 @@ impl UpstreamClient {
         let mut last_was_network = false;
         let started = Instant::now();
         let client = self.http();
-        let mut url_fallback_used = false;
         let mut hosts_tried = 0u32;
         let mut last_response = None;
         for (idx, base) in UPSTREAM_FALLBACKS.iter().enumerate() {
@@ -311,10 +312,11 @@ impl UpstreamClient {
                             let kind = classify_rate_limit_429(&text, idx);
                             last_error = format!("upstream 429: {text}");
                             match kind {
-                                RateLimitKind::UrlLevel if idx == 0 && !url_fallback_used => {
-                                    url_fallback_used = true;
-                                    self.mark_daily_limited();
-                                    let next_base = UPSTREAM_FALLBACKS[1];
+                                RateLimitKind::UrlLevel if idx + 1 < UPSTREAM_FALLBACKS.len() => {
+                                    if idx == 0 {
+                                        self.mark_daily_limited();
+                                    }
+                                    let next_base = UPSTREAM_FALLBACKS[idx + 1];
                                     log::warn!(
                                         "Antigravity URL fallback (429): {url} → {next_base} ({})",
                                         text.chars().take(120).collect::<String>()
@@ -487,6 +489,13 @@ mod tests {
             classify_rate_limit_429(
                 r#"{"error":{"message":"Resource has been exhausted (e.g. check quota)."}}"#,
                 1
+            ),
+            RateLimitKind::UrlLevel
+        );
+        assert_eq!(
+            classify_rate_limit_429(
+                r#"{"error":{"message":"Resource has been exhausted (e.g. check quota)."}}"#,
+                2
             ),
             RateLimitKind::AccountRateLimit
         );

@@ -1436,15 +1436,7 @@ fn expected_code_fields(
             ClaudeModelRole::Fable,
         ),
     ];
-    if catalog {
-        values.insert(
-            "ANTHROPIC_MODEL".to_string(),
-            Some(Value::String(crate::gateway::normalize_live_model_for(
-                ProviderTarget::ClaudeCode,
-                &provider.model,
-            ))),
-        );
-    } else if !proxy && !provider.model.trim().is_empty() {
+    if !catalog && !proxy && !provider.model.trim().is_empty() {
         values.insert(
             "ANTHROPIC_MODEL".to_string(),
             Some(Value::String(provider.model.trim().to_string())),
@@ -1466,8 +1458,8 @@ fn expected_code_fields(
         values.insert(name_key.to_string(), Some(Value::String(upstream)));
     }
     let subagent = if catalog {
-        // 智能网关：子代理跟随主模型（与 `inject_catalog_proxy_models` 写出一致）。
-        crate::gateway::normalize_live_model_for(ProviderTarget::ClaudeCode, &provider.model)
+        // 智能网关不写死子代理模型，Claude Code 沿用对话里选择的模型。
+        String::new()
     } else {
         provider
             .model_mapping
