@@ -1,3 +1,4 @@
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import { useState } from "react";
 import { Alert, Button, Card, Empty, Input, Popover, Skeleton, Space, Tag, Typography, message } from "antd";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -369,6 +370,10 @@ export default function KiroPage() {
           </Button>
         }
       >
+        <ExpandableSection
+          title={<Text strong>{t("kiro.modelsHintToggle", { defaultValue: "查看支持的模型" })} <Text type="secondary">({modelList?.models?.length ?? 0})</Text></Text>}
+          defaultOpen={false}
+        >
         <Space direction="vertical" style={{ width: "100%" }} size={8}>
           <Text type="secondary">
             {modelList?.source === "live" ? t("kiro.modelsHintLive") : t("kiro.modelsHint")}
@@ -397,6 +402,7 @@ export default function KiroPage() {
             );
           })}
         </Space>
+        </ExpandableSection>
       </Card>
 
       <ImportAccountsModal

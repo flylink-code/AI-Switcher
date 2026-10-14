@@ -196,11 +196,6 @@ fn meta_count(meta: &Value, key: &str) -> i64 {
         .unwrap_or(0)
 }
 
-pub fn tokens_from_gemini(gemini: &Value) -> (i64, i64) {
-    let usage = GeminiUsage::parse(gemini);
-    (usage.input, usage.output)
-}
-
 /// Best-effort token update from a Gemini (or unwrapped v1internal) body.
 pub fn update_usage_from_gemini(
     db: &Arc<Database>,
@@ -236,9 +231,10 @@ pub fn update_usage_tokens(
     log_id: &str,
     account_id: Option<&str>,
     input: i64,
+    cached: i64,
     output: i64,
 ) {
-    if input == 0 && output == 0 {
+    if input == 0 && cached == 0 && output == 0 {
         return;
     }
     if let Err(error) = db.with_conn(|conn| {
@@ -249,7 +245,7 @@ pub fn update_usage_tokens(
             account_id,
             None,
             input,
-            0,
+            cached,
             0,
             output,
         )

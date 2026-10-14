@@ -624,7 +624,9 @@ pub async fn codex_proxy_handler(
 
     let mut resp_builder = Response::builder().status(status);
     for (name, value) in upstream.headers() {
-        if is_hop_by_hop_header(name.as_str()) {
+        if is_hop_by_hop_header(name.as_str())
+            || name.as_str().eq_ignore_ascii_case("content-encoding")
+        {
             continue;
         }
         if is_streaming && name.as_str().eq_ignore_ascii_case("content-length") {
@@ -1091,7 +1093,9 @@ fn prepare_codex_upstream(
     } else {
         request = request.header(header::AUTHORIZATION, format!("Bearer {api_key}"));
     }
-    request = request.header(header::CONTENT_TYPE, "application/json");
+    request = request
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ACCEPT_ENCODING, "identity");
     if is_catalog_subagent {
         request = request.header(CS_SUBAGENT_HEADER, "1");
     }
@@ -1113,6 +1117,7 @@ fn prepare_codex_upstream(
             || key.eq_ignore_ascii_case("x-api-key")
             || key.eq_ignore_ascii_case("anthropic-version")
             || key.eq_ignore_ascii_case("content-type")
+            || key.eq_ignore_ascii_case("accept-encoding")
             || key.eq_ignore_ascii_case(crate::gateway::correlation::REQUEST_ID_HEADER)
             || key.eq_ignore_ascii_case(crate::gateway::correlation::TARGET_APP_HEADER)
             || key.eq_ignore_ascii_case(crate::gateway::PARENT_SESSION_HEADER)
@@ -1129,6 +1134,7 @@ fn prepare_codex_upstream(
             if !is_hop_by_hop_header(k)
                 && !k.eq_ignore_ascii_case("host")
                 && !k.eq_ignore_ascii_case("content-length")
+                && !k.eq_ignore_ascii_case("accept-encoding")
             {
                 request = request.header(k.as_str(), v.as_str());
             }

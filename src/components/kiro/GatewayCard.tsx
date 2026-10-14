@@ -5,6 +5,7 @@ import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import { useTranslation } from "react-i18next";
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import type {
   KiroExitLatencyResult,
   KiroExitProbeResult,
@@ -226,6 +227,11 @@ export function GatewayCard({
     persistExitRows(next);
   };
 
+  const hasActiveAdvanced =
+    outboundMode !== "system" ||
+    Boolean(status?.exitProxies?.some((item) => item.enabled)) ||
+    Boolean(status?.effectiveOutboundProxy && status.effectiveOutboundProxy !== "direct");
+
   return (
     <Card title={t("kiro.gateway")} size="small">
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
@@ -254,9 +260,54 @@ export function GatewayCard({
           />
         </Space>
 
+        <Space wrap>
+          <Button
+            type="primary"
+            icon={<PlayCircleOutlined />}
+            loading={isStarting}
+            disabled={status?.running}
+            onClick={() => void onStartGateway(port, apiKey, outboundMode, outboundUrl)}
+          >
+            {t("kiro.start")}
+          </Button>
+          <Button icon={<StopOutlined />} loading={isStopping} disabled={!status?.running} onClick={() => void onStopGateway()}>
+            {t("kiro.stop")}
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={onRefresh}>{t("common.refresh")}</Button>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={() => {
+              void navigator.clipboard.writeText(apiKey).then(() => {
+                message.success(t("kiro.copied"));
+              });
+            }}
+          >
+            {t("kiro.copyKey")}
+          </Button>
+        </Space>
+
         <Divider style={{ margin: "4px 0" }} />
 
-        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+        <ExpandableSection
+          title={
+            <Space size={8} align="center">
+              <Text strong style={{ fontSize: 13 }}>
+                {t("common.advanced", { defaultValue: "高级设置" })}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ({t("kiro.advancedHint", { defaultValue: "出站代理、链式出口" })})
+              </Text>
+              {hasActiveAdvanced && (
+                <Tag color="blue" style={{ marginInlineStart: 4 }}>
+                  {t("kiro.advancedActive", { defaultValue: "已配置自定义项" })}
+                </Tag>
+              )}
+            </Space>
+          }
+          defaultOpen={false}
+        >
+          <Space direction="vertical" size={12} style={{ width: "100%", paddingTop: 8 }}>
+            <Space direction="vertical" size={8} style={{ width: "100%" }}>
           <Text strong style={{ fontSize: 13 }}>{t("kiro.outbound")}</Text>
           <Space wrap>
             <Select<KiroOutboundMode>
@@ -398,33 +449,8 @@ export function GatewayCard({
           </Text>
           {status?.exitError ? <Text type="danger" style={{ fontSize: 12 }}>{status.exitError}</Text> : null}
         </Space>
-
-        <Divider style={{ margin: "4px 0" }} />
-
-        <Space wrap style={{ marginTop: 4 }}>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            loading={isStarting}
-            onClick={() => void onStartGateway(port, apiKey, outboundMode, outboundUrl)}
-          >
-            {t("kiro.start")}
-          </Button>
-          <Button icon={<StopOutlined />} loading={isStopping} disabled={!status?.running} onClick={() => void onStopGateway()}>
-            {t("kiro.stop")}
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={onRefresh}>{t("common.refresh")}</Button>
-          <Button
-            icon={<CopyOutlined />}
-            onClick={() => {
-              void navigator.clipboard.writeText(apiKey).then(() => {
-                message.success(t("kiro.copied"));
-              });
-            }}
-          >
-            {t("kiro.copyKey")}
-          </Button>
-        </Space>
+          </Space>
+        </ExpandableSection>
       </Space>
     </Card>
   );

@@ -27,15 +27,32 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state.db.with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target)).ok().flatten();
+    let original_model = requested_model.trim().to_string();
     let requested_model = if state.target == ProviderTarget::ClaudeDesktop {
         // 只调用用户选的模型：Desktop 自带的标题 / 侧查询 / 裸角色名不另选模型。
         let last_selected = desktop_alias::last_selected(&state.db);
-        desktop_alias::resolve_selected(requested_model, &entries, last_selected.as_deref())
+        desktop_alias::resolve_selected(&original_model, &entries, last_selected.as_deref())
             .map_err(|unresolved| {
                 GatewaySelectionError::Catalog(crate::catalog::CatalogRequestError::StalePublicId(unresolved))
             })?
     } else {
-        requested_model.trim().to_string()
+        let session = conversation_model::session_key(_headers);
+        let remembered = conversation_model::recall(session.as_deref());
+        let followed = crate::catalog::follow_conversation_model(
+            &original_model,
+            &entries,
+            remembered.as_deref(),
+        );
+        if followed == original_model
+            && crate::catalog::is_explicit_catalog_passthrough(&entries, &original_model)
+        {
+            conversation_model::remember(session.as_deref(), &original_model);
+        } else if followed != original_model {
+            log::info!(
+                "Claude role {original_model} follows conversation model {followed}"
+            );
+        }
+        followed
     };
     let explicit = if crate::gateway::is_auto_model_id(&requested_model) {
         entries.first().map(|entry| entry.public_id.clone()).unwrap_or_default()
@@ -171,6 +188,8 @@ fn should_forward_inbound_header(name: &str) -> bool {
         || name.eq_ignore_ascii_case("host")
         || name.eq_ignore_ascii_case("content-length")
         || name.eq_ignore_ascii_case("content-type")
+        // 网关按明文解析上游响应；压缩编码由客户端协商会导致 body/头不一致（见下方 identity）。
+        || name.eq_ignore_ascii_case("accept-encoding")
         || name.eq_ignore_ascii_case("authorization")
         || name.eq_ignore_ascii_case("x-api-key")
         || name.eq_ignore_ascii_case(crate::gateway::correlation::CLIENT_MODEL_HEADER)
@@ -208,7 +227,12 @@ fn prepare_upstream_request(
     } else {
         encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers)
     };
-    let mut builder = state.client.request(method.clone(), target_url).header(header::CONTENT_TYPE, "application/json");
+    // reqwest 未启用自动解压，网关要解析/改写上游 body，必须要求未压缩响应。
+    let mut builder = state
+        .client
+        .request(method.clone(), target_url)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ACCEPT_ENCODING, "identity");
     if !provider.is_codex_oauth() {
         for (name, value) in headers.iter() {
             if !should_forward_inbound_header(name.as_str()) {
@@ -249,6 +273,7 @@ fn prepare_upstream_request(
             if !is_hop_by_hop_header(k)
                 && !k.eq_ignore_ascii_case("host")
                 && !k.eq_ignore_ascii_case("content-length")
+                && !k.eq_ignore_ascii_case("accept-encoding")
             {
                 builder = builder.header(k.as_str(), v.as_str());
             }

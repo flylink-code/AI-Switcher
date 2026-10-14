@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { errMsg } from "@/lib/errMsg";
 import {
   Button,
@@ -104,11 +104,11 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
   const queryClient = useQueryClient();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
-  const getValidSkillTarget = (preferred: SkillTarget): SkillTarget => {
+  const getValidSkillTarget = useCallback((preferred: SkillTarget): SkillTarget => {
     const validTargets = visibleAgents.filter((a): a is SkillTarget => a === "claude_code" || a === "codex" || a === "pi" || a === "cline");
     if (validTargets.includes(preferred)) return preferred;
     return validTargets[0] ?? "claude_code";
-  };
+  }, [visibleAgents]);
 
   const [internalTarget, setInternalTarget] = useState<SkillTarget>(() => getValidSkillTarget(readSkillsTarget()));
   const target = targetProp ?? internalTarget;
@@ -120,13 +120,13 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
         setInternalTarget(valid);
       }
     }
-  }, [visibleAgents, internalTarget, targetProp]);
+  }, [getValidSkillTarget, internalTarget, targetProp]);
   const skillsQuery = useQuery(skillsOptions(target));
   const unmanagedQuery = useQuery(unmanagedSkillsOptions(target));
   const repositoriesQuery = useQuery(skillRepositoriesOptions);
   const skills = skillsQuery.data ?? [];
   const unmanagedSkills = unmanagedQuery.data ?? [];
-  const repositories = repositoriesQuery.data ?? [];
+  const repositories = useMemo(() => repositoriesQuery.data ?? [], [repositoriesQuery.data]);
 
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

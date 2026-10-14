@@ -60,6 +60,18 @@ export async function listCodexOauthAccounts(): Promise<CodexOauthAccount[]> {
   return call<CodexOauthAccount[]>("list_codex_oauth_accounts", {});
 }
 
+export async function getCodexOauthDefaultAccount(): Promise<string | null> {
+  return call<string | null>("get_codex_oauth_default_account", {});
+}
+
+export async function setCodexOauthDefaultAccount(accountId: string): Promise<void> {
+  return call<void>("set_codex_oauth_default_account", { accountId });
+}
+
+export async function removeCodexOauthAccount(accountId: string): Promise<void> {
+  return call<void>("remove_codex_oauth_account", { accountId });
+}
+
 export async function ensureCodexOauthProvider(
   target: ProviderTarget,
   accountId: string,

@@ -20,9 +20,9 @@ export function resolvePageNavigation(key: PageKey): PageKey {
     return "providers";
   }
   if (key === "antigravity") {
-    // The reverse-proxy account pool is now a drawer on the providers page.
-    useProviderAccountsStore.getState().openDrawer("antigravity");
-    return "providers";
+    // The reverse-proxy account pool lives on the gateway (accounts) page.
+    useProviderAccountsStore.getState().setTab("antigravity");
+    return "accounts";
   }
   if (key === "sessions") {
     setWorkspaceTab("sessions");

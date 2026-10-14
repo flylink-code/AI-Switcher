@@ -201,12 +201,11 @@ pub async fn ensure_antigravity_provider(
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(crate::antigravity::model_catalog::preferred_default_model);
     let gemini_flash = crate::antigravity::model_catalog::preferred_gemini_flash()
-        .unwrap_or_else(|| "gemini-3.7-flash-high".into());
-    let gemini_flash_low = crate::antigravity::model_catalog::preferred_gemini_flash_low();
+        .unwrap_or_else(|| "gemini-3.8-flash-high".into());
     let gemini_pro = crate::antigravity::model_catalog::preferred_gemini_pro()
         .unwrap_or_else(|| gemini_flash.clone());
     let claude_opus = crate::antigravity::model_catalog::preferred_claude_opus()
-        .unwrap_or_else(|| "claude-opus-4-6-thinking".into());
+        .unwrap_or_else(|| "claude-opus-5-5-medium".into());
     let suggestions = crate::antigravity::model_catalog::provider_suggestion_ids(16);
     let failover_models: Vec<String> = suggestions
         .into_iter()
@@ -238,10 +237,10 @@ pub async fn ensure_antigravity_provider(
             ClaudeModelMapping {
                 sonnet: default_model.clone(),
                 opus: claude_opus.clone(),
-                haiku: gemini_flash_low.clone(),
+                haiku: default_model.clone(),
                 fable: default_model.clone(),
                 subagent: if target == ProviderTarget::ClaudeCode {
-                    gemini_flash_low.clone()
+                    default_model.clone()
                 } else {
                     String::new()
                 },
@@ -282,7 +281,7 @@ pub async fn ensure_antigravity_provider(
             "Pi custom provider → Antigravity gateway (anthropic-messages; baseUrl is gateway root, SDK appends /v1/messages; no Claude role mapping)".to_string()
         } else {
             format!(
-                "Built-in Antigravity gateway (live catalog; Haiku/subagent→{gemini_flash_low}, Pro hint→{gemini_pro})"
+                "Built-in Antigravity gateway (live catalog; Haiku/subagent follow the main model, Pro hint→{gemini_pro})"
             )
         },
         failover_group: 0,

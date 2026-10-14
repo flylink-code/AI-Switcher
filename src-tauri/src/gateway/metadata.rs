@@ -45,9 +45,9 @@ pub fn infer(model_id: &str) -> InferredMeta {
     {
         meta.reasoning_levels = vec!["off".into(), "low".into()];
     }
-    if lower.contains("1m") || lower.contains("[1m]") {
+    if has_window_token(&lower, "1m") {
         meta.context_window = Some(1_000_000);
-    } else if lower.contains("200k") || lower.contains("[200k]") {
+    } else if has_window_token(&lower, "200k") {
         meta.context_window = Some(200_000);
     } else if lower.contains("gemini") {
         meta.context_window = Some(1_000_000);
@@ -57,6 +57,14 @@ pub fn infer(model_id: &str) -> InferredMeta {
         meta.reasoning_levels = vec!["off".into(), "high".into()];
     }
     meta
+}
+
+/// Whole-token match for a window marker such as `1m` / `200k`. A bare substring
+/// test would also hit ids like `foo-v1m-bar`.
+fn has_window_token(lower: &str, token: &str) -> bool {
+    lower
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|part| part == token)
 }
 
 pub fn context_window_for(model_id: &str) -> u64 {
@@ -73,4 +81,20 @@ pub fn max_output_for(model_id: &str, context: u64) -> u64 {
         .map(|value| value as u64)
         .unwrap_or(32_000)
         .min(context.max(1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn window_marker_must_be_a_whole_token() {
+        assert_eq!(context_window_for("claude-opus-5[1m]"), 1_000_000);
+        assert_eq!(context_window_for("some-model-1m"), 1_000_000);
+        assert_eq!(context_window_for("some-model-200k"), 200_000);
+        // 子串 "1m" 不是窗口标记。
+        assert_eq!(context_window_for("foo-v1m-bar"), 200_000);
+        assert_eq!(context_window_for("claude-sonnet-5-5-medium"), 200_000);
+        assert_eq!(context_window_for("gemini-3.8-flash-high"), 1_000_000);
+    }
 }

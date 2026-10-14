@@ -367,7 +367,7 @@ pub async fn openai_images_generations(
         _ => "1K",
     };
     let model =
-        model_catalog::preferred_gemini_flash().unwrap_or_else(|| "gemini-3.7-flash-high".into());
+        model_catalog::preferred_gemini_flash().unwrap_or_else(|| "gemini-3.8-flash-high".into());
     let request = json!({
         "contents": [{ "role": "user", "parts": [{ "text": prompt }] }],
         "generationConfig": {
@@ -702,10 +702,7 @@ async fn dispatch_generation(
                 let text = response.text().await.unwrap_or_default();
                 if crate::antigravity::thinking::is_budget_constraint_error(&text) {
                     budget_rectified = true;
-                    crate::antigravity::thinking::rectify_generate_request(
-                        &mut request,
-                        &current_model,
-                    );
+                    crate::antigravity::thinking::rectify_generate_request(&mut request);
                     log::warn!(
                         "Antigravity thinkingBudget constraint on {account_email}; rectifying and retrying same account"
                     );
@@ -1214,6 +1211,8 @@ async fn stream_response(
             tool_params,
             last_input: 0,
             last_output: 0,
+            last_cached: 0,
+            usage_flushed: false,
             responses_encoder,
             _limiter_permit: limiter_permit,
         },
@@ -1281,6 +1280,7 @@ impl Drop for StreamState {
                 self.model
             );
         }
+        self.flush_usage();
     }
 }
 
@@ -1339,22 +1339,31 @@ struct StreamState {
     tool_params: ToolParamKeys,
     last_input: i64,
     last_output: i64,
+    last_cached: i64,
+    usage_flushed: bool,
     responses_encoder: Option<ResponsesStreamEncoder>,
     _limiter_permit: LimiterPermit,
 }
 
 impl StreamState {
     fn note_usage(&mut self, gemini: &Value) {
-        let (input, output) = usage_log::tokens_from_gemini(gemini);
-        if input > 0 {
-            self.last_input = input;
+        let usage = usage_log::GeminiUsage::parse(gemini);
+        if usage.input > self.last_input {
+            self.last_input = usage.input;
         }
-        if output > 0 {
-            self.last_output = output;
+        if usage.output > self.last_output {
+            self.last_output = usage.output;
+        }
+        if usage.cached > self.last_cached {
+            self.last_cached = usage.cached;
         }
     }
 
-    fn flush_usage(&self) {
+    fn flush_usage(&mut self) {
+        if self.usage_flushed {
+            return;
+        }
+        self.usage_flushed = true;
         let Some(log_id) = self.log_id.as_deref() else {
             return;
         };
@@ -1363,6 +1372,7 @@ impl StreamState {
             log_id,
             self.account_id.as_deref(),
             self.last_input,
+            self.last_cached,
             self.last_output,
         );
     }
@@ -1797,6 +1807,7 @@ fn error_json_with_retry_after(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures_util::StreamExt;
 
     #[test]
     fn anthropic_envelope_prefers_client_model_header() {
@@ -2189,5 +2200,69 @@ mod tests {
         assert!(!crate::antigravity::pool::failure_forbids_whole_account(
             404
         ));
+    }
+
+    #[test]
+    fn dropped_stream_flushes_accumulated_usage() {
+        let db = Arc::new(Database::memory().expect("memory db"));
+        let log_id = usage_log::insert_request(
+            &db,
+            Some("acct"),
+            "claude-sonnet-5-5-medium",
+            Some(200),
+            Instant::now(),
+            WireProtocol::Anthropic,
+            true,
+            None,
+            None,
+            None,
+        )
+        .expect("log id");
+        let mut state = StreamState {
+            upstream: futures_util::stream::empty().boxed(),
+            buffer: SseLineBuffer::new(),
+            model: "claude-sonnet-5-5-medium".into(),
+            protocol: WireProtocol::Anthropic,
+            finished: false,
+            anthropic: None,
+            db: db.clone(),
+            log_id: Some(log_id.clone()),
+            account_id: Some("acct".into()),
+            session_key: None,
+            thoughts_allowed: false,
+            tool_params: ToolParamKeys::new(),
+            last_input: 0,
+            last_output: 0,
+            last_cached: 0,
+            usage_flushed: false,
+            responses_encoder: None,
+            _limiter_permit: crate::antigravity::limiter::LimiterPermit::empty(),
+        };
+        state.note_usage(&json!({
+            "usageMetadata": {
+                "promptTokenCount": 1200,
+                "candidatesTokenCount": 30,
+                "cachedContentTokenCount": 400
+            }
+        }));
+        drop(state);
+        let row: (i64, i64, i64, i64) = db
+            .with_conn(|conn| {
+                conn.query_row(
+                    "SELECT input_tokens, cache_read_input_tokens, output_tokens, usage_available FROM proxy_request_logs WHERE id = ?1",
+                    [&log_id],
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get::<_, i64>(3)?,
+                        ))
+                    },
+                )
+                .map_err(|error| crate::error::AppError::Database(error.to_string()))
+            })
+            .expect("usage row");
+        assert_eq!(row, (1200, 400, 30, 1));
     }
 }

@@ -272,15 +272,14 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: "Antigravity (Built-in)",
     protocolType: "anthropic",
     baseUrl: "http://127.0.0.1:15830",
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5-5-medium",
     failoverModels: [
-      "gemini-3.7-flash",
-      "gemini-3.6-flash",
-      "claude-opus-4-6-thinking",
-      "claude-sonnet-4-6-thinking",
+      "gemini-3.8-flash",
+      "gemini-4-argon-high",
+      "claude-opus-5-5-medium",
     ],
     notes:
-      "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到当前 Flash（优先 gemini-3.7-flash，其次 gemini-3.6-flash）；也可在模型映射里改成其他 Gemini。",
+      "Built-in Antigravity gateway. Claude Code 的子代理跟随对话里选择的主模型。",
     targets: CLAUDE_OPENCODE,
   },
   {
@@ -288,11 +287,11 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: "Antigravity (Built-in)",
     protocolType: "openai_responses",
     baseUrl: "http://127.0.0.1:15830/v1",
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5-5-medium",
     failoverModels: [
-      "gemini-3.7-flash",
-      "gemini-3.6-flash",
-      "claude-opus-4-6-thinking",
+      "gemini-3.8-flash",
+      "gemini-4-argon-high",
+      "claude-opus-5-5-medium",
     ],
     modelContextWindow: 200_000,
     notes:

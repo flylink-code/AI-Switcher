@@ -98,6 +98,7 @@ import {
 } from "./upstream";
 import { UpstreamLimitsModal } from "./upstream/UpstreamLimitsModal";
 import { refreshUsageQuery, useUsageLogRefresh } from "@/lib/useUsageLogRefresh";
+import { useNavigatePage } from "@/lib/navigation";
 import { useProviderAccountsStore } from "@/stores/providerAccountsStore";
 import type { ProviderAccountKind } from "@/stores/providerAccountsStore";
 import { UpstreamDailyStats } from "./upstream/UpstreamDailyStats";
@@ -125,7 +126,7 @@ function canQueryUpstreamQuota(row: Provider): boolean {
   }
 }
 
-/** Account-login rows are managed in the providers-page account drawer. */
+/** Account-login rows are managed on the gateway (accounts) page. */
 function accountKindOf(row: Provider): ProviderAccountKind | null {
   switch (row.providerKind) {
     case "antigravity":
@@ -162,7 +163,13 @@ export function GatewayUpstreamPanel({
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [pendingAccountKind, setPendingAccountKind] = useState<ProviderAccountKind | null>(null);
   const [enablingLocalGateway, setEnablingLocalGateway] = useState(false);
-  const openAccountDrawer = useProviderAccountsStore((state) => state.openDrawer);
+  const setAccountsTab = useProviderAccountsStore((state) => state.setTab);
+  const navigatePage = useNavigatePage();
+  /** Account pools live on the gateway (accounts) page. */
+  const openAccountDrawer = (kind: ProviderAccountKind) => {
+    setAccountsTab(kind);
+    navigatePage("accounts");
+  };
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);

@@ -28,9 +28,6 @@ pub fn thinking_kind(body: &Value) -> Option<String> {
 }
 
 pub fn resolve_thinking_budget(body: &Value, model: &str) -> Option<u32> {
-    if crate::antigravity::model_catalog::is_gemini_31_pro(model) {
-        return None;
-    }
     let kind = thinking_kind(body);
     if kind.as_deref() == Some("disabled") {
         return None;
@@ -77,9 +74,8 @@ pub fn is_budget_constraint_error(body: &str) -> bool {
             || lower.contains("exceed"))
 }
 
-pub fn rectify_generate_request(request: &mut Value, model: &str) {
-    let budget =
-        crate::antigravity::model_catalog::thinking_budget_for(model).unwrap_or(RECTIFY_BUDGET);
+pub fn rectify_generate_request(request: &mut Value) {
+    let budget = RECTIFY_BUDGET;
     let min_max = u64::from(budget)
         .saturating_add(1)
         .max(u64::from(RECTIFY_MIN_MAX_TOKENS));
@@ -143,16 +139,6 @@ mod tests {
     }
 
     #[test]
-    fn gemini_31_pro_does_not_resolve_thinking_budget() {
-        let body = json!({
-            "thinking": { "type": "enabled", "budget_tokens": 8192 },
-            "thinkingConfig": { "thinkingBudget": 16384 }
-        });
-        assert_eq!(resolve_thinking_budget(&body, "gemini-3.1-pro-high"), None);
-        assert_eq!(resolve_thinking_budget(&body, "gemini-3.1-pro-low"), None);
-    }
-
-    #[test]
     fn apply_thinking_budget_strips_thinking_level() {
         let mut generation = json!({
             "thinkingConfig": { "thinkingLevel": "HIGH", "thinkingBudget": 8192 }
@@ -164,27 +150,5 @@ mod tests {
         );
         assert_eq!(generation["thinkingConfig"]["includeThoughts"], json!(true));
         assert!(generation["thinkingConfig"].get("thinkingLevel").is_none());
-    }
-
-    #[test]
-    fn rectify_uses_31_pro_budget_not_generic_8192() {
-        let mut request = json!({
-            "generationConfig": {
-                "thinkingConfig": { "thinkingLevel": "HIGH" },
-                "maxOutputTokens": 64
-            }
-        });
-        rectify_generate_request(&mut request, "gemini-3.1-pro-high");
-        assert_eq!(
-            request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-            json!(10_001)
-        );
-        assert!(request["generationConfig"]["thinkingConfig"]
-            .get("thinkingLevel")
-            .is_none());
-        assert_eq!(
-            request["generationConfig"]["maxOutputTokens"],
-            json!(16_384)
-        );
     }
 }

@@ -687,6 +687,22 @@ fn choose_candidate<'a>(
         if account_has_family_remaining(active, family) {
             let active_hot = account_under_pressure(limiter, &active.id);
             if !active_hot {
+                let active_score = candidate_scheduling_score_for(active, family);
+                let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
+                ranked.sort_by(|left, right| compare_candidates(left, right, family));
+                if let Some(best) = ranked.first().copied() {
+                    if best.id != active.id
+                        && candidate_scheduling_score_for(best, family) > active_score
+                    {
+                        log::info!(
+                            "Antigravity pool: active {} has less {:?} remaining; selecting {}",
+                            active.email,
+                            family,
+                            best.email
+                        );
+                        return Some(best);
+                    }
+                }
                 return Some(active);
             }
             let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
@@ -1139,6 +1155,11 @@ mod tests {
             "a2"
         );
         a1.quota = Some(family_quota(0.4, 0.82, 1.0, 0.94));
+        assert_eq!(
+            pick_for_model(&[a1.clone(), a2.clone()], "gemini-3.8-flash-high"),
+            "a2"
+        );
+        a1.quota = Some(family_quota(0.99, 0.82, 1.0, 0.94));
         assert_eq!(pick_for_model(&[a1, a2], "gemini-3.8-flash-high"), "a1");
     }
 

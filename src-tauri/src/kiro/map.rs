@@ -660,7 +660,7 @@ fn estimate_chars(chars: usize) -> i64 {
     if chars == 0 {
         0
     } else {
-        ((chars + 3) / 4) as i64
+        chars.div_ceil(4) as i64
     }
 }
 

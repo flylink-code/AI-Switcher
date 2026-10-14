@@ -541,6 +541,7 @@ pub fn default_allowed_model_patterns(tier: Option<&str>) -> Vec<String> {
         Some("PRO") | Some("ULTRA") => vec![
             "gemini-*flash*".into(),
             "gemini-*pro*".into(),
+            "gemini-*argon*".into(),
             "claude-*".into(),
             "gpt-*".into(),
             "o*".into(),
@@ -1146,6 +1147,8 @@ mod tests {
         let paid = default_allowed_model_patterns(Some("Google AI Pro"));
         assert!(paid.iter().any(|pattern| pattern == "gemini-*flash*"));
         assert!(paid.iter().any(|pattern| pattern == "gemini-*pro*"));
+        assert!(paid.iter().any(|pattern| pattern == "gemini-*argon*"));
+        assert!(model_pattern_matches("gemini-*argon*", "gemini-4-argon-medium"));
         assert!(paid.iter().any(|pattern| pattern == "claude-*"));
         assert!(paid.iter().any(|pattern| pattern == "gpt-*"));
         assert!(paid.iter().any(|pattern| pattern == "o*"));

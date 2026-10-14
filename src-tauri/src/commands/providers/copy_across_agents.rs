@@ -408,7 +408,7 @@ mod tests {
             target_app: ProviderTarget::OpenCode,
             sort_index: 0,
             failover_group: 0,
-            failover_models: vec!["gemini-3.7-flash".into()],
+            failover_models: vec!["gemini-3.8-flash".into()],
             hidden_models: Vec::new(),
             thinking_config: None,
             custom_headers: None,
@@ -421,9 +421,9 @@ mod tests {
         };
         let extra = extra_models_for_ag_catalog_apply(
             &provider,
-            vec!["claude-sonnet-4-6".into(), "chat_20706".into()],
+            vec!["claude-sonnet-5-5-medium".into(), "chat_20706".into()],
         );
-        assert!(extra.iter().any(|id| id == "claude-sonnet-4-6"));
+        assert!(extra.iter().any(|id| id == "claude-sonnet-5-5-medium"));
         assert!(extra.iter().any(|id| id.starts_with("gemini-")));
         assert!(!extra.iter().any(|id| id == "chat_20706"));
     }

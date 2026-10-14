@@ -907,7 +907,10 @@ async fn proxy_handler_inner(
     // message_delta event arrives.
     let mut resp_builder = Response::builder().status(status);
     for (name, value) in upstream_resp.headers() {
-        if is_hop_by_hop_header(name.as_str()) {
+        // 兜底：reqwest 不解压，网关又可能改写 body；不把 content-encoding 带给客户端。
+        if is_hop_by_hop_header(name.as_str())
+            || name.as_str().eq_ignore_ascii_case("content-encoding")
+        {
             continue;
         }
         resp_builder = resp_builder.header(name, value);

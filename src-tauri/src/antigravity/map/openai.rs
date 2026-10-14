@@ -223,14 +223,11 @@ pub fn openai_to_gemini_request(
         ));
     }
     let gemini_target = model.to_ascii_lowercase().starts_with("gemini-");
-    // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
-    if !(gemini_target && model_catalog::is_gemini_31_pro(&model)) {
-        if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
-            generation["temperature"] = json!(temperature);
-        }
-        if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
-            generation["topP"] = json!(top_p);
-        }
+    if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
+        generation["temperature"] = json!(temperature);
+    }
+    if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
+        generation["topP"] = json!(top_p);
     }
     if let Some(level) = claude_thinking_level {
         if model_catalog::is_claude_55(&model) {
@@ -243,13 +240,7 @@ pub fn openai_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(budget) = model_catalog::thinking_budget_for(&model) {
-            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
-            generation["maxOutputTokens"] =
-                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
-            crate::antigravity::thinking::apply_thinking_budget(&mut generation, budget, true);
-        } else if let Some(budget) =
-            crate::antigravity::thinking::resolve_thinking_budget(body, &model)
+        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model)
         {
             let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
             generation["maxOutputTokens"] =
@@ -688,7 +679,7 @@ mod tests {
 
         let claude = openai_to_gemini_request(
             &json!({
-                "model": "claude-sonnet-4-6",
+                "model": "claude-future-1",
                 "reasoning_effort": "low",
                 "messages": [{"role": "user", "content": "hi"}]
             }),
@@ -742,52 +733,6 @@ mod tests {
     }
 
     #[test]
-    fn gemini_31_pro_writes_thinking_budget_not_level() {
-        let parts = openai_to_gemini_request(
-            &json!({
-                "model": "gemini-3.1-pro-high",
-                "max_tokens": 100,
-                "temperature": 0.1,
-                "top_p": 0.8,
-                "thinking": { "type": "enabled", "budget_tokens": 8192 },
-                "messages": [{"role": "user", "content": "hi"}]
-            }),
-            None,
-        )
-        .unwrap();
-        assert_eq!(parts.model, "gemini-3.1-pro-high");
-        let config = &parts.request["generationConfig"]["thinkingConfig"];
-        assert_eq!(config["thinkingBudget"], json!(10001));
-        assert_eq!(config["includeThoughts"], json!(true));
-        assert!(config.get("thinkingLevel").is_none());
-        let generation = &parts.request["generationConfig"];
-        assert!(generation.get("temperature").is_none());
-        assert!(generation.get("topP").is_none());
-        assert_eq!(generation["maxOutputTokens"], json!(10002));
-    }
-
-    #[test]
-    fn gemini_31_pro_low_openai_writes_low_thinking_budget() {
-        let parts = openai_to_gemini_request(
-            &json!({
-                "model": "gemini-3.1-pro-low",
-                "reasoning_effort": "low",
-                "messages": [{"role": "user", "content": "hi"}]
-            }),
-            None,
-        )
-        .unwrap();
-        assert_eq!(parts.model, "gemini-3.1-pro-low");
-        assert_eq!(
-            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-            json!(1001)
-        );
-        assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("thinkingLevel")
-            .is_none());
-    }
-
-    #[test]
     fn tool_call_arguments_are_corrected_against_declarations() {
         let body = json!({
             "model": "gpt-4o",
@@ -838,7 +783,7 @@ mod tests {
             }
         });
         let chunk = gemini_to_openai_sse_chunk(
-            "gemini-3.7-flash-high",
+            "gemini-3.8-flash-high",
             &gemini,
             None,
             &ToolParamKeys::new(),
@@ -847,7 +792,7 @@ mod tests {
         assert_eq!(chunk["usage"]["completion_tokens"], 20);
         assert_eq!(chunk["usage"]["total_tokens"], 1520);
 
-        let trailer = openai_usage_sse_chunk("gemini-3.7-flash-high", 1500, 100);
+        let trailer = openai_usage_sse_chunk("gemini-3.8-flash-high", 1500, 100);
         assert_eq!(trailer["usage"]["prompt_tokens"], 1500);
         assert_eq!(trailer["usage"]["completion_tokens"], 100);
         assert_eq!(trailer["choices"][0]["delta"], json!({}));
@@ -895,7 +840,7 @@ mod tests {
     #[test]
     fn historical_tool_calls_get_thought_signature() {
         let body = json!({
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "messages": [
                 { "role": "user", "content": "hi" },
                 { "role": "assistant", "content": null, "tool_calls": [

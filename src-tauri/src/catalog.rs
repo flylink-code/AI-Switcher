@@ -135,6 +135,11 @@ pub fn hide_official(db: &Database, target: ProviderTarget) -> bool {
 }
 
 pub fn subagent_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    // Claude Code subagents always follow the main model. Old profiles / settings
+    // may still carry a subagent id; it must not pin Haiku/Explore requests.
+    if target == ProviderTarget::ClaudeCode {
+        return None;
+    }
     if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
         let value = profile.subagent_model.trim();
         if !value.is_empty() {
@@ -303,11 +308,11 @@ pub fn build_catalog_with(
         let shared = sources_by_model
             .get(&slug_id.to_ascii_lowercase())
             .is_some_and(|sources| sources.len() > 1);
-        let context_window = crate::provider::context_window_for_model(provider, &upstream);
+        let context_window = catalog_context_window(provider, &upstream, &slug_id);
         let public_id = unique_public_id(style, &slug_id, &slug, shared, &mut taken);
         entries.push(CatalogEntry {
             public_id,
-            display_name: format!("{} · {}", provider.name.trim(), slug_id),
+            display_name: catalog_display_name(style, provider, &slug_id, shared),
             upstream_slug: slug_id,
             provider_id: provider.id.clone(),
             context_window,
@@ -316,6 +321,36 @@ pub fn build_catalog_with(
         });
     }
     entries
+}
+
+/// Picker label. Claude Code's `/model` shows `display_name` verbatim, so a model
+/// with a single source keeps its bare name; only a name published by several
+/// providers carries the provider prefix to tell the rows apart.
+fn catalog_display_name(
+    style: CatalogStyle,
+    provider: &Provider,
+    slug_id: &str,
+    shared: bool,
+) -> String {
+    if style == CatalogStyle::Claude && !shared {
+        slug_id.to_string()
+    } else {
+        format!("{} · {}", provider.name.trim(), slug_id)
+    }
+}
+
+/// Window published in `/v1/models`. An explicit `[1m]` / `[200k]` label wins; a
+/// built-in Antigravity / Kiro model uses the id's own window instead of the
+/// card-wide value (one card publishes Claude, Gemini and GPT rows together).
+fn catalog_context_window(provider: &Provider, upstream: &str, slug_id: &str) -> u64 {
+    let (_, labeled) = crate::provider::split_model_window_label(upstream);
+    if let Some(window) = labeled {
+        return window.max(1);
+    }
+    if uses_antigravity_catalog(provider) || uses_kiro_catalog(provider) {
+        return crate::gateway::metadata::context_window_for(slug_id).max(1);
+    }
+    crate::provider::context_window_for_model(provider, upstream)
 }
 
 /// Codex / OpenAI-style Auto id. Claude discovery cannot use this bare slug.
@@ -349,17 +384,40 @@ pub fn is_injected_claude_role_id(id: &str) -> bool {
     )
 }
 
-/// Sonnet / Opus / Fable roles that may inherit the last explicit catalog model.
+/// Official role ids that follow the model picked in the conversation.
+/// Includes Haiku: Claude Code Explore and other subagents send that role.
 pub fn is_sticky_remap_role_id(id: &str) -> bool {
+    let stem = claude_role_stem(id);
     matches!(
-        claude_role_stem(id).as_str(),
+        stem.as_str(),
         CLAUDE_SONNET_ROLE_ID
             | CLAUDE_OPUS_ROLE_ID
             | CLAUDE_FABLE_ROLE_ID
+            | CLAUDE_HAIKU_ROLE_ID
             | "sonnet"
             | "opus"
             | "fable"
-    )
+            | "haiku"
+    ) || stem.contains("subagent")
+}
+
+/// Role ids follow the conversation model. An id the catalog actually lists
+/// stays as the user sent it.
+pub fn follow_conversation_model(
+    requested: &str,
+    entries: &[CatalogEntry],
+    remembered: Option<&str>,
+) -> String {
+    let requested = requested.trim();
+    if is_explicit_catalog_passthrough(entries, requested) {
+        return requested.to_string();
+    }
+    if is_sticky_remap_role_id(requested) {
+        if let Some(main) = remembered.map(str::trim).filter(|value| !value.is_empty()) {
+            return main.to_string();
+        }
+    }
+    requested.to_string()
 }
 
 fn is_haiku_or_subagent_slug(id: &str) -> bool {
@@ -1099,7 +1157,54 @@ mod tests {
         assert_eq!(catalog[0].public_id, "claude.kimi-k2");
         assert!(passes_claude_discovery(&catalog[0].public_id));
         assert_eq!(catalog[0].upstream_slug, "kimi-k2");
-        assert_eq!(catalog[0].display_name, "Kimi · kimi-k2");
+        // 单一来源的模型显示名保持裸名，不带供应商前缀。
+        assert_eq!(catalog[0].display_name, "kimi-k2");
+    }
+
+    #[test]
+    fn claude_display_name_is_bare_unless_model_is_shared() {
+        let ag = provider("ag", "Antigravity (Built-in)", "claude-sonnet-5-5-medium");
+        let kimi = provider("p1", "Kimi", "kimi-k2");
+        let catalog = build_catalog(CatalogStyle::Claude, &[(ag, vec![]), (kimi, vec![])]);
+        let kimi_row = catalog.iter().find(|e| e.upstream_slug == "kimi-k2").unwrap();
+        assert_eq!(kimi_row.display_name, "kimi-k2");
+
+        // 两个供应商都发布同名模型：保留供应商前缀以区分来源。
+        let a = provider("a", "Alpha", "shared-model");
+        let b = provider("b", "Beta", "shared-model");
+        let catalog = build_catalog(CatalogStyle::Claude, &[(a, vec![]), (b, vec![])]);
+        let names: Vec<_> = catalog.iter().map(|e| e.display_name.as_str()).collect();
+        assert!(names.contains(&"Alpha · shared-model"), "{names:?}");
+        assert!(names.contains(&"Beta · shared-model"), "{names:?}");
+    }
+
+    #[test]
+    fn builtin_antigravity_models_use_their_own_context_window() {
+        let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.8-flash-high");
+        ag.provider_kind = ProviderKind::Antigravity;
+        // 卡级窗口被设成 1M 时，Claude 5.5 行不能继承它。
+        ag.model_context_window = Some(1_000_000);
+        let catalog = build_catalog(CatalogStyle::Claude, &[(ag, vec![])]);
+        let sonnet = catalog
+            .iter()
+            .find(|e| e.upstream_slug == "claude-sonnet-5-5-medium")
+            .expect("claude-sonnet-5-5-medium in catalog");
+        assert_eq!(sonnet.context_window, 200_000);
+        let gemini = catalog
+            .iter()
+            .find(|e| e.upstream_slug.starts_with("gemini-3.8-flash"))
+            .expect("gemini row");
+        assert_eq!(gemini.context_window, 1_000_000);
+    }
+
+    #[test]
+    fn explicit_window_label_wins_over_builtin_inference() {
+        let mut ag = provider("ag", "Antigravity (Built-in)", "claude-sonnet-5-5-medium[1m]");
+        ag.provider_kind = ProviderKind::Antigravity;
+        assert_eq!(
+            catalog_context_window(&ag, "claude-sonnet-5-5-medium[1m]", "claude-sonnet-5-5-medium"),
+            crate::provider::parse_context_window_label("1m").unwrap()
+        );
     }
 
     #[test]
@@ -1276,22 +1381,22 @@ mod tests {
 
     #[test]
     fn claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream() {
-        let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.6-flash-low");
+        let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.8-flash-low");
         ag.provider_kind = ProviderKind::Antigravity;
         ag.protocol_type = ProtocolType::Anthropic;
         let providers = vec![ag.clone()];
         let catalog = build_catalog(
             CatalogStyle::Claude,
-            &[(ag, vec!["gemini-3.6-flash-low".into()])],
+            &[(ag, vec!["gemini-3.8-flash-low".into()])],
         );
         let public = catalog
             .iter()
-            .find(|entry| entry.upstream_slug == "gemini-3.6-flash-low")
-            .expect("catalog keeps an explicitly saved 3.6-flash-low default");
-        assert_eq!(public.public_id, "claude.gemini-3.6-flash-low");
+            .find(|entry| entry.upstream_slug == "gemini-3.8-flash-low")
+            .expect("catalog keeps an explicitly saved 3.8-flash-low default");
+        assert_eq!(public.public_id, "claude.gemini-3.8-flash-low");
         assert_eq!(
             resolve_request(&catalog, &providers, &public.public_id),
-            Some(("ag".into(), "gemini-3.6-flash-low".into()))
+            Some(("ag".into(), "gemini-3.8-flash-low".into()))
         );
     }
 
@@ -1754,7 +1859,41 @@ mod tests {
         assert!(!is_explicit_catalog_passthrough(&catalog, "claude.auto"));
         assert!(is_explicit_catalog_passthrough(&catalog, "claude.kimi-k2"));
         assert!(is_sticky_remap_role_id(CLAUDE_SONNET_ROLE_ID));
-        assert!(!is_sticky_remap_role_id(CLAUDE_HAIKU_ROLE_ID));
+        assert!(is_sticky_remap_role_id(CLAUDE_HAIKU_ROLE_ID));
+    }
+
+    #[test]
+    fn role_requests_follow_the_conversation_model() {
+        let main = provider("ag", "Antigravity", "claude-sonnet-5-5-medium");
+        let catalog = build_catalog(CatalogStyle::Claude, &[(main, vec![])]);
+        assert_eq!(
+            follow_conversation_model(
+                CLAUDE_SONNET_ROLE_ID,
+                &catalog,
+                Some("claude-sonnet-5-5-medium")
+            ),
+            "claude-sonnet-5-5-medium"
+        );
+        assert_eq!(
+            follow_conversation_model(
+                CLAUDE_HAIKU_ROLE_ID,
+                &catalog,
+                Some("claude-sonnet-5-5-medium")
+            ),
+            "claude-sonnet-5-5-medium"
+        );
+        assert_eq!(
+            follow_conversation_model(
+                "claude-sonnet-5-5-medium",
+                &catalog,
+                Some("gemini-3.8-flash")
+            ),
+            "claude-sonnet-5-5-medium"
+        );
+        assert_eq!(
+            follow_conversation_model(CLAUDE_SONNET_ROLE_ID, &catalog, None),
+            CLAUDE_SONNET_ROLE_ID
+        );
     }
 
     #[test]

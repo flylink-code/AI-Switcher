@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   App,
@@ -85,11 +85,11 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
   const queryClient = useQueryClient();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
-  const getValidPromptTarget = (preferred: PromptTarget): PromptTarget => {
+  const getValidPromptTarget = useCallback((preferred: PromptTarget): PromptTarget => {
     const validTargets = visibleAgents.filter((a): a is PromptTarget => a === "claude_code" || a === "codex" || a === "opencode" || a === "pi" || a === "cline");
     if (validTargets.includes(preferred)) return preferred;
     return validTargets[0] ?? "claude_code";
-  };
+  }, [visibleAgents]);
 
   const [internalTarget, setInternalTarget] = useState<PromptTarget>(() => getValidPromptTarget("claude_code"));
   const target = targetProp ?? internalTarget;
@@ -101,7 +101,7 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
         setInternalTarget(valid);
       }
     }
-  }, [visibleAgents, internalTarget, targetProp]);
+  }, [getValidPromptTarget, internalTarget, targetProp]);
 
   const promptsQuery = useQuery(promptsOverviewOptions(target));
   const prompts = promptsQuery.data?.items ?? [];

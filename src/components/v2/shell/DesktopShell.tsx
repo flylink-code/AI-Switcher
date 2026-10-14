@@ -23,6 +23,7 @@ const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
   "agentHub",
   "providers",
+  "accounts",
   "usage",
   "workspace",
   "settings",

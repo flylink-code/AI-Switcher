@@ -2513,6 +2513,8 @@
     "tabAntigravity": "Antigravity",
     "personalUseNotice": "Personal-use gateway only. Review upstream terms yourself; do not operate as a commercial relay.",
     "gateway": "Gateway",
+    "advancedHint": "Outbound proxy, exit chain, rate limiting & short circuit",
+    "advancedActive": "Custom configured",
     "outboundHint": "Outbound proxy for Google / Cloud Code. In China use Clash SOCKS5 (default socks5://127.0.0.1:17891), not http://; overseas can choose Direct.",
     "outboundCustom": "Clash / Custom (China)",
     "outboundDirect": "Direct (overseas)",
@@ -2663,6 +2665,8 @@
   },
   "kiro": {
     "gateway": "Kiro gateway",
+    "advancedHint": "Outbound proxy, exit chain",
+    "advancedActive": "Custom configured",
     "running": "Running",
     "stoppedState": "Stopped",
     "port": "Port",
@@ -2841,5 +2845,16 @@
     "loadFailed": "Failed to load limits: {{error}}",
     "saveSuccess": "Upstream admission limits saved and active immediately",
     "saveFailed": "Failed to save limits: {{error}}"
+  },
+  "accountsGateway": {
+    "summaryAccounts": "{{count}} accounts",
+    "chatgptPool": "ChatGPT / Codex account pool",
+    "chatgptCount": "{{count}} accounts signed in",
+    "chatgptLogin": "Sign in to ChatGPT",
+    "chatgptDefault": "Default",
+    "chatgptLoggedAt": "Signed in {{time}}",
+    "chatgptSetDefault": "Set as default",
+    "chatgptRemoveConfirm": "Remove this account and its gateway upstream?",
+    "chatgptRemoved": "Account removed"
   }
 }

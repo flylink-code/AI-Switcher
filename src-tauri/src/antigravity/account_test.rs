@@ -61,30 +61,7 @@ pub fn build_probe_gemini_request(model: &str, prompt: &str) -> Result<(String, 
         "messages": [{ "role": "user", "content": prompt }],
     });
     let parts = anthropic_to_gemini_request(&body, None, None)?;
-    let mut request = parts.request;
-    sanitize_probe_generation(&parts.model, &mut request);
-    Ok((parts.model, request))
-}
-
-fn sanitize_probe_generation(model: &str, request: &mut Value) {
-    let Some(budget) = model_catalog::thinking_budget_for(model) else {
-        return;
-    };
-    let generation = request.as_object_mut().map(|root| {
-        root.entry("generationConfig".to_string())
-            .or_insert_with(|| Value::Object(serde_json::Map::new()))
-    });
-    let Some(generation) = generation else {
-        return;
-    };
-    if let Some(obj) = generation.as_object_mut() {
-        obj.remove("temperature");
-        obj.remove("topP");
-    }
-    let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
-    generation["maxOutputTokens"] =
-        json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
-    crate::antigravity::thinking::apply_thinking_budget(generation, budget, true);
+    Ok((parts.model, parts.request))
 }
 
 pub fn extract_reply_text(unwrapped: &Value) -> Option<String> {
@@ -416,26 +393,6 @@ mod tests {
                 .pointer("/generationConfig/maxOutputTokens")
                 .and_then(Value::as_u64),
             Some(64)
-        );
-    }
-
-    #[test]
-    fn gemini_31_pro_probe_uses_thinking_budget_not_level() {
-        let (model, request) =
-            build_probe_gemini_request("gemini-3.1-pro-high", "hello").expect("build");
-        assert_eq!(model, "gemini-3.1-pro-high");
-        let gen = request.get("generationConfig").expect("generationConfig");
-        assert!(gen.get("temperature").is_none());
-        assert!(gen.get("topP").is_none());
-        let thinking = gen.get("thinkingConfig").expect("thinkingConfig");
-        assert_eq!(
-            thinking.get("thinkingBudget").and_then(Value::as_u64),
-            Some(10001)
-        );
-        assert!(thinking.get("thinkingLevel").is_none());
-        assert_eq!(
-            gen.get("maxOutputTokens").and_then(Value::as_u64),
-            Some(10002)
         );
     }
 

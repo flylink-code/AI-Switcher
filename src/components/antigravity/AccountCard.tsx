@@ -111,10 +111,21 @@ export function AccountCard({
   const [accessInput, setAccessInput] = useState("");
   const [accessBusy, setAccessBusy] = useState(false);
 
-  const allowedModels = useMemo(
-    () => models.filter((model) => account.effectiveModelPatterns.some((pattern) => matchesPattern(pattern, model.id))),
-    [account.effectiveModelPatterns, models],
-  );
+  // 对话测试的候选以「该账号最新额度快照」为准，再并上全局目录，避免目录滞后。
+  const allowedModels = useMemo(() => {
+    const allowed = (id: string) =>
+      account.effectiveModelPatterns.some((pattern) => matchesPattern(pattern, id));
+    const byId = new Map<string, AntigravityCatalogModel>();
+    for (const model of models) {
+      if (allowed(model.id)) byId.set(model.id, model);
+    }
+    for (const quota of account.quota?.models ?? []) {
+      const id = quota.name.trim().replace(/^models\//, "");
+      if (!id || /disabled$/i.test(id) || byId.has(id) || !allowed(id)) continue;
+      byId.set(id, { id, displayName: quota.displayName });
+    }
+    return [...byId.values()];
+  }, [account.effectiveModelPatterns, account.quota, models]);
   const tier = formatTierLabel(account.subscriptionTier);
   const cooling = account.cooldownUntil != null && account.cooldownUntil * 1000 > Date.now();
   const {
@@ -286,6 +297,7 @@ export function AccountCard({
                 options={[
                   { label: "Gemini Flash", value: "gemini-*flash*" },
                   { label: "Gemini Pro", value: "gemini-*pro*" },
+                  { label: "Gemini 4 Argon", value: "gemini-*argon*" },
                   { label: "Claude", value: "claude-*" },
                   { label: "GPT / OpenAI", value: "gpt-*" },
                   { label: "OpenAI o-series", value: "o*" },

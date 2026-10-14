@@ -64,7 +64,8 @@ pub use codex::{
     set_codex_output_profile, set_codex_web_search_mode, sync_codex_session_providers,
 };
 pub use codex_oauth::{
-    ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
+    ensure_codex_oauth_provider, get_codex_oauth_default_account, list_codex_oauth_accounts,
+    poll_codex_oauth_login, remove_codex_oauth_account, set_codex_oauth_default_account,
     start_codex_oauth_login,
 };
 pub use codex_plugins::{

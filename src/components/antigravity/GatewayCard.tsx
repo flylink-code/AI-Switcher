@@ -18,6 +18,7 @@ import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import { useTranslation } from "react-i18next";
 import type {
   AntigravityGatewayStatus,
@@ -358,14 +359,27 @@ export function GatewayCard({
   };
 
   const sampleModel =
-    models?.find((model) => model.id === "claude-sonnet-4-6")?.id ??
+    models?.find((model) => model.id === "claude-sonnet-5-5-medium")?.id ??
     models?.[0]?.id ??
-    "claude-sonnet-4-6";
+    "claude-sonnet-5-5-medium";
+
+  const hasActiveAdvanced =
+    outboundMode !== "system" ||
+    Boolean(status?.exitProxies?.some((item) => item.enabled)) ||
+    Boolean(status?.effectiveOutboundProxy && status.effectiveOutboundProxy !== "direct");
 
   const curlSnippet = useMemo(() => {
     const base = status?.baseUrl ?? `http://127.0.0.1:${port}`;
     const key = apiKey || "sk-ai-switcher-antigravity";
-    return `curl -s ${base}/v1/messages \\\n  -H "x-api-key: ${key}" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"${sampleModel}","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'`;
+    return (
+      "curl -s " +
+      base +
+      "/v1/messages \\\n  -H \"x-api-key: " +
+      key +
+      "\" \\\n  -H \"content-type: application/json\" \\\n  -d '{\"model\":\"" +
+      sampleModel +
+      "\",\"max_tokens\":64,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}'"
+    );
   }, [apiKey, port, sampleModel, status?.baseUrl]);
 
   return (
@@ -398,9 +412,79 @@ export function GatewayCard({
           />
         </Space>
 
+        <Space wrap>
+          <Button
+            type="primary"
+            icon={<PlayCircleOutlined />}
+            loading={isStarting}
+            disabled={status?.running}
+            onClick={() => onStartGateway(port, apiKey, outboundMode, outboundUrl)}
+          >
+            {t("antigravity.start")}
+          </Button>
+          <Button
+            icon={<StopOutlined />}
+            loading={isStopping}
+            disabled={!status?.running}
+            onClick={() => onStopGateway()}
+          >
+            {t("antigravity.stop")}
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={onRefresh}>
+            {t("common.refresh")}
+          </Button>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={() => {
+              void navigator.clipboard.writeText(curlSnippet).then(() => {
+                message.success(t("antigravity.copied"));
+              });
+            }}
+          >
+            {t("antigravity.copyCurl")}
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => setCurlVisible((prev) => !prev)}
+          >
+            {curlVisible
+              ? t("antigravity.hideTestCommand", { defaultValue: "收起测试命令" })
+              : t("antigravity.viewTestCommand", { defaultValue: "查看测试命令" })}
+          </Button>
+        </Space>
+
+        {curlVisible ? (
+          <Paragraph style={{ marginBottom: 0 }}>
+            <pre style={{ margin: 0, padding: 8, borderRadius: 6, background: "var(--ant-color-bg-layout, #f5f5f5)", whiteSpace: "pre-wrap", fontSize: 12 }}>
+              {curlSnippet}
+            </pre>
+          </Paragraph>
+        ) : null}
+
         <Divider style={{ margin: "4px 0" }} />
 
-        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+        <ExpandableSection
+          title={
+            <Space size={8} align="center">
+              <Text strong style={{ fontSize: 13 }}>
+                {t("common.advanced", { defaultValue: "高级设置" })}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ({t("antigravity.advancedHint", { defaultValue: "出站代理、链式出口、限速与短路" })})
+              </Text>
+              {hasActiveAdvanced && (
+                <Tag color="blue" style={{ marginInlineStart: 4 }}>
+                  {t("antigravity.advancedActive", { defaultValue: "已配置自定义项" })}
+                </Tag>
+              )}
+            </Space>
+          }
+          defaultOpen={false}
+        >
+          <Space direction="vertical" size={12} style={{ width: "100%", paddingTop: 8 }}>
+            <Space direction="vertical" size={8} style={{ width: "100%" }}>
           <Text strong style={{ fontSize: 13 }}>{t("antigravity.outboundSection", { defaultValue: "出站代理" })}</Text>
           <Space wrap>
             <Select
@@ -748,55 +832,9 @@ export function GatewayCard({
             {t("antigravity.fastPathSave", { defaultValue: "保存短路设置" })}
           </Button>
         </Space>
-
-        <Divider style={{ margin: "4px 0" }} />
-
-        <Space wrap style={{ marginTop: 4 }}>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            loading={isStarting}
-            onClick={() => onStartGateway(port, apiKey, outboundMode, outboundUrl)}
-          >
-            {t("antigravity.start")}
-          </Button>
-          <Button
-            icon={<StopOutlined />}
-            loading={isStopping}
-            onClick={() => onStopGateway()}
-          >
-            {t("antigravity.stop")}
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={onRefresh}>
-            {t("common.refresh")}
-          </Button>
-          <Button
-            icon={<CopyOutlined />}
-            onClick={() => {
-              void navigator.clipboard.writeText(curlSnippet).then(() => {
-                message.success(t("antigravity.copied"));
-              });
-            }}
-          >
-            {t("antigravity.copyCurl")}
-          </Button>
-        </Space>
-
-        {curlVisible ? (
-          <Paragraph style={{ marginBottom: 0 }}>
-            <pre style={{ margin: 0, padding: 8, borderRadius: 6, background: "var(--ant-color-bg-layout, #f5f5f5)", whiteSpace: "pre-wrap", fontSize: 12 }}>
-              {curlSnippet}
-            </pre>
-            <Button type="link" size="small" style={{ padding: 0, marginTop: 4 }} onClick={() => setCurlVisible(false)}>
-              {t("antigravity.hideTestCommand", { defaultValue: "收起测试命令" })}
-            </Button>
-          </Paragraph>
-        ) : (
-          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setCurlVisible(true)}>
-            {t("antigravity.viewTestCommand", { defaultValue: "查看测试命令" })}
-          </Button>
-        )}
-      </Space>
-    </Card>
-  );
+          </Space>
+      </ExpandableSection>
+    </Space>
+  </Card>
+);
 }

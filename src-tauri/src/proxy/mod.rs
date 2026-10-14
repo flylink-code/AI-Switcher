@@ -13,6 +13,7 @@ mod codex_compact;
 mod codex_history;
 mod codex_moonshot_schema;
 pub(crate) mod convert;
+pub(crate) mod conversation_model;
 pub(crate) mod desktop_alias;
 mod first_output;
 mod response_lifecycle;

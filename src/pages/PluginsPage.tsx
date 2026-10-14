@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Space } from "antd";
 import { useTranslation } from "react-i18next";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
@@ -28,11 +28,11 @@ export default function PluginsPage({ target: targetProp }: PluginsPageProps = {
   const { t } = useTranslation();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
-  const getValidPluginTarget = (preferred: SkillTarget): SkillTarget => {
+  const getValidPluginTarget = useCallback((preferred: SkillTarget): SkillTarget => {
     const validTargets = visibleAgents.filter((a): a is SkillTarget => a === "claude_code" || a === "codex");
     if (validTargets.includes(preferred)) return preferred;
     return validTargets[0] ?? "claude_code";
-  };
+  }, [visibleAgents]);
 
   const [internalTarget, setInternalTarget] = useState<SkillTarget>(() => getValidPluginTarget(readPluginsTarget()));
   const target = targetProp ?? internalTarget;
@@ -44,7 +44,7 @@ export default function PluginsPage({ target: targetProp }: PluginsPageProps = {
         setInternalTarget(valid);
       }
     }
-  }, [visibleAgents, internalTarget, targetProp]);
+  }, [getValidPluginTarget, internalTarget, targetProp]);
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") {

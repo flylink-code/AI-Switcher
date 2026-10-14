@@ -259,6 +259,16 @@ pub struct LimiterPermit {
     _subagent: Option<OwnedSemaphorePermit>,
 }
 
+#[cfg(test)]
+impl LimiterPermit {
+    pub(crate) fn empty() -> Self {
+        Self {
+            _total: None,
+            _subagent: None,
+        }
+    }
+}
+
 pub enum AcquireOutcome {
     Granted(LimiterPermit),
     /// Token bucket / min-interval / 429 backoff still blocked after waiting.

@@ -9,17 +9,23 @@ pub fn map_model_id(requested: &str) -> String {
     let lower = strip_claude_catalog_alias(&lower);
     let mapped = match lower {
         "" => model_catalog::preferred_default_model(),
-        "claude-sonnet-4-5"
+        // Claude 4.x left Cloud Code; legacy aliases land on the 5.5 tiers.
+        "claude-sonnet-4"
+        | "claude-sonnet-4-5"
         | "claude-sonnet-4-5-20250929"
+        | "claude-sonnet-4-5-thinking"
+        | "claude-sonnet-4-6"
+        | "claude-sonnet-4-6-thinking"
         | "claude-3-5-sonnet-20241022"
         | "claude-3-5-sonnet-latest"
-        | "claude-3-7-sonnet-latest" => "claude-sonnet-4-6".into(),
-        "claude-sonnet-4-5-thinking" => "claude-sonnet-4-6-thinking".into(),
+        | "claude-3-7-sonnet-latest" => model_catalog::pick_claude_55_tier("sonnet"),
         "claude-opus-4"
         | "claude-opus-4-5"
         | "claude-opus-4-5-thinking"
-        | "claude-opus-4-5-20251101" => "claude-opus-4-6-thinking".into(),
-        "claude-opus-4-6" | "claude-opus-4.6" => "claude-opus-4-6-thinking".into(),
+        | "claude-opus-4-5-20251101"
+        | "claude-opus-4-6"
+        | "claude-opus-4.6"
+        | "claude-opus-4-6-thinking" => model_catalog::pick_claude_55_tier("opus"),
         "claude-haiku-4"
         | "claude-haiku-4-5"
         | "claude-3-haiku-20240307"
@@ -84,13 +90,10 @@ pub fn list_public_models() -> Value {
         { "id": "claude-opus-5-5-medium", "object": "model", "owned_by": "antigravity" },
         { "id": "claude-opus-5-5-high", "object": "model", "owned_by": "antigravity" },
         { "id": "claude-opus-5-5-low", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-sonnet-4-6", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-opus-4-6-thinking", "object": "model", "owned_by": "antigravity" },
         { "id": "gemini-3.8-flash-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-3.7-flash-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-3.6-flash-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-3.1-pro-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-3.1-pro-low", "object": "model", "owned_by": "antigravity" },
+        { "id": "gemini-4-argon-high", "object": "model", "owned_by": "antigravity" },
+        { "id": "gemini-4-argon-medium", "object": "model", "owned_by": "antigravity" },
+        { "id": "gemini-4-argon-low", "object": "model", "owned_by": "antigravity" },
     ])
 }
 
@@ -100,18 +103,24 @@ mod tests {
 
     #[test]
     fn maps_common_aliases() {
-        assert_eq!(map_model_id("claude-sonnet-4-5"), "claude-sonnet-4-6");
+        assert_eq!(
+            map_model_id("claude-sonnet-4-5"),
+            map_model_id("claude-sonnet-5-5")
+        );
+        assert_eq!(map_model_id("claude-sonnet-4-6"), "claude-sonnet-5-5-medium");
         let flash = map_model_id("gemini-flash");
         assert!(flash.starts_with("gemini-"));
-        // 3.1 Pro is live on Cloud Code as `-high` / `-low`; the bare name
-        // must compose to `-high` instead of being rewritten to Flash.
-        assert_eq!(map_model_id("gemini-3.1-pro"), "gemini-3.1-pro-high");
-        assert_eq!(map_model_id("gemini-3.1-pro-high"), "gemini-3.1-pro-high");
-        assert_eq!(map_model_id("gemini-3.1-pro-low"), "gemini-3.1-pro-low");
-        // Bare 3.6 / 3.7 / 3.8 compose to the live Cloud Code variant (`-high`).
-        assert_eq!(map_model_id("gemini-3.6-flash"), "gemini-3.6-flash-high");
-        assert_eq!(map_model_id("gemini-3.6-flash-low"), "gemini-3.6-flash-low");
-        assert_eq!(map_model_id("gemini-3.7-flash"), "gemini-3.7-flash-high");
+        // 3.1 Pro is gone from Cloud Code: remap to Flash. Gemini 4 Argon is
+        // live; the bare name composes to `-high`, explicit tiers pass through.
+        assert_eq!(map_model_id("gemini-3.1-pro"), map_model_id("gemini-flash"));
+        assert_eq!(map_model_id("gemini-3.1-pro-high"), map_model_id("gemini-flash"));
+        assert_eq!(map_model_id("gemini-4-argon"), "gemini-4-argon-high");
+        assert_eq!(map_model_id("gemini-4-argon-medium"), "gemini-4-argon-medium");
+        assert_eq!(map_model_id("gemini-4-argon-low"), "gemini-4-argon-low");
+        // 3.6 / 3.7 left Cloud Code and follow the current Flash; bare 3.8
+        // composes to the live Cloud Code variant (`-high`).
+        assert_eq!(map_model_id("gemini-3.6-flash"), flash);
+        assert_eq!(map_model_id("gemini-3.7-flash-low"), flash);
         assert_eq!(map_model_id("gemini-3.8-flash"), "gemini-3.8-flash-high");
         let haiku = map_model_id("claude-haiku-4-5");
         assert!(
@@ -119,8 +128,8 @@ mod tests {
             "Haiku aliases now follow the main flash SKU, got {haiku}"
         );
         assert_eq!(
-            map_model_id("claude.antigravity--built-in.gemini-3.6-flash-low"),
-            "gemini-3.6-flash-low"
+            map_model_id("claude.antigravity--built-in.gemini-3.8-flash-low"),
+            "gemini-3.8-flash-low"
         );
     }
 
@@ -144,8 +153,8 @@ mod tests {
             "claude-sonnet-5-5-high"
         );
         assert_eq!(map_model_id("Claude-Opus-5-high"), "claude-opus-5-5-high");
-        assert_eq!(map_model_id("claude-opus-4-6"), "claude-opus-4-6-thinking");
-        assert_eq!(map_model_id("claude-sonnet-4-6"), "claude-sonnet-4-6");
+        assert_eq!(map_model_id("claude-opus-4-6"), "claude-opus-5-5-medium");
+        assert_eq!(map_model_id("claude-sonnet-4-6"), "claude-sonnet-5-5-medium");
     }
 
     #[test]

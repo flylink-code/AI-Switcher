@@ -1,6 +1,7 @@
 import React from "react";
 import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
+import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
 import FolderOutlined from "@ant-design/icons/es/icons/FolderOutlined";
 import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
@@ -19,6 +20,7 @@ export const NAV_ITEMS: NavItemDef[] = [
   { key: "workbench", labelKey: "navigation.dashboard", defaultLabel: "概览", icon: <AppstoreOutlined /> },
   { key: "agentHub", labelKey: "navigation.agentHub", defaultLabel: "Agent", icon: <RobotOutlined /> },
   { key: "providers", labelKey: "navigation.providers", defaultLabel: "供应商", icon: <ClusterOutlined /> },
+  { key: "accounts", labelKey: "navigation.accountsShort", defaultLabel: "网关", icon: <ApiOutlined /> },
   { key: "usage", labelKey: "navigation.usage", defaultLabel: "用量统计", icon: <BarChartOutlined /> },
   { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined /> },
   { key: "settings", labelKey: "navigation.settings", defaultLabel: "设置", icon: <SettingOutlined /> },
@@ -30,7 +32,7 @@ export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   if (navKey === "agentHub" && (activeKey === "agentHub" || activeKey === "agentTools")) {
     return true;
   }
-  if (navKey === "providers" && ["providers", "gateway", "proxy", "antigravity"].includes(activeKey)) {
+  if (navKey === "providers" && ["providers", "gateway", "proxy"].includes(activeKey)) {
     return true;
   }
   if (

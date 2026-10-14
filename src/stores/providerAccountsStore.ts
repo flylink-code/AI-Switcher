@@ -1,17 +1,15 @@
 import { create } from "zustand";
 
-/** Account-login upstream families managed from the providers page drawer. */
+/** Account-login upstream families managed on the gateway (accounts) page. */
 export type ProviderAccountKind = "antigravity" | "kiro" | "chatgpt";
 
 interface ProviderAccountsState {
-  /** Which account drawer is open. Not persisted. */
-  drawer: ProviderAccountKind | null;
-  openDrawer: (kind: ProviderAccountKind) => void;
-  closeDrawer: () => void;
+  /** Which gateway tab the accounts page shows. Not persisted. */
+  tab: ProviderAccountKind;
+  setTab: (kind: ProviderAccountKind) => void;
 }
 
 export const useProviderAccountsStore = create<ProviderAccountsState>((set) => ({
-  drawer: null,
-  openDrawer: (drawer) => set({ drawer }),
-  closeDrawer: () => set({ drawer: null }),
+  tab: "antigravity",
+  setTab: (tab) => set({ tab }),
 }));

@@ -859,11 +859,9 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
                 }
                 let provider = runtime_provider.clone();
-                let subagent = if gateway_catalog {
-                    catalog_subagent_model(state, ProviderTarget::ClaudeCode)
-                } else {
-                    None
-                };
+                // 智能网关下子代理固定跟随主模型：UI 没有子代理入口，profile 里残留的
+                // `subagent_model`（旧版本/旧上游遗留）不能再覆盖用户当前选择。
+                let subagent: Option<String> = None;
                 tauri::async_runtime::spawn_blocking(move || {
                     if gateway_catalog {
                         claude_code::apply_provider_to_settings_via_catalog_proxy(
@@ -1467,14 +1465,18 @@ fn expected_code_fields(
         );
         values.insert(name_key.to_string(), Some(Value::String(upstream)));
     }
+    let subagent = if catalog {
+        // 智能网关：子代理跟随主模型（与 `inject_catalog_proxy_models` 写出一致）。
+        crate::gateway::normalize_live_model_for(ProviderTarget::ClaudeCode, &provider.model)
+    } else {
+        provider
+            .model_mapping
+            .for_role(ClaudeModelRole::Subagent, provider.model.trim())
+            .to_string()
+    };
     values.insert(
         "CLAUDE_CODE_SUBAGENT_MODEL".to_string(),
-        Some(Value::String(
-            provider
-                .model_mapping
-                .for_role(ClaudeModelRole::Subagent, provider.model.trim())
-                .to_string(),
-        )),
+        (!subagent.is_empty()).then(|| Value::String(subagent)),
     );
     values
 }

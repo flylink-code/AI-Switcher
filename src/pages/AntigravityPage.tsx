@@ -1,3 +1,4 @@
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import { useEffect, useState } from "react";
 import {
   Button,
@@ -623,7 +624,15 @@ function AntigravityContent({
       />
 
       {/* Available Models */}
-      <Card title={t("antigravity.models")} size="small">
+      <Card size="small">
+        <ExpandableSection
+          title={
+            <Text strong>
+              {t("antigravity.models")} <Text type="secondary">({models.length})</Text>
+            </Text>
+          }
+          defaultOpen={false}
+        >
         <Space direction="vertical" style={{ width: "100%" }} size={8}>
           <Text type="secondary">{t("antigravity.modelsHint")}</Text>
           {models.length === 0 ? (
@@ -662,6 +671,7 @@ function AntigravityContent({
             </Space>
           )}
         </Space>
+        </ExpandableSection>
       </Card>
 
       {/* Import Modal */}

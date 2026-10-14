@@ -419,7 +419,6 @@ pub fn wrap_v1internal(project_id: &str, model: &str, request: Value) -> Value {
     let timestamp_ms = chrono::Utc::now().timestamp_millis();
     let random_hex = uuid::Uuid::new_v4().simple().to_string();
     let random_hex = &random_hex[..8];
-    let model = crate::antigravity::model_catalog::cloud_code_model_id(model);
     json!({
         "project": project_id,
         "model": model,
@@ -442,12 +441,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn wraps_31_pro_high_as_gemini_pro_agent() {
-        let wrapped = wrap_v1internal("proj", "gemini-3.1-pro-high", json!({ "ok": true }));
-        assert_eq!(wrapped["model"], json!("gemini-pro-agent"));
+    fn wraps_model_id_unchanged() {
+        let wrapped = wrap_v1internal("proj", "gemini-4-argon-high", json!({ "ok": true }));
+        assert_eq!(wrapped["model"], json!("gemini-4-argon-high"));
         assert_eq!(wrapped["project"], json!("proj"));
-        let low = wrap_v1internal("proj", "gemini-3.1-pro-low", json!({}));
-        assert_eq!(low["model"], json!("gemini-3.1-pro-low"));
         let flash = wrap_v1internal("proj", "gemini-3.8-flash-high", json!({}));
         assert_eq!(flash["model"], json!("gemini-3.8-flash-high"));
     }

@@ -901,7 +901,7 @@ mod tests {
     #[test]
     fn responses_input_maps_to_gemini() {
         let body = json!({
-            "model": "gemini-3.6-flash-high",
+            "model": "gemini-3.8-flash-high",
             "instructions": "be brief",
             "input": [
                 { "role": "user", "content": [{ "type": "input_text", "text": "hi" }] }
@@ -940,7 +940,7 @@ mod tests {
     #[test]
     fn function_call_roundtrip_shapes() {
         let body = json!({
-            "model": "gemini-3.6-flash-low",
+            "model": "gemini-3.8-flash-low",
             "input": [
                 { "role": "user", "content": "hi" },
                 {
@@ -977,7 +977,7 @@ mod tests {
     #[test]
     fn stream_encoder_emits_created_and_completed() {
         let mut enc =
-            ResponsesStreamEncoder::new("gemini-3.6-flash-high", ToolParamKeys::new(), None);
+            ResponsesStreamEncoder::new("gemini-3.8-flash-high", ToolParamKeys::new(), None);
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "hello" }] },
@@ -1006,7 +1006,7 @@ mod tests {
     #[test]
     fn stream_encoder_counts_thoughts_in_output_and_reasoning_details() {
         let mut enc =
-            ResponsesStreamEncoder::new("gemini-3.7-flash-high", ToolParamKeys::new(), None);
+            ResponsesStreamEncoder::new("gemini-3.8-flash-high", ToolParamKeys::new(), None);
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "ok" }] },
@@ -1037,7 +1037,7 @@ mod tests {
     #[test]
     fn compact_stub_returns_compaction_object() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "input": [{ "role": "user", "content": "long context here" }]
         });
         let compact = responses_compact_stub(&body);
@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn historical_function_calls_get_thought_signature() {
         let body = json!({
-            "model": "gemini-3.6-flash-low",
+            "model": "gemini-3.8-flash-low",
             "input": [
                 { "role": "user", "content": "hi" },
                 {

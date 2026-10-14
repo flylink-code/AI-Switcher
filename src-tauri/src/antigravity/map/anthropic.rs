@@ -69,14 +69,15 @@ pub fn anthropic_to_gemini_request(
             model = model_catalog::with_forced_level(&model, level);
             remember_effort = Some(level);
         } else if thinking_kind.as_deref() == Some("disabled") {
-            // Claude Code Explore / Haiku / classifiers send thinking=disabled.
-            // Only compose `-low` onto a *bare* Gemini id. An explicit suffix
-            // (catalog default or CLAUDE_CODE_SUBAGENT_MODEL) must stay put.
-            // Never sticky this onto the parent session — Code reuses the same
-            // x-claude-session-id for the main agent, which would pin later
-            // `gemini-3.6-flash` turns to `-low`.
+            // Explore / classifiers send thinking=disabled. A bare Gemini id
+            // keeps the main-agent tier (session sticky, otherwise high)
+            // instead of being forced to `-low`. An explicit suffix stays put.
+            // Do not write this tier back onto the session.
             if requested_explicit.is_none() {
-                model = model_catalog::with_forced_level(&model, "low");
+                let level = sticky_effort
+                    .and_then(map_effort_to_suffix)
+                    .unwrap_or("high");
+                model = model_catalog::with_forced_level(&model, level);
             }
         } else if let Some(level) = requested_explicit {
             // Client already picked a suffixed id — pass through (map_model_id
@@ -187,15 +188,11 @@ pub fn anthropic_to_gemini_request(
             &model, max_tokens
         ));
     }
-    // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
-    let skip_sampling = gemini_target && model_catalog::is_gemini_31_pro(&model);
-    if !skip_sampling {
-        if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
-            generation["temperature"] = json!(temperature);
-        }
-        if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
-            generation["topP"] = json!(top_p);
-        }
+    if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
+        generation["temperature"] = json!(temperature);
+    }
+    if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
+        generation["topP"] = json!(top_p);
     }
     if gemini_target && thoughts_allowed {
         generation["thinkingConfig"] = json!({ "includeThoughts": true });
@@ -209,17 +206,7 @@ pub fn anthropic_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(budget) = model_catalog::thinking_budget_for(&model) {
-            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
-            generation["maxOutputTokens"] =
-                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
-            crate::antigravity::thinking::apply_thinking_budget(
-                &mut generation,
-                budget,
-                thoughts_allowed,
-            );
-        } else if let Some(budget) =
-            crate::antigravity::thinking::resolve_thinking_budget(body, &model)
+        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model)
         {
             let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
             generation["maxOutputTokens"] =
@@ -1196,7 +1183,7 @@ mod tests {
     #[test]
     fn gemini_history_tool_use_gets_sentinel_signature_without_cache() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "run ls" },
@@ -1232,7 +1219,7 @@ mod tests {
         let mut state = AnthropicStreamState::default();
         let events = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk,
             Some("sess-capture-9"),
             true,
@@ -1250,7 +1237,7 @@ mod tests {
 
         // 请求侧：客户端回放同一 tool_use id → 回注真实签名而非哨兵。
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "run ls" },
@@ -1271,7 +1258,7 @@ mod tests {
     fn session_signature_is_fallback_for_unknown_tool_id() {
         thought_sig::cache_session_signature("sess-fallback-case", "session-fallback-sig");
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "hi" },
@@ -1288,7 +1275,7 @@ mod tests {
     #[test]
     fn claude_target_history_tool_use_has_no_signature_injected() {
         let body = json!({
-            "model": "claude-sonnet-4-6",
+            "model": "claude-future-1",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "hi" },
@@ -1306,7 +1293,7 @@ mod tests {
     #[test]
     fn gemini_target_requests_include_thoughts() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "thinking": { "type": "adaptive" },
             "messages": [{"role": "user", "content": "hi"}]
@@ -1328,7 +1315,7 @@ mod tests {
         // Desktop 分类器特征：thinking=disabled、无 effort → 不请求 includeThoughts，
         // 响应侧的 thought parts 也直接丢弃（客户端解析不了 thinking 块）。
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 64,
             "thinking": { "type": "disabled" },
             "messages": [{"role": "user", "content": "classify"}]
@@ -1354,7 +1341,7 @@ mod tests {
             }]
         });
         let response = gemini_to_anthropic_response(
-            "gemini-3.6-flash-low",
+            "gemini-3.8-flash-low",
             &gemini,
             Some("sess-cls-1"),
             false,
@@ -1378,7 +1365,7 @@ mod tests {
         });
         let events = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-low",
+            "gemini-3.8-flash-low",
             &chunk,
             None,
             false,
@@ -1393,7 +1380,7 @@ mod tests {
     fn tool_use_input_args_are_corrected_against_declarations() {
         // 请求侧声明了带连字符的 `-n`；上游把 args key 归一成 `n` → 响应侧改回。
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [{ "role": "user", "content": "grep it" }],
             "tools": [{
@@ -1419,7 +1406,7 @@ mod tests {
             }]
         });
         let response = gemini_to_anthropic_response(
-            "gemini-3.6-flash",
+            "gemini-3.8-flash",
             &gemini,
             None,
             false,
@@ -1449,7 +1436,7 @@ mod tests {
             }]
         });
         let response =
-            gemini_to_anthropic_response("gemini-3.6-flash", &gemini, None, false, &no_params());
+            gemini_to_anthropic_response("gemini-3.8-flash", &gemini, None, false, &no_params());
         assert_eq!(response["content"][0]["input"]["contents"], "重量 ≤ 50g");
         assert_eq!(
             response["content"][1]["input"]["old_string"],
@@ -1466,7 +1453,7 @@ mod tests {
             "messages": [{"role": "user", "content": "hi"}]
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert_eq!(parts.model, "claude-sonnet-4-6");
+        assert_eq!(parts.model, "claude-sonnet-5-5-medium");
         assert_eq!(parts.request["contents"][0]["role"], "user");
     }
 
@@ -1480,7 +1467,7 @@ mod tests {
         let mut state = AnthropicStreamState::default();
         let events = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk,
             None,
             true,
@@ -1506,7 +1493,7 @@ mod tests {
         let mut state = AnthropicStreamState::default();
         let events = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk,
             None,
             true,
@@ -1524,14 +1511,14 @@ mod tests {
         // closed 之后不再产出事件；finish_events 幂等。
         assert!(gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk,
             None,
             true,
             &no_params()
         )
         .is_empty());
-        assert!(state.finish_events("gemini-3.6-flash-high").is_empty());
+        assert!(state.finish_events("gemini-3.8-flash-high").is_empty());
     }
 
     #[test]
@@ -1542,7 +1529,7 @@ mod tests {
         });
         let start_events = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.7-flash-high",
+            "gemini-3.8-flash-high",
             &first,
             None,
             true,
@@ -1568,7 +1555,7 @@ mod tests {
         });
         let stop_events = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.7-flash-high",
+            "gemini-3.8-flash-high",
             &stop,
             None,
             true,
@@ -1595,7 +1582,7 @@ mod tests {
             }]
         });
         let response = gemini_to_anthropic_response(
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &gemini,
             Some("sess-nonstream"),
             true,
@@ -1621,7 +1608,7 @@ mod tests {
             }]
         });
         let response = gemini_to_anthropic_response(
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &gemini,
             None,
             true,
@@ -1640,7 +1627,7 @@ mod tests {
         });
         let e1 = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk1,
             None,
             true,
@@ -1661,7 +1648,7 @@ mod tests {
         });
         let e2 = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk2,
             None,
             true,
@@ -1686,7 +1673,7 @@ mod tests {
         });
         let e1 = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk1,
             None,
             true,
@@ -1708,7 +1695,7 @@ mod tests {
         });
         let e2 = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk2,
             None,
             true,
@@ -1730,7 +1717,7 @@ mod tests {
         });
         let e3 = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk3,
             None,
             true,
@@ -1758,13 +1745,13 @@ mod tests {
         });
         let _ = gemini_to_anthropic_sse_chunk(
             &mut state,
-            "gemini-3.6-flash-high",
+            "gemini-3.8-flash-high",
             &chunk,
             None,
             true,
             &no_params(),
         );
-        let events = state.finish_events("gemini-3.6-flash-high");
+        let events = state.finish_events("gemini-3.8-flash-high");
         assert!(events
             .iter()
             .any(|e| e["type"] == "content_block_stop" && e["index"] == 0));
@@ -1781,7 +1768,7 @@ mod tests {
     #[test]
     fn client_thinking_block_signature_feeds_session_cache() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "hi" },
@@ -1811,7 +1798,7 @@ mod tests {
     #[test]
     fn tool_result_keeps_tool_use_id_and_real_name() {
         let body = json!({
-            "model": "claude-sonnet-4-6",
+            "model": "claude-future-1",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "read Cargo.toml" },
@@ -1925,7 +1912,7 @@ mod tests {
     #[test]
     fn bare_gemini_without_effort_defaults_to_high() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
@@ -1945,7 +1932,7 @@ mod tests {
     #[test]
     fn sticky_effort_reused_when_request_omits_effort() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "side"}]
         });
@@ -1961,7 +1948,7 @@ mod tests {
     #[test]
     fn explicit_suffix_beats_sticky_effort() {
         let body = json!({
-            "model": "gemini-3.6-flash-low",
+            "model": "gemini-3.8-flash-low",
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
@@ -1977,7 +1964,7 @@ mod tests {
     #[test]
     fn nested_effort_object_is_parsed() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "output_config": { "effort": { "type": "low" } },
             "messages": [{"role": "user", "content": "hi"}]
@@ -1988,45 +1975,50 @@ mod tests {
     }
 
     #[test]
-    fn thinking_disabled_forces_low_for_gemini() {
+    fn thinking_disabled_uses_main_tier_for_bare_gemini() {
         let body = json!({
-            "model": "gemini-3.6-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 128,
             "thinking": { "type": "disabled" },
             "messages": [{"role": "user", "content": "hi"}]
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert!(parts.model.starts_with("gemini-"));
+        assert!(
+            parts.model.ends_with("-high"),
+            "bare gemini with thinking disabled follows the main tier, got {}",
+            parts.model
+        );
         assert_eq!(
             parts.remember_effort, None,
-            "classifier/subagent must not sticky -low onto the parent session"
+            "classifier/subagent must not sticky a tier onto the parent session"
         );
         assert!(parts.request.get("thinking").is_none());
+        assert!(!parts.thoughts_allowed);
     }
 
     #[test]
     fn thinking_disabled_keeps_explicit_suffix_and_does_not_sticky() {
         let body = json!({
-            "model": "gemini-3.6-flash-high",
+            "model": "gemini-3.8-flash-high",
             "max_tokens": 128,
             "thinking": { "type": "disabled" },
             "messages": [{"role": "user", "content": "explore"}]
         });
         let parts = anthropic_to_gemini_request(&body, Some("low"), None).unwrap();
-        assert_eq!(parts.model, "gemini-3.6-flash-high");
+        assert_eq!(parts.model, "gemini-3.8-flash-high");
         assert_eq!(parts.remember_effort, None);
     }
 
     #[test]
     fn effort_becomes_thinking_level_for_claude() {
         let body = json!({
-            "model": "claude-sonnet-4-6",
+            "model": "claude-future-1",
             "max_tokens": 128,
             "output_config": { "effort": "medium" },
             "messages": [{"role": "user", "content": "hi"}]
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert_eq!(parts.model, "claude-sonnet-4-6");
+        assert_eq!(parts.model, "claude-future-1");
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("medium")
@@ -2075,7 +2067,7 @@ mod tests {
     #[test]
     fn adaptive_thinking_defaults_to_high_for_claude() {
         let body = json!({
-            "model": "claude-sonnet-4-6",
+            "model": "claude-future-1",
             "max_tokens": 128,
             "thinking": { "type": "adaptive" },
             "messages": [{"role": "user", "content": "hi"}]
@@ -2113,7 +2105,7 @@ mod tests {
     #[test]
     fn gemini_budget_tokens_become_thinking_budget_and_pad_max_tokens() {
         let body = json!({
-            "model": "gemini-3.7-flash",
+            "model": "gemini-3.8-flash",
             "max_tokens": 100,
             "thinking": { "type": "enabled", "budget_tokens": 8192 },
             "messages": [{"role": "user", "content": "hi"}]
@@ -2133,82 +2125,9 @@ mod tests {
     }
 
     #[test]
-    fn gemini_31_pro_writes_thinking_budget_not_level() {
-        let body = json!({
-            "model": "gemini-3.1-pro-high",
-            "max_tokens": 100,
-            "temperature": 0.2,
-            "top_p": 0.9,
-            "thinking": { "type": "enabled", "budget_tokens": 8192 },
-            "thinkingConfig": { "thinkingBudget": 16384 },
-            "messages": [{"role": "user", "content": "hi"}]
-        });
-        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert_eq!(parts.model, "gemini-3.1-pro-high");
-        assert!(parts.thoughts_allowed);
-        let config = &parts.request["generationConfig"]["thinkingConfig"];
-        assert_eq!(config["thinkingBudget"], json!(10001));
-        assert_eq!(config["includeThoughts"], json!(true));
-        assert!(config.get("thinkingLevel").is_none());
-        let generation = &parts.request["generationConfig"];
-        assert!(generation.get("temperature").is_none());
-        assert!(generation.get("topP").is_none());
-        assert_eq!(generation["maxOutputTokens"], json!(10002));
-    }
-
-    #[test]
-    fn gemini_31_pro_low_writes_low_thinking_budget() {
-        let body = json!({
-            "model": "gemini-3.1-pro-low",
-            "max_tokens": 128,
-            "thinking": { "type": "adaptive" },
-            "messages": [{"role": "user", "content": "hi"}]
-        });
-        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert_eq!(parts.model, "gemini-3.1-pro-low");
-        assert_eq!(
-            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-            json!(1001)
-        );
-        assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("thinkingLevel")
-            .is_none());
-        assert_eq!(
-            parts.request["generationConfig"]["maxOutputTokens"],
-            json!(1002)
-        );
-    }
-
-    #[test]
-    fn gemini_31_pro_keeps_budget_when_client_disables_thinking() {
-        let body = json!({
-            "model": "gemini-3.1-pro-high",
-            "max_tokens": 64,
-            "thinking": { "type": "disabled" },
-            "messages": [{"role": "user", "content": "classify"}]
-        });
-        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert!(!parts.thoughts_allowed);
-        assert_eq!(
-            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-            json!(10001)
-        );
-        assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("includeThoughts")
-            .is_none());
-        assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("thinkingLevel")
-            .is_none());
-        assert_eq!(
-            parts.request["generationConfig"]["maxOutputTokens"],
-            json!(10002)
-        );
-    }
-
-    #[test]
     fn ref_defs_flatten_into_tool_parameters() {
         let body = json!({
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}],
             "tools": [{

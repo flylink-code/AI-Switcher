@@ -937,6 +937,24 @@ mod tests {
     }
 
     #[test]
+    fn catalog_proxy_subagent_follows_main_model_when_unset() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        // 上一代配置遗留的子代理模型必须被覆盖，而不是沿用。
+        fs::write(
+            &path,
+            json!({ "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "old-subagent" } }).to_string(),
+        )
+        .unwrap();
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_828, &path, true, None)
+            .unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let env = written["env"].as_object().unwrap();
+        assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
+        assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "deepseek-v4-pro");
+    }
+
+    #[test]
     fn switching_off_catalog_clears_smart_gateway_env() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
