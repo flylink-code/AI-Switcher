@@ -83,18 +83,35 @@ pub fn list_public_models() -> Value {
     if live.as_array().is_some_and(|items| !items.is_empty()) {
         return live;
     }
-    json!([
-        { "id": "claude-sonnet-5-5-medium", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-sonnet-5-5-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-sonnet-5-5-low", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-opus-5-5-medium", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-opus-5-5-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "claude-opus-5-5-low", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-3.8-flash-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-4-argon-high", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-4-argon-medium", "object": "model", "owned_by": "antigravity" },
-        { "id": "gemini-4-argon-low", "object": "model", "owned_by": "antigravity" },
-    ])
+    let fallback_ids = [
+        "claude-sonnet-5-5-medium",
+        "claude-sonnet-5-5-high",
+        "claude-sonnet-5-5-low",
+        "claude-opus-5-5-medium",
+        "claude-opus-5-5-high",
+        "claude-opus-5-5-low",
+        "gemini-3.8-flash-high",
+        "gemini-4-argon-high",
+        "gemini-4-argon-medium",
+        "gemini-4-argon-low",
+    ];
+    let items: Vec<Value> = fallback_ids
+        .into_iter()
+        .map(|id| {
+            let context_window = crate::gateway::metadata::context_window_for(id);
+            let max_output = crate::gateway::metadata::max_output_for(id, context_window);
+            json!({
+                "id": id,
+                "object": "model",
+                "owned_by": "antigravity",
+                "context_window": context_window,
+                "max_input_tokens": context_window,
+                "max_output_tokens": max_output,
+                "max_tokens": max_output,
+            })
+        })
+        .collect();
+    json!(items)
 }
 
 #[cfg(test)]

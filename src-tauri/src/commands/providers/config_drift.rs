@@ -54,7 +54,7 @@ fn parse_codex_drift_fields(text: &str) -> AppResult<BTreeMap<String, Option<Val
         }
     };
     let mut fields = BTreeMap::new();
-    for key in ["model_provider", "model"] {
+    for key in ["model_provider"] {
         fields.insert(key.to_string(), doc.get(key).map(field_value));
     }
     let entry = doc.get("model_providers")
@@ -101,7 +101,24 @@ pub(crate) fn config_drift_report(state: &AppState, target: ProviderTarget) -> A
         Some(raw) => Some(serde_json::from_str::<BTreeMap<String, Option<Value>>>(raw)?),
         None => None,
     };
-    let fields = applied.as_ref().map(|applied| drift_changes(&current, applied)).unwrap_or_default();
+    let fields = applied
+        .as_ref()
+        .map(|applied| {
+            let mut changes = drift_changes(&current, applied);
+            if target == ProviderTarget::ClaudeCode
+                && gateway_catalog_on(state, ProviderTarget::ClaudeCode)
+            {
+                const CORE_GATEWAY_CODE_KEYS: [&str; 4] = [
+                    "ANTHROPIC_BASE_URL",
+                    "ANTHROPIC_AUTH_TOKEN",
+                    "ANTHROPIC_API_KEY",
+                    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+                ];
+                changes.retain(|item| CORE_GATEWAY_CODE_KEYS.contains(&item.field.as_str()));
+            }
+            changes
+        })
+        .unwrap_or_default();
     let status = if provider.is_none() { "unmanaged" } else if applied.is_none() { "unknown" }
         else if fields.is_empty() { "in_sync" } else { "drifted" };
     // 进程级盐防止凭据指纹可被离线字典枚举；IPC 永远不返回原始字段值。

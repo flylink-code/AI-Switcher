@@ -569,6 +569,14 @@ pub(crate) fn load_gateway_catalog(
     state.db.with_read_conn(|conn| {
         let mut providers = crate::database::dao::gateway::list_upstream_providers(conn, false)?;
         providers.retain(|provider| !provider.is_smart_gateway());
+        if let Ok(Some(binding)) =
+            crate::database::dao::gateway::binding_for_target(conn, state.target)
+        {
+            if binding.mode == "direct" && !binding.direct_upstream_id.trim().is_empty() {
+                let direct_id = binding.direct_upstream_id.trim();
+                providers.retain(|provider| provider.id == direct_id);
+            }
+        }
         let profile = crate::database::dao::gateway::current_profile(conn, state.target)
             .ok()
             .flatten();

@@ -25,6 +25,8 @@ pub struct VscodeCopilotStatus {
     pub file_exists: bool,
     pub bound: bool,
     pub applied: bool,
+    pub mode: String,
+    pub direct_upstream_id: Option<String>,
     pub model_count: usize,
     pub gateway_running: bool,
     pub drift: Vec<DriftField>,
@@ -47,9 +49,15 @@ fn gateway_base_url(state: &AppState) -> String {
 /// 按 Copilot 身份的可见目录构造 `models[]`。元数据优先级：库内保存值 > 推断 > 默认。
 fn build_models(state: &AppState) -> AppResult<Vec<CopilotModel>> {
     state.db.with_read_conn(|conn| {
+        let binding = gw::binding_for_target(conn, TARGET)?;
         let mut providers = gw::list_upstream_providers(conn, false)?;
         providers.retain(|provider| !provider.is_smart_gateway());
-        if let Ok(Some(profile)) = gw::current_profile(conn, TARGET) {
+        if let Some(b) = binding.as_ref().filter(|b| b.mode == "direct") {
+            let direct_id = b.direct_upstream_id.trim();
+            if !direct_id.is_empty() {
+                providers.retain(|p| p.id == direct_id);
+            }
+        } else if let Ok(Some(profile)) = gw::current_profile(conn, TARGET) {
             if !profile.allowed_upstream_ids.is_empty() {
                 providers.retain(|p| gw::profile_allows_upstream(&profile, &p.id));
             }
@@ -281,10 +289,19 @@ fn remove_managed_with_rollback(state: &AppState, path: &Path) -> AppResult<()> 
 }
 
 fn status_at(state: &AppState, path: &Path) -> AppResult<VscodeCopilotStatus> {
-    let bound = state
+    let binding = state
         .db
-        .with_read_conn(|conn| gw::binding_for_target(conn, TARGET))?
-        .is_some();
+        .with_read_conn(|conn| gw::binding_for_target(conn, TARGET))?;
+    let bound = binding.is_some();
+    let mode = match binding.as_ref() {
+        Some(b) if b.mode == "direct" => "direct".to_string(),
+        Some(_) => "gateway".to_string(),
+        None => "official".to_string(),
+    };
+    let direct_upstream_id = binding
+        .as_ref()
+        .filter(|b| b.mode == "direct" && !b.direct_upstream_id.trim().is_empty())
+        .map(|b| b.direct_upstream_id.clone());
     let current = read_managed_at(path)?;
     let (drift, model_count) = if bound {
         let (expected, count) = expected_entry(state)?;
@@ -300,6 +317,8 @@ fn status_at(state: &AppState, path: &Path) -> AppResult<VscodeCopilotStatus> {
         file_exists: path.exists(),
         bound,
         applied: current.is_some(),
+        mode,
+        direct_upstream_id,
         model_count,
         gateway_running: crate::gateway::service::current_status().running,
         drift,
@@ -339,6 +358,63 @@ pub async fn apply_vscode_copilot(
         crate::gateway::service::start_via_state(&state, None).await?;
     }
     apply_managed_with_rollback(&state, &chat_language_models_path())?;
+    crate::catalog::invalidate_view_cache();
+    crate::gateway::service::emit_status(&app);
+    status_inner(&state)
+}
+
+fn apply_direct_with_rollback(state: &AppState, path: &Path, upstream_id: &str) -> AppResult<()> {
+    let snapshot = CopilotMutationSnapshot::capture(state, path)?;
+    let result = (|| -> AppResult<()> {
+        state.db.with_conn(|conn| {
+            gw::set_direct_binding(conn, TARGET, upstream_id).map(|_| ())
+        })?;
+        let (entry, _) = expected_entry(state)?;
+        apply_managed_at(path, entry)?;
+        state.db.with_conn(|conn| {
+            crate::database::dao::settings::set_setting(conn, OWNERSHIP_KEY, "1")
+        })?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        if let Err(rollback_error) = snapshot.restore(state) {
+            return Err(AppError::Config(format!(
+                "{error}（回滚失败：{rollback_error}）"
+            )));
+        }
+        return Err(error);
+    }
+    Ok(())
+}
+
+/// 绑定指定单个上游（直连模式），仅将该上游的模型写入 `chatLanguageModels.json`。
+#[tauri::command]
+pub async fn set_vscode_copilot_direct(
+    upstream_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<VscodeCopilotStatus> {
+    let _guard = crate::commands::providers::agent_connection_lock()
+        .lock()
+        .await;
+    let trimmed = upstream_id.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Config("请选择要直连的上游供应商".into()));
+    }
+    let exists = state.db.with_read_conn(|conn| {
+        Ok(gw::list_upstream_providers(conn, false)?
+            .into_iter()
+            .any(|p| p.id == trimmed && !p.is_smart_gateway()))
+    })?;
+    if !exists {
+        return Err(AppError::Config(format!("未找到启用中的上游供应商: {trimmed}")));
+    }
+    crate::commands::providers::ensure_reverse_gateways_for_pool(&state).await?;
+    crate::gateway::service::mark_enabled(state.db.as_ref())?;
+    if !crate::gateway::service::current_status().running {
+        crate::gateway::service::start_via_state(&state, None).await?;
+    }
+    apply_direct_with_rollback(&state, &chat_language_models_path(), trimmed)?;
     crate::catalog::invalidate_view_cache();
     crate::gateway::service::emit_status(&app);
     status_inner(&state)

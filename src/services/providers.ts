@@ -9,6 +9,10 @@ export function applyVscodeCopilot(): Promise<VscodeCopilotStatus> {
   return call("apply_vscode_copilot");
 }
 
+export function setVscodeCopilotDirect(upstreamId: string): Promise<VscodeCopilotStatus> {
+  return call("set_vscode_copilot_direct", { upstreamId });
+}
+
 export function removeVscodeCopilot(): Promise<VscodeCopilotStatus> {
   return call("remove_vscode_copilot");
 }

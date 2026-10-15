@@ -88,12 +88,21 @@ fn live_cell() -> &'static RwLock<StoredModels> {
 fn builtin_models() -> Vec<KiroModelInfo> {
     BUILTIN_IDS
         .iter()
-        .map(|id| KiroModelInfo {
-            id: (*id).to_string(),
-            name: (*id).to_string(),
-            context: 0,
-            output: 0,
-            images: false,
+        .map(|id| {
+            let context = crate::gateway::metadata::context_window_for(id);
+            let output = crate::gateway::metadata::max_output_for(id, context);
+            let images = crate::gateway::metadata::infer(id)
+                .capabilities
+                .get("vision")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            KiroModelInfo {
+                id: (*id).to_string(),
+                name: (*id).to_string(),
+                context,
+                output,
+                images,
+            }
         })
         .collect()
 }
@@ -117,7 +126,7 @@ pub fn model_list() -> KiroModelList {
     }
 }
 
-/// Context window from the live catalog, in tokens. `0` when the id is unknown.
+/// Context window from the live catalog, in tokens. Falls back to inferred window when `0`.
 pub fn context_window(model: &str) -> u64 {
     let Some(id) = map_model(model) else {
         return 0;
@@ -126,8 +135,14 @@ pub fn context_window(model: &str) -> u64 {
         .models
         .into_iter()
         .find(|row| row.id.eq_ignore_ascii_case(&id))
-        .map(|row| row.context)
-        .unwrap_or(0)
+        .map(|row| {
+            if row.context > 0 {
+                row.context
+            } else {
+                crate::gateway::metadata::context_window_for(&id)
+            }
+        })
+        .unwrap_or_else(|| crate::gateway::metadata::context_window_for(&id))
 }
 
 /// Models the local `/v1/models` list exposes. No synthetic `-thinking` ids.

@@ -23,7 +23,7 @@ use crate::provider::{
 
 /// The exact Claude Code fields owned by this application. Other
 /// `ANTHROPIC_*` variables may be user-managed and must be left untouched.
-pub const MANAGED_ENV_KEYS: [&str; 16] = [
+pub const MANAGED_ENV_KEYS: [&str; 17] = [
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_API_KEY",
@@ -40,6 +40,7 @@ pub const MANAGED_ENV_KEYS: [&str; 16] = [
     "ANTHROPIC_SMALL_FAST_MODEL",
     "ANTHROPIC_REASONING_MODEL",
     "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
 ];
 const PROXY_ROLE_MODELS: [(&str, &str, crate::provider::ClaudeModelRole); 4] = [
     (
@@ -163,6 +164,7 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
         if catalog_discovery {
             set_str(env, "ANTHROPIC_API_KEY", &token);
             set_str(env, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1");
+            set_str(env, "CLAUDE_CODE_MAX_CONTEXT_TOKENS", "1000000");
             inject_catalog_proxy_models(env, provider, subagent_model);
         } else {
             inject_proxy_models(env, provider);
@@ -170,11 +172,40 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
     }
     let _ = opusplan_alias;
     apply_opusplan_model_value(&mut settings, false);
+    if catalog_discovery {
+        seed_initial_catalog_model_if_missing(&mut settings, provider.model.trim());
+    }
 
     write_settings(path, &settings)
 }
 
 const OPUSPLAN_MODEL_ALIAS: &str = "opusplan";
+
+/// Seed top-level `model` only when `settings.json` has no user-selected model yet.
+/// Subsequent `/model` changes in Claude Code update top-level `model` and are preserved.
+fn seed_initial_catalog_model_if_missing(settings: &mut Value, default_model: &str) {
+    let default_model = default_model.trim();
+    if default_model.is_empty()
+        || crate::gateway::is_auto_model_id(default_model)
+        || default_model.eq_ignore_ascii_case(OPUSPLAN_MODEL_ALIAS)
+    {
+        return;
+    }
+    let Some(object) = settings.as_object_mut() else {
+        return;
+    };
+    let has_model = object
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    if !has_model {
+        object.insert(
+            "model".to_string(),
+            Value::String(default_model.to_string()),
+        );
+    }
+}
 
 /// Merge or clear the top-level `model` alias used by Claude Code opusplan.
 /// When disabling, only remove the key if it is exactly `opusplan`.

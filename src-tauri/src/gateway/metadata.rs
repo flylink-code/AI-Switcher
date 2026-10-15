@@ -15,6 +15,7 @@ pub struct InferredMeta {
 pub fn infer(model_id: &str) -> InferredMeta {
     let id = model_id.trim();
     let lower = id.to_ascii_lowercase();
+    let bare = strip_gateway_routing_prefix(&lower);
     let mut meta = InferredMeta {
         display_name: id.to_string(),
         context_window: Some(200_000),
@@ -22,26 +23,26 @@ pub fn infer(model_id: &str) -> InferredMeta {
         reasoning_levels: vec!["off".into(), "low".into(), "medium".into(), "high".into()],
         capabilities: json!({ "tools": true, "vision": false, "web_search": false }),
     };
-    if lower.contains("gemini")
-        || lower.contains("gpt-4")
-        || lower.contains("gpt-5")
-        || lower.contains("gpt-6")
-        || lower.contains("claude")
-        || lower.contains("grok")
+    if bare.contains("gemini")
+        || bare.contains("gpt-4")
+        || bare.contains("gpt-5")
+        || bare.contains("gpt-6")
+        || bare.contains("claude")
+        || bare.contains("grok")
     {
         meta.capabilities["vision"] = json!(true);
     }
-    if lower.contains("gemini")
-        || lower.contains("gpt-5")
-        || lower.contains("gpt-6")
-        || lower.contains("sonar")
+    if bare.contains("gemini")
+        || bare.contains("gpt-5")
+        || bare.contains("gpt-6")
+        || bare.contains("sonar")
     {
         meta.capabilities["web_search"] = json!(true);
     }
-    if lower.contains("flash")
-        || lower.contains("haiku")
-        || lower.contains("mini")
-        || lower.contains("chat")
+    if bare.contains("flash")
+        || bare.contains("haiku")
+        || bare.contains("mini")
+        || bare.contains("chat")
     {
         meta.reasoning_levels = vec!["off".into(), "low".into()];
     }
@@ -49,14 +50,30 @@ pub fn infer(model_id: &str) -> InferredMeta {
         meta.context_window = Some(1_000_000);
     } else if has_window_token(&lower, "200k") {
         meta.context_window = Some(200_000);
-    } else if lower.contains("gemini") {
+    } else if bare.contains("gemini") {
         meta.context_window = Some(1_000_000);
         meta.max_output_tokens = Some(65_536);
     }
-    if lower.contains("deepseek") && lower.contains("reasoner") {
+    if bare.contains("deepseek") && bare.contains("reasoner") {
         meta.reasoning_levels = vec!["off".into(), "high".into()];
     }
     meta
+}
+
+/// Strip smart-gateway routing prefixes (`claude.<model>` or `claude.<provider>.<model>`)
+/// so downstream family detection inspects the underlying upstream model id.
+fn strip_gateway_routing_prefix(lower: &str) -> &str {
+    let Some(rest) = lower.strip_prefix("claude.") else {
+        return lower;
+    };
+    if let Some((prefix, model)) = rest.split_once('.') {
+        let is_version_fragment = prefix.ends_with(|c: char| c.is_ascii_digit())
+            && model.starts_with(|c: char| c.is_ascii_digit());
+        if !is_version_fragment && !model.is_empty() {
+            return model;
+        }
+    }
+    rest
 }
 
 /// Whole-token match for a window marker such as `1m` / `200k`. A bare substring
@@ -96,5 +113,11 @@ mod tests {
         assert_eq!(context_window_for("foo-v1m-bar"), 200_000);
         assert_eq!(context_window_for("claude-sonnet-5-5-medium"), 200_000);
         assert_eq!(context_window_for("gemini-3.8-flash-high"), 1_000_000);
+        assert_eq!(context_window_for("gemini-4-argon-medium"), 1_000_000);
+        assert_eq!(context_window_for("claude.gemini-4-argon-medium"), 1_000_000);
+        assert_eq!(
+            context_window_for("claude.antigravity--built-in.gemini-4-argon-high"),
+            1_000_000
+        );
     }
 }

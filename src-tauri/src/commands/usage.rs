@@ -37,6 +37,7 @@ enum UsageSource {
     Pi,
     Dsh,
     Cline,
+    VscodeCopilot,
 }
 
 impl UsageSource {
@@ -51,6 +52,7 @@ impl UsageSource {
             "pi" => Ok(Self::Pi),
             "dsh" => Ok(Self::Dsh),
             "cline" => Ok(Self::Cline),
+            "vscode_copilot" => Ok(Self::VscodeCopilot),
             _ => Err(AppError::Config("未知的用量来源筛选".to_string())),
         }
     }
@@ -68,6 +70,7 @@ impl UsageSource {
             Self::Pi => Some(Some("pi")),
             Self::Dsh => Some(Some("dsh")),
             Self::Cline => Some(Some("cline")),
+            Self::VscodeCopilot => Some(Some("vscode_copilot")),
         }
     }
 
@@ -1387,6 +1390,16 @@ mod tests {
         assert_eq!(
             UsageSource::parse(Some("cline")).unwrap().proxy_target(),
             Some(Some("cline"))
+        );
+        assert_eq!(
+            UsageSource::parse(Some("vscode_copilot")).unwrap(),
+            UsageSource::VscodeCopilot
+        );
+        assert_eq!(
+            UsageSource::parse(Some("vscode_copilot"))
+                .unwrap()
+                .proxy_target(),
+            Some(Some("vscode_copilot"))
         );
     }
 

@@ -1051,12 +1051,13 @@ fn prepare_codex_upstream(
             None,
         )
     } else if wants_chat_bridge {
-        let parsed: Value = match serde_json::from_slice(&body) {
+        let mut parsed: Value = match serde_json::from_slice(&body) {
             Ok(value) => value,
             Err(_) => {
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
+        let _ = state.codex_history.enrich_request(&mut parsed);
         let mut chat = match responses_to_chat_completions_body(&parsed) {
             Ok(value) => value,
             Err(error) => {
@@ -1073,7 +1074,11 @@ fn prepare_codex_upstream(
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
+        let _ = state.codex_history.enrich_request(&mut parsed);
         convert::sanitize_codex_responses_body(&mut parsed);
+        if provider.is_codex_oauth() {
+            convert::apply_codex_oauth_response_body(&mut parsed);
+        }
         let stream = parsed
             .get("stream")
             .and_then(Value::as_bool)
@@ -1092,6 +1097,12 @@ fn prepare_codex_upstream(
             .header("anthropic-version", anthropic_version_header());
     } else {
         request = request.header(header::AUTHORIZATION, format!("Bearer {api_key}"));
+        if provider.is_codex_oauth() {
+            request = request
+                .header("originator", crate::codex_oauth::ORIGINATOR)
+                .header("version", crate::codex_oauth::CLIENT_VERSION)
+                .header("Chatgpt-Account-Id", provider.auth_binding.trim());
+        }
     }
     request = request
         .header(header::CONTENT_TYPE, "application/json")

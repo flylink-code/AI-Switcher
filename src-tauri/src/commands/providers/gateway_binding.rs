@@ -57,11 +57,15 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
                     .ok()
                     .flatten()
                     .map(|info| info.model);
-                if live_model.as_deref() == Some(auto.model.as_str()) {
+                if live_model
+                    .as_deref()
+                    .map(str::trim)
+                    .is_some_and(|model| !model.is_empty())
+                {
                     return Ok(());
                 }
                 let _ = apply_target_provider(&auto, None::<&tauri::AppHandle>, state).await?;
-                log::info!("Codex 智能网关默认模型已改为目录第一项");
+                log::info!("Codex 智能网关默认模型已初始化为目录第一项");
                 return Ok(());
             }
         }
@@ -151,6 +155,7 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
         "ANTHROPIC_AUTH_TOKEN",
         "ANTHROPIC_API_KEY",
         "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
         "ANTHROPIC_MODEL",
         "ANTHROPIC_DEFAULT_SONNET_MODEL",
         "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",

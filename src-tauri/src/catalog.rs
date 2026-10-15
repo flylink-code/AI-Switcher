@@ -121,13 +121,21 @@ pub fn enabled(db: &Database, target: ProviderTarget) -> bool {
 }
 
 pub fn hide_official_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
-    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
-        return profile.hide_official;
-    }
+    // 不支持「隐藏官方模型」开关的 Agent（如 VS Code Copilot）始终保留官方模型，
+    // 避免被共享网关档案 gprof_shared.hide_official 误过滤。
     let Some(key) = hide_official_setting_key(target) else {
         return false;
     };
-    get_setting(conn, key).ok().flatten().as_deref() == Some("true")
+    if let Ok(Some(raw)) = get_setting(conn, key) {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return trimmed == "true";
+        }
+    }
+    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
+        return profile.hide_official;
+    }
+    false
 }
 
 pub fn hide_official(db: &Database, target: ProviderTarget) -> bool {
@@ -351,6 +359,10 @@ fn catalog_context_window(provider: &Provider, upstream: &str, slug_id: &str) ->
     if uses_antigravity_catalog(provider) || uses_kiro_catalog(provider) {
         return crate::gateway::metadata::context_window_for(slug_id).max(1);
     }
+    let inferred = crate::gateway::metadata::context_window_for(slug_id);
+    if inferred >= 1_000_000 {
+        return inferred;
+    }
     crate::provider::context_window_for_model(provider, upstream)
 }
 
@@ -402,6 +414,45 @@ pub fn is_sticky_remap_role_id(id: &str) -> bool {
     ) || stem.contains("subagent")
 }
 
+/// Strip client-side vendor/provider prefixes such as `customendpoint/AI-Switcher/<id>`,
+/// `AI-Switcher/<id>`, or `<Provider> · <id>` display labels.
+pub fn strip_client_model_prefix(id: &str) -> &str {
+    let mut s = id.trim();
+    if let Some(rest) = s.strip_prefix("customendpoint/") {
+        s = rest.trim();
+    }
+    if let Some(rest) = s
+        .strip_prefix("AI-Switcher/")
+        .or_else(|| s.strip_prefix("ai-switcher/"))
+    {
+        s = rest.trim();
+    }
+    if let Some((_, rest)) = s.rsplit_once(" · ") {
+        let trimmed = rest.trim();
+        if !trimmed.is_empty() {
+            return trimmed;
+        }
+    }
+    s
+}
+
+/// Built-in auxiliary / lightweight subtask models that VS Code Copilot uses for
+/// web search query rewrite, title generation, or subagents when a larger main
+/// model (such as `gpt-6-sol` / `gpt-6.1-sol`) is selected in the chat picker.
+pub fn is_copilot_auxiliary_model(id: &str) -> bool {
+    let lower = strip_client_model_prefix(id).to_ascii_lowercase();
+    lower.contains("-luna")
+        || lower.ends_with("-mini")
+        || lower.contains("-mini-")
+        || lower.ends_with("-nano")
+        || lower.contains("-haiku")
+        || lower.starts_with("copilot-")
+        || lower == "gpt-4o-mini"
+        || lower == "gpt-4.1-mini"
+        || lower == "gpt-5-mini"
+        || lower == "gpt-5.4-mini"
+}
+
 /// Role ids follow the conversation model. An id the catalog actually lists
 /// stays as the user sent it.
 pub fn follow_conversation_model(
@@ -409,7 +460,7 @@ pub fn follow_conversation_model(
     entries: &[CatalogEntry],
     remembered: Option<&str>,
 ) -> String {
-    let requested = requested.trim();
+    let requested = strip_client_model_prefix(requested);
     if is_explicit_catalog_passthrough(entries, requested) {
         return requested.to_string();
     }
@@ -418,7 +469,45 @@ pub fn follow_conversation_model(
             return main.to_string();
         }
     }
+    if !requested.is_empty()
+        && !is_auto_public_id(requested)
+        && !catalog_in_entries(entries, requested)
+    {
+        if let Some(main) = remembered
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && catalog_in_entries(entries, value))
+        {
+            return main.to_string();
+        }
+    }
     requested.to_string()
+}
+
+/// VS Code Copilot 专用模型跟随：
+/// 1) 剥离 `customendpoint/AI-Switcher/` 等客户端前缀；
+/// 2) 若请求的是未在目录中启用的模型（如未勾选的 `gpt-6-luna` 或 Subagent 默认模型），自动跟随当前主对话模型；
+/// 3) 若主对话已记住非辅助主模型（如 `gpt-6.1-sol`），而子请求携带 `-luna` / `-mini` 等辅助模型，自动跟随主对话模型。
+pub fn follow_copilot_conversation_model(
+    requested: &str,
+    entries: &[CatalogEntry],
+    remembered: Option<&str>,
+    is_auxiliary_turn: bool,
+) -> String {
+    let stripped = strip_client_model_prefix(requested);
+    if let Some(main) = remembered
+        .map(strip_client_model_prefix)
+        .filter(|value| !value.is_empty() && catalog_in_entries(entries, value))
+    {
+        if !catalog_in_entries(entries, stripped)
+            || is_sticky_remap_role_id(stripped)
+            || (is_copilot_auxiliary_model(stripped)
+                && !is_copilot_auxiliary_model(main)
+                && is_auxiliary_turn)
+        {
+            return main.to_string();
+        }
+    }
+    follow_conversation_model(stripped, entries, remembered)
 }
 
 /// `ANTHROPIC_MODEL` / `CLAUDE_CODE_SUBAGENT_MODEL` are not a picker selection.
@@ -536,14 +625,16 @@ pub fn resolve_request_strict(
     providers: &[Provider],
     requested: &str,
 ) -> Result<Option<(String, String)>, CatalogRequestError> {
-    let requested = requested.trim();
+    let requested = strip_client_model_prefix(requested);
     if requested.is_empty() {
         return Ok(providers
             .first()
             .map(|provider| (provider.id.clone(), provider.model.trim().to_string())));
     }
     if let Some(entry) = entries.iter().find(|entry| {
-        entry.public_id.eq_ignore_ascii_case(requested) && !entry.provider_id.trim().is_empty()
+        (entry.public_id.eq_ignore_ascii_case(requested)
+            || entry.display_name.eq_ignore_ascii_case(requested))
+            && !entry.provider_id.trim().is_empty()
     }) {
         return Ok(Some((
             entry.provider_id.clone(),

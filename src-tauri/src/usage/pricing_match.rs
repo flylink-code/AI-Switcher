@@ -45,7 +45,19 @@ pub fn find_pricing_for_model<'a>(
 }
 
 fn normalize_model_key(value: &str) -> String {
-    value.trim().to_ascii_lowercase()
+    let (stem, _) = crate::provider::split_model_window_label(value);
+    let lower = stem.trim().to_ascii_lowercase();
+    let Some(rest) = lower.strip_prefix("claude.") else {
+        return lower;
+    };
+    if let Some((prefix, model)) = rest.split_once('.') {
+        let is_version_fragment = prefix.ends_with(|c: char| c.is_ascii_digit())
+            && model.starts_with(|c: char| c.is_ascii_digit());
+        if !is_version_fragment && !model.is_empty() {
+            return model.to_string();
+        }
+    }
+    rest.to_string()
 }
 
 fn model_tokens(value: &str) -> Vec<&str> {
@@ -156,5 +168,32 @@ mod tests {
     fn rejects_weak_single_char_tokens() {
         let catalog = vec![pricing("gpt-5"), pricing("k3")];
         assert!(find_pricing_for_model(&catalog, "5").is_none());
+    }
+
+    #[test]
+    fn matches_gateway_prefixed_gemini_4_and_gpt_models() {
+        let catalog = vec![
+            pricing("gemini-4-argon"),
+            pricing("gemini-4-argon-medium"),
+            pricing("gpt-6.1-sol"),
+        ];
+        assert_eq!(
+            find_pricing_for_model(&catalog, "claude.gemini-4-argon-medium")
+                .map(|row| row.model.as_str()),
+            Some("gemini-4-argon-medium")
+        );
+        assert_eq!(
+            find_pricing_for_model(
+                &catalog,
+                "claude.antigravity--built-in.gemini-4-argon-high"
+            )
+            .map(|row| row.model.as_str()),
+            Some("gemini-4-argon")
+        );
+        assert_eq!(
+            find_pricing_for_model(&catalog, "claude.gpt-6.1-sol[1m]")
+                .map(|row| row.model.as_str()),
+            Some("gpt-6.1-sol")
+        );
     }
 }

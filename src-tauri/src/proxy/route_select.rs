@@ -37,32 +37,77 @@ pub(crate) fn select_gateway_runtime_provider_with(
             })?
     } else {
         let session = conversation_model::session_key(_headers);
-        let remembered = conversation_model::recall(session.as_deref());
+        let mut remembered =
+            conversation_model::recall_for_target(state.target, session.as_deref());
+        if state.target == ProviderTarget::VscodeCopilot && remembered.is_none() {
+            remembered = crate::config::vscode_copilot::preferred_selected_model_id(&entries);
+        }
         let pins = if state.target == ProviderTarget::ClaudeCode {
             configured_model_pins(state, profile.as_ref())
         } else {
             Vec::new()
         };
-        let role_followed = crate::catalog::follow_conversation_model(
-            &original_model,
-            &entries,
-            remembered.as_deref(),
-        );
-        let followed = crate::catalog::follow_model_pin(
+        let stripped_original = crate::catalog::strip_client_model_prefix(&original_model);
+        let role_followed = if state.target == ProviderTarget::VscodeCopilot {
+            let is_aux_turn = _force_catalog_subagent
+                || is_copilot_subtask_or_subagent_payload(_incoming, _headers, stripped_original);
+            crate::catalog::follow_copilot_conversation_model(
+                stripped_original,
+                &entries,
+                remembered.as_deref(),
+                is_aux_turn,
+            )
+        } else {
+            crate::catalog::follow_conversation_model(
+                stripped_original,
+                &entries,
+                remembered.as_deref(),
+            )
+        };
+        let mut followed = crate::catalog::follow_model_pin(
             &role_followed,
             remembered.as_deref(),
             &pins,
         )
         .unwrap_or(role_followed);
-        let pin = crate::catalog::is_configured_model_pin(&original_model, &pins);
-        if followed == original_model
-            && !pin
-            && crate::catalog::is_explicit_catalog_passthrough(&entries, &original_model)
+        if state.target == ProviderTarget::VscodeCopilot
+            && !crate::gateway::is_auto_model_id(&followed)
+            && !crate::catalog::catalog_in_entries(&entries, &followed)
         {
-            conversation_model::remember(session.as_deref(), &original_model);
+            if let Some( fallback ) = remembered
+                .as_deref()
+                .filter(|m| crate::catalog::catalog_in_entries(&entries, m))
+                .map(str::to_string)
+                .or_else(|| crate::config::vscode_copilot::preferred_selected_model_id(&entries))
+                .or_else(|| entries.first().map(|e| e.public_id.clone()))
+            {
+                log::info!(
+                    "VS Code Copilot 未启用或未知模型 {} 自动回退到 {}",
+                    original_model,
+                    fallback
+                );
+                followed = fallback;
+            }
+        }
+        let pin = crate::catalog::is_configured_model_pin(stripped_original, &pins);
+        let avoid_remembering_aux = state.target == ProviderTarget::VscodeCopilot
+            && crate::catalog::is_copilot_auxiliary_model(stripped_original)
+            && remembered
+                .as_deref()
+                .is_some_and(|main| !crate::catalog::is_copilot_auxiliary_model(main));
+        if followed.eq_ignore_ascii_case(stripped_original)
+            && !pin
+            && !avoid_remembering_aux
+            && crate::catalog::is_explicit_catalog_passthrough(&entries, stripped_original)
+        {
+            conversation_model::remember_for_target(
+                state.target,
+                session.as_deref(),
+                stripped_original,
+            );
         } else if followed != original_model {
             log::info!(
-                "Claude model {original_model} follows conversation model {followed}"
+                "Model {original_model} follows conversation model {followed}"
             );
         }
         followed
@@ -137,6 +182,28 @@ fn configured_model_pins(
         }
     }
     pins
+}
+
+fn is_copilot_subtask_or_subagent_payload(
+    incoming: &Value,
+    headers: &HeaderMap,
+    requested_model: &str,
+) -> bool {
+    if headers.contains_key(CS_SUBAGENT_HEADER) {
+        return true;
+    }
+    if crate::catalog::is_copilot_auxiliary_model(requested_model) {
+        // VS Code Copilot 联网搜索、标题生成、意图识别与辅助子任务默认使用 -luna / -mini 模型。
+        return true;
+    }
+    let tools_empty = incoming
+        .get("tools")
+        .and_then(Value::as_array)
+        .is_none_or(Vec::is_empty);
+    if tools_empty {
+        return true;
+    }
+    false
 }
 
 pub(crate) fn remember_gateway_success_upstream(

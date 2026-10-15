@@ -16,7 +16,7 @@ use crate::kiro::map::{
     self, anthropic_message, anthropic_sse, openai_chat_json, openai_chat_sse, prepare,
     responses_json, responses_sse, CollectedReply, WireProtocol,
 };
-use crate::kiro::models::{catalog_ids, DEFAULT_MODEL};
+use crate::kiro::models::DEFAULT_MODEL;
 use crate::kiro::pool::{classify_upstream, FailureClass};
 use crate::kiro::token::{ensure_access_token, should_force_refresh};
 use crate::kiro::upstream;
@@ -26,9 +26,31 @@ pub async fn health() -> impl IntoResponse {
 }
 
 pub async fn list_models() -> impl IntoResponse {
-    let data: Vec<Value> = catalog_ids()
-        .iter()
-        .map(|id| json!({"id": id, "object": "model", "owned_by": "kiro"}))
+    let data: Vec<Value> = crate::kiro::models::model_list()
+        .models
+        .into_iter()
+        .map(|model| {
+            let context_window = if model.context > 0 {
+                model.context
+            } else {
+                crate::gateway::metadata::context_window_for(&model.id)
+            };
+            let max_output = if model.output > 0 {
+                model.output
+            } else {
+                crate::gateway::metadata::max_output_for(&model.id, context_window)
+            };
+            json!({
+                "id": model.id,
+                "object": "model",
+                "owned_by": "kiro",
+                "display_name": model.name,
+                "context_window": context_window,
+                "max_input_tokens": context_window,
+                "max_output_tokens": max_output,
+                "max_tokens": max_output,
+            })
+        })
         .collect();
     Json(json!({"object": "list", "data": data}))
 }

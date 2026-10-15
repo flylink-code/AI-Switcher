@@ -75,6 +75,18 @@ pub fn chat_response_to_responses(body: &Value, fallback_model: &str) -> Value {
         .cloned()
         .unwrap_or(json!({}));
     let mut output = Vec::new();
+    if let Some(reasoning) = message
+        .get("reasoning_content")
+        .or_else(|| message.get("reasoning"))
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+    {
+        output.push(json!({
+            "type": "reasoning",
+            "id": format!("rs_{}", Uuid::new_v4().simple()),
+            "summary": [{ "type": "summary_text", "text": reasoning }],
+        }));
+    }
     let mut text_parts = Vec::new();
     match message.get("content") {
         Some(Value::String(text)) if !text.is_empty() => {
@@ -103,11 +115,18 @@ pub fn chat_response_to_responses(body: &Value, fallback_model: &str) -> Value {
     }
     if let Some(calls) = message.get("tool_calls").and_then(Value::as_array) {
         for call in calls {
+            let call_id = call
+                .get("id")
+                .and_then(Value::as_str)
+                .filter(|id| !id.is_empty())
+                .unwrap_or("tool_call");
             output.push(json!({
                 "type": "function_call",
-                "call_id": call.get("id").and_then(Value::as_str).unwrap_or("tool_call"),
+                "id": format!("fc_{call_id}"),
+                "call_id": call_id,
                 "name": call.pointer("/function/name").and_then(Value::as_str).unwrap_or("tool"),
                 "arguments": call.pointer("/function/arguments").and_then(Value::as_str).unwrap_or("{}"),
+                "status": "completed",
             }));
         }
     }
@@ -162,14 +181,32 @@ pub fn is_unsupported_content_type_error(body: &[u8]) -> bool {
     text.contains("unsupported content type") || text.contains("unsupported_content_type")
 }
 
+struct PendingChatToolCall {
+    output_index: usize,
+    item_id: String,
+    call_id: String,
+    name: String,
+    arguments: String,
+}
+
 /// Incrementally convert Chat Completions SSE into Responses SSE.
 pub struct ChatSseToResponsesConverter {
     model: String,
     response_id: String,
     started: bool,
     completed: bool,
+    next_output_index: usize,
+    reasoning_started: bool,
+    reasoning_output_index: usize,
+    reasoning_item_id: String,
+    reasoning: String,
     text_started: bool,
+    text_output_index: usize,
+    text_item_id: String,
     text: String,
+    tools: Vec<PendingChatToolCall>,
+    tool_indices: std::collections::BTreeMap<usize, usize>,
+    last_usage: Option<Value>,
 }
 
 impl ChatSseToResponsesConverter {
@@ -179,8 +216,18 @@ impl ChatSseToResponsesConverter {
             response_id: format!("resp_{}", Uuid::new_v4().simple()),
             started: false,
             completed: false,
+            next_output_index: 0,
+            reasoning_started: false,
+            reasoning_output_index: 0,
+            reasoning_item_id: format!("rs_{}", Uuid::new_v4().simple()),
+            reasoning: String::new(),
             text_started: false,
+            text_output_index: 0,
+            text_item_id: format!("msg_{}", Uuid::new_v4().simple()),
             text: String::new(),
+            tools: Vec::new(),
+            tool_indices: std::collections::BTreeMap::new(),
+            last_usage: None,
         }
     }
 
@@ -199,8 +246,31 @@ impl ChatSseToResponsesConverter {
                 self.response_id = id.to_string();
             }
         }
+        if let Some(usage) = chunk.get("usage").filter(|u| !u.is_null()) {
+            self.last_usage = Some(usage.clone());
+        }
         self.ensure_started(&mut out);
         let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);
+        if let Some(reasoning) = delta
+            .get("reasoning_content")
+            .or_else(|| delta.get("reasoning"))
+            .and_then(Value::as_str)
+            .filter(|t| !t.is_empty())
+        {
+            self.reasoning.push_str(reasoning);
+            self.emit_reasoning_start(&mut out);
+            push_responses_event(
+                &mut out,
+                "response.reasoning_summary_text.delta",
+                json!({
+                    "type": "response.reasoning_summary_text.delta",
+                    "item_id": self.reasoning_item_id,
+                    "output_index": self.reasoning_output_index,
+                    "summary_index": 0,
+                    "delta": reasoning,
+                }),
+            );
+        }
         if let Some(text) = delta
             .get("content")
             .and_then(Value::as_str)
@@ -213,18 +283,97 @@ impl ChatSseToResponsesConverter {
                 "response.output_text.delta",
                 json!({
                     "type": "response.output_text.delta",
-                    "output_index": 0,
+                    "item_id": self.text_item_id,
+                    "output_index": self.text_output_index,
                     "content_index": 0,
                     "delta": text,
                 }),
             );
+        }
+        if let Some(calls) = delta.get("tool_calls").and_then(Value::as_array) {
+            for call in calls {
+                let upstream_idx = call.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
+                let call_id_opt = call
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty());
+                let name_opt = call
+                    .pointer("/function/name")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty());
+                let tool_pos = if let Some(&pos) = self.tool_indices.get(&upstream_idx) {
+                    if let Some(cid) = call_id_opt {
+                        self.tools[pos].call_id = cid.to_string();
+                    }
+                    if let Some(name) = name_opt {
+                        self.tools[pos].name = name.to_string();
+                    }
+                    pos
+                } else {
+                    let output_index = self.next_output_index;
+                    self.next_output_index += 1;
+                    let call_id = call_id_opt
+                        .map(str::to_string)
+                        .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
+                    let item_id = format!("fc_{call_id}");
+                    let name = name_opt.unwrap_or("tool").to_string();
+                    let pos = self.tools.len();
+                    self.tool_indices.insert(upstream_idx, pos);
+                    self.tools.push(PendingChatToolCall {
+                        output_index,
+                        item_id: item_id.clone(),
+                        call_id: call_id.clone(),
+                        name: name.clone(),
+                        arguments: String::new(),
+                    });
+                    push_responses_event(
+                        &mut out,
+                        "response.output_item.added",
+                        json!({
+                            "type": "response.output_item.added",
+                            "output_index": output_index,
+                            "item": {
+                                "id": item_id,
+                                "type": "function_call",
+                                "call_id": call_id,
+                                "name": name,
+                                "arguments": "",
+                                "status": "in_progress",
+                            }
+                        }),
+                    );
+                    pos
+                };
+                if let Some(args_delta) = call
+                    .pointer("/function/arguments")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    let output_index = self.tools[tool_pos].output_index;
+                    let item_id = self.tools[tool_pos].item_id.clone();
+                    let call_id = self.tools[tool_pos].call_id.clone();
+                    self.tools[tool_pos].arguments.push_str(args_delta);
+                    push_responses_event(
+                        &mut out,
+                        "response.function_call_arguments.delta",
+                        json!({
+                            "type": "response.function_call_arguments.delta",
+                            "item_id": item_id,
+                            "output_index": output_index,
+                            "call_id": call_id,
+                            "delta": args_delta,
+                        }),
+                    );
+                }
+            }
         }
         if let Some(reason) = chunk
             .pointer("/choices/0/finish_reason")
             .and_then(Value::as_str)
             .filter(|reason| !reason.is_empty() && *reason != "null")
         {
-            self.finish(&mut out, reason, chunk.get("usage"));
+            let usage = chunk.get("usage").cloned().or_else(|| self.last_usage.clone());
+            self.finish(&mut out, reason, usage.as_ref());
         }
         out.into_bytes()
     }
@@ -235,7 +384,8 @@ impl ChatSseToResponsesConverter {
         }
         let mut out = String::new();
         self.ensure_started(&mut out);
-        self.finish(&mut out, "stop", None);
+        let usage = self.last_usage.clone();
+        self.finish(&mut out, "stop", usage.as_ref());
         out.into_bytes()
     }
 
@@ -244,18 +394,60 @@ impl ChatSseToResponsesConverter {
             return;
         }
         self.started = true;
+        let response = json!({
+            "id": self.response_id,
+            "object": "response",
+            "status": "in_progress",
+            "model": self.model,
+            "output": [],
+        });
         push_responses_event(
             out,
             "response.created",
             json!({
                 "type": "response.created",
-                "response": {
-                    "id": self.response_id,
-                    "object": "response",
-                    "status": "in_progress",
-                    "model": self.model,
-                    "output": [],
+                "response": response,
+            }),
+        );
+        push_responses_event(
+            out,
+            "response.in_progress",
+            json!({
+                "type": "response.in_progress",
+                "response": response,
+            }),
+        );
+    }
+
+    fn emit_reasoning_start(&mut self, out: &mut String) {
+        if self.reasoning_started {
+            return;
+        }
+        self.reasoning_started = true;
+        self.reasoning_output_index = self.next_output_index;
+        self.next_output_index += 1;
+        push_responses_event(
+            out,
+            "response.output_item.added",
+            json!({
+                "type": "response.output_item.added",
+                "output_index": self.reasoning_output_index,
+                "item": {
+                    "id": self.reasoning_item_id,
+                    "type": "reasoning",
+                    "summary": [],
                 }
+            }),
+        );
+        push_responses_event(
+            out,
+            "response.reasoning_summary_part.added",
+            json!({
+                "type": "response.reasoning_summary_part.added",
+                "item_id": self.reasoning_item_id,
+                "output_index": self.reasoning_output_index,
+                "summary_index": 0,
+                "part": { "type": "summary_text", "text": "" },
             }),
         );
     }
@@ -265,15 +457,17 @@ impl ChatSseToResponsesConverter {
             return;
         }
         self.text_started = true;
+        self.text_output_index = self.next_output_index;
+        self.next_output_index += 1;
         push_responses_event(
             out,
             "response.output_item.added",
             json!({
                 "type": "response.output_item.added",
-                "output_index": 0,
+                "output_index": self.text_output_index,
                 "item": {
                     "type": "message",
-                    "id": format!("msg_{}", Uuid::new_v4().simple()),
+                    "id": self.text_item_id,
                     "role": "assistant",
                     "content": [],
                     "status": "in_progress",
@@ -285,7 +479,8 @@ impl ChatSseToResponsesConverter {
             "response.content_part.added",
             json!({
                 "type": "response.content_part.added",
-                "output_index": 0,
+                "item_id": self.text_item_id,
+                "output_index": self.text_output_index,
                 "content_index": 0,
                 "part": { "type": "output_text", "text": "" },
             }),
@@ -302,18 +497,123 @@ impl ChatSseToResponsesConverter {
         } else {
             "completed"
         };
+        let reasoning = std::mem::take(&mut self.reasoning);
         let text = std::mem::take(&mut self.text);
-        let output = if self.text_started || !text.is_empty() {
-            json!([{
+        let mut indexed_output: Vec<(usize, Value)> = Vec::new();
+        if self.reasoning_started || !reasoning.is_empty() {
+            let item = json!({
+                "id": self.reasoning_item_id.clone(),
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": reasoning.clone()}],
+            });
+            push_responses_event(
+                out,
+                "response.reasoning_summary_text.done",
+                json!({
+                    "type": "response.reasoning_summary_text.done",
+                    "item_id": self.reasoning_item_id,
+                    "output_index": self.reasoning_output_index,
+                    "summary_index": 0,
+                    "text": reasoning,
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.reasoning_summary_part.done",
+                json!({
+                    "type": "response.reasoning_summary_part.done",
+                    "item_id": self.reasoning_item_id,
+                    "output_index": self.reasoning_output_index,
+                    "summary_index": 0,
+                    "part": {"type": "summary_text", "text": reasoning},
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.output_item.done",
+                json!({
+                    "type": "response.output_item.done",
+                    "output_index": self.reasoning_output_index,
+                    "item": item,
+                }),
+            );
+            indexed_output.push((self.reasoning_output_index, item));
+        }
+        if self.text_started || !text.is_empty() {
+            let item = json!({
                 "type": "message",
-                "id": self.response_id.clone(),
+                "id": self.text_item_id.clone(),
                 "role": "assistant",
                 "status": "completed",
                 "content": [{"type": "output_text", "text": text.clone()}],
-            }])
-        } else {
-            json!([])
-        };
+            });
+            push_responses_event(
+                out,
+                "response.output_text.done",
+                json!({
+                    "type": "response.output_text.done",
+                    "item_id": self.text_item_id,
+                    "output_index": self.text_output_index,
+                    "content_index": 0,
+                    "text": text.clone(),
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.content_part.done",
+                json!({
+                    "type": "response.content_part.done",
+                    "item_id": self.text_item_id,
+                    "output_index": self.text_output_index,
+                    "content_index": 0,
+                    "part": {"type": "output_text", "text": text.clone()},
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.output_item.done",
+                json!({
+                    "type": "response.output_item.done",
+                    "output_index": self.text_output_index,
+                    "item": item,
+                }),
+            );
+            indexed_output.push((self.text_output_index, item));
+        }
+        for tool in &self.tools {
+            let item = json!({
+                "id": tool.item_id,
+                "type": "function_call",
+                "call_id": tool.call_id,
+                "name": tool.name,
+                "arguments": tool.arguments,
+                "status": "completed",
+            });
+            push_responses_event(
+                out,
+                "response.function_call_arguments.done",
+                json!({
+                    "type": "response.function_call_arguments.done",
+                    "item_id": tool.item_id,
+                    "output_index": tool.output_index,
+                    "call_id": tool.call_id,
+                    "name": tool.name,
+                    "arguments": tool.arguments,
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.output_item.done",
+                json!({
+                    "type": "response.output_item.done",
+                    "output_index": tool.output_index,
+                    "item": item,
+                }),
+            );
+            indexed_output.push((tool.output_index, item));
+        }
+        indexed_output.sort_by_key(|(idx, _)| *idx);
+        let output: Vec<Value> = indexed_output.into_iter().map(|(_, item)| item).collect();
         let mut response = json!({
             "id": self.response_id.clone(),
             "object": "response",
@@ -343,43 +643,6 @@ impl ChatSseToResponsesConverter {
             "output_tokens": output_tokens,
             "total_tokens": total_tokens,
         });
-        if self.text_started || !text.is_empty() {
-            push_responses_event(
-                out,
-                "response.output_text.done",
-                json!({
-                    "type": "response.output_text.done",
-                    "output_index": 0,
-                    "content_index": 0,
-                    "text": text.clone(),
-                }),
-            );
-            push_responses_event(
-                out,
-                "response.content_part.done",
-                json!({
-                    "type": "response.content_part.done",
-                    "output_index": 0,
-                    "content_index": 0,
-                    "part": {"type": "output_text", "text": text.clone()},
-                }),
-            );
-            push_responses_event(
-                out,
-                "response.output_item.done",
-                json!({
-                    "type": "response.output_item.done",
-                    "output_index": 0,
-                    "item": {
-                        "type": "message",
-                        "id": self.response_id.clone(),
-                        "role": "assistant",
-                        "status": "completed",
-                        "content": [{"type": "output_text", "text": text.clone()}],
-                    },
-                }),
-            );
-        }
         push_responses_event(
             out,
             "response.completed",
@@ -430,12 +693,17 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
             for item in items {
                 match item.get("type").and_then(Value::as_str) {
                     Some("function_call") => {
+                        let arguments = match item.get("arguments") {
+                            Some(Value::String(s)) => s.clone(),
+                            Some(other) if !other.is_null() => other.to_string(),
+                            _ => "{}".into(),
+                        };
                         pending_tool_calls.push(json!({
                             "id": item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or("call_tool"),
                             "type": "function",
                             "function": {
                                 "name": item.get("name").and_then(Value::as_str).unwrap_or("tool"),
-                                "arguments": item.get("arguments").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| "{}".into()),
+                                "arguments": arguments,
                             }
                         }));
                     }
@@ -443,7 +711,7 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                         flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
                         messages.push(json!({
                             "role": "tool",
-                            "tool_call_id": item.get("call_id").and_then(Value::as_str).unwrap_or("call_tool"),
+                            "tool_call_id": item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or("call_tool"),
                             "content": output_text(item.get("output").unwrap_or(&Value::Null)),
                         }));
                     }
@@ -601,9 +869,11 @@ fn output_text(value: &Value) -> String {
         Value::Array(items) => items.iter().map(output_text).collect::<Vec<_>>().join(""),
         Value::Object(map) => map
             .get("text")
+            .or_else(|| map.get("output"))
+            .or_else(|| map.get("content"))
             .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
+            .map(str::to_string)
+            .unwrap_or_else(|| value.to_string()),
         _ => String::new(),
     }
 }

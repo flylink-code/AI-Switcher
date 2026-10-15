@@ -9,10 +9,13 @@ use std::sync::{Mutex, OnceLock};
 
 use axum::http::HeaderMap;
 
+use crate::provider::ProviderTarget;
+
 const MAX_SESSIONS: usize = 256;
 
 struct Store {
     sessions: HashMap<String, String>,
+    last_by_target: HashMap<ProviderTarget, String>,
     last: Option<String>,
 }
 
@@ -21,6 +24,7 @@ fn store() -> &'static Mutex<Store> {
     CONVERSATION_MODEL.get_or_init(|| {
         Mutex::new(Store {
             sessions: HashMap::new(),
+            last_by_target: HashMap::new(),
             last: None,
         })
     })
@@ -38,6 +42,9 @@ pub fn session_key(headers: &HeaderMap) -> Option<String> {
         "x-claude-session-id",
         "x-session-id",
         "x-anthropic-session-id",
+        "x-conversation-id",
+        "openai-conversation-id",
+        "x-vscode-session-id",
     ] {
         let Some(value) = headers.get(name).and_then(|value| value.to_str().ok()) else {
             continue;
@@ -51,37 +58,57 @@ pub fn session_key(headers: &HeaderMap) -> Option<String> {
 }
 
 pub fn remember(session_key: Option<&str>, model: &str) {
+    remember_for_target(ProviderTarget::ClaudeCode, session_key, model);
+}
+
+pub fn remember_for_target(target: ProviderTarget, session_key: Option<&str>, model: &str) {
     let model = model.trim();
     if model.is_empty() {
         return;
     }
     let mut guard = lock();
     if let Some(key) = session_key.map(str::trim).filter(|key| !key.is_empty()) {
-        if guard.sessions.len() >= MAX_SESSIONS && !guard.sessions.contains_key(key) {
+        let scoped = format!("{}:{key}", target.as_str());
+        if guard.sessions.len() >= MAX_SESSIONS && !guard.sessions.contains_key(&scoped) {
             if let Some(evict) = guard.sessions.keys().next().cloned() {
                 guard.sessions.remove(&evict);
             }
         }
+        guard.sessions.insert(scoped, model.to_string());
         guard.sessions.insert(key.to_string(), model.to_string());
     }
+    guard.last_by_target.insert(target, model.to_string());
     guard.last = Some(model.to_string());
 }
 
 /// Session entry first, then the most recent explicit model in this process.
 pub fn recall(session_key: Option<&str>) -> Option<String> {
+    recall_for_target(ProviderTarget::ClaudeCode, session_key)
+}
+
+pub fn recall_for_target(target: ProviderTarget, session_key: Option<&str>) -> Option<String> {
     let guard = lock();
     if let Some(key) = session_key.map(str::trim).filter(|key| !key.is_empty()) {
+        let scoped = format!("{}:{key}", target.as_str());
+        if let Some(model) = guard.sessions.get(&scoped) {
+            return Some(model.clone());
+        }
         if let Some(model) = guard.sessions.get(key) {
             return Some(model.clone());
         }
     }
-    guard.last.clone()
+    guard
+        .last_by_target
+        .get(&target)
+        .cloned()
+        .or_else(|| guard.last.clone())
 }
 
 #[cfg(test)]
 pub fn clear_all() {
     let mut guard = lock();
     guard.sessions.clear();
+    guard.last_by_target.clear();
     guard.last = None;
 }
 

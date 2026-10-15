@@ -129,9 +129,63 @@ pub fn managed_entry(base_url: &str, api_key: &str, models: &[CopilotModel]) -> 
     })
 }
 
+/// 从 `chatLanguageModels.json` 的 `agent-host-copilotcli` 或 `AI-Switcher` 的 `settings` 中提取
+/// 用户已选过/配置过的模型 ID 列表（按配置出现顺序）。
+fn extract_preferred_model_ids(entries: &[Value]) -> Vec<String> {
+    let mut preferred = Vec::new();
+    let mut push_unique = |raw: &str| {
+        let stripped = crate::catalog::strip_client_model_prefix(raw);
+        if !stripped.is_empty()
+            && !preferred
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(stripped))
+        {
+            preferred.push(stripped.to_string());
+        }
+    };
+    for entry in entries {
+        if entry.get("vendor").and_then(Value::as_str) == Some("agent-host-copilotcli") {
+            if let Some(settings) = entry.get("settings").and_then(Value::as_object) {
+                for key in settings.keys() {
+                    push_unique(key);
+                }
+            }
+        }
+    }
+    for entry in entries {
+        if is_managed(entry) {
+            if let Some(settings) = entry.get("settings").and_then(Value::as_object) {
+                for key in settings.keys() {
+                    push_unique(key);
+                }
+            }
+        }
+    }
+    preferred
+}
+
+/// 读取用户在 VS Code Copilot 中最近选中的且在当前目录中的模型 ID。
+pub fn preferred_selected_model_id(
+    catalog_entries: &[crate::catalog::CatalogEntry],
+) -> Option<String> {
+    let file_entries = read_entries(&chat_language_models_path()).ok()?;
+    for id in extract_preferred_model_ids(&file_entries) {
+        if let Some(found) = catalog_entries.iter().find(|entry| {
+            entry.public_id.eq_ignore_ascii_case(&id)
+                || entry.upstream_slug.eq_ignore_ascii_case(&id)
+        }) {
+            return Some(found.public_id.clone());
+        }
+    }
+    None
+}
+
 /// 把托管条目并入条目列表：已有则原位替换，否则追加；其余条目不动。
 /// `settings` 由 VS Code 按模型维护（如 `reasoningEffort`），重同步时必须保留。
+/// 同时将用户在 `agent-host-copilotcli` 中选中的模型排在 `models[]` 首位，防止
+/// VS Code 重新加载配置或新开对话时把默认选中模型切回 `gemini-3.8-flash`。
 fn merge_entry(entries: &mut Vec<Value>, managed: Value) {
+    let preferred_ids = extract_preferred_model_ids(entries);
     let mut placed = false;
     entries.retain_mut(|entry| {
         if !is_managed(entry) {
@@ -141,16 +195,42 @@ fn merge_entry(entries: &mut Vec<Value>, managed: Value) {
             return false; // 重复的托管项只留一份
         }
         let mut replacement = managed.clone();
-        if let (Some(settings), Some(replacement)) =
-            (entry.get("settings").cloned(), replacement.as_object_mut())
-        {
-            replacement.insert("settings".into(), settings);
+        if let Some(replacement_obj) = replacement.as_object_mut() {
+            if let Some(settings) = entry.get("settings").cloned() {
+                replacement_obj.insert("settings".into(), settings);
+            }
+            if !preferred_ids.is_empty() {
+                if let Some(models) = replacement_obj
+                    .get_mut("models")
+                    .and_then(Value::as_array_mut)
+                {
+                    models.sort_by_key(|model| {
+                        let id = model.get("id").and_then(Value::as_str).unwrap_or("");
+                        preferred_ids
+                            .iter()
+                            .position(|pref| pref.eq_ignore_ascii_case(id))
+                            .unwrap_or( usize::MAX )
+                    });
+                }
+            }
         }
         *entry = replacement;
         placed = true;
         true
     });
     if !placed {
+        let mut managed = managed;
+        if !preferred_ids.is_empty() {
+            if let Some(models) = managed.get_mut("models").and_then(Value::as_array_mut) {
+                models.sort_by_key(|model| {
+                    let id = model.get("id").and_then(Value::as_str).unwrap_or("");
+                    preferred_ids
+                        .iter()
+                        .position(|pref| pref.eq_ignore_ascii_case(id))
+                        .unwrap_or(usize::MAX)
+                });
+            }
+        }
         entries.push(managed);
     }
 }
@@ -171,9 +251,13 @@ fn backup(path: &Path) -> AppResult<()> {
 
 pub fn apply_managed_at(path: &Path, managed: Value) -> AppResult<()> {
     let _guard = lock()?;
-    let mut entries = read_entries(path)?;
-    backup(path)?;
+    let before = read_entries(path)?;
+    let mut entries = before.clone();
     merge_entry(&mut entries, managed);
+    if path.exists() && entries == before {
+        return Ok(());
+    }
+    backup(path)?;
     write_entries(path, &entries)
 }
 
@@ -238,8 +322,23 @@ pub fn diff_managed(expected: &Value, current: Option<&Value>) -> Vec<DriftField
             })
             .unwrap_or_default()
     };
-    if expected.get("models") != current.get("models") {
-        let (want, have) = (ids(expected), ids(current));
+    let sorted_models = |value: &Value| -> Vec<Value> {
+        let mut items = value
+            .get("models")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        items.sort_by(|a, b| {
+            let id_a = a.get("id").and_then(Value::as_str).unwrap_or("");
+            let id_b = b.get("id").and_then(Value::as_str).unwrap_or("");
+            id_a.cmp(id_b)
+        });
+        items
+    };
+    if sorted_models(expected) != sorted_models(current) {
+        let (mut want, mut have) = (ids(expected), ids(current));
+        want.sort();
+        have.sort();
         fields.push(DriftField {
             field: if want == have { "models" } else { "models.ids" }.to_string(),
             applied_present: !want.is_empty(),

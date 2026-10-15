@@ -234,6 +234,7 @@ pub(crate) async fn set_agent_direct_for_target<R: tauri::Runtime>(
             tx.commit()?;
             Ok(())
         })?;
+        crate::catalog::invalidate_view_cache();
         apply_runtime_provider(&provider, app, state).await
     }
     .await;
@@ -267,6 +268,7 @@ pub(crate) async fn set_agent_gateway_for_target<R: tauri::Runtime>(
         state
             .db
             .with_conn(|conn| crate::database::dao::gateway::upsert_binding(conn, target, &id))?;
+        crate::catalog::invalidate_view_cache();
         let provider = ensure_smart_gateway_provider_row(state, target)?;
         if target.is_catalog_target() {
             state
@@ -277,6 +279,7 @@ pub(crate) async fn set_agent_gateway_for_target<R: tauri::Runtime>(
                 .db
                 .with_conn(|conn| dao::set_current_provider(conn, &provider.id))?;
         }
+        crate::catalog::invalidate_view_cache();
         apply_runtime_provider(&provider, app, state).await?;
         Ok(provider)
     }

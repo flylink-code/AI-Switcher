@@ -16,6 +16,8 @@ export interface VscodeCopilotStatus {
   fileExists: boolean;
   bound: boolean;
   applied: boolean;
+  mode?: "gateway" | "direct" | "official";
+  directUpstreamId?: string | null;
   modelCount: number;
   gatewayRunning: boolean;
   /** 只含字段名与有无，不含 token 原值。 */

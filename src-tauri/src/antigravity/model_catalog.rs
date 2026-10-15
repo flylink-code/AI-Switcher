@@ -482,11 +482,17 @@ pub fn list_openai_models_payload() -> Value {
     let data: Vec<Value> = list_exposed_catalog_models()
         .into_iter()
         .map(|model| {
+            let context_window = crate::gateway::metadata::context_window_for(&model.id);
+            let max_output = crate::gateway::metadata::max_output_for(&model.id, context_window);
             json!({
                 "id": model.id,
                 "object": "model",
                 "owned_by": "antigravity",
                 "display_name": model.display_name,
+                "context_window": context_window,
+                "max_input_tokens": context_window,
+                "max_output_tokens": max_output,
+                "max_tokens": max_output,
             })
         })
         .collect();

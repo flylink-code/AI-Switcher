@@ -305,6 +305,9 @@ export default function AgentHubPage() {
       );
     }
     const updateState = updateStateFor(target);
+    const replacingV1 = target === "opencode" && opencodeAction.kind === "switch";
+    const isCliTarget =
+      target === "claude_code" || target === "codex" || target === "opencode" || target === "pi";
     return (
       <>
         {info.currentVersion ? (
@@ -321,6 +324,22 @@ export default function AgentHubPage() {
               defaultValue: "有新版本 {{version}}",
             })}
           </Tag>
+        ) : null}
+        {isCliTarget && (updateState?.hasUpdate || replacingV1) ? (
+          <Button
+            size="small"
+            type="primary"
+            loading={busyTarget === target}
+            onClick={() => {
+              if (replacingV1) {
+                setOpencodeSwitchOpen(true);
+                return;
+              }
+              void runToolUpdate(target);
+            }}
+          >
+            {t("agentHub.upgrade", { defaultValue: "升级" })}
+          </Button>
         ) : null}
       </>
     );

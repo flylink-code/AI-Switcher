@@ -815,6 +815,18 @@ impl OpenAiSseConverter {
         if event_type == "response.output_item.added" {
             let item = event.get("item").unwrap_or(&Value::Null);
             if item.get("type").and_then(Value::as_str) == Some("function_call") {
+                if let Some(t_idx) = self.thinking_block.take() {
+                    if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                        self.open_blocks.remove(pos);
+                    }
+                    push_event(
+                        output,
+                        "content_block_stop",
+                        json!({
+                            "type":"content_block_stop", "index":t_idx
+                        }),
+                    );
+                }
                 self.stop_reason = "tool_use".to_string();
                 let upstream_index = event
                     .get("output_index")
@@ -823,10 +835,32 @@ impl OpenAiSseConverter {
                 self.ensure_tool_block(
                     upstream_index,
                     item.get("call_id")
-                        .or_else(|| item.get("id"))
-                        .and_then(Value::as_str),
-                    item.get("name").and_then(Value::as_str),
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                        .or_else(|| item.get("id").and_then(Value::as_str).filter(|s| !s.is_empty())),
+                    item.get("name").and_then(Value::as_str).filter(|s| !s.is_empty()),
                     output,
+                );
+            }
+        } else if matches!(
+            event_type,
+            "response.reasoning_summary_text.delta"
+                | "response.reasoning_text.delta"
+                | "response.reasoning.delta"
+        ) {
+            if let Some(delta) = event
+                .get("delta")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+            {
+                let index = self.ensure_thinking_block(output);
+                push_event(
+                    output,
+                    "content_block_delta",
+                    json!({
+                        "type":"content_block_delta", "index":index,
+                        "delta":{"type":"thinking_delta", "thinking":delta}
+                    }),
                 );
             }
         } else if event_type == "response.content_part.added" {
@@ -835,6 +869,18 @@ impl OpenAiSseConverter {
                 part.get("type").and_then(Value::as_str),
                 Some("output_text" | "text")
             ) {
+                if let Some(t_idx) = self.thinking_block.take() {
+                    if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                        self.open_blocks.remove(pos);
+                    }
+                    push_event(
+                        output,
+                        "content_block_stop",
+                        json!({
+                            "type":"content_block_stop", "index":t_idx
+                        }),
+                    );
+                }
                 let key = (
                     event
                         .get("output_index")
@@ -848,6 +894,18 @@ impl OpenAiSseConverter {
                 self.ensure_text_block(key, output);
             }
         } else if event_type == "response.output_text.delta" {
+            if let Some(t_idx) = self.thinking_block.take() {
+                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                    self.open_blocks.remove(pos);
+                }
+                push_event(
+                    output,
+                    "content_block_stop",
+                    json!({
+                        "type":"content_block_stop", "index":t_idx
+                    }),
+                );
+            }
             let key = (
                 event
                     .get("output_index")
@@ -875,14 +933,26 @@ impl OpenAiSseConverter {
                 );
             }
         } else if event_type == "response.function_call_arguments.delta" {
+            if let Some(t_idx) = self.thinking_block.take() {
+                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                    self.open_blocks.remove(pos);
+                }
+                push_event(
+                    output,
+                    "content_block_stop",
+                    json!({
+                        "type":"content_block_stop", "index":t_idx
+                    }),
+                );
+            }
             let upstream_index = event
                 .get("output_index")
                 .and_then(Value::as_u64)
                 .unwrap_or(0) as usize;
             let index = self.ensure_tool_block(
                 upstream_index,
-                event.get("call_id").and_then(Value::as_str),
-                event.get("name").and_then(Value::as_str),
+                event.get("call_id").and_then(Value::as_str).filter(|s| !s.is_empty()),
+                event.get("name").and_then(Value::as_str).filter(|s| !s.is_empty()),
                 output,
             );
             if let Some(delta) = event
@@ -903,18 +973,31 @@ impl OpenAiSseConverter {
                     }),
                 );
             }
-        } else if event_type == "response.function_call_arguments.done" {
+        } else if event_type == "response.function_call_arguments.done"
+            || (event_type == "response.output_item.done"
+                && event.pointer("/item/type").and_then(Value::as_str) == Some("function_call"))
+        {
+            let source = if event_type == "response.output_item.done" {
+                event.get("item").unwrap_or(event)
+            } else {
+                event
+            };
+            self.stop_reason = "tool_use".to_string();
             let upstream_index = event
                 .get("output_index")
                 .and_then(Value::as_u64)
                 .unwrap_or(0) as usize;
             let index = self.ensure_tool_block(
                 upstream_index,
-                event.get("call_id").and_then(Value::as_str),
-                event.get("name").and_then(Value::as_str),
+                source
+                    .get("call_id")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| source.get("id").and_then(Value::as_str).filter(|s| !s.is_empty())),
+                source.get("name").and_then(Value::as_str).filter(|s| !s.is_empty()),
                 output,
             );
-            let full = event.get("arguments").and_then(Value::as_str).unwrap_or("");
+            let full = source.get("arguments").and_then(Value::as_str).unwrap_or("");
             let sent = self
                 .tool_arguments_sent
                 .get(&upstream_index)

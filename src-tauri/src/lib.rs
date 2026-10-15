@@ -59,6 +59,7 @@ mod usage_events;
 mod wsl_direct;
 use crate::commands::vscode_copilot::{
     apply_vscode_copilot, get_vscode_copilot_status, remove_vscode_copilot,
+    set_vscode_copilot_direct,
 };
 use crate::commands::{
     activate_prompt, add_antigravity_gateway_upstream, add_claude_plugin_marketplace,
@@ -337,6 +338,7 @@ pub fn run() {
             unbind_smart_gateway,
             get_vscode_copilot_status,
             apply_vscode_copilot,
+            set_vscode_copilot_direct,
             remove_vscode_copilot,
             list_upstream_daily_usage_stats,
             list_gateway_upstream_health,

@@ -1427,6 +1427,10 @@ fn expected_code_fields(
             "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY".to_string(),
             Some(Value::String("1".to_string())),
         );
+        values.insert(
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS".to_string(),
+            Some(Value::String("1000000".to_string())),
+        );
     }
     let roles = [
         (

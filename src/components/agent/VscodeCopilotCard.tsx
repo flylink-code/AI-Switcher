@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Button,
   Card,
   Modal,
   Radio,
+  Select,
   Space,
   Table,
   Tag,
@@ -20,17 +21,19 @@ import {
   applyVscodeCopilot,
   getSmartGatewayStatus,
   getVscodeCopilotStatus,
+  listGatewayUpstreams,
   removeVscodeCopilot,
+  setVscodeCopilotDirect,
 } from "@/services/providers";
 
 const { Text, Paragraph } = Typography;
 const QUERY_KEY = ["vscode-copilot-status"];
 
-type CopilotConnectionMode = "gateway" | "official";
+type CopilotConnectionMode = "gateway" | "direct" | "official";
 
 /**
  * VS Code Copilot 配置卡片。
- * 采用与其他 Agent 卡片一致的顶栏图标/状态、连接模式切换（智能网关 / 官方）、
+ * 采用与其他 Agent 卡片一致的顶栏图标/状态、连接模式切换（智能网关 / 直连 / 官方）、
  * 配置漂移检查/预览弹窗与折叠式「高级设置」布局。
  */
 export function VscodeCopilotCard() {
@@ -40,6 +43,8 @@ export function VscodeCopilotCard() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [pendingDirect, setPendingDirect] = useState(false);
+  const [rememberedDirectId, setRememberedDirectId] = useState<string | undefined>();
 
   const query = useQuery({
     queryKey: QUERY_KEY,
@@ -53,13 +58,46 @@ export function VscodeCopilotCard() {
     refetchInterval: 10_000,
   });
 
+  const upstreamsQuery = useQuery({
+    queryKey: ["gateway-upstreams"],
+    queryFn: listGatewayUpstreams,
+  });
+
   const status = query.data;
   const gatewayStatus = gatewayStatusQuery.data;
+  const upstreams = useMemo(
+    () => (upstreamsQuery.data ?? []).filter((u) => u.providerKind !== "smart_gateway"),
+    [upstreamsQuery.data],
+  );
   const isManaged = Boolean(status?.bound || status?.applied);
   const drifted = isManaged && (!status?.applied || (status?.drift.length ?? 0) > 0);
-  const currentMode: CopilotConnectionMode = isManaged ? "gateway" : "official";
+  const currentMode: CopilotConnectionMode =
+    status?.mode === "direct"
+      ? "direct"
+      : isManaged
+        ? "gateway"
+        : "official";
+  const displayMode: CopilotConnectionMode = pendingDirect ? "direct" : currentMode;
   const gatewayPort = gatewayStatus?.port ?? 15828;
   const gatewayRunning = gatewayStatus?.running ?? status?.gatewayRunning ?? false;
+  const selectedUpstreamId =
+    (status?.mode === "direct" && status.directUpstreamId
+      ? status.directUpstreamId
+      : undefined) || rememberedDirectId;
+
+  const directOptions = useMemo(
+    () =>
+      upstreams.map((upstream) => {
+        const paused = upstream.enabled === false;
+        const name = `${upstream.name} (${upstream.model || upstream.protocolType})`;
+        return {
+          value: upstream.id,
+          label: paused ? `${name} — ${t("proxy.upstreamPaused")}` : name,
+          disabled: paused,
+        };
+      }),
+    [upstreams, t],
+  );
 
   const driftStatus = query.isError
     ? "unknown"
@@ -90,13 +128,45 @@ export function VscodeCopilotCard() {
     }
   };
 
-  const handleModeChange = (nextMode: CopilotConnectionMode) => {
-    if (nextMode === currentMode) return;
-    if (nextMode === "gateway") {
-      void run(applyVscodeCopilot, "copilot.applied");
-    } else {
-      setRemoveOpen(true);
+  const resyncCurrent = () => {
+    if (currentMode === "direct" && selectedUpstreamId) {
+      return run(() => setVscodeCopilotDirect(selectedUpstreamId), "copilot.applied");
     }
+    return run(applyVscodeCopilot, "copilot.applied");
+  };
+
+  const handleModeChange = (nextMode: CopilotConnectionMode) => {
+    if (nextMode === displayMode && !pendingDirect) return;
+    if (nextMode === "gateway") {
+      setPendingDirect(false);
+      void run(applyVscodeCopilot, "copilot.applied");
+    } else if (nextMode === "direct") {
+      const enabledUpstreams = upstreams.filter((u) => u.enabled !== false);
+      const existingId =
+        selectedUpstreamId && enabledUpstreams.some((u) => u.id === selectedUpstreamId)
+          ? selectedUpstreamId
+          : undefined;
+      if (existingId) {
+        setPendingDirect(false);
+        void run(async () => {
+          await setVscodeCopilotDirect(existingId);
+          setRememberedDirectId(existingId);
+        }, "copilot.applied");
+      } else {
+        setPendingDirect(true);
+      }
+    } else {
+      setPendingDirect(false);
+      if (isManaged) {
+        setRemoveOpen(true);
+      }
+    }
+  };
+
+  const handleSelectDirectUpstream = (upstreamId: string) => {
+    setRememberedDirectId(upstreamId);
+    setPendingDirect(false);
+    void run(() => setVscodeCopilotDirect(upstreamId), "copilot.applied");
   };
 
   return (
@@ -166,7 +236,7 @@ export function VscodeCopilotCard() {
             optionType="button"
             buttonStyle="solid"
             disabled={busy}
-            value={currentMode}
+            value={displayMode}
             onChange={(event) =>
               handleModeChange(event.target.value as CopilotConnectionMode)
             }
@@ -176,12 +246,16 @@ export function VscodeCopilotCard() {
                 value: "gateway",
               },
               {
+                label: t("providers.modeDirect", { defaultValue: "直连" }),
+                value: "direct",
+              },
+              {
                 label: t("providers.modeOfficial", { defaultValue: "官方" }),
                 value: "official",
               },
             ]}
           />
-          {currentMode === "gateway" ? (
+          {displayMode === "gateway" || displayMode === "direct" ? (
             status || gatewayStatus ? (
               <Tag
                 color={gatewayRunning ? "success" : "warning"}
@@ -197,6 +271,19 @@ export function VscodeCopilotCard() {
                 {t("providers.statusGatewayUnknown")}
               </Tag>
             )
+          ) : null}
+          {displayMode === "direct" ? (
+            <Select
+              size="small"
+              style={{ minWidth: 220, maxWidth: 420, flex: "1 1 220px" }}
+              disabled={busy}
+              value={selectedUpstreamId}
+              placeholder={t("providers.selectDirectUpstream", {
+                defaultValue: "请选择直连上游...",
+              })}
+              options={directOptions}
+              onChange={(value) => handleSelectDirectUpstream(String(value))}
+            />
           ) : null}
         </div>
 
@@ -234,7 +321,7 @@ export function VscodeCopilotCard() {
                 size="small"
                 type="link"
                 loading={busy}
-                onClick={() => void run(applyVscodeCopilot, "copilot.applied")}
+                onClick={() => void resyncCurrent()}
               >
                 {t("copilot.resync")}
               </Button>
@@ -274,7 +361,7 @@ export function VscodeCopilotCard() {
                 type="primary"
                 size="small"
                 loading={busy}
-                onClick={() => void run(applyVscodeCopilot, "copilot.applied")}
+                onClick={() => void resyncCurrent()}
               >
                 {isManaged ? t("copilot.resync") : t("copilot.apply")}
               </Button>
@@ -299,7 +386,7 @@ export function VscodeCopilotCard() {
         title={t("configDrift.title")}
         onCancel={() => !busy && setPreviewOpen(false)}
         onOk={async () => {
-          await run(applyVscodeCopilot, "copilot.applied");
+          await resyncCurrent();
           setPreviewOpen(false);
         }}
         okText={t("configDrift.reapply")}

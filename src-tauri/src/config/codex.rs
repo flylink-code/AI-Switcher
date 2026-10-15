@@ -259,7 +259,7 @@ fn apply_auth_strategy(
 ) -> AppResult<bool> {
     let preserved = existing_auth.is_some_and(auth_has_credential_login_material);
     let entry = &mut ensure_table(doc, "model_providers")?[MANAGED_PROVIDER_ID];
-    if preserved {
+    if preserved || gateway_catalog {
         entry["experimental_bearer_token"] =
             value(proxy_listener_token(proxy_port, api_key, gateway_catalog));
     } else if let Some(table) = entry.as_table_mut() {
@@ -305,6 +305,12 @@ fn write_auth_api_key(path: &Path, api_key: &str) -> AppResult<()> {
     let object = auth
         .as_object_mut()
         .ok_or_else(|| AppError::Config("Codex auth.json 必须是 JSON 对象".to_string()))?;
+    if !object.contains_key("auth_mode") {
+        object.insert(
+            "auth_mode".to_string(),
+            Value::String("apikey".to_string()),
+        );
+    }
     object.insert(
         "OPENAI_API_KEY".to_string(),
         Value::String(api_key.to_string()),
@@ -410,7 +416,22 @@ fn write_managed_provider(
         catalog
     };
     let provider_id = MANAGED_PROVIDER_ID;
-    let model = provider.model.trim();
+    let existing_model = doc
+        .get("model")
+        .and_then(Item::as_str)
+        .map(str::trim)
+        .filter(|m| {
+            !m.is_empty()
+                && provider.is_smart_gateway()
+                && catalog.iter().any(|entry| {
+                    entry.public_id.eq_ignore_ascii_case(m)
+                        || entry.upstream_slug.eq_ignore_ascii_case(m)
+                })
+        })
+        .map(str::to_string);
+    let model = existing_model
+        .as_deref()
+        .unwrap_or_else(|| provider.model.trim());
     let context_window = effective_model_context_window(provider);
     let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
     write_catalog_entries(catalog)?;
