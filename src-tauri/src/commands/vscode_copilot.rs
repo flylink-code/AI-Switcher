@@ -106,17 +106,37 @@ fn build_models(state: &AppState) -> AppResult<Vec<CopilotModel>> {
                     .map(|v| v as u64)
                     .unwrap_or_else(|| crate::gateway::metadata::max_output_for(&slug, context))
                     .min(context.saturating_sub(1).max(1));
-                let efforts: Vec<String> = row
+                let mut efforts: Vec<String> = row
                     .map(|r| r.reasoning_levels.clone())
                     .filter(|levels| !levels.is_empty())
-                    .unwrap_or(inferred.reasoning_levels)
+                    .unwrap_or_else(|| inferred.reasoning_levels.clone())
                     .into_iter()
                     .filter(|level| matches!(level.as_str(), "minimal" | "low" | "medium" | "high"))
                     .collect();
+                // 升级旧版库内记录：Gemini 系列模型（如 gemini-3.8-flash / gemini-4-argon）
+                // 早期被推断为仅含 ["off", "low"]，补齐完整的 low/medium/high 推理档位。
+                if slug.to_ascii_lowercase().contains("gemini") && efforts == vec!["low".to_string()] {
+                    efforts = inferred
+                        .reasoning_levels
+                        .into_iter()
+                        .filter(|level| matches!(level.as_str(), "minimal" | "low" | "medium" | "high"))
+                        .collect();
+                }
+                // 仅在多供应商同名冲突（public_id 被加了供应商前缀，即 public_id != slug）时保留
+                // 供应商前缀 `entry.display_name`；单一来源模型直接使用干净的模型名，避免在
+                // VS Code Copilot 的 AI-Switcher 分组下额外显示 `Antigravity (Built-in) · ` 等反代前缀。
+                let is_shared = !entry.public_id.eq_ignore_ascii_case(&slug);
+                let default_name = if is_shared {
+                    entry.display_name.clone()
+                } else {
+                    slug.clone()
+                };
                 let name = row
-                    .map(|r| r.display_name.trim().to_string())
+                    .map(|r| r.display_name.trim())
+                    .filter(|n| !n.is_empty() && *n != entry.display_name)
+                    .map(|n| crate::catalog::strip_client_model_prefix(n).to_string())
                     .filter(|n| !n.is_empty())
-                    .unwrap_or_else(|| entry.display_name.clone());
+                    .unwrap_or(default_name);
                 CopilotModel {
                     id: entry.public_id,
                     name,
@@ -490,6 +510,70 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(&path).unwrap(),
             r#"{"not": "an array"}"#
+        );
+    }
+
+    #[test]
+    fn build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts() {
+        let state = test_state();
+        state
+            .db
+            .with_conn(|conn| {
+                let ag = gw::upsert_upstream(
+                    conn,
+                    &crate::provider::ProviderInput {
+                        id: Some("up_ag".into()),
+                        name: "Antigravity (Built-in)".into(),
+                        base_url: "http://127.0.0.1:15830".into(),
+                        api_key: String::new(),
+                        clear_api_key: false,
+                        model: "gemini-3.8-flash-high".into(),
+                        model_context_window: None,
+                        auto_review_model_override: None,
+                        web_search_enabled: None,
+                        model_mapping: crate::provider::ClaudeModelMapping::default(),
+                        protocol_type: crate::provider::ProtocolType::Anthropic,
+                        provider_kind: crate::provider::ProviderKind::Antigravity,
+                        auth_binding: String::new(),
+                        target_app: crate::provider::ProviderTarget::ClaudeCode,
+                        notes: String::new(),
+                        failover_group: 0,
+                        failover_models: vec!["gemini-4-argon-high".into()],
+                        hidden_models: Vec::new(),
+                        thinking_config: None,
+                        custom_headers: None,
+                    },
+                )?;
+                // 模拟旧版 upstream_models 里存了 ["off", "low"] 与带前缀的 display_name。
+                conn.execute(
+                    "INSERT INTO upstream_models (id, upstream_id, model_id, verified_status, visible, display_name, context_window, max_output_tokens, reasoning_levels_json, capabilities_json)
+                     VALUES (?1, ?2, 'gemini-3.8-flash-high', 'declared', 1, 'Antigravity (Built-in) · gemini-3.8-flash-high', 1000000, 65536, '[\"off\",\"low\"]', '{}');",
+                    rusqlite::params![format!("{}:gemini-3.8-flash-high", ag.id), ag.id],
+                )?;
+                gw::set_gateway_binding(conn, TARGET)?;
+                Ok(())
+            })
+            .unwrap();
+
+        let models = build_models(&state).unwrap();
+        let flash = models
+            .iter()
+            .find(|m| m.id == "gemini-3.8-flash-high")
+            .expect("gemini-3.8-flash-high in models");
+        assert_eq!(flash.name, "gemini-3.8-flash-high");
+        assert_eq!(
+            flash.reasoning_efforts,
+            vec!["low".to_string(), "medium".to_string(), "high".to_string()]
+        );
+
+        let argon = models
+            .iter()
+            .find(|m| m.id == "gemini-4-argon-high")
+            .expect("gemini-4-argon-high in models");
+        assert_eq!(argon.name, "gemini-4-argon-high");
+        assert_eq!(
+            argon.reasoning_efforts,
+            vec!["low".to_string(), "medium".to_string(), "high".to_string()]
         );
     }
 }

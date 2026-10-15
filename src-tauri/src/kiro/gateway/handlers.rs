@@ -147,10 +147,13 @@ async fn handle(
         };
         let reply = upstream::generate(&account, &prepared.body).await;
         if let Some(message) = reply.network_error {
+            state.pool.note_failure(&account.id, FailureClass::Network);
+            if attempts < max_attempts {
+                continue;
+            }
             log_failure(
                 &state, &headers, &incoming, protocol, started, 504, "network",
             );
-            state.pool.note_failure(&account.id, FailureClass::Network);
             return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &message);
         }
         let text = String::from_utf8_lossy(&reply.body);
@@ -236,22 +239,81 @@ async fn handle(
             return response;
         }
         let mut decoder = FrameDecoder::new();
-        let frames = decoder.push(&reply.body).unwrap_or_default();
+        let frames = match decoder.push(&reply.body) {
+            Ok(frames) => frames,
+            Err(err) => {
+                log::warn!("Kiro event-stream decode error: {err:?}");
+                state.pool.note_failure(&account.id, FailureClass::Rotate);
+                if attempts < max_attempts {
+                    continue;
+                }
+                log_failure(
+                    &state, &headers, &incoming, protocol, started, 502, "upstream",
+                );
+                return error_response(
+                    protocol,
+                    StatusCode::BAD_GATEWAY,
+                    &format!("Kiro 上游事件流解析失败: {err:?}"),
+                );
+            }
+        };
         let mut collected = CollectedReply::default();
         if frames.is_empty() {
-            collected.text = text.to_string();
+            if let Ok(json_body) = serde_json::from_slice::<Value>(&reply.body) {
+                if let Some(err_msg) = json_body
+                    .get("message")
+                    .or_else(|| json_body.pointer("/error/message"))
+                    .and_then(Value::as_str)
+                {
+                    collected.upstream_error = Some(err_msg.to_string());
+                } else {
+                    collected.text = text.to_string();
+                }
+            } else {
+                collected.upstream_error = Some("Kiro 上游返回了空的事件流".to_string());
+            }
         } else {
             for frame in &frames {
                 collected.push_frame(frame);
             }
         }
-        let client_model = client_model(&headers, &prepared.client_model);
-        if !frames.is_empty() {
-            collected.finalize_usage(
-                crate::kiro::models::context_window(&prepared.backend_model),
-                body.len(),
+        if let Some(err_msg) = collected.upstream_error.as_deref() {
+            let stream_class = classify_upstream(502, err_msg, false);
+            state.pool.note_failure(&account.id, stream_class);
+            if attempts < max_attempts && stream_class != FailureClass::Client {
+                continue;
+            }
+            let status = if stream_class == FailureClass::Client {
+                StatusCode::BAD_REQUEST
+            } else if matches!(stream_class, FailureClass::CoolAndRotate) {
+                StatusCode::TOO_MANY_REQUESTS
+            } else {
+                StatusCode::BAD_GATEWAY
+            };
+            log_failure(
+                &state,
+                &headers,
+                &incoming,
+                protocol,
+                started,
+                status.as_u16() as i64,
+                if status == StatusCode::BAD_REQUEST {
+                    "client"
+                } else {
+                    "upstream"
+                },
+            );
+            return error_response(
+                protocol,
+                status,
+                &err_msg.chars().take(400).collect::<String>(),
             );
         }
+        let client_model = client_model(&headers, &prepared.client_model);
+        collected.finalize_usage(
+            crate::kiro::models::context_window(&prepared.backend_model),
+            body.len(),
+        );
         if map::should_log_usage("/v1/messages") {
             if let Some(id) = crate::kiro::usage_log::insert_request(
                 &state.db,

@@ -452,9 +452,9 @@ fn write_managed_provider(
     }
     entry["name"] = value(provider.name.trim());
     let base_url = if let Some(port) = proxy_port {
-        format!("http://127.0.0.1:{port}/v1")
+        format!("http://localhost:{port}/v1")
     } else {
-        provider.base_url.trim().to_string()
+        normalize_codex_loopback_base_url(provider.base_url.trim())
     };
     entry["base_url"] = value(base_url);
     // Local proxy always speaks Responses to Codex clients; upstream conversion
@@ -469,6 +469,28 @@ fn write_managed_provider(
         table.remove("env_key");
     }
     Ok(())
+}
+
+/// Codex's Windows system-proxy loader converts `ProxyOverride` (`localhost;127.*;...`)
+/// into `reqwest::NoProxy::from_string`, which matches `localhost` as a domain rule
+/// but treats `127.*` as a domain suffix rather than an IP range. Using `localhost`
+/// ensures loopback gateway/proxy URLs bypass system proxies (e.g., Yinyun) when
+/// Codex Desktop is launched without `NO_PROXY` in the environment.
+fn normalize_codex_loopback_base_url(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if let Some(idx) = lower.find("http://127.0.0.1:") {
+        if idx == 0 {
+            return format!("http://localhost:{}", &trimmed["http://127.0.0.1:".len()..]);
+        }
+    }
+    if lower == "http://127.0.0.1" {
+        return "http://localhost".to_string();
+    }
+    if let Some(rest) = trimmed.strip_prefix("http://127.0.0.1/") {
+        return format!("http://localhost/{rest}");
+    }
+    trimmed.to_string()
 }
 
 /// Built-in OpenAI-family slugs so Codex model pickers are not stuck on the
@@ -1380,7 +1402,7 @@ mod tests {
             );
             assert_eq!(
                 entry.get("base_url").and_then(Item::as_str),
-                Some("http://127.0.0.1:15823/v1")
+                Some("http://localhost:15823/v1")
             );
         });
     }
@@ -1719,7 +1741,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 entry.get("base_url").and_then(Item::as_str),
-                Some("http://127.0.0.1:15828/v1")
+                Some("http://localhost:15828/v1")
             );
             assert_eq!(proxy_listener_token(None, "gwt_shared", true), "gwt_shared");
         });

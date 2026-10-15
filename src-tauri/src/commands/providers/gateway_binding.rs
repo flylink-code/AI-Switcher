@@ -108,9 +108,8 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
 
 fn is_local_proxy_base_url_for_port(base_url: &str, expected_port: u16) -> bool {
     let trimmed = base_url.trim().trim_end_matches('/');
-    let expected = format!("http://127.0.0.1:{expected_port}/v1");
     let expected_localhost = format!("http://localhost:{expected_port}/v1");
-    trimmed.eq_ignore_ascii_case(&expected) || trimmed.eq_ignore_ascii_case(&expected_localhost)
+    trimmed.eq_ignore_ascii_case(&expected_localhost)
 }
 
 fn is_loopback_v1_base_url(base_url: &str) -> bool {
@@ -486,15 +485,7 @@ pub(crate) fn ensure_smart_gateway_provider_row(
         .as_ref()
         .map(|provider| provider.id.clone())
         .unwrap_or_else(|| crate::gateway::smart_gateway_provider_id(target));
-    let token = state
-        .db
-        .with_conn(|conn| {
-            Ok(crate::database::dao::gateway::binding_for_target(conn, target)?
-                .map(|binding| binding.entry_token)
-                .filter(|token| !token.trim().is_empty())
-                .unwrap_or_else(|| profile.entry_token.clone()))
-        })
-        .unwrap_or_else(|_| profile.entry_token.clone());
+    let _ = profile;
     let model = smart_gateway_default_model(
         existing.as_ref().map(|provider| provider.model.as_str()),
         &catalog_ids,
@@ -507,7 +498,7 @@ pub(crate) fn ensure_smart_gateway_provider_row(
             .filter(|name| !name.trim().is_empty())
             .unwrap_or_else(|| "智能网关".to_string()),
         base_url,
-        api_key: token,
+        api_key: String::new(),
         clear_api_key: false,
         model,
         model_context_window: existing.as_ref().and_then(|provider| provider.model_context_window),

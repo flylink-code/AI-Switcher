@@ -51,8 +51,8 @@ const MAX_MODEL_LEVEL_ATTEMPTS: usize = 3;
 const SUBAGENT_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(16);
 const SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(7);
 const SUBAGENT_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
-const MAIN_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(25);
-const MAIN_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(45);
+const MAIN_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(120);
+const MAIN_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(180);
 const SHORT_PAYLOAD_MAX_BYTES: usize = 12_000;
 const UPSTREAM_500_RETRY_BACKOFF: Duration = Duration::from_millis(250);
 
@@ -1183,15 +1183,8 @@ async fn stream_response(
     tool_params: ToolParamKeys,
     limiter_permit: LimiterPermit,
 ) -> Response {
-    let mut byte_stream = upstream.bytes_stream().boxed();
-    let mut buffer = SseLineBuffer::new();
-    // Hold the first upstream frame briefly so we can still swap accounts
-    // before any bytes reach the client.
-    if let Ok(Some(Ok(bytes))) =
-        tokio::time::timeout(Duration::from_millis(750), byte_stream.next()).await
-    {
-        buffer.push(&bytes);
-    }
+    let byte_stream = upstream.bytes_stream().boxed();
+    let buffer = SseLineBuffer::new();
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
         .then(|| ResponsesStreamEncoder::new(&model, tool_params.clone(), session_key.clone()));
     let stream = futures_util::stream::unfold(

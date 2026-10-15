@@ -441,11 +441,11 @@ fn hide_official_key(target: &str) -> Option<&'static str> {
     }
 }
 
-fn current_provider_is_smart_gateway(conn: &Connection, target: ProviderTarget) -> bool {
+fn has_current_non_smart_gateway_provider(conn: &Connection, target: ProviderTarget) -> bool {
     conn.query_row(
         "SELECT count(*) FROM providers
          WHERE target_app = ? AND is_current = 1
-           AND COALESCE(provider_kind, '') = 'smart_gateway';",
+           AND COALESCE(provider_kind, '') != 'smart_gateway';",
         params![target.as_str()],
         |row| row.get::<_, i64>(0),
     )
@@ -459,11 +459,12 @@ pub fn is_gateway_connection(conn: &Connection, target: ProviderTarget) -> bool 
             return false;
         }
         // Catalog agents keep Auto as an extra entry; binding alone means catalog-on.
-        // Code / Desktop / Codex only route through the gateway when Auto is current.
-        if target.is_catalog_target() {
+        // Code / Desktop / Codex route through the gateway when bound in gateway mode
+        // unless an independent non-smart_gateway provider is currently marked active.
+        if target.is_catalog_target() || target == ProviderTarget::VscodeCopilot {
             return true;
         }
-        return current_provider_is_smart_gateway(conn, target);
+        return !has_current_non_smart_gateway_provider(conn, target);
     }
     if table_exists(conn, "agent_connections") {
         let has_rows: i64 = conn
@@ -897,8 +898,8 @@ fn relink_gateway_connections_to_shared(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-fn sync_smart_gateway_provider_tokens(conn: &Connection, token: &str) -> AppResult<()> {
-    if token.trim().is_empty() || !table_exists(conn, "providers") {
+fn sync_smart_gateway_provider_tokens(conn: &Connection, _token: &str) -> AppResult<()> {
+    if !table_exists(conn, "providers") {
         return Ok(());
     }
     let has_kind: i64 = conn
@@ -912,9 +913,9 @@ fn sync_smart_gateway_provider_tokens(conn: &Connection, token: &str) -> AppResu
         return Ok(());
     }
     conn.execute(
-        "UPDATE providers SET api_key = ?
-         WHERE COALESCE(provider_kind, '') = 'smart_gateway';",
-        params![token],
+        "UPDATE providers SET api_key = ''
+         WHERE COALESCE(provider_kind, '') = 'smart_gateway' AND api_key != '';",
+        [],
     )?;
     Ok(())
 }

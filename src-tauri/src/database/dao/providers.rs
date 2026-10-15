@@ -174,7 +174,9 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             }
             // Determine the DB column value without allowing an implicit empty-key
             // update to erase an existing credential.
-            let api_key_col = if is_codex_oauth || input.clear_api_key {
+            // SmartGateway rows resolve their entry_token from gateway_bindings /
+            // gateway_profiles at runtime and never store secrets in the OS keyring.
+            let api_key_col = if is_codex_oauth || is_smart_gateway || input.clear_api_key {
                 String::new()
             } else if !input.api_key.trim().is_empty() {
                 secrets::store_key(id, input.api_key.trim())?;
@@ -204,6 +206,8 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         )?;
             if input.clear_api_key || is_codex_oauth {
                 secrets::delete_key(id)?;
+            } else if is_smart_gateway {
+                let _ = secrets::delete_key(id);
             }
             let updated = get_provider(conn, id)?
                 .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
@@ -223,7 +227,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             "新建供应商时不能删除不存在的 API Key".to_string(),
         ));
     }
-    let api_key_col = if is_codex_oauth {
+    let api_key_col = if is_codex_oauth || is_smart_gateway {
         String::new()
     } else if !input.api_key.trim().is_empty() {
         secrets::store_key(&id, input.api_key.trim())?;

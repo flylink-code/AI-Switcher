@@ -64,12 +64,21 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
         .or_else(|| body.get("reasoning_effort"))
         .and_then(Value::as_str);
     if let Some(effort) = effort {
-        let budget = match effort.to_ascii_lowercase().as_str() {
-            "minimal" | "low" => 2048,
+        let normalized_effort = match effort.trim().to_ascii_lowercase().as_str() {
+            "minimal" | "low" => "low",
+            "medium" => "medium",
+            "high" | "xhigh" | "max" => "high",
+            _ => "medium",
+        };
+        let budget = match normalized_effort {
+            "low" => 2048,
             "medium" => 8192,
             "high" => 16384,
             _ => 8192,
         };
+        result["output_config"] = json!({
+            "effort": normalized_effort
+        });
         result["thinking"] = json!({
             "type": "enabled",
             "budget_tokens": budget
@@ -373,6 +382,28 @@ fn responses_image_to_anthropic(part: &Value) -> Option<Value> {
     }))
 }
 
+const EDIT_UNIQUE_CONTEXT_HINT: &str = "\nIMPORTANT: Include enough surrounding context lines (such as the enclosing function header or unique adjacent statements) so `old_str` / `oldString` is 100% unique in the file and never matches multiple locations.";
+
+pub(crate) fn enrich_edit_tool_description(name: &str, raw_description: &str) -> String {
+    let lower = name.trim().to_ascii_lowercase();
+    let is_edit_tool = matches!(
+        lower.as_str(),
+        "edit"
+            | "edit_file"
+            | "str_replace"
+            | "replace_string_in_file"
+            | "multi_replace_string_in_file"
+    );
+    if !is_edit_tool || raw_description.contains("100% unique") {
+        return raw_description.to_string();
+    }
+    if raw_description.trim().is_empty() {
+        EDIT_UNIQUE_CONTEXT_HINT.trim_start().to_string()
+    } else {
+        format!("{raw_description}{EDIT_UNIQUE_CONTEXT_HINT}")
+    }
+}
+
 fn responses_tool_to_anthropic(tool: &Value) -> Option<Value> {
     let name = tool.get("name").and_then(Value::as_str)?;
     let schema = tool
@@ -380,12 +411,14 @@ fn responses_tool_to_anthropic(tool: &Value) -> Option<Value> {
         .or_else(|| tool.pointer("/function/parameters"))
         .cloned()
         .unwrap_or_else(|| json!({"type": "object", "properties": {}}));
+    let raw_desc = tool
+        .get("description")
+        .or_else(|| tool.pointer("/function/description"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
     Some(json!({
         "name": name,
-        "description": tool.get("description")
-            .or_else(|| tool.pointer("/function/description"))
-            .and_then(Value::as_str)
-            .unwrap_or(""),
+        "description": enrich_edit_tool_description(name, raw_desc),
         "input_schema": schema,
     }))
 }
@@ -1028,6 +1061,12 @@ impl AnthropicSseToResponsesConverter {
         } else {
             self.output_index
         }
+    }
+
+    pub fn start_handshake(&mut self) -> Vec<u8> {
+        let mut output = String::new();
+        self.ensure_started(&mut output);
+        output.into_bytes()
     }
 
     fn ensure_started(&mut self, output: &mut String) {

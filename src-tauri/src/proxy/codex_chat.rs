@@ -389,6 +389,12 @@ impl ChatSseToResponsesConverter {
         out.into_bytes()
     }
 
+    pub fn start_handshake(&mut self) -> Vec<u8> {
+        let mut out = String::new();
+        self.ensure_started(&mut out);
+        out.into_bytes()
+    }
+
     fn ensure_started(&mut self, out: &mut String) {
         if self.started {
             return;
@@ -888,9 +894,19 @@ fn responses_tool_to_chat(tool: &Value) -> Option<Value> {
         .or_else(|| tool.pointer("/function/parameters"))
         .cloned()
         .unwrap_or(json!({ "type": "object", "properties": {} }));
+    let raw_desc = tool
+        .get("description")
+        .or_else(|| tool.pointer("/function/description"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let description = super::codex_anthropic::enrich_edit_tool_description(name, raw_desc);
+    let mut function = json!({ "name": name, "parameters": parameters });
+    if !description.is_empty() {
+        function["description"] = Value::String(description);
+    }
     Some(json!({
         "type": "function",
-        "function": { "name": name, "parameters": parameters }
+        "function": function
     }))
 }
 

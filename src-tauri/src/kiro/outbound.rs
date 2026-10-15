@@ -130,7 +130,9 @@ pub fn build_blocking_client(timeout_secs: u64) -> BlockingClient {
 
 fn client_builder(timeout_secs: u64) -> reqwest::ClientBuilder {
     let mut builder = Client::builder()
-        .connect_timeout(Duration::from_secs(5))
+        .connect_timeout(Duration::from_secs(15))
+        .pool_idle_timeout(Duration::from_secs(90))
+        .tcp_keepalive(Duration::from_secs(30))
         .timeout(Duration::from_secs(timeout_secs));
     builder = attach_proxy(builder);
     builder
@@ -138,7 +140,7 @@ fn client_builder(timeout_secs: u64) -> reqwest::ClientBuilder {
 
 fn blocking_builder(timeout_secs: u64) -> reqwest::blocking::ClientBuilder {
     let mut builder = BlockingClient::builder()
-        .connect_timeout(Duration::from_secs(5))
+        .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(timeout_secs));
     builder = attach_blocking_proxy(builder);
     builder

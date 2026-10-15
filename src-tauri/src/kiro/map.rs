@@ -109,7 +109,7 @@ fn anthropic_turns(
     incoming: &Value,
     model: &str,
 ) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
-    let tools = incoming
+    let mut tools: Vec<Value> = incoming
         .get("tools")
         .and_then(|item| item.as_array())
         .map(|tools| tools.iter().filter_map(anthropic_tool).collect())
@@ -121,10 +121,19 @@ fn anthropic_turns(
         .unwrap_or_default();
     if let Some(system) = text_of(incoming.get("system")) {
         if !system.is_empty() {
-            messages.insert(0, json!({"role": "user", "content": system}));
+            if messages.len() <= 1 {
+                messages.insert(0, json!({"role": "user", "content": system}));
+            } else {
+                messages.insert(0, json!({"role": "user", "content": system}));
+                messages.insert(
+                    1,
+                    json!({"role": "assistant", "content": "I will follow these instructions."}),
+                );
+            }
         }
     }
-    let (history, current, _) = turns_from_messages(&messages, model, true)?;
+    let (mut history, mut current, _) = turns_from_messages(&messages, model, true)?;
+    sanitize_tool_pairing_and_placeholders(&mut history, &mut current, &mut tools);
     Ok((history, current, tools))
 }
 
@@ -132,7 +141,7 @@ fn openai_chat_turns(
     incoming: &Value,
     model: &str,
 ) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
-    let tools = incoming
+    let mut tools: Vec<Value> = incoming
         .get("tools")
         .and_then(|item| item.as_array())
         .map(|tools| {
@@ -148,7 +157,8 @@ fn openai_chat_turns(
         .and_then(|item| item.as_array())
         .cloned()
         .unwrap_or_default();
-    let (history, current, _) = turns_from_messages(&messages, model, false)?;
+    let (mut history, mut current, _) = turns_from_messages(&messages, model, false)?;
+    sanitize_tool_pairing_and_placeholders(&mut history, &mut current, &mut tools);
     Ok((history, current, tools))
 }
 
@@ -209,7 +219,7 @@ fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Valu
         .and_then(|role| role.as_str())
         .unwrap_or("user");
     if role == "assistant" {
-        let content = text_of(message.get("content")).unwrap_or_default();
+        let mut content = text_of(message.get("content")).unwrap_or_default();
         let tool_uses = if anthropic {
             anthropic_tool_uses(message.get("content"))
         } else {
@@ -217,6 +227,9 @@ fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Valu
         };
         if content.trim().is_empty() && tool_uses.is_empty() {
             return None;
+        }
+        if content.is_empty() && !tool_uses.is_empty() {
+            content = " ".to_string();
         }
         let mut assistant = json!({ "content": content });
         if !tool_uses.is_empty() {
@@ -302,24 +315,191 @@ fn text_of(content: Option<&Value>) -> Option<String> {
     Some(text)
 }
 
+fn normalize_kiro_tool_schema(schema: Value) -> Value {
+    let Value::Object(mut obj) = schema else {
+        return json!({
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": true
+        });
+    };
+    obj.remove("$schema");
+    let has_props = obj.contains_key("properties");
+    for combinator in ["oneOf", "anyOf", "allOf"] {
+        if let Some(Value::Array(variants)) = obj.remove(combinator) {
+            if !has_props && !obj.contains_key("properties") {
+                for variant in variants {
+                    if let Value::Object(m) = variant {
+                        if m.get("type").and_then(Value::as_str) == Some("object") {
+                            for key in ["properties", "required", "additionalProperties", "description"] {
+                                if let Some(val) = m.get(key) {
+                                    obj.entry(key.to_string()).or_insert_with(|| val.clone());
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    obj.insert("type".to_string(), Value::String("object".to_string()));
+    if !obj.get("properties").is_some_and(Value::is_object) {
+        obj.insert("properties".to_string(), json!({}));
+    }
+    Value::Object(obj)
+}
+
+fn sanitize_tool_pairing_and_placeholders(
+    history: &mut Vec<Value>,
+    current: &mut CurrentTurn,
+    tools: &mut Vec<Value>,
+) {
+    let mut all_tool_use_ids = std::collections::HashSet::new();
+    let mut paired_in_history = std::collections::HashSet::new();
+
+    for entry in history.iter() {
+        if let Some(uses) = entry
+            .pointer("/assistantResponseMessage/toolUses")
+            .and_then(Value::as_array)
+        {
+            for u in uses {
+                if let Some(id) = u.get("toolUseId").and_then(Value::as_str) {
+                    all_tool_use_ids.insert(id.to_string());
+                }
+            }
+        }
+        if let Some(results) = entry
+            .pointer("/userInputMessage/userInputMessageContext/toolResults")
+            .and_then(Value::as_array)
+        {
+            for r in results {
+                if let Some(id) = r.get("toolUseId").and_then(Value::as_str) {
+                    paired_in_history.insert(id.to_string());
+                }
+            }
+        }
+    }
+
+    let mut unpaired: std::collections::HashSet<String> = all_tool_use_ids
+        .difference(&paired_in_history)
+        .cloned()
+        .collect();
+
+    current.tool_results.retain(|r| {
+        let Some(id) = r.get("toolUseId").and_then(Value::as_str) else {
+            return false;
+        };
+        unpaired.remove(id)
+    });
+
+    if !unpaired.is_empty() {
+        for entry in history.iter_mut() {
+            if let Some(assistant) = entry
+                .get_mut("assistantResponseMessage")
+                .and_then(Value::as_object_mut)
+            {
+                if let Some(uses) = assistant.get_mut("toolUses").and_then(Value::as_array_mut) {
+                    uses.retain(|u| {
+                        u.get("toolUseId")
+                            .and_then(Value::as_str)
+                            .is_some_and(|id| !unpaired.contains(id))
+                    });
+                    if uses.is_empty() {
+                        assistant.remove("toolUses");
+                    }
+                }
+            }
+        }
+    }
+
+    let mut existing_names: std::collections::HashSet<String> = tools
+        .iter()
+        .filter_map(|t| {
+            t.pointer("/toolSpecification/name")
+                .and_then(Value::as_str)
+                .map(|s| s.to_ascii_lowercase())
+        })
+        .collect();
+
+    for entry in history.iter() {
+        if let Some(uses) = entry
+            .pointer("/assistantResponseMessage/toolUses")
+            .and_then(Value::as_array)
+        {
+            for u in uses {
+                if let Some(name) = u.get("name").and_then(Value::as_str) {
+                    if existing_names.insert(name.to_ascii_lowercase()) {
+                        tools.push(json!({
+                            "toolSpecification": {
+                                "name": name,
+                                "description": "Tool used in conversation history",
+                                "inputSchema": {
+                                    "json": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "required": [],
+                                        "additionalProperties": true
+                                    }
+                                }
+                            }
+                        }));
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn anthropic_tool(tool: &Value) -> Option<Value> {
     let name = tool.get("name").and_then(|item| item.as_str())?;
+    let raw_desc = tool
+        .get("description")
+        .and_then(|item| item.as_str())
+        .unwrap_or("");
+    let desc = crate::proxy::codex_anthropic::enrich_edit_tool_description(name, raw_desc);
+    let description = if desc.trim().is_empty() {
+        name.to_string()
+    } else {
+        desc
+    };
+    let schema = normalize_kiro_tool_schema(
+        tool.get("input_schema")
+            .cloned()
+            .unwrap_or_else(|| json!({"type":"object"})),
+    );
     Some(json!({
         "toolSpecification": {
             "name": name,
-            "description": tool.get("description").and_then(|item| item.as_str()).unwrap_or(""),
-            "inputSchema": { "json": tool.get("input_schema").cloned().unwrap_or_else(|| json!({"type":"object"})) }
+            "description": description,
+            "inputSchema": { "json": schema }
         }
     }))
 }
 
 fn openai_tool(tool: &Value) -> Option<Value> {
     let name = tool.get("name").and_then(|item| item.as_str())?;
+    let raw_desc = tool
+        .get("description")
+        .and_then(|item| item.as_str())
+        .unwrap_or("");
+    let desc = crate::proxy::codex_anthropic::enrich_edit_tool_description(name, raw_desc);
+    let description = if desc.trim().is_empty() {
+        name.to_string()
+    } else {
+        desc
+    };
+    let schema = normalize_kiro_tool_schema(
+        tool.get("parameters")
+            .cloned()
+            .unwrap_or_else(|| json!({"type":"object"})),
+    );
     Some(json!({
         "toolSpecification": {
             "name": name,
-            "description": tool.get("description").and_then(|item| item.as_str()).unwrap_or(""),
-            "inputSchema": { "json": tool.get("parameters").cloned().unwrap_or_else(|| json!({"type":"object"})) }
+            "description": description,
+            "inputSchema": { "json": schema }
         }
     }))
 }
@@ -491,6 +671,7 @@ pub struct CollectedReply {
     pub output_tokens: i64,
     pub cache_read: i64,
     pub cache_write: i64,
+    pub upstream_error: Option<String>,
     /// `contextUsageEvent.contextUsagePercentage` (0–100). Exact `tokenUsage` wins.
     context_percent: Option<f64>,
     usage_measured: bool,
@@ -505,6 +686,31 @@ pub struct ToolCall {
 
 impl CollectedReply {
     pub fn push_frame(&mut self, frame: &Frame) {
+        if frame.message_type == "error" || frame.message_type == "exception" {
+            let detail = serde_json::from_slice::<Value>(&frame.payload)
+                .ok()
+                .and_then(|v| {
+                    v.get("message")
+                        .or_else(|| v.get("Message"))
+                        .or_else(|| v.get("errorMessage"))
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                })
+                .unwrap_or_else(|| String::from_utf8_lossy(&frame.payload).trim().to_string());
+            let label = frame
+                .exception_type
+                .as_deref()
+                .or(frame.error_code.as_deref())
+                .unwrap_or(&frame.event_type);
+            if label != "ContentLengthExceededException" {
+                self.upstream_error = Some(if detail.is_empty() {
+                    label.to_string()
+                } else {
+                    format!("{label}: {detail}")
+                });
+            }
+            return;
+        }
         let Ok(payload) = serde_json::from_slice::<Value>(&frame.payload) else {
             return;
         };
@@ -1082,6 +1288,60 @@ mod tests {
     fn count_tokens_is_not_usage() {
         assert!(!should_log_usage("/v1/messages/count_tokens"));
         assert!(should_log_usage("/v1/messages"));
+    }
+
+    #[test]
+    fn system_prompt_and_orphaned_tools_are_sanitized_for_kiro() {
+        let incoming = json!({
+            "model": "claude-sonnet-5.5",
+            "system": "Be concise",
+            "tools": [
+                {
+                    "name": "edit",
+                    "description": "Edit a file",
+                    "input_schema": {
+                        "$schema": "https://json-schema.org/draft/2020-12/schema",
+                        "type": "object",
+                        "properties": { "path": { "type": "string" } }
+                    }
+                }
+            ],
+            "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": [
+                    {"type": "tool_use", "id": "orphan_1", "name": "old_tool", "input": {}}
+                ]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "dangling_res", "content": "ignored"},
+                    {"type": "text", "text": "next"}
+                ]}
+            ]
+        });
+        let prepared = prepare(WireProtocol::Anthropic, &incoming, &account()).unwrap();
+        let history = prepared.body["conversationState"]["history"]
+            .as_array()
+            .unwrap();
+        // System prompt should be paired with an assistant acknowledgement so two user messages aren't adjacent
+        assert_eq!(history[0]["userInputMessage"]["content"], "Be concise");
+        assert_eq!(
+            history[1]["assistantResponseMessage"]["content"],
+            "I will follow these instructions."
+        );
+        // Orphaned tool_result (`dangling_res`) should be stripped from current message
+        assert!(
+            prepared.body["conversationState"]["currentMessage"]["userInputMessage"]
+                ["userInputMessageContext"]
+                .get("toolResults")
+                .is_none()
+        );
+        // `edit` tool description should be enriched with uniqueness hint and `$schema` stripped
+        let tool_spec = &prepared.body["conversationState"]["currentMessage"]["userInputMessage"]
+            ["userInputMessageContext"]["tools"][0]["toolSpecification"];
+        assert!(tool_spec["description"]
+            .as_str()
+            .unwrap()
+            .contains("100% unique"));
+        assert!(tool_spec["inputSchema"]["json"].get("$schema").is_none());
     }
 
     fn reply_from_payload(event_type: &str, payload: &Value) -> CollectedReply {

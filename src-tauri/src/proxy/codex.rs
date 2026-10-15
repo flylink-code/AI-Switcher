@@ -1235,15 +1235,18 @@ async fn forward_chat_bridge_upstream(
     let target_app = state.target.as_str().to_string();
     let provider_id = provider.id.clone();
     let fallback_model = provider.model.clone();
-    let stream = futures_util::stream::unfold(
-        (
-            upstream.bytes_stream(),
-            Vec::new(),
-            ChatSseToResponsesConverter::new(&fallback_model),
-            false,
-            None::<String>,
-            Vec::<u8>::new(),
-        ),
+    let mut converter = ChatSseToResponsesConverter::new(&fallback_model);
+    let initial_handshake = Bytes::from(converter.start_handshake());
+    let stream = stream::once(async move { Ok::<Bytes, Infallible>(initial_handshake) }).chain(
+        futures_util::stream::unfold(
+            (
+                upstream.bytes_stream(),
+                Vec::new(),
+                converter,
+                false,
+                None::<String>,
+                Vec::<u8>::new(),
+            ),
         move |(
             mut upstream_stream,
             mut buffer,
@@ -1376,7 +1379,7 @@ async fn forward_chat_bridge_upstream(
                 ))
             }
         },
-    );
+    ));
 
     Response::builder()
         .status(if status.is_success() {
@@ -1547,15 +1550,18 @@ async fn forward_anthropic_upstream(
     let target_app = state.target.as_str().to_string();
     let provider_id = provider.id.clone();
     let fallback_model = provider.model.clone();
-    let stream = futures_util::stream::unfold(
-        (
-            upstream.bytes_stream(),
-            Vec::new(),
-            AnthropicSseToResponsesConverter::new(&fallback_model),
-            false,
-            None::<String>,
-            Vec::<u8>::new(),
-        ),
+    let mut converter = AnthropicSseToResponsesConverter::new(&fallback_model);
+    let initial_handshake = Bytes::from(converter.start_handshake());
+    let stream = stream::once(async move { Ok::<Bytes, Infallible>(initial_handshake) }).chain(
+        futures_util::stream::unfold(
+            (
+                upstream.bytes_stream(),
+                Vec::new(),
+                converter,
+                false,
+                None::<String>,
+                Vec::<u8>::new(),
+            ),
         move |(
             mut upstream_stream,
             mut buffer,
@@ -1658,7 +1664,7 @@ async fn forward_anthropic_upstream(
                 ))
             }
         },
-    );
+    ));
 
     Response::builder()
         .status(if status.is_success() {

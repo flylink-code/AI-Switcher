@@ -6,7 +6,7 @@
 //! table for the usage dashboard (P4).
 
 mod codex;
-mod codex_anthropic;
+pub(crate) mod codex_anthropic;
 mod codex_auto_review;
 pub(crate) mod codex_chat;
 mod codex_compact;

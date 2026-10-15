@@ -39,10 +39,11 @@ pub fn infer(model_id: &str) -> InferredMeta {
     {
         meta.capabilities["web_search"] = json!(true);
     }
-    if bare.contains("flash")
-        || bare.contains("haiku")
-        || bare.contains("mini")
-        || bare.contains("chat")
+    if !bare.contains("gemini")
+        && (bare.contains("flash")
+            || bare.contains("haiku")
+            || bare.contains("mini")
+            || bare.contains("chat"))
     {
         meta.reasoning_levels = vec!["off".into(), "low".into()];
     }
@@ -118,6 +119,36 @@ mod tests {
         assert_eq!(
             context_window_for("claude.antigravity--built-in.gemini-4-argon-high"),
             1_000_000
+        );
+    }
+
+    #[test]
+    fn gemini_flash_and_argon_infer_full_reasoning_levels() {
+        let flash = infer("gemini-3.8-flash-high");
+        assert_eq!(
+            flash.reasoning_levels,
+            vec![
+                "off".to_string(),
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string()
+            ]
+        );
+        let argon = infer("gemini-4-argon-medium");
+        assert_eq!(
+            argon.reasoning_levels,
+            vec![
+                "off".to_string(),
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string()
+            ]
+        );
+        // Non-Gemini flash/haiku/mini models keep their compact ["off", "low"] levels.
+        let ds_flash = infer("deepseek-v4-flash");
+        assert_eq!(
+            ds_flash.reasoning_levels,
+            vec!["off".to_string(), "low".to_string()]
         );
     }
 }
