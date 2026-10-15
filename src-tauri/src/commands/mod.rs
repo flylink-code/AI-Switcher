@@ -33,6 +33,7 @@ pub mod sync;
 pub mod system;
 pub mod tools;
 pub mod usage;
+pub mod vscode_copilot;
 pub use agents::{delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled};
 pub use antigravity::{
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_fast_path_settings,

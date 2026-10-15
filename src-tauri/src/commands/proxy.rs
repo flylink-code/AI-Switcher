@@ -217,6 +217,7 @@ fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
         crate::provider::ProviderTarget::Pi => "proxy_port_pi",
         crate::provider::ProviderTarget::Dsh => "proxy_port_dsh",
         crate::provider::ProviderTarget::Cline => "proxy_port_cline",
+        crate::provider::ProviderTarget::VscodeCopilot => "proxy_port_vscode_copilot",
     }
 }
 
@@ -237,6 +238,8 @@ fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget
             crate::provider::ProviderTarget::Pi => DEFAULT_PORT + 4,
             crate::provider::ProviderTarget::Dsh => DEFAULT_PORT + 5,
             crate::provider::ProviderTarget::Cline => DEFAULT_PORT + 6,
+            // 占位：Copilot 不启动本地代理，直连智能网关。
+            crate::provider::ProviderTarget::VscodeCopilot => DEFAULT_PORT + 8,
         })
 }
 

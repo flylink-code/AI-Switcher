@@ -17,6 +17,7 @@ const LABEL_KEYS: Record<ProviderTarget, string> = {
   pi: "workspace.pi",
   dsh: "workspace.dsh",
   cline: "workspace.cline",
+  vscode_copilot: "workspace.vscode_copilot",
 };
 
 type Props<T extends ProviderTarget> = {

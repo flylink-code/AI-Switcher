@@ -275,7 +275,10 @@ fn target_provider_prefix_and_ids(
         ProviderTarget::ClaudeDesktop | ProviderTarget::Dsh => Err(AppError::Config(
             "Claude Desktop 与 DSH 在产品面隐藏，不显示在托盘菜单中".to_string(),
         )),
-        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Cline => {
+        ProviderTarget::OpenCode
+        | ProviderTarget::Pi
+        | ProviderTarget::Cline
+        | ProviderTarget::VscodeCopilot => {
             Err(AppError::Config(
                 "T2 Agent 仅提供跳转供应商页，不在此构建独立供应商切换菜单".to_string(),
             ))

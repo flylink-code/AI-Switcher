@@ -21,6 +21,7 @@ const SOURCE_SHORT_LABEL: Record<UsageSourceFilter, string> = {
   pi: "agentSwitcher.pi",
     dsh: "agentSwitcher.dsh",
   cline: "agentSwitcher.cline",
+  vscode_copilot: "agentSwitcher.vscodeCopilot",
   antigravity: "usage.sourceAntigravity",
 };
 
@@ -75,7 +76,13 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const availableOptions = USAGE_SOURCE_FILTER_OPTIONS.filter((option) => {
-    if (option.value === "all" || option.value === "antigravity") return true;
+    if (
+      option.value === "all" ||
+      option.value === "antigravity" ||
+      option.value === "vscode_copilot"
+    ) {
+      return true;
+    }
     return visibleAgents.includes(option.value);
   });
 

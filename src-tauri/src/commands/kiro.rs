@@ -183,7 +183,7 @@ pub async fn ensure_kiro_provider(
     let opus = preferred_opus();
     let haiku = preferred_haiku();
     let (protocol_type, base_url, model_mapping) = match target {
-        ProviderTarget::Codex | ProviderTarget::Cline => (
+        ProviderTarget::Codex | ProviderTarget::Cline | ProviderTarget::VscodeCopilot => (
             ProtocolType::OpenAiResponses,
             format!("{}/v1", status.base_url.trim_end_matches('/')),
             ClaudeModelMapping::default(),

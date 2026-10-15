@@ -28,6 +28,7 @@ export function supportsDirectModelMapping(target: ProviderTarget): boolean {
     case "pi":
     case "cline":
     case "dsh":
+    case "vscode_copilot":
       return false;
     default: {
       const _exhaustive: never = target;

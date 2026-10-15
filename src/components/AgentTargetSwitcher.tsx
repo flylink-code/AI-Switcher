@@ -27,6 +27,7 @@ export const LABEL_KEYS: Record<ProviderTarget, string> = {
   pi: "workspace.pi",
   dsh: "workspace.dsh",
   cline: "workspace.cline",
+  vscode_copilot: "workspace.vscode_copilot",
 };
 
 const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
@@ -37,6 +38,7 @@ const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
   pi: "agentSwitcher.pi",
   dsh: "agentSwitcher.dsh",
   cline: "agentSwitcher.cline",
+  vscode_copilot: "agentSwitcher.vscodeCopilot",
 };
 
 export interface AgentTargetSwitcherProps {

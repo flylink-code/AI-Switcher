@@ -55,6 +55,10 @@ pub enum ProviderTarget {
     Dsh,
     #[serde(rename = "cline")]
     Cline,
+    /// VS Code Copilot（原生 Custom Endpoint）。不写 live provider，只托管
+    /// `chatLanguageModels.json` 中的一项；请求经智能网关，身份由独立绑定 token 决定。
+    #[serde(rename = "vscode_copilot")]
+    VscodeCopilot,
 }
 
 impl ProviderTarget {
@@ -67,6 +71,7 @@ impl ProviderTarget {
             ProviderTarget::Pi => "pi",
             ProviderTarget::Dsh => "dsh",
             ProviderTarget::Cline => "cline",
+            ProviderTarget::VscodeCopilot => "vscode_copilot",
         }
     }
 
@@ -78,6 +83,7 @@ impl ProviderTarget {
             "pi" => ProviderTarget::Pi,
             "dsh" => ProviderTarget::Dsh,
             "cline" => ProviderTarget::Cline,
+            "vscode_copilot" => ProviderTarget::VscodeCopilot,
             _ => ProviderTarget::ClaudeCode,
         }
     }
@@ -527,7 +533,7 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
     if source.is_antigravity() {
         let root = strip_trailing_v1_path(&url);
         return match dest {
-            ProviderTarget::Codex | ProviderTarget::Cline => {
+            ProviderTarget::Codex | ProviderTarget::Cline | ProviderTarget::VscodeCopilot => {
                 (ProtocolType::OpenAiResponses, join_base(&root, "v1"))
             }
             ProviderTarget::ClaudeCode
@@ -547,13 +553,16 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
             | ProviderTarget::OpenCode
             | ProviderTarget::Pi
             | ProviderTarget::Dsh
-            | ProviderTarget::Cline => (ProtocolType::OpenAiChat, join_base(&root, "v1")),
+            | ProviderTarget::Cline
+            | ProviderTarget::VscodeCopilot => (ProtocolType::OpenAiChat, join_base(&root, "v1")),
         },
         CopiedVendor::DeepSeek => match dest {
             ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => {
                 (ProtocolType::Anthropic, join_base(&root, "anthropic"))
             }
-            ProviderTarget::Codex | ProviderTarget::Cline => (ProtocolType::OpenAiResponses, root),
+            ProviderTarget::Codex | ProviderTarget::Cline | ProviderTarget::VscodeCopilot => {
+                (ProtocolType::OpenAiResponses, root)
+            }
             ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => (protocol, url),
         },
         CopiedVendor::Generic => match dest {

@@ -53,6 +53,7 @@ impl ProxyManager {
             ProviderTarget::Pi => self.pi.as_ref(),
             ProviderTarget::Dsh => self.dsh.as_ref(),
             ProviderTarget::Cline => self.cline.as_ref(),
+            ProviderTarget::VscodeCopilot => None,
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
         ProxyStatus {
@@ -65,6 +66,7 @@ impl ProxyManager {
                 ProviderTarget::Pi => DEFAULT_PORT + 4,
                 ProviderTarget::Dsh => DEFAULT_PORT + 5,
                 ProviderTarget::Cline => DEFAULT_PORT + 6,
+                ProviderTarget::VscodeCopilot => DEFAULT_PORT + 8,
             }),
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
@@ -77,6 +79,11 @@ impl ProxyManager {
 
     /// Start or replace one app's proxy without interrupting the other app.
     pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
+        if target == ProviderTarget::VscodeCopilot {
+            return Err(AppError::Config(
+                "VS Code Copilot 直连智能网关，不使用本地代理".to_string(),
+            ));
+        }
         let current = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
@@ -85,6 +92,7 @@ impl ProxyManager {
             ProviderTarget::Pi => self.pi.as_ref(),
             ProviderTarget::Dsh => self.dsh.as_ref(),
             ProviderTarget::Cline => self.cline.as_ref(),
+            ProviderTarget::VscodeCopilot => None,
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
             return Ok(());
@@ -185,6 +193,10 @@ impl ProxyManager {
             ProviderTarget::Pi => self.pi.replace(runtime),
             ProviderTarget::Dsh => self.dsh.replace(runtime),
             ProviderTarget::Cline => self.cline.replace(runtime),
+            ProviderTarget::VscodeCopilot => {
+                runtime.handle.abort();
+                None
+            }
         };
         if let Some(previous) = previous {
             let _ = previous.shutdown_tx.send(());
@@ -230,6 +242,7 @@ impl ProxyManager {
             ProviderTarget::Pi => self.pi.take(),
             ProviderTarget::Dsh => self.dsh.take(),
             ProviderTarget::Cline => self.cline.take(),
+            ProviderTarget::VscodeCopilot => None,
         };
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());
@@ -246,6 +259,7 @@ impl ProxyManager {
             ProviderTarget::Pi => self.pi.take(),
             ProviderTarget::Dsh => self.dsh.take(),
             ProviderTarget::Cline => self.cline.take(),
+            ProviderTarget::VscodeCopilot => None,
         };
         let Some(runtime) = runtime else {
             return;
@@ -579,7 +593,7 @@ pub(crate) fn load_gateway_catalog(
 }
 
 fn presented_listener_token(headers: &HeaderMap) -> String {
-    headers
+    let authorization = headers
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .map(|value| {
@@ -590,11 +604,15 @@ fn presented_listener_token(headers: &HeaderMap) -> String {
                 .trim()
                 .to_string()
         })
+        // 某些客户端在凭据解析失败时会发送裸 `Bearer`，此时继续尝试 x-api-key。
+        .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case("bearer"));
+    authorization
         .or_else(|| {
             headers
                 .get("x-api-key")
                 .and_then(|value| value.to_str().ok())
                 .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
         })
         .unwrap_or_default()
 }

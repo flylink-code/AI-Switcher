@@ -517,7 +517,22 @@ async fn restore_official_for_target<R: tauri::Runtime>(
                     })??;
             }
             // Pi / Dsh 无独立「官方配置」文件；清除当前供应商 + 停代理即可。
-            ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline => {}
+            ProviderTarget::Pi
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline => {}
+            ProviderTarget::VscodeCopilot => {
+                let path = crate::config::vscode_copilot::chat_language_models_path();
+                tauri::async_runtime::spawn_blocking(move || {
+                    crate::config::vscode_copilot::remove_managed_at(&path)
+                })
+                .await
+                .map_err(|error| {
+                    AppError::Tauri(format!("VS Code Copilot 托管配置移除任务失败: {error}"))
+                })??;
+                state
+                    .db
+                    .with_conn(|conn| set_setting(conn, "v1400.vscode_copilot_managed", ""))?;
+            }
         }
         state.proxy.lock().await.stop_target(target);
         if let Some(app) = app {

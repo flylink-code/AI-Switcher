@@ -22,6 +22,7 @@ const AGENT_SUPPORTED_TABS: Record<ProviderTarget, WorkspaceResourceTab[]> = {
   pi: ["sessions", "mcp", "prompts", "skills"],
   dsh: [],
   cline: ["sessions", "mcp", "prompts", "skills"],
+  vscode_copilot: [],
 };
 
 const WORKSPACE_PAGES: WorkspaceResourceTab[] = [

@@ -12,6 +12,7 @@ pub mod codex_provider_sync;
 pub mod dsh;
 pub mod opencode;
 pub mod paths;
+pub mod vscode_copilot;
 
 // P2-wired re-exports.
 #[allow(unused_imports)]

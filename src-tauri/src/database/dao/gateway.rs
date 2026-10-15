@@ -3825,6 +3825,25 @@ mod tests {
     }
 
     #[test]
+    fn vscode_copilot_token_resolves_to_its_own_target() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let binding = set_gateway_binding(conn, ProviderTarget::VscodeCopilot)?;
+            assert!(binding.entry_token.starts_with("gwt_"));
+            let resolved = binding_by_token(conn, &binding.entry_token)?.unwrap();
+            assert_eq!(resolved.target_app, ProviderTarget::VscodeCopilot);
+            assert_eq!(
+                ProviderTarget::from_str_lossy("vscode_copilot"),
+                ProviderTarget::VscodeCopilot
+            );
+            super::delete_binding(conn, ProviderTarget::VscodeCopilot)?;
+            assert!(binding_for_target(conn, ProviderTarget::VscodeCopilot)?.is_none());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
     fn current_profile_follows_binding_and_delete_falls_back() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {

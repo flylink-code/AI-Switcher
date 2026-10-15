@@ -213,7 +213,7 @@ pub async fn ensure_antigravity_provider(
         .collect();
 
     let (protocol_type, base_url, model_mapping) = match target {
-        ProviderTarget::Codex | ProviderTarget::Cline => (
+        ProviderTarget::Codex | ProviderTarget::Cline | ProviderTarget::VscodeCopilot => (
             ProtocolType::OpenAiResponses,
             format!("{}/v1", status.base_url.trim_end_matches('/')),
             ClaudeModelMapping::default(),

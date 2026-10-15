@@ -2,6 +2,7 @@
 .zcode/
 .claude/
 .agents/
+.cargo-target-check/
 
 # Dependencies
 node_modules/

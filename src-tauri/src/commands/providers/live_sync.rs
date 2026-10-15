@@ -395,11 +395,21 @@ pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<(
     let bindings = state
         .db
         .with_conn(crate::database::dao::gateway::list_bindings)?;
+    let mut first_error: Option<AppError> = None;
     for binding in bindings {
         if binding.mode != "gateway" {
             continue;
         }
         match binding.target_app {
+            // Copilot 没有 live provider 副本：刷新托管的 chatLanguageModels.json 条目即可。
+            ProviderTarget::VscodeCopilot => {
+                if let Err(error) = crate::commands::vscode_copilot::sync_managed_config(state) {
+                    log::warn!("同步 VS Code Copilot 托管配置失败: {error}");
+                    if first_error.is_none() {
+                        first_error = Some(error);
+                    }
+                }
+            }
             ProviderTarget::OpenCode
             | ProviderTarget::Pi
             | ProviderTarget::Dsh
@@ -434,6 +444,9 @@ pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<(
                 }
             }
         }
+    }
+    if let Some(error) = first_error {
+        return Err(error);
     }
     Ok(())
 }
@@ -1003,6 +1016,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 sync_dsh_providers_to_live(state)?;
                 Ok((None, None))
             }
+            ProviderTarget::VscodeCopilot => Ok((None, None)),
             ProviderTarget::Cline => {
                 if uses_proxy {
                     state
@@ -1103,6 +1117,9 @@ impl SwitchSnapshot {
                 crate::config::get_dsh_credentials_path(),
             ],
             ProviderTarget::Cline => vec![crate::config::cline::cline_config_dir().join("ai-switcher.json")],
+            ProviderTarget::VscodeCopilot => {
+                vec![crate::config::vscode_copilot::chat_language_models_path()]
+            }
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {
@@ -1113,6 +1130,7 @@ impl SwitchSnapshot {
             ProviderTarget::Pi => PI_OWNERSHIP_KEY,
             ProviderTarget::Dsh => "v1310.dsh_managed",
             ProviderTarget::Cline => "v1323.cline_managed",
+            ProviderTarget::VscodeCopilot => "v1400.vscode_copilot_managed",
         };
         let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
         let proxy = {

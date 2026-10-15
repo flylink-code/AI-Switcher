@@ -1,5 +1,17 @@
 import { call } from "./ipc";
-import type { ConfigDriftReport } from "@/types/backend";
+import type { ConfigDriftReport, VscodeCopilotStatus } from "@/types/backend";
+
+export function getVscodeCopilotStatus(): Promise<VscodeCopilotStatus> {
+  return call("get_vscode_copilot_status");
+}
+
+export function applyVscodeCopilot(): Promise<VscodeCopilotStatus> {
+  return call("apply_vscode_copilot");
+}
+
+export function removeVscodeCopilot(): Promise<VscodeCopilotStatus> {
+  return call("remove_vscode_copilot");
+}
 
 export function getAgentConfigDrift(target: ProviderTarget): Promise<ConfigDriftReport> {
   return call("get_agent_config_drift", { target });

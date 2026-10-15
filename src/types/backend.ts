@@ -11,6 +11,17 @@ export interface ConfigDriftReport {
   revision: string;
 }
 
+export interface VscodeCopilotStatus {
+  configPath: string;
+  fileExists: boolean;
+  bound: boolean;
+  applied: boolean;
+  modelCount: number;
+  gatewayRunning: boolean;
+  /** 只含字段名与有无，不含 token 原值。 */
+  drift: { field: string; currentPresent: boolean; appliedPresent: boolean }[];
+}
+
 export * from "./quota";
 import type {
   ClaudeModelMapping,

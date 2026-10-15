@@ -182,7 +182,8 @@ pub fn catalog_style_for(target: ProviderTarget) -> CatalogStyle {
         | ProviderTarget::OpenCode
         | ProviderTarget::Pi
         | ProviderTarget::Dsh
-        | ProviderTarget::Cline => CatalogStyle::Codex,
+        | ProviderTarget::Cline
+        | ProviderTarget::VscodeCopilot => CatalogStyle::Codex,
     }
 }
 
@@ -693,6 +694,18 @@ pub fn catalog_revision(style: CatalogStyle, entries: &[CatalogEntry]) -> String
             entry.anthropic_upstream as u8,
             entry.web_search_enabled as u8,
         ]);
+        // 能力字段随目录发布，修改它们必须让 ETag 变化。
+        let slug = if entry.upstream_slug.trim().is_empty() {
+            entry.public_id.as_str()
+        } else {
+            entry.upstream_slug.as_str()
+        };
+        let inferred = crate::gateway::metadata::infer(slug);
+        hasher.update(inferred.capabilities.to_string().as_bytes());
+        hasher.update(inferred.reasoning_levels.join(",").as_bytes());
+        hasher.update(
+            crate::gateway::metadata::max_output_for(slug, entry.context_window).to_le_bytes(),
+        );
     }
     let digest = hasher.finalize();
     digest[..12]
@@ -783,14 +796,38 @@ pub fn openai_discovery_model(entry: &CatalogEntry) -> Value {
         entry.upstream_slug.as_str()
     };
     let max_output = crate::gateway::metadata::max_output_for(slug, entry.context_window);
+    let inferred = crate::gateway::metadata::infer(slug);
+    let flag = |key: &str, fallback: bool| {
+        inferred
+            .capabilities
+            .get(key)
+            .and_then(Value::as_bool)
+            .unwrap_or(fallback)
+    };
+    let (tools, vision) = (flag("tools", true), flag("vision", false));
+    let thinking = inferred.reasoning_levels.iter().any(|level| level != "off");
+    // 不输出 `providers[]`：部分客户端见到它会把模型 ID 改写成 `id:provider`。
     json!({
         "id": entry.public_id,
         "object": "model",
         "owned_by": "ai-switcher",
+        "display_name": entry.display_name,
         "context_window": entry.context_window,
         "max_input_tokens": entry.context_window,
         "max_output_tokens": max_output,
         "max_tokens": max_output,
+        "toolCalling": tools,
+        "vision": vision,
+        "thinking": thinking,
+        "capabilities": {
+            "tools": tools,
+            "vision": vision,
+            "reasoning": thinking,
+            "web_search": entry.web_search_enabled,
+        },
+        "architecture": {
+            "input_modalities": if vision { json!(["text", "image"]) } else { json!(["text"]) },
+        },
     })
 }
 
@@ -1987,6 +2024,10 @@ mod tests {
         assert_eq!(row["max_input_tokens"], retrieved.context_window);
         assert!(row["max_output_tokens"].as_u64().unwrap_or(0) > 0);
         assert_eq!(row["max_tokens"], row["max_output_tokens"]);
+        assert_eq!(row["toolCalling"], true);
+        assert_eq!(row["vision"], true);
+        assert!(row.get("providers").is_none());
+        assert_eq!(row["architecture"]["input_modalities"][1], "image");
     }
     #[test]
     fn advertised_window_does_not_inflate_gateway_extra_models() {

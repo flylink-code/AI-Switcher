@@ -23,7 +23,13 @@ export function UsageSourceFilterSelect({ value, onChange, t, size = "small" }: 
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const availableOptions = USAGE_SOURCE_FILTER_OPTIONS.filter((option) => {
-    if (option.value === "all" || option.value === "antigravity") return true;
+    if (
+      option.value === "all" ||
+      option.value === "antigravity" ||
+      option.value === "vscode_copilot"
+    ) {
+      return true;
+    }
     return visibleAgents.includes(option.value);
   });
 

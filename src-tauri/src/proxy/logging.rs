@@ -165,6 +165,7 @@ fn validate_listener_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<
 fn validate_smart_gateway_binding_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
     let presented = presented_listener_token(headers);
     if presented.is_empty() {
+        log_listener_auth_rejected(headers, &presented, "empty");
         return Err(AppError::Config("网关入口凭据无效".to_string()));
     }
     let accepted = state.db.with_conn(|conn| {
@@ -176,8 +177,27 @@ fn validate_smart_gateway_binding_auth(state: &ProxyState, headers: &HeaderMap) 
     if accepted {
         Ok(())
     } else {
+        log_listener_auth_rejected(headers, &presented, "unknown");
         Err(AppError::Config("网关入口凭据无效".to_string()))
     }
+}
+
+/// 入口凭据被拒时留一条诊断日志，便于区分「客户端没带 token」与「token 不匹配」。
+/// 只记头是否存在、长度和前缀类别，不记 token 内容。
+fn log_listener_auth_rejected(headers: &HeaderMap, presented: &str, reason: &str) {
+    let kind = if presented.starts_with("gwt_") {
+        "binding"
+    } else if presented.starts_with("sk-aisw") {
+        "service-key"
+    } else {
+        "other"
+    };
+    log::warn!(
+        "智能网关入口凭据被拒: reason={reason} authorization_header={} x_api_key_header={} token_len={} token_kind={kind}",
+        headers.contains_key(header::AUTHORIZATION),
+        headers.contains_key("x-api-key"),
+        presented.len(),
+    );
 }
 
 fn validate_desktop_gateway_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
@@ -516,6 +536,20 @@ mod tests {
             health_latency_ms: None,
             enabled: true,
         }
+    }
+
+    #[test]
+    fn listener_token_falls_back_to_x_api_key_for_bare_bearer() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, "Bearer".parse().unwrap());
+        headers.insert("x-api-key", "gwt_copilot".parse().unwrap());
+        assert_eq!(presented_listener_token(&headers), "gwt_copilot");
+
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer gwt_authorization".parse().unwrap(),
+        );
+        assert_eq!(presented_listener_token(&headers), "gwt_authorization");
     }
 
     #[tokio::test]

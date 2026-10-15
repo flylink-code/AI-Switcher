@@ -151,6 +151,15 @@ export function DshIcon({ size = 16, style, className }: IconProps) {
   );
 }
 
+/** VS Code ribbon mark for VS Code Copilot. */
+export function VscodeCopilotIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={{ color: "#007ACC", ...style }}>
+      <path d="M17.58 2.26a1.15 1.15 0 0 0-1.31.22L7.34 10.6 3.5 7.68a.8.8 0 0 0-1.02.05l-1.2 1.1a.8.8 0 0 0-.01 1.16L5.1 13.5l-3.83 3.51a.8.8 0 0 0 .01 1.16l1.2 1.1a.8.8 0 0 0 1.02.05l3.84-2.92 8.93 8.12a1.15 1.15 0 0 0 1.92-.85V3.33c0-.46-.27-.88-.61-1.07ZM16.5 17.6l-5.6-4.1 5.6-4.1v8.2Z" />
+    </SvgShell>
+  );
+}
+
 export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): ReactNode {
   switch (source) {
     case "all":
@@ -169,6 +178,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <DshIcon {...props} />;
     case "cline":
       return <ClineIcon {...props} />;
+    case "vscode_copilot":
+      return <VscodeCopilotIcon {...props} />;
     case "antigravity":
       return <AntigravityOrbitIcon {...props} />;
     default: {
@@ -217,6 +228,7 @@ const ALL_USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "pi", labelKey: "workspace.pi" },
   { value: "dsh", labelKey: "workspace.dsh" },
   { value: "cline", labelKey: "workspace.cline" },
+  { value: "vscode_copilot", labelKey: "workspace.vscode_copilot" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];
 

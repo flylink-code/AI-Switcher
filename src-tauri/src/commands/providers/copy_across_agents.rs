@@ -17,6 +17,7 @@ pub(crate) fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> 
         ProviderTarget::Pi => "proxy_port_pi",
         ProviderTarget::Dsh => "proxy_port_dsh",
         ProviderTarget::Cline => "proxy_port_cline",
+        ProviderTarget::VscodeCopilot => "proxy_port_vscode_copilot",
     };
     state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
@@ -31,6 +32,7 @@ pub(crate) fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> 
             ProviderTarget::Pi => 15825,
             ProviderTarget::Dsh => 15826,
             ProviderTarget::Cline => 15827,
+            ProviderTarget::VscodeCopilot => 15829,
         })
 }
 

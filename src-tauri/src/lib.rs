@@ -57,6 +57,9 @@ mod ts_bindings;
 mod usage;
 mod usage_events;
 mod wsl_direct;
+use crate::commands::vscode_copilot::{
+    apply_vscode_copilot, get_vscode_copilot_status, remove_vscode_copilot,
+};
 use crate::commands::{
     activate_prompt, add_antigravity_gateway_upstream, add_claude_plugin_marketplace,
     add_codex_plugin_marketplace, add_kiro_gateway_upstream, add_skill_repository, apply_profile,
@@ -332,6 +335,9 @@ pub fn run() {
             list_smart_gateway_bindings,
             bind_smart_gateway,
             unbind_smart_gateway,
+            get_vscode_copilot_status,
+            apply_vscode_copilot,
+            remove_vscode_copilot,
             list_upstream_daily_usage_stats,
             list_gateway_upstream_health,
             get_gateway_upstream_policy,

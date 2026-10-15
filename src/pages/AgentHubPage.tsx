@@ -3,6 +3,7 @@ import { Alert, Button, Modal, Select, Space, Switch, Tag, Typography, message }
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AgentConnectionCard } from "@/components/AgentConnectionCard";
+import { VscodeCopilotCard } from "@/components/agent/VscodeCopilotCard";
 import { CodexAdvancedSettings } from "@/components/agent/CodexAdvancedSettings";
 import { ClaudeCodeLocalizationSection } from "@/components/agent/localization/ClaudeCodeLocalizationSection";
 import { ClaudeDesktopLocalizationSection } from "@/components/agent/localization/ClaudeDesktopLocalizationSection";
@@ -135,6 +136,7 @@ export default function AgentHubPage() {
         return desktopInfo;
       case "cline":
       case "dsh":
+      case "vscode_copilot":
         return undefined;
       default: {
         const _exhaustive: never = target;
@@ -287,7 +289,7 @@ export default function AgentHubPage() {
           </Button>
         );
       }
-      if (target === "cline" || target === "dsh") return null;
+      if (target === "cline" || target === "dsh" || target === "vscode_copilot") return null;
       if (target === "codex") {
         // Codex 可只装桌面版：CLI 可选，不抢眼的安装按钮。
         return (
@@ -361,7 +363,7 @@ export default function AgentHubPage() {
     const upgradeLabel = replacingV1 || upgradeButton?.labelKey !== "upToDate"
       ? t("agentHub.upgrade", { defaultValue: "升级" })
       : t("agentHub.upToDate", { defaultValue: "已是最新" });
-    const maintenance = info && target !== "cline" && target !== "dsh" ? (
+    const maintenance = info && target !== "cline" && target !== "dsh" && target !== "vscode_copilot" ? (
       <Space>
         <Button size="small" onClick={() => void refreshTool(target)}>
           {t("agentHub.detect", { defaultValue: "检测" })}
@@ -518,13 +520,14 @@ export default function AgentHubPage() {
   const node = nodeQuery.data;
 
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+    <Space direction="vertical" size={12} style={{ width: "100%" }}>
       <AgentConnectionCard
         framed={false}
         installed={installed}
         renderHeaderExtra={renderHeaderExtra}
         renderAdvanced={renderAdvanced}
       />
+      <VscodeCopilotCard />
       <Text type="secondary">
         Node.js {node?.version ?? t("agentHub.nodeUnknown", { defaultValue: "未检测" })}
         {node && !node.meetsMinimum ? ` · ${t("agentHub.nodeTooOld", { defaultValue: "版本过低" })}` : ""}

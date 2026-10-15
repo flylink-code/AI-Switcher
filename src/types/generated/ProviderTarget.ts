@@ -3,4 +3,4 @@
 /**
  * The Claude application whose configuration owns a provider.
  */
-export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline";
+export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline" | "vscode_copilot";
