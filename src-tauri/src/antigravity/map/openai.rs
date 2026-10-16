@@ -199,6 +199,7 @@ pub fn openai_to_gemini_request(
             }
         }
     }
+    super::normalize_gemini_contents(&mut contents);
 
     if contents.is_empty() {
         return Err("messages 不能为空".into());
@@ -654,6 +655,36 @@ mod tests {
         assert_eq!(
             parts.request["toolConfig"]["functionCallingConfig"]["mode"],
             json!("AUTO")
+        );
+    }
+
+    #[test]
+    fn parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn() {
+        let body = json!({
+            "model": "claude-sonnet-5-5",
+            "messages": [
+                { "role": "user", "content": "read two files" },
+                { "role": "assistant", "content": null, "tool_calls": [
+                    { "id": "toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg", "type": "function", "function": { "name": "view", "arguments": "{\"path\":\"a.txt\"}" } },
+                    { "id": "toolu_vrtx_01XjaCnBdS5FLpHeLHD4xBCy", "type": "function", "function": { "name": "view", "arguments": "{\"path\":\"b.txt\"}" } }
+                ]},
+                { "role": "tool", "tool_call_id": "toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg", "content": "file A" }
+            ]
+        });
+        let parts = openai_to_gemini_request(&body, None).unwrap();
+        let contents = parts.request["contents"].as_array().unwrap();
+        assert_eq!(contents.len(), 3);
+        assert_eq!(contents[1]["role"], "model");
+        assert_eq!(contents[2]["role"], "user");
+        let user_parts = contents[2]["parts"].as_array().unwrap();
+        assert_eq!(user_parts.len(), 2);
+        assert_eq!(
+            user_parts[0]["functionResponse"]["id"],
+            json!("toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg")
+        );
+        assert_eq!(
+            user_parts[1]["functionResponse"]["id"],
+            json!("toolu_vrtx_01XjaCnBdS5FLpHeLHD4xBCy")
         );
     }
 

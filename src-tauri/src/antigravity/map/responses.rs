@@ -684,6 +684,15 @@ impl ResponsesStreamEncoder {
         out.into_bytes()
     }
 
+    pub fn start_handshake(&mut self) -> Vec<u8> {
+        if self.completed {
+            return Vec::new();
+        }
+        let mut out = String::new();
+        self.ensure_started(&mut out);
+        out.into_bytes()
+    }
+
     fn ensure_started(&mut self, out: &mut String) {
         if self.started {
             return;

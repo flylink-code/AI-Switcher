@@ -1195,6 +1195,7 @@ async fn stream_response(
             protocol,
             anthropic: matches!(protocol, WireProtocol::Anthropic)
                 .then(AnthropicStreamState::default),
+            initial_flushed: false,
             finished: false,
             db,
             log_id,
@@ -1212,6 +1213,12 @@ async fn stream_response(
         |mut state| async move {
             if state.finished {
                 return None;
+            }
+            if !state.initial_flushed {
+                state.initial_flushed = true;
+                if let Some(initial) = state.take_initial_event() {
+                    return Some((Ok::<Bytes, Infallible>(initial), state));
+                }
             }
             loop {
                 if let Some(event) = state.take_line_event() {
@@ -1320,6 +1327,7 @@ struct StreamState {
     buffer: SseLineBuffer,
     model: String,
     protocol: WireProtocol,
+    initial_flushed: bool,
     finished: bool,
     /// Anthropic 协议的跨 chunk 块状态（thinking/text 块开闭、message 生命周期）。
     anthropic: Option<AnthropicStreamState>,
@@ -1368,6 +1376,29 @@ impl StreamState {
             self.last_cached,
             self.last_output,
         );
+    }
+
+    fn take_initial_event(&mut self) -> Option<Bytes> {
+        match self.protocol {
+            WireProtocol::Anthropic => {
+                let model = self.model.clone();
+                let mut anthropic = self.anthropic.take().unwrap_or_default();
+                let events = anthropic.initial_events(&model);
+                self.anthropic = Some(anthropic);
+                let mut out = Vec::new();
+                for event in events {
+                    out.extend_from_slice(&anthropic_sse(&event));
+                }
+                (!out.is_empty()).then(|| Bytes::from(out))
+            }
+            WireProtocol::OpenAiResponses => {
+                let mut encoder = self.responses_encoder.take()?;
+                let bytes = encoder.start_handshake();
+                self.responses_encoder = Some(encoder);
+                (!bytes.is_empty()).then(|| Bytes::from(bytes))
+            }
+            WireProtocol::OpenAiChat => Some(Bytes::from_static(b": ok\n\n")),
+        }
     }
 
     fn take_line_event(&mut self) -> Option<Bytes> {
@@ -2216,6 +2247,7 @@ mod tests {
             buffer: SseLineBuffer::new(),
             model: "claude-sonnet-5-5-medium".into(),
             protocol: WireProtocol::Anthropic,
+            initial_flushed: false,
             finished: false,
             anthropic: None,
             db: db.clone(),

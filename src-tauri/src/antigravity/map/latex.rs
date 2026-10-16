@@ -130,8 +130,15 @@ fn replace_delimited(input: &str, open: &str, close: &str, max_chars: usize) -> 
         let after_open = &rest[start + open.len()..];
         if let Some(end) = after_open.find(close) {
             let inner = &after_open[..end];
-            if looks_like_latex(inner, max_chars) {
-                out.push_str(&decode_latex_inner(inner));
+            let (repaired, was_repaired) = repair_corrupted_math_subscripts(inner);
+            if looks_like_latex(&repaired, max_chars) || was_repaired {
+                if should_preserve_math_delimiters(&repaired, was_repaired) {
+                    out.push_str(open);
+                    out.push_str(&repaired);
+                    out.push_str(close);
+                } else {
+                    out.push_str(&decode_latex_inner(&repaired));
+                }
             } else {
                 out.push_str(open);
                 out.push_str(inner);
@@ -149,6 +156,61 @@ fn replace_delimited(input: &str, open: &str, close: &str, max_chars: usize) -> 
 
 const DOLLAR_BYTE: u8 = 36;
 const BACKSLASH_BYTE: u8 = 92;
+
+/// Repair Markdown emphasis corruption inside LaTeX math spans where CommonMark
+/// normalizes paired `_{...}` subscripts (`I_{out}=\frac{V_{DAC}}{R_s}`) into
+/// `*{...}` (`I*{out}=\frac{V*{DAC}}{R_s}`) because `{` is punctuation.
+fn repair_corrupted_math_subscripts(inner: &str) -> (String, bool) {
+    if !inner.contains("*{") {
+        return (inner.to_string(), false);
+    }
+    let bytes = inner.as_bytes();
+    let mut out = String::with_capacity(inner.len());
+    let mut i = 0;
+    let mut repaired = false;
+    while i < bytes.len() {
+        if bytes[i] == b'*'
+            && bytes.get(i + 1) == Some(&b'{')
+            && i > 0
+            && (bytes[i - 1].is_ascii_alphanumeric() || matches!(bytes[i - 1], b')' | b']' | b'}'))
+            && inner[i + 2..].find('}').is_some_and(|end| !inner[i + 2..i + 2 + end].contains('\n'))
+        {
+            out.push('_');
+            repaired = true;
+            i += 1;
+            continue;
+        }
+        let Some(ch) = inner[i..].chars().next() else {
+            break;
+        };
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    (out, repaired)
+}
+
+/// Keep math delimiters intact when `inner` is a structural mathematical formula
+/// (e.g. contains `\frac`, `\sqrt`, `\sum`, `\int`, `\left`, `\begin`, or equations
+/// with `=` and subscripts/superscripts) that cannot be losslessly flattened into
+/// plain Unicode text.
+fn should_preserve_math_delimiters(repaired_inner: &str, was_repaired: bool) -> bool {
+    let decoded = decode_latex_inner(repaired_inner);
+    if decoded.contains('\\') {
+        return true;
+    }
+    if was_repaired {
+        return true;
+    }
+    if repaired_inner.contains('=')
+        && (repaired_inner.contains("_{")
+            || repaired_inner.contains("^{")
+            || repaired_inner.contains('_')
+            || repaired_inner.contains('^'))
+    {
+        return true;
+    }
+    false
+}
 
 fn is_valid_opening_dollar(bytes: &[u8], idx: usize) -> bool {
     if bytes.get(idx) != Some(&DOLLAR_BYTE) {
@@ -194,13 +256,31 @@ fn replace_dollar_math(input: &str, max_chars: usize) -> String {
     let bytes = input.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
+        if bytes[i] == DOLLAR_BYTE && bytes.get(i + 1) == Some(&DOLLAR_BYTE) {
+            let close_offset = input[i + 2..].find("\x24\x24");
+            if let Some(rel_end) = close_offset {
+                let end = i + 2 + rel_end + 2;
+                out.push_str(&input[i..end]);
+                i = end;
+                continue;
+            }
+        }
         if is_valid_opening_dollar(bytes, i) {
             if let Some(end) = find_closing_dollar(bytes, i + 1) {
                 let inner = &input[i + 1..end];
-                if !inner.contains('\n') && looks_like_latex(inner, max_chars) {
-                    out.push_str(&decode_latex_inner(inner));
-                    i = end + 1;
-                    continue;
+                if !inner.contains('\n') {
+                    let (repaired, was_repaired) = repair_corrupted_math_subscripts(inner);
+                    if looks_like_latex(&repaired, max_chars) || was_repaired {
+                        if should_preserve_math_delimiters(&repaired, was_repaired) {
+                            out.push(char::from(DOLLAR_BYTE));
+                            out.push_str(&repaired);
+                            out.push(char::from(DOLLAR_BYTE));
+                        } else {
+                            out.push_str(&decode_latex_inner(&repaired));
+                        }
+                        i = end + 1;
+                        continue;
+                    }
                 }
             }
         }
@@ -768,6 +848,31 @@ mod tests {
         assert_eq!(
             unwrap_latex_in_tool_args(rust_edit_args.clone()),
             rust_edit_args
+        );
+    }
+
+    #[test]
+    fn repairs_corrupted_markdown_math_subscripts_and_preserves_equations() {
+        let corrupted_display =
+            "\x24\x24I*{out}=\\frac{V*{DAC}}{R_s},\\quad R_s=100\\,\\Omega\x24\x24";
+        let expected_display =
+            "\x24\x24I_{out}=\\frac{V_{DAC}}{R_s},\\quad R_s=100\\,\\Omega\x24\x24";
+        assert_eq!(unwrap_gemini_latex(corrupted_display), expected_display);
+
+        let corrupted_inline =
+            "\x24I*{out}=\\frac{V*{DAC}}{R_s},\\quad R_s=100\\,\\Omega\x24";
+        let expected_inline =
+            "\x24I_{out}=\\frac{V_{DAC}}{R_s},\\quad R_s=100\\,\\Omega\x24";
+        assert_eq!(unwrap_gemini_latex(corrupted_inline), expected_inline);
+
+        let md_args = serde_json::json!({
+            "path": "hardware_design.md",
+            "contents": format!("电流计算公式：\n{corrupted_display}\n其中精简项 \x24\\le 50\\text{{g}}\x24。")
+        });
+        let out = unwrap_latex_in_tool_args(md_args);
+        assert_eq!(
+            out["contents"],
+            format!("电流计算公式：\n{expected_display}\n其中精简项 ≤ 50g。")
         );
     }
 }

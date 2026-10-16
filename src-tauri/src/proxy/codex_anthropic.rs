@@ -288,12 +288,152 @@ fn responses_input_to_messages(input: &Value) -> AppResult<Vec<Value>> {
             }
             flush_tool_uses(&mut messages, &mut pending_tool_uses);
             flush_tool_results(&mut messages, &mut pending_tool_results);
+            sanitize_anthropic_messages(&mut messages);
             Ok(messages)
         }
         _ => Err(AppError::Config(
             "Responses input 必须是字符串或数组".to_string(),
         )),
     }
+}
+
+fn message_blocks_vec(content: &Value) -> Vec<Value> {
+    match content {
+        Value::Array(arr) => arr.clone(),
+        Value::String(s) if !s.is_empty() => vec![json!({"type": "text", "text": s})],
+        _ => Vec::new(),
+    }
+}
+
+/// Ensure Anthropic Messages invariants:
+/// 1. Consecutive messages with the same role are merged.
+/// 2. Every `tool_use` in an `assistant` message has a matching `tool_result`
+///    at the start of the immediately following `user` message.
+/// 3. Orphan `tool_result` blocks without a preceding `tool_use` are removed.
+pub(crate) fn sanitize_anthropic_messages(messages: &mut Vec<Value>) {
+    let mut merged: Vec<Value> = Vec::with_capacity(messages.len());
+    for msg in messages.drain(..) {
+        let role = msg
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user")
+            .to_string();
+        let blocks = message_blocks_vec(msg.get("content").unwrap_or(&Value::Null));
+        if blocks.is_empty() {
+            continue;
+        }
+        if let Some(last) = merged
+            .last_mut()
+            .filter(|m| m.get("role").and_then(Value::as_str) == Some(role.as_str()))
+        {
+            let mut combined = message_blocks_vec(last.get("content").unwrap_or(&Value::Null));
+            combined.extend(blocks);
+            last["content"] = Value::Array(combined);
+        } else {
+            merged.push(json!({ "role": role, "content": blocks }));
+        }
+    }
+
+    let mut i = 0;
+    while i < merged.len() {
+        let role = merged[i]
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user")
+            .to_string();
+        if role == "assistant" {
+            let blocks = message_blocks_vec(merged[i].get("content").unwrap_or(&Value::Null));
+            let mut thinking_blocks = Vec::new();
+            let mut text_blocks = Vec::new();
+            let mut tool_use_blocks = Vec::new();
+            let mut tool_use_ids = Vec::new();
+            for b in blocks {
+                match b.get("type").and_then(Value::as_str) {
+                    Some("thinking" | "redacted_thinking") => thinking_blocks.push(b),
+                    Some("tool_use") => {
+                        if let Some(id) = b
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .filter(|s| !s.is_empty())
+                        {
+                            if !tool_use_ids.iter().any(|existing: &String| existing == id) {
+                                tool_use_ids.push(id.to_string());
+                                tool_use_blocks.push(b);
+                            }
+                        }
+                    }
+                    _ => text_blocks.push(b),
+                }
+            }
+            let mut ordered = thinking_blocks;
+            ordered.extend(text_blocks);
+            ordered.extend(tool_use_blocks);
+            merged[i]["content"] = Value::Array(ordered);
+
+            if !tool_use_ids.is_empty() {
+                let next_is_user = merged
+                    .get(i + 1)
+                    .and_then(|m| m.get("role"))
+                    .and_then(Value::as_str)
+                    == Some("user");
+                if !next_is_user {
+                    merged.insert(i + 1, json!({ "role": "user", "content": [] }));
+                }
+                let next_blocks =
+                    message_blocks_vec(merged[i + 1].get("content").unwrap_or(&Value::Null));
+                let mut existing_results = std::collections::HashMap::new();
+                let mut non_result_blocks = Vec::new();
+                for b in next_blocks {
+                    if b.get("type").and_then(Value::as_str) == Some("tool_result") {
+                        if let Some(id) = b.get("tool_use_id").and_then(Value::as_str) {
+                            existing_results.entry(id.to_string()).or_insert(b);
+                        }
+                    } else {
+                        non_result_blocks.push(b);
+                    }
+                }
+                let mut final_next = Vec::with_capacity(tool_use_ids.len() + non_result_blocks.len());
+                for id in &tool_use_ids {
+                    if let Some(res) = existing_results.remove(id) {
+                        final_next.push(res);
+                    } else {
+                        final_next.push(json!({
+                            "type": "tool_result",
+                            "tool_use_id": id,
+                            "content": "[Tool execution was cancelled or skipped before returning a result]"
+                        }));
+                    }
+                }
+                final_next.extend(non_result_blocks);
+                merged[i + 1]["content"] = Value::Array(final_next);
+            }
+        } else {
+            let prev_has_tool_use = i > 0
+                && merged[i - 1].get("role").and_then(Value::as_str) == Some("assistant")
+                && merged[i - 1]
+                    .get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|arr| {
+                        arr.iter()
+                            .any(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"))
+                    });
+            if !prev_has_tool_use {
+                let blocks = message_blocks_vec(merged[i].get("content").unwrap_or(&Value::Null));
+                let filtered: Vec<Value> = blocks
+                    .into_iter()
+                    .filter(|b| b.get("type").and_then(Value::as_str) != Some("tool_result"))
+                    .collect();
+                if filtered.is_empty() {
+                    merged.remove(i);
+                    continue;
+                }
+                merged[i]["content"] = Value::Array(filtered);
+            }
+        }
+        i += 1;
+    }
+
+    *messages = merged;
 }
 
 fn flush_tool_uses(messages: &mut Vec<Value>, pending: &mut Vec<Value>) {
@@ -603,11 +743,13 @@ pub struct AnthropicSseToResponsesConverter {
     output_index: usize,
     content_index: usize,
     reasoning_item_started: bool,
+    reasoning_item_closed: bool,
     reasoning_output_index: usize,
     reasoning_item_id: String,
     reasoning: String,
     text_item_started: bool,
     text_output_index: usize,
+    text_item_id: String,
     text: String,
     tools: Vec<PendingTool>,
     tool_output_indices: std::collections::BTreeMap<usize, usize>,
@@ -619,20 +761,23 @@ pub struct AnthropicSseToResponsesConverter {
 
 impl AnthropicSseToResponsesConverter {
     pub fn new(fallback_model: &str) -> Self {
+        let uid = uuid::Uuid::new_v4().simple().to_string();
         Self {
             fallback_model: fallback_model.to_string(),
-            response_id: "resp_proxy".to_string(),
+            response_id: format!("resp_{uid}"),
             model: fallback_model.to_string(),
             started: false,
             completed: false,
             output_index: 0,
             content_index: 0,
             reasoning_item_started: false,
+            reasoning_item_closed: false,
             reasoning_output_index: 0,
-            reasoning_item_id: "rs_proxy".to_string(),
+            reasoning_item_id: format!("rs_{uid}"),
             reasoning: String::new(),
             text_item_started: false,
             text_output_index: 0,
+            text_item_id: format!("msg_{uid}"),
             text: String::new(),
             tools: Vec::new(),
             tool_output_indices: std::collections::BTreeMap::new(),
@@ -648,9 +793,12 @@ impl AnthropicSseToResponsesConverter {
         match event_type {
             "message_start" => {
                 if let Some(message) = data.get("message") {
-                    if let Some(id) = message.get("id").and_then(Value::as_str) {
-                        self.response_id = id.to_string();
-                        self.reasoning_item_id = format!("rs_{id}");
+                    if !self.started {
+                        if let Some(id) = message.get("id").and_then(Value::as_str) {
+                            self.response_id = id.to_string();
+                            self.reasoning_item_id = format!("rs_{id}");
+                            self.text_item_id = id.to_string();
+                        }
                     }
                     if let Some(model) = message.get("model").and_then(Value::as_str) {
                         self.model = model.to_string();
@@ -690,11 +838,13 @@ impl AnthropicSseToResponsesConverter {
                         }
                     }
                     Some("text") => {
+                        self.close_reasoning_item_if_open(&mut output);
                         if !self.text_item_started {
                             self.emit_text_item_added(&mut output);
                         }
                     }
                     Some("tool_use") => {
+                        self.close_reasoning_item_if_open(&mut output);
                         let output_index = self.output_index;
                         let call_id = block
                             .get("id")
@@ -786,6 +936,7 @@ impl AnthropicSseToResponsesConverter {
                         }
                     }
                     Some("text_delta") => {
+                        self.close_reasoning_item_if_open(&mut output);
                         if !self.text_item_started {
                             self.emit_text_item_added(&mut output);
                         }
@@ -800,6 +951,7 @@ impl AnthropicSseToResponsesConverter {
                                 "response.output_text.delta",
                                 json!({
                                     "type": "response.output_text.delta",
+                                    "item_id": self.text_item_id,
                                     "output_index": self.text_output_index(),
                                     "content_index": self.content_index,
                                     "delta": text,
@@ -911,7 +1063,7 @@ impl AnthropicSseToResponsesConverter {
                 self.text_output_index,
                 json!({
                     "type": "message",
-                    "id": self.response_id.clone(),
+                    "id": self.text_item_id.clone(),
                     "role": "assistant",
                     "status": "completed",
                     "content": [{"type": "output_text", "text": self.text.clone()}],
@@ -934,6 +1086,10 @@ impl AnthropicSseToResponsesConverter {
         final_output.sort_by_key(|(index, _)| *index);
         for (index, item) in &final_output {
             if item.get("type").and_then(Value::as_str) == Some("reasoning") {
+                if self.reasoning_item_closed {
+                    continue;
+                }
+                self.reasoning_item_closed = true;
                 let text = item
                     .pointer("/summary/0/text")
                     .and_then(Value::as_str)
@@ -970,6 +1126,7 @@ impl AnthropicSseToResponsesConverter {
                     "response.output_text.done",
                     json!({
                         "type": "response.output_text.done",
+                        "item_id": self.text_item_id,
                         "output_index": index,
                         "content_index": 0,
                         "text": text,
@@ -980,6 +1137,7 @@ impl AnthropicSseToResponsesConverter {
                     "response.content_part.done",
                     json!({
                         "type": "response.content_part.done",
+                        "item_id": self.text_item_id,
                         "output_index": index,
                         "content_index": 0,
                         "part": {"type": "output_text", "text": text},
@@ -1066,6 +1224,7 @@ impl AnthropicSseToResponsesConverter {
     pub fn start_handshake(&mut self) -> Vec<u8> {
         let mut output = String::new();
         self.ensure_started(&mut output);
+        self.emit_reasoning_item_added(&mut output);
         output.into_bytes()
     }
 
@@ -1131,6 +1290,51 @@ impl AnthropicSseToResponsesConverter {
         );
     }
 
+    fn close_reasoning_item_if_open(&mut self, output: &mut String) {
+        if !self.reasoning_item_started || self.reasoning_item_closed {
+            return;
+        }
+        self.reasoning_item_closed = true;
+        let index = self.reasoning_output_index;
+        let text = self.reasoning.clone();
+        let item = json!({
+            "id": self.reasoning_item_id.clone(),
+            "type": "reasoning",
+            "summary": [{"type": "summary_text", "text": text.clone()}],
+        });
+        push_responses_event(
+            output,
+            "response.reasoning_summary_text.done",
+            json!({
+                "type": "response.reasoning_summary_text.done",
+                "item_id": self.reasoning_item_id,
+                "output_index": index,
+                "summary_index": 0,
+                "text": text,
+            }),
+        );
+        push_responses_event(
+            output,
+            "response.reasoning_summary_part.done",
+            json!({
+                "type": "response.reasoning_summary_part.done",
+                "item_id": self.reasoning_item_id,
+                "output_index": index,
+                "summary_index": 0,
+                "part": {"type": "summary_text", "text": text},
+            }),
+        );
+        push_responses_event(
+            output,
+            "response.output_item.done",
+            json!({
+                "type": "response.output_item.done",
+                "output_index": index,
+                "item": item,
+            }),
+        );
+    }
+
     fn emit_text_item_added(&mut self, output: &mut String) {
         if self.text_item_started {
             return;
@@ -1142,7 +1346,13 @@ impl AnthropicSseToResponsesConverter {
             json!({
                 "type": "response.output_item.added",
                 "output_index": self.output_index,
-                "item": {"type": "message", "role": "assistant", "content": []},
+                "item": {
+                    "id": self.text_item_id,
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "in_progress",
+                    "content": []
+                },
             }),
         );
         push_responses_event(
@@ -1150,6 +1360,7 @@ impl AnthropicSseToResponsesConverter {
             "response.content_part.added",
             json!({
                 "type": "response.content_part.added",
+                "item_id": self.text_item_id,
                 "output_index": self.output_index,
                 "content_index": self.content_index,
                 "part": {"type": "output_text", "text": ""},
@@ -1338,5 +1549,75 @@ mod tests {
         assert_eq!(anthropic["thinking"]["type"], "enabled");
         assert_eq!(anthropic["thinking"]["budget_tokens"], 16384);
         assert!(anthropic["max_tokens"].as_u64().unwrap() > 16384);
+    }
+
+    #[test]
+    fn sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output() {
+        let body = json!({
+            "model": "claude-sonnet-4-5",
+            "input": [
+                {"role": "user", "content": "check two files"},
+                {"type": "function_call", "call_id": "toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg", "name": "view", "arguments": "{\"path\":\"a.rs\"}"},
+                {"type": "function_call", "call_id": "toolu_vrtx_01XjaCnBdS5FLpHeLHD4xBCy", "name": "view", "arguments": "{\"path\":\"b.rs\"}"},
+                {"role": "developer", "content": "system reminder injected before outputs"},
+                {"type": "function_call_output", "call_id": "toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg", "output": "file A content"}
+            ]
+        });
+        let anthropic =
+            responses_request_to_anthropic_messages(&body, "claude-sonnet-4-5").unwrap();
+        let msgs = anthropic["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 3);
+        assert_eq!(msgs[1]["role"], "assistant");
+        let assistant_blocks = msgs[1]["content"].as_array().unwrap();
+        assert_eq!(assistant_blocks.len(), 2);
+        assert_eq!(assistant_blocks[0]["type"], "tool_use");
+        assert_eq!(
+            assistant_blocks[0]["id"],
+            "toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg"
+        );
+        assert_eq!(assistant_blocks[1]["type"], "tool_use");
+        assert_eq!(
+            assistant_blocks[1]["id"],
+            "toolu_vrtx_01XjaCnBdS5FLpHeLHD4xBCy"
+        );
+
+        assert_eq!(msgs[2]["role"], "user");
+        let user_blocks = msgs[2]["content"].as_array().unwrap();
+        assert_eq!(user_blocks[0]["type"], "tool_result");
+        assert_eq!(
+            user_blocks[0]["tool_use_id"],
+            "toolu_vrtx_01DAnNhwShoffBR3tWJ9K5Qg"
+        );
+        assert_eq!(user_blocks[1]["type"], "tool_result");
+        assert_eq!(
+            user_blocks[1]["tool_use_id"],
+            "toolu_vrtx_01XjaCnBdS5FLpHeLHD4xBCy"
+        );
+        assert_eq!(user_blocks[2]["type"], "text");
+    }
+
+    #[test]
+    fn start_handshake_emits_reasoning_item_and_preserves_consistent_ids() {
+        let mut converter = AnthropicSseToResponsesConverter::new("claude-sonnet-4-5");
+        let handshake = String::from_utf8(converter.start_handshake()).unwrap();
+        assert!(handshake.contains("event: response.created"));
+        assert!(handshake.contains("event: response.in_progress"));
+        assert!(handshake.contains("\"type\":\"reasoning\""));
+
+        let _ = converter.push_event(
+            "message_start",
+            &json!({"type":"message_start","message":{"id":"msg_upstream_other","model":"claude-sonnet-4-5","usage":{"input_tokens":10,"output_tokens":0}}}),
+        );
+        let delta = String::from_utf8(
+            converter.push_event(
+                "content_block_delta",
+                &json!({"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}),
+            ),
+        )
+        .unwrap();
+        // Reasoning item closes as soon as text starts, and output_text.delta includes item_id.
+        assert!(delta.contains("event: response.reasoning_summary_text.done"));
+        assert!(delta.contains("event: response.output_text.delta"));
+        assert!(delta.contains("\"item_id\":\"msg_"));
     }
 }

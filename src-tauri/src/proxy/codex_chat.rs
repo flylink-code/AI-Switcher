@@ -241,9 +241,11 @@ impl ChatSseToResponsesConverter {
                 self.model = model.to_string();
             }
         }
-        if let Some(id) = chunk.get("id").and_then(Value::as_str) {
-            if !id.is_empty() {
-                self.response_id = id.to_string();
+        if !self.started {
+            if let Some(id) = chunk.get("id").and_then(Value::as_str) {
+                if !id.is_empty() {
+                    self.response_id = id.to_string();
+                }
             }
         }
         if let Some(usage) = chunk.get("usage").filter(|u| !u.is_null()) {
@@ -392,6 +394,7 @@ impl ChatSseToResponsesConverter {
     pub fn start_handshake(&mut self) -> Vec<u8> {
         let mut out = String::new();
         self.ensure_started(&mut out);
+        self.emit_reasoning_start(&mut out);
         out.into_bytes()
     }
 

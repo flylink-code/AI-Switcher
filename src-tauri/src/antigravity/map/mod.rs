@@ -61,6 +61,173 @@ fn push_system_reminder(contents: &mut Vec<Value>, content: &Value) {
     }
 }
 
+/// Normalize Gemini `contents` so Cloud Code's Anthropic backend never rejects
+/// multi-tool turns, mid-turn system reminders, or interrupted tool calls:
+/// 1. Merge consecutive turns with the same `role`.
+/// 2. Ensure every `functionCall` in a `model` turn has a matching
+///    `functionResponse` at the front of the immediately following `user` turn.
+/// 3. Strip orphan `functionResponse` parts without a preceding `functionCall`.
+pub(crate) fn normalize_gemini_contents(contents: &mut Vec<Value>) {
+    let mut merged: Vec<Value> = Vec::with_capacity(contents.len());
+    for turn in contents.drain(..) {
+        let role = turn
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user")
+            .to_string();
+        let parts = turn
+            .get("parts")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if parts.is_empty() {
+            continue;
+        }
+        if let Some(last) = merged
+            .last_mut()
+            .filter(|m| m.get("role").and_then(Value::as_str) == Some(role.as_str()))
+        {
+            if let Some(existing_parts) = last.get_mut("parts").and_then(Value::as_array_mut) {
+                existing_parts.extend(parts);
+            }
+        } else {
+            merged.push(json!({ "role": role, "parts": parts }));
+        }
+    }
+
+    let mut i = 0;
+    while i < merged.len() {
+        let role = merged[i]
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user")
+            .to_string();
+        if role == "model" {
+            let parts = merged[i]
+                .get("parts")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let mut thought_parts = Vec::new();
+            let mut other_parts = Vec::new();
+            let mut fc_parts = Vec::new();
+            let mut expected_calls: Vec<(String, String)> = Vec::new();
+            for p in parts {
+                if p.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                    thought_parts.push(p);
+                } else if let Some(fc) = p.get("functionCall") {
+                    let id = fc
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    let name = fc
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool")
+                        .to_string();
+                    if id.is_empty() || !expected_calls.iter().any(|(eid, _)| eid == &id) {
+                        expected_calls.push((id, name));
+                        fc_parts.push(p);
+                    }
+                } else {
+                    other_parts.push(p);
+                }
+            }
+            let mut ordered = thought_parts;
+            ordered.extend(other_parts);
+            ordered.extend(fc_parts);
+            merged[i]["parts"] = Value::Array(ordered);
+
+            if !expected_calls.is_empty() {
+                let next_is_user = merged
+                    .get(i + 1)
+                    .and_then(|m| m.get("role"))
+                    .and_then(Value::as_str)
+                    == Some("user");
+                if !next_is_user {
+                    merged.insert(i + 1, json!({ "role": "user", "parts": [] }));
+                }
+                let next_parts = merged[i + 1]
+                    .get("parts")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let mut fr_by_id: std::collections::HashMap<String, Value> =
+                    std::collections::HashMap::new();
+                let mut fr_without_id: Vec<Value> = Vec::new();
+                let mut non_fr_parts: Vec<Value> = Vec::new();
+                for p in next_parts {
+                    if let Some(fr) = p.get("functionResponse") {
+                        let id = fr
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string();
+                        if !id.is_empty() {
+                            fr_by_id.entry(id).or_insert(p);
+                        } else {
+                            fr_without_id.push(p);
+                        }
+                    } else {
+                        non_fr_parts.push(p);
+                    }
+                }
+                let mut final_next =
+                    Vec::with_capacity(expected_calls.len() + non_fr_parts.len());
+                let mut unid_iter = fr_without_id.into_iter();
+                for (call_id, call_name) in &expected_calls {
+                    if !call_id.is_empty() {
+                        if let Some(matched) = fr_by_id.remove(call_id) {
+                            final_next.push(matched);
+                            continue;
+                        }
+                    } else if let Some(unid) = unid_iter.next() {
+                        final_next.push(unid);
+                        continue;
+                    }
+                    let mut fr = json!({
+                        "name": call_name,
+                        "response": { "result": "[Tool execution was cancelled or skipped before returning a result]" }
+                    });
+                    if !call_id.is_empty() {
+                        fr["id"] = json!(call_id);
+                    }
+                    final_next.push(json!({ "functionResponse": fr }));
+                }
+                final_next.extend(non_fr_parts);
+                merged[i + 1]["parts"] = Value::Array(final_next);
+            }
+        } else {
+            let prev_has_fc = i > 0
+                && merged[i - 1].get("role").and_then(Value::as_str) == Some("model")
+                && merged[i - 1]
+                    .get("parts")
+                    .and_then(Value::as_array)
+                    .is_some_and(|arr| arr.iter().any(|p| p.get("functionCall").is_some()));
+            if !prev_has_fc {
+                let parts = merged[i]
+                    .get("parts")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let filtered: Vec<Value> = parts
+                    .into_iter()
+                    .filter(|p| p.get("functionResponse").is_none())
+                    .collect();
+                if filtered.is_empty() {
+                    merged.remove(i);
+                    continue;
+                }
+                merged[i]["parts"] = Value::Array(filtered);
+            }
+        }
+        i += 1;
+    }
+
+    *contents = merged;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

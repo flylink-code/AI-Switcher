@@ -169,6 +169,7 @@ pub fn anthropic_to_gemini_request(
         }
         contents.push(json!({ "role": gemini_role, "parts": parts }));
     }
+    super::normalize_gemini_contents(&mut contents);
 
     if contents.is_empty() {
         return Err("messages 不能为空".into());
@@ -795,6 +796,14 @@ enum BlockKind {
 impl AnthropicStreamState {
     pub fn is_closed(&self) -> bool {
         self.closed
+    }
+
+    pub fn initial_events(&mut self, model: &str) -> Vec<Value> {
+        if self.started || self.closed {
+            return Vec::new();
+        }
+        self.started = true;
+        vec![anthropic_sse_message_start(model, self.usage)]
     }
 
     /// 上游流结束（或无 finishReason 被截断）时的收尾事件：关掉未闭合的块，
