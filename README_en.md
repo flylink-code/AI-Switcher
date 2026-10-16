@@ -1,78 +1,105 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.6.0**
+Local AI configuration, unified provider pool, and smart gateway workbench for **Claude Code**, **Claude Desktop**, **Codex**, **VS Code Copilot**, **OpenCode**, and **Pi**. **v1.6.1**
 
-One upstream pool is shared by every agent. Connections are smart gateway, direct, or official. The Antigravity / Kiro proxies run in a separate process by default.
+Every agent shares a single global upstream pool (`upstreams`) with unified connection modes: **Smart Gateway (recommended)**, **Direct**, or **Official**. Built-in Antigravity and Kiro reverse-proxy gateways run in an isolated Sidecar child process (`--gateway-sidecar`) by default with automatic supervision.
 
-**Upgrade note:** The main database migrates to Schema 36. Upgrading from 1.5.16 (Schema 33) writes `app.db.v33.bak` first. Older builds cannot open the new database: exit 1.6.0 and restore the backup before downgrading. Back up `~/.claude-switcher` separately as well. 1.4.xx hotfixes stay on `release/1.4.x` without the new schema.
+**Upgrade & Refactoring Notes:**
+- **Database Migration:** The main database migrates to **Schema 37**. Upgrading from 1.5.16 (Schema 33) automatically creates `app.db.v33.bak` first. Older versions cannot open the new schema: quit the new build and restore the backup before downgrading. Backing up `~/.claude-switcher` separately is also recommended. 1.4.xx hotfixes stay on `release/1.4.x`.
+- **Navigation & Architecture Refactoring:** Primary navigation is streamlined into 7 tabs (**Overview / Agent / Providers / Gateways / Usage / Workspace / Settings**) with switchable top-bar (default) and sidebar layouts, unifying the global upstream pool, smart gateway catalog, VS Code Copilot managed models, and sidecar reverse proxies.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
-Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and local agent directories. Runs on this machine by default: keys go in the OS credential store, writes are backed up first, sessions are read from local files.
+Built with Tauri 2 + Rust + React. Consolidates scattered agent config files, OS credentials, OAuth account pools, local sessions, and token billing into a single desktop interface. Runs locally by default: API keys live in the OS credential store, config writes are backed up atomically, and session data is read from local files.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| Windows 10/11 | NSIS `.exe` (recommended) / MSI | Full features |
+| Windows 10/11 | NSIS `.exe` (recommended) / MSI | Full features (including Claude Desktop management & localization) |
 | Linux (preview) | AppImage / `.deb` | Ubuntu 22.04 / Debian 12+ (WebKitGTK 4.1) |
 
-## Get started
+## Quick Start
 
-1. Download from [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest). Prefer NSIS on Windows (per-user, usually no admin). On Linux use the AppImage (`chmod +x` first).
-2. **Settings → Tools & environment → Agent tools** to detect and install CLIs (**Node.js ≥22** required).
-3. Add API keys under **Providers**, or sign in to Google / Antigravity under **Accounts & quotas**.
+1. Download the installer from [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest). Prefer the NSIS `.exe` on Windows (per-user install, usually no admin required); on Linux use the AppImage (`chmod +x` first).
+2. Open the **Agent** page to detect, install, or upgrade agent CLIs (**Node.js ≥ 22** required).
+3. Add API key upstreams under **Providers** (presets, model discovery, and connectivity checks included), or sign in to **Antigravity / Kiro / ChatGPT (Codex OAuth)** account pools under **Gateways**.
+4. Return to the **Agent** page and switch each agent to **Smart Gateway** or a selected **Direct** upstream.
 
-## Features
+## Core Features
 
-- **Providers:** One global upstream pool; API keys and OAuth accounts no longer need configuring per agent. Includes presets, model discovery, connection tests, quotas, and metadata import/export. **Agent connections** offer **Smart gateway (recommended)**, **Direct (one selected upstream)**, or **Official**. Direct Claude Code requires Anthropic; direct Codex requires OpenAI Chat / Responses. Protocol conversion and Codex OAuth use the gateway. OpenCode / Pi / Cline write only the selected managed entry and preserve user-owned configuration.
-- **Smart gateway:** Standalone listener at `127.0.0.1:15828` that sends an aggregated-catalog model id to its upstream. Binding an agent writes a smart-gateway card that points at that port. Usage counts only the innermost hop. Entry: main nav **Providers**.
-- **Antigravity gateway:** `127.0.0.1:15830` exposes Cloud Code as Anthropic Messages / OpenAI Chat / Responses. Browser OAuth account pool with quota-aware scheduling. Personal use; review upstream terms yourself.
-- **Kiro gateway:** `127.0.0.1:15831` with an account pool and quota-aware scheduling. Import a Builder ID, Social, or Kiro IDE token, or sign in with a device code or Social PKCE. Usage counts only the Kiro hop. Personal use; review upstream terms yourself.
-- **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.
-- **Sessions & usage:** Browse, search, and back up local sessions; estimate cost from proxy logs plus session events.
-- **Tools & localization:** Install/update each agent CLI. Claude Code, VS Code/Cursor and Claude Desktop Chinese packs (compare against GitHub latest; install or remove). Localization lives in the Advanced settings of the Claude Code / Claude Desktop cards on the Agent page (Chinese UI only); it shows status and a one-click install/uninstall by default, with versions and paths under "Show details".
+- **Agent Hub (`Agent` page):**
+  - Manage connection status and CLI versions for **Claude Code**, **Claude Desktop**, **Codex**, **VS Code Copilot**, **OpenCode**, and **Pi** (with one-click in-card CLI upgrades).
+  - **Connection Modes:** Choose **Smart Gateway (recommended)**, **Direct (single selected upstream)**, or **Official**. Direct Claude Code requires Anthropic; direct Codex requires OpenAI Chat / Responses; cross-protocol routing and Codex OAuth run through the Smart Gateway.
+  - **VS Code Copilot Integration:** Writes smart gateway models into VS Code's native `chatLanguageModels.json` (managing only the `AI-Switcher` entry while preserving official models and user-defined providers), with full multi-tier reasoning effort (`low` / `medium` / `high`) support for Gemini, Claude, and GPT models.
+  - **Advanced Settings & Localization:** Configure direct role-model mappings for Claude Code / Desktop, web search and output effort for Codex, and one-click Chinese localization packs for Claude Code, VS Code / Cursor extensions, and Claude Desktop.
+- **Global Providers & Smart Gateway (`Providers` page · `127.0.0.1:15828`):**
+  - **Single Upstream Pool:** Configure API keys and OAuth pools once and share across all agents. Supports drag/up-down priority ordering (`sort_index`), per-model toggles, quota checks, and key-free metadata import/export.
+  - **Automatic Disambiguation:** Models from a single upstream keep clean bare IDs; when multiple upstreams provide the same model name, catalog IDs are automatically prefixed by provider (`<provider>.<model>`) for exact routing.
+  - **Cross-Protocol Bridging & Resilience:** Bidirectional Anthropic Messages ↔ OpenAI Chat / Responses conversion, immediate SSE handshake on `/v1/responses`, long-context thinking stream keep-alive, and `localhost:15828` loopback normalization so Codex bypasses Windows system proxies cleanly.
+- **Reverse-Proxy Gateways & Account Pools (`Gateways` page):**
+  - **Sidecar Process Supervision:** Antigravity and Kiro reverse proxies run in an isolated child process (`--gateway-sidecar`) by default; runtime mode and live health can be managed in **Settings → General**.
+  - **Antigravity Gateway (`127.0.0.1:15830`):** Browser OAuth account pool with quota-aware scheduling, exposing Google Cloud Code as standard Anthropic Messages / OpenAI Chat / Responses endpoints.
+  - **Kiro Gateway (`127.0.0.1:15831`):** Import Builder ID, Social PKCE, or Kiro IDE tokens (or sign in via device code), featuring full AWS EventStream frame decoding, connect-timeout retry, and automatic account rotation.
+  - **ChatGPT Account Pool (Codex OAuth):** Multi-account sign-in and default-account switching, exposed as a built-in upstream for the Smart Gateway.
+- **Workspace (`Workspace` page):**
+  - Select an agent at the top to filter supported resource tabs: **Sessions** (first tab), **Project Profiles**, **MCP Servers**, **Prompts**, **Skills**, **Subagents**, and **Plugins**.
+- **Usage & Observability (`Usage` & `Overview` pages):**
+  - **Multi-Hop Deduplication:** Correlated request chains (`correlation_id`) count only the innermost billing hop (`kiro` / `antigravity` over `smart_gateway`), and `count_tokens` probes are excluded from billing.
+  - **Unified Provider Breakdown:** Built-in reverse proxies and gateway aliases automatically fold into canonical provider names (`Antigravity`, `Kiro`, `ChatGPT`), combining live proxy logs with incremental local session sync (Claude Code / Codex / OpenCode / Pi), multi-currency USD conversion, and Excel pricing import/export.
 
-## Paths
+## Local Ports & Paths
 
-| | |
+### Local Listeners (`127.0.0.1` / `localhost` only)
+
+| Port | Service | Description |
+| --- | --- | --- |
+| **15828** | Smart Gateway | Aggregated model catalog & cross-protocol router; Claude Code, Codex, and VS Code Copilot connect directly here |
+| **15830** | Antigravity Proxy | Google Cloud Code account-pool reverse proxy (runs in Sidecar process by default) |
+| **15831** | Kiro Proxy | Kiro account-pool reverse proxy (runs in Sidecar process by default) |
+| **15822** | Claude Desktop Proxy | Provides `/v1/models` alias mapping and local inference probe responses for Claude Desktop |
+| 15821 / 15823 / 15826 / 15827 | Legacy Local Proxies | Compatibility ports for Code / Codex / DSH / Cline |
+
+### Configuration Paths
+
+| Target | Path & Notes |
 | --- | --- |
-| Claude Code | `~/.claude/` |
-| Claude Desktop | `%LOCALAPPDATA%\Claude-3p\` (Windows); **hidden from the UI**, backend and existing cards remain |
-| Codex | `$CODEX_HOME` or `~/.codex/` |
+| Claude Code | `~/.claude/` (`settings.json`, etc.) |
+| Claude Desktop | `%LOCALAPPDATA%\Claude-3p\` (Windows) |
+| Codex | `$CODEX_HOME` or `~/.codex/` (`config.toml`, `auth.json`, `ai-switcher-model-catalog.json`) |
+| VS Code Copilot | `%APPDATA%\Code\User\chatLanguageModels.json` (manages only the `AI-Switcher` entry) |
 | OpenCode | `~/.config/opencode/` · `~/.local/share/opencode/` |
 | Pi | `~/.pi/agent/` |
-| DSH | `~/.dsh/`; **hidden from the UI**, backend and existing cards remain |
-| Cline | `~/.cline/` (sidecar `ai-switcher.json`; Auto for gateway mode, the selected upstream for direct mode) |
-| This app | `~/.claude-switcher/` (relocatable; path kept for older installs) |
+| Cline / DSH | `~/.cline/` (`ai-switcher.json`) · `~/.dsh/`; **T3 compatibility retained, hidden from UI** |
+| App Data | `~/.claude-switcher/` (relocatable; exports and remote sync omit API keys by default) |
 
-Exports and sync omit API keys by default.
+## Privacy & Security
 
-## Privacy
+API keys are stored in the OS credential store (Windows Credential Manager / macOS Keychain / Linux Secret Service). Config writes are atomic with rotating backups. No local data leaves your machine except for connection tests, model discovery, update checks, and remote sync actions you explicitly trigger.
 
-API keys live in Windows Credential Manager / macOS Keychain / Linux Secret Service. Config writes are atomic with rotating backups. Nothing local is uploaded except connection tests, model discovery, update checks, and remote sync you explicitly confirm.
+## Development & Build
 
-## Development
-
-Node.js 22+, pnpm 9+ (Corepack), Rust stable; Windows also needs the VS 2022 C++ desktop workload. Dev port **5250**.
+Requires Node.js 22+, pnpm 9+ (Corepack), and Rust stable; Windows also requires the VS 2022 C++ desktop workload. Default dev server port: **5250**.
 
 ```powershell
 pnpm install
-.\scripts\dev-hot.ps1       # hot reload; uses 5251+ if 5250 is taken
-.\scripts\clean-dev.ps1     # stop debug, restore the installed app
-pnpm build:exe              # release exe → release\AISwitcher.exe
+pnpm dev:hot                # hot reload dev; switch temporarily to 5251 if 5250 is occupied
+pnpm clean:dev              # stop debug processes and restore installed release state
+pnpm build:exe              # build release binary → release\AISwitcher.exe
+pnpm build:exe:bundle       # build NSIS (.exe) and MSI installer bundles
 ```
 
-## Limits
+## Scope & Limits
 
-- The product surface is the five agents above; Desktop / DSH retain compatibility backends but remain hidden from the UI.
-- Pi / DSH / Cline have no plugins, agents, profiles, or tray switching.
-- New direct connections do not start protocol-conversion proxies. Legacy T1 cards that depended on a local proxy retain their existing path; explicitly switching to the smart gateway is recommended.
-- No remote conflict merge, no team sharing.
-- Linux is Ubuntu 22.04 / Debian 12+ only.
+- The UI product surface focuses on **Claude Code, Claude Desktop, Codex, VS Code Copilot, OpenCode, and Pi**; Cline and DSH retain backend, schema, and config compatibility but are hidden from the UI.
+- Antigravity / Kiro / ChatGPT OAuth account pools are for personal use only; evaluate and comply with upstream terms yourself.
+- OpenCode and Pi write only the selected managed entry and do not manage plugins, subagents, or project profiles.
+- No multi-device conflict merging, no LAN listener, and no shared team server.
+- Linux preview supports Ubuntu 22.04 / Debian 12+ only.
 
-## License & thanks
+## License & Acknowledgements
 
-[MIT](LICENSE). Independent community project — not affiliated with Anthropic, OpenAI, or Google. Claude, Codex, ChatGPT, and related names are trademarks of their owners. Issues and PRs welcome.
+[MIT](LICENSE). Independent open-source community project — not affiliated with Anthropic, OpenAI, Google, GitHub, or Amazon. Claude, Codex, ChatGPT, Copilot, Gemini, and related names are trademarks of their respective owners. Issues and PRs are welcome.
 
 Inspiration: [Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) · [free-claude-code](https://github.com/Yeachan-Heo/free-claude-code) · [sub2api](https://github.com/sub2api) · [AI Toolbox](https://github.com/coulsontl/ai-toolbox) · [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) · [cc-switch](https://github.com/farion1231/cc-switch) · [code-switch](https://github.com/daodao97/code-swtich) · [Codex++](https://github.com/BigPizzaV3/CodexPlusPlus)
 
 Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)
+

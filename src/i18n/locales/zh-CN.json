@@ -2106,6 +2106,14 @@
     "changelogTitle": "本版本更新",
     "changelogEmpty": "当前构建没有对应的更新说明。",
     "changelog": {
+      "1_6_1": [
+        "新增 VS Code Copilot 深度集成：支持将智能网关或直连上游模型一键写入原生 chatLanguageModels.json（仅维护 AI-Switcher 托管项，保留官方与用户自有模型），并支持 Gemini / Claude / GPT 多档推理等级（low / medium / high）选择与路由联动。",
+        "重构 7 项主导航（概览 / Agent / 供应商 / 网关 / 工作区 / 用量 / 设置）：Antigravity、Kiro 与 ChatGPT (Codex OAuth) 账号池统一收归「网关」页管理，Agent 页支持卡片内 CLI 一键升级。",
+        "优化智能网关与 Responses API 桥接：流式响应立即返回握手事件消除发送卡顿，增强文件编辑工具唯一上下文约束，修复 Antigravity 反代 LaTeX 解包误伤 Shell 变量与命令参数的问题，并放宽长上下文思考流超时上限。",
+        "修复 Codex Desktop / CLI 在开启 Windows 系统代理时连接智能网关报 error sending request 的问题，统一使用 localhost 环回地址自动绕过系统代理劫持。",
+        "修复 Kiro 反代 AWS EventStream 全类型头部与异常帧解码、首次连接超时重试及消息/工具配对归一化，消除 200 | 0/0 空响应与偶发 504 超时。",
+        "优化用量统计与模型目录：顶部 Agent 筛选栏精简紧凑排布，「按供应商」统计与请求日志自动合并内置反代别名（Antigravity / Kiro / ChatGPT），并补齐 Gemini 4 系列模型定价与上下文窗口。"
+      ],
       "1_6_0": [
         "正式版：供应商改为全局上游池，Claude Code、Codex、OpenCode、Pi 共用一份配置。连接方式为智能网关、直连或官方。",
         "直连不复制供应商卡。Claude Code 直连限 Anthropic，Codex 直连限 OpenAI，Codex OAuth 必须经智能网关。",

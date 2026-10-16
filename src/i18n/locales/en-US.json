@@ -2106,6 +2106,14 @@
     "changelogTitle": "What’s new",
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
+      "1_6_1": [
+        "Added VS Code Copilot integration: write Smart Gateway or direct upstream models into native chatLanguageModels.json (managing only the AI-Switcher entry while preserving official and user providers), with full low / medium / high reasoning effort support for Gemini, Claude, and GPT models.",
+        "Streamlined 7-tab primary navigation (Overview / Agent / Providers / Gateways / Workspace / Usage / Settings): Antigravity, Kiro, and ChatGPT (Codex OAuth) account pools are unified under the Gateways page, with one-click in-card CLI upgrades on the Agent page.",
+        "Improved Smart Gateway and Responses API bridging: immediate SSE handshake eliminates send-message freezes, enriched edit-tool context hints prevent multi-match failures, fixed Antigravity LaTeX unwrapping corrupting shell variables in tool arguments, and extended long-context thinking stream deadlines.",
+        "Fixed Codex Desktop / CLI 'error sending request' disconnects under Windows system proxies by normalizing loopback gateway URLs to localhost.",
+        "Fixed Kiro reverse-proxy AWS EventStream header/exception frame decoding, connect-timeout retries, and message/tool pairing normalization, eliminating 200 | 0/0 empty responses and intermittent 504 timeouts.",
+        "Refined Usage analytics and model catalog: compact single-row Agent filter bar, unified provider breakdown names (folding Built-in aliases into Antigravity / Kiro / ChatGPT), and updated Gemini 4 series pricing and context windows."
+      ],
       "1_6_0": [
         "Stable release: one global upstream pool shared by Claude Code, Codex, OpenCode, and Pi. Connections are smart gateway, direct, or official.",
         "Direct mode does not copy provider cards. Claude Code direct is Anthropic only, Codex direct is OpenAI only, and Codex OAuth must use the smart gateway.",
