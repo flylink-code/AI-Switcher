@@ -172,7 +172,9 @@ fn overlay_legacy_thinking(
     provider: &Provider,
     responses: bool,
 ) {
-    if provider.thinking_config.is_none() && incoming.get("thinking").is_none() {
+    if provider.thinking_config.is_none()
+        && convert::extract_anthropic_thinking(incoming).is_none()
+    {
         return;
     }
     let legacy = if responses {

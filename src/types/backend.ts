@@ -121,6 +121,7 @@ export interface GatewayRouteLog {
   streamOutcome?: string | null;
   estimatedCost: number;
   attemptsJson?: string | null;
+  reasoningEffort?: string | null;
 }
 
 export interface GatewayUpstreamHealth {

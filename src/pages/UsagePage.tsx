@@ -97,9 +97,25 @@ function requestLogHeaderCell() {
   return { style: { whiteSpace: "nowrap" } };
 }
 
+function resolveLogReasoningEffort(row: PaginatedProxyLogs["data"][number]): string | null {
+  const direct = row.reasoningEffort?.trim().toLowerCase();
+  if (direct && direct !== "none") return direct;
+  if (row.diagnostic) {
+    const effortMatch = /\beffort=([a-zA-Z0-9_-]+)/.exec(row.diagnostic);
+    if (effortMatch && effortMatch[1].toLowerCase() !== "none") {
+      return effortMatch[1].toLowerCase();
+    }
+  }
+  const candidate = (row.model ?? row.requestedModel ?? "").trim().toLowerCase().replace(/-fast$/, "");
+  for (const suffix of ["minimal", "xhigh", "medium", "high", "low", "max"]) {
+    if (candidate.endsWith(`-${suffix}`)) return suffix;
+  }
+  return null;
+}
+
 const REQUEST_LOG_WIDE_WIDTH = 1280;
-const REQUEST_LOG_NARROW_SCROLL_X = 880;
-const REQUEST_LOG_WIDE_SCROLL_X = 1275;
+const REQUEST_LOG_NARROW_SCROLL_X = 975;
+const REQUEST_LOG_WIDE_SCROLL_X = 1370;
 
 export default function UsagePage() {
   const { t } = useTranslation();
@@ -681,6 +697,37 @@ export default function UsagePage() {
               ellipsis: true,
               onHeaderCell: requestLogHeaderCell,
               render: (v: string | null) => v ?? "—",
+            },
+            {
+              title: t("usage.logReasoningEffort", { defaultValue: "推理等级" }),
+              dataIndex: "reasoningEffort",
+              width: 105,
+              onHeaderCell: requestLogHeaderCell,
+              render: (_: string | null | undefined, row: PaginatedProxyLogs["data"][number]) => {
+                const effort = resolveLogReasoningEffort(row);
+                if (!effort) return "—";
+                const colorMap: Record<string, string> = {
+                  minimal: "default",
+                  low: "cyan",
+                  medium: "blue",
+                  high: "geekblue",
+                  xhigh: "purple",
+                  max: "magenta",
+                };
+                const labelMap: Record<string, string> = {
+                  minimal: t("usage.effortMinimal", { defaultValue: "极低 (Minimal)" }),
+                  low: t("usage.effortLow", { defaultValue: "低 (Low)" }),
+                  medium: t("usage.effortMedium", { defaultValue: "中 (Medium)" }),
+                  high: t("usage.effortHigh", { defaultValue: "高 (High)" }),
+                  xhigh: t("usage.effortXhigh", { defaultValue: "超高 (XHigh)" }),
+                  max: t("usage.effortMax", { defaultValue: "最高 (Max)" }),
+                };
+                return (
+                  <Tag color={colorMap[effort] ?? "default"} style={{ marginInlineEnd: 0 }}>
+                    {labelMap[effort] ?? effort}
+                  </Tag>
+                );
+              },
             },
             {
               title: t("usage.logStatus"),

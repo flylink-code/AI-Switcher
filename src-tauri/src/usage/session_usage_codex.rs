@@ -219,6 +219,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
     };
     let mut model = "unknown".to_string();
     let mut service_tier: Option<String> = None;
+    let mut reasoning_effort: Option<String> = None;
     let mut thread_id = "unknown".to_string();
     // A reverted/resumed rollout uses `<thread_id>_<segment_id>.jsonl`. Its
     // meta id stays on the logical thread, while event indexes restart in the
@@ -266,6 +267,17 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             if let Some(tier) = extract_service_tier(payload) {
                 service_tier = Some(tier);
             }
+            if let Some(effort) = payload.and_then(|p| {
+                p.get("effort")
+                    .or_else(|| p.get("reasoning_effort"))
+                    .or_else(|| p.pointer("/collaboration_mode/settings/reasoning_effort"))
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+            }) {
+                reasoning_effort = Some(effort);
+            }
             continue;
         }
         if !is_token_count_event(&value) {
@@ -307,6 +319,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             continue;
         }
         let request_id = format!("{REQUEST_ID_PREFIX}:{segment_id}:{event_index}");
+        let diagnostic = reasoning_effort.as_deref().map(|e| format!("effort={e}"));
         insert_proxy_log_with_source(
             conn,
             Some(&request_id),
@@ -326,7 +339,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             Some("token_count"),
             true,
             None,
-            None,
+            diagnostic.as_deref(),
             DATA_SOURCE_CODEX_SESSION,
             Some(&thread_id),
         )?;

@@ -203,6 +203,13 @@ async fn proxy_handler_inner(
         } else {
             requested_model
         };
+        if desktop_alias::is_desktop_alias(&probe_model) {
+            if let Ok((_, entries)) = load_gateway_catalog(&state, CatalogStyle::Claude) {
+                if desktop_alias::is_listed_selection(&probe_model, &entries) {
+                    desktop_alias::remember_selected(&state.db, &probe_model);
+                }
+            }
+        }
         log::info!("Claude Desktop 推理探活快速响应: model={probe_model}");
         let probe_response = serde_json::json!({
             "id": format!("msg_probe_{}", uuid::Uuid::new_v4().simple()),
@@ -343,13 +350,23 @@ async fn proxy_handler_inner(
         note_gateway_inflight(&state, &provider, &requested_model, incoming_stream, route_decision.as_ref(), &attempts);
         let (result, queue_wait_ms) = upstream_health::send_observed_upstream_with_timing(outgoing, &provider, Some(&state), incoming_stream).await;
         let attempt_duration = attempt_start.elapsed().as_millis() as i64;
-        attempts.push(build_request_attempt(
-            attempts.len(),
-            &provider,
-            &requested_model,
-            attempt_duration,
-            &result,
-        ).with_queue_wait_ms(queue_wait_ms));
+        attempts.push(
+            build_request_attempt(
+                attempts.len(),
+                &provider,
+                &requested_model,
+                attempt_duration,
+                &result,
+            )
+            .with_queue_wait_ms(queue_wait_ms)
+            .with_reasoning_effort(
+                crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                    &incoming,
+                    Some(&requested_model),
+                    provider.thinking_config.as_ref(),
+                ),
+            ),
+        );
         let can_explicit = allow_cross_provider_failover && match &result {
             Ok(response) => should_try_explicit_response(&provider, response),
             Err(_) => true,
@@ -461,13 +478,23 @@ async fn proxy_handler_inner(
                 note_gateway_inflight(&state, &provider, &requested_model, incoming_stream, route_decision.as_ref(), &attempts);
                 let (retry_result, queue_wait_ms) = upstream_health::send_observed_upstream_with_timing(retry_request, &provider, Some(&state), incoming_stream).await;
                 let retry_duration = retry_start.elapsed().as_millis() as i64;
-                attempts.push(build_request_attempt(
-                    attempts.len(),
-                    &provider,
-                    &requested_model,
-                    retry_duration,
-                    &retry_result,
-                ).with_queue_wait_ms(queue_wait_ms));
+                attempts.push(
+                    build_request_attempt(
+                        attempts.len(),
+                        &provider,
+                        &requested_model,
+                        retry_duration,
+                        &retry_result,
+                    )
+                    .with_queue_wait_ms(queue_wait_ms)
+                    .with_reasoning_effort(
+                        crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                            &incoming,
+                            Some(&requested_model),
+                            provider.thinking_config.as_ref(),
+                        ),
+                    ),
+                );
                 upstream_resp = match retry_result {
                     Ok(response) => response,
                     Err(error) => {
@@ -821,10 +848,23 @@ async fn proxy_handler_inner(
                         false,
                     ).await;
                     attempt_index = attempt_index.saturating_add(1);
-                    attempts.push(build_request_attempt(
-                        attempts.len(), &fallback, &fallback.model,
-                        fallback_start.elapsed().as_millis() as i64, &result,
-                    ).with_queue_wait_ms(queue_wait_ms));
+                    attempts.push(
+                        build_request_attempt(
+                            attempts.len(),
+                            &fallback,
+                            &fallback.model,
+                            fallback_start.elapsed().as_millis() as i64,
+                            &result,
+                        )
+                        .with_queue_wait_ms(queue_wait_ms)
+                        .with_reasoning_effort(
+                            crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                                &incoming,
+                                Some(&fallback.model),
+                                fallback.thinking_config.as_ref(),
+                            ),
+                        ),
+                    );
                     provider = fallback.clone();
                     match result {
                         Ok(response) if response.status().is_success() => {

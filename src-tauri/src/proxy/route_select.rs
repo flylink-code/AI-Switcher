@@ -31,10 +31,16 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let requested_model = if state.target == ProviderTarget::ClaudeDesktop {
         // 只调用用户选的模型：Desktop 自带的标题 / 侧查询 / 裸角色名不另选模型。
         let last_selected = desktop_alias::last_selected(&state.db);
-        desktop_alias::resolve_selected(&original_model, &entries, last_selected.as_deref())
+        let resolved_model = desktop_alias::resolve_selected(&original_model, &entries, last_selected.as_deref())
             .map_err(|unresolved| {
                 GatewaySelectionError::Catalog(crate::catalog::CatalogRequestError::StalePublicId(unresolved))
-            })?
+            })?;
+        if desktop_alias::is_desktop_alias(&original_model)
+            && desktop_alias::is_listed_selection(&original_model, &entries)
+        {
+            desktop_alias::remember_selected(&state.db, &original_model);
+        }
+        resolved_model
     } else {
         let session = conversation_model::session_key(_headers);
         let mut remembered =
@@ -122,12 +128,32 @@ pub(crate) fn select_gateway_runtime_provider_with(
     }
     let resolved = crate::catalog::resolve_request_strict(&entries, &providers, &explicit)
         .map_err(GatewaySelectionError::Catalog)?;
-    let Some((provider_id, upstream)) = resolved else {
+    let Some((provider_id, mut upstream)) = resolved else {
         return Ok(None);
     };
     let Some(provider) = providers.into_iter().find(|item| item.id == provider_id) else {
         return Ok(None);
     };
+    if state.target == ProviderTarget::ClaudeDesktop && provider.is_antigravity() {
+        if let Some(level) = convert::extract_anthropic_thinking(_incoming)
+            .and_then(|cfg| cfg.reasoning_effort)
+            .and_then(|effort| match effort.trim().to_ascii_lowercase().as_str() {
+                "minimal" | "low" => Some("low"),
+                "medium" => Some("medium"),
+                _ => None,
+            })
+        {
+            let lower = upstream.to_ascii_lowercase();
+            if lower.starts_with("gemini-") && lower.ends_with("-high") {
+                upstream = crate::antigravity::model_catalog::with_forced_level(&upstream, level);
+            } else if crate::antigravity::model_catalog::is_claude_55(&upstream)
+                && lower.ends_with("-high")
+            {
+                upstream =
+                    crate::antigravity::model_catalog::apply_claude_55_effort(&upstream, level);
+            }
+        }
+    }
     let source = if crate::gateway::is_auto_model_id(&requested_model) {
         crate::gateway::RouteSource::Auto
     } else {
@@ -321,7 +347,7 @@ fn prepare_upstream_request(
     };
     if state.target == ProviderTarget::ClaudeDesktop
         && provider.is_smart_gateway()
-        && provider.model.starts_with("anthropic/aisw-")
+        && desktop_alias::is_desktop_alias(&provider.model)
     {
         if let Ok((_, entries)) = load_gateway_catalog(state, CatalogStyle::Claude) {
             if let Some(public_id) = desktop_alias::public_id_for_listed(&provider.model, &entries) {

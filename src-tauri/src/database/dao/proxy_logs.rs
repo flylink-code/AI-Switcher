@@ -29,6 +29,7 @@ pub struct GatewayRouteLog {
     pub stream_outcome: Option<String>,
     pub estimated_cost: f64,
     pub attempts_json: Option<String>,
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -170,7 +171,7 @@ pub fn list_gateway_route_logs(
                 COALESCE(l.duration_ms, 0), COALESCE(l.input_tokens, 0),
                 COALESCE(l.cache_read_input_tokens, 0), COALESCE(l.cache_creation_input_tokens, 0),
                 COALESCE(l.output_tokens, 0), l.error_category, l.stream_outcome,
-                COALESCE({ROW_COST_SQL}, 0), l.attempts_json"
+                COALESCE({ROW_COST_SQL}, 0), l.attempts_json, l.diagnostic"
     );
     let data_sql = format!(
         "SELECT {columns}
@@ -186,11 +187,21 @@ pub fn list_gateway_route_logs(
 
     let mut stmt = conn.prepare(&data_sql)?;
     let map_row = |row: &rusqlite::Row<'_>| {
+        let requested_model: Option<String> = row.get(2)?;
+        let model: Option<String> = row.get(3)?;
+        let attempts_json: Option<String> = row.get(19)?;
+        let diagnostic: Option<String> = row.get(20)?;
+        let reasoning_effort = resolve_log_reasoning_effort(
+            model.as_deref(),
+            requested_model.as_deref(),
+            diagnostic.as_deref(),
+            attempts_json.as_deref(),
+        );
         Ok(GatewayRouteLog {
             id: row.get(0)?,
             created_at: row.get(1)?,
-            requested_model: row.get(2)?,
-            model: row.get(3)?,
+            requested_model,
+            model,
             route_reason: row.get(4)?,
             route_mode: row.get(5)?,
             profile_id: row.get(6)?,
@@ -206,7 +217,8 @@ pub fn list_gateway_route_logs(
             error_category: row.get(16)?,
             stream_outcome: row.get(17)?,
             estimated_cost: row.get::<_, Option<f64>>(18)?.unwrap_or(0.0),
-            attempts_json: row.get(19)?,
+            attempts_json,
+            reasoning_effort,
         })
     };
     let rows = stmt.query_map(data_params.as_slice(), map_row)?;
@@ -246,7 +258,10 @@ const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 const SESSION_DEDUP_FILTER: &str = "
   AND NOT (
     COALESCE(l.data_source, 'proxy') = 'claude_code_session'
-    AND lower(COALESCE(l.model, '')) LIKE 'anthropic/aisw-%'
+    AND (
+      lower(COALESCE(l.model, '')) LIKE 'anthropic/aisw-%'
+      OR lower(COALESCE(l.model, '')) LIKE 'claude-mythos-5-aisw-%'
+    )
   )
   AND (
     COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
@@ -310,7 +325,10 @@ const USAGE_COUNTED_SQL: &str = "
 pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
   AND NOT (
     COALESCE(l.data_source, 'proxy') = 'claude_code_session'
-    AND lower(COALESCE(l.model, '')) LIKE 'anthropic/aisw-%'
+    AND (
+      lower(COALESCE(l.model, '')) LIKE 'anthropic/aisw-%'
+      OR lower(COALESCE(l.model, '')) LIKE 'claude-mythos-5-aisw-%'
+    )
   )
   AND (
     COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
@@ -670,7 +688,7 @@ pub fn should_skip_claude_code_session_insert(
     cache_read_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<bool> {
-    if model.is_some_and(|m| m.trim().to_ascii_lowercase().starts_with("anthropic/aisw-")) {
+    if model.is_some_and(|m| crate::proxy::desktop_alias::is_desktop_alias(m)) {
         return Ok(true);
     }
     if should_skip_session_insert_for_target(
@@ -1641,6 +1659,8 @@ pub struct ProxyRequestAttempt {
     pub duration_ms: i64,
     #[serde(default)]
     pub queue_wait_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
     pub error_category: Option<String>,
     pub diagnostic: Option<String>,
     pub success: bool,
@@ -1649,6 +1669,11 @@ pub struct ProxyRequestAttempt {
 impl ProxyRequestAttempt {
     pub fn with_queue_wait_ms(mut self, queue_wait_ms: Option<i64>) -> Self {
         self.queue_wait_ms = queue_wait_ms.map(|ms| ms.max(0));
+        self
+    }
+
+    pub fn with_reasoning_effort(mut self, reasoning_effort: Option<String>) -> Self {
+        self.reasoning_effort = reasoning_effort.and_then(|raw| normalize_reasoning_effort(&raw));
         self
     }
 
@@ -1663,6 +1688,7 @@ impl ProxyRequestAttempt {
         diagnostic: Option<String>,
         success: bool,
     ) -> Self {
+        let reasoning_effort = infer_model_reasoning_effort(&model);
         Self {
             attempt_index,
             upstream_id,
@@ -1671,11 +1697,160 @@ impl ProxyRequestAttempt {
             status_code,
             duration_ms,
             queue_wait_ms: None,
+            reasoning_effort,
             error_category,
             diagnostic: diagnostic.map(|d| crate::log_redact::redact_secrets(&d)),
             success,
         }
     }
+}
+
+pub fn normalize_reasoning_effort(raw: &str) -> Option<String> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "minimal" => Some("minimal".to_string()),
+        "low" => Some("low".to_string()),
+        "medium" => Some("medium".to_string()),
+        "high" => Some("high".to_string()),
+        "xhigh" | "extra" => Some("xhigh".to_string()),
+        "max" | "ultra" => Some("max".to_string()),
+        _ => None,
+    }
+}
+
+pub fn infer_model_reasoning_effort(model: &str) -> Option<String> {
+    let (stem, _) = crate::provider::split_model_window_label(model.trim());
+    let lower = stem.trim().to_ascii_lowercase();
+    let lower = lower.strip_suffix("-fast").unwrap_or(&lower);
+    for (suffix, level) in [
+        ("-minimal", "minimal"),
+        ("-xhigh", "xhigh"),
+        ("-medium", "medium"),
+        ("-high", "high"),
+        ("-low", "low"),
+        ("-max", "max"),
+    ] {
+        if lower.ends_with(suffix) {
+            return Some(level.to_string());
+        }
+    }
+    None
+}
+
+pub fn extract_diagnostic_reasoning_effort(diagnostic: &str) -> Option<String> {
+    let mut mapped_model: Option<&str> = None;
+    for token in diagnostic.split_whitespace() {
+        if let Some(val) = token.strip_prefix("effort=") {
+            let trimmed = val.trim_matches(|c: char| c == ',' || c == ';');
+            if let Some(norm) = normalize_reasoning_effort(trimmed) {
+                return Some(norm);
+            }
+        } else if let Some(val) = token.strip_prefix("mapped=") {
+            mapped_model = Some(val.trim_matches(|c: char| c == ',' || c == ';'));
+        }
+    }
+    mapped_model.and_then(infer_model_reasoning_effort)
+}
+
+pub fn extract_request_reasoning_effort(
+    body: &serde_json::Value,
+    model: Option<&str>,
+    provider_thinking: Option<&crate::provider::ThinkingConfig>,
+) -> Option<String> {
+    let raw_effort = body
+        .pointer("/output_config/effort")
+        .or_else(|| body.get("effort"))
+        .or_else(|| body.pointer("/thinking/effort"))
+        .or_else(|| body.pointer("/reasoning/effort"))
+        .or_else(|| body.get("reasoning_effort"));
+    if let Some(val) = raw_effort {
+        let text = match val {
+            serde_json::Value::String(s) => Some(s.as_str()),
+            serde_json::Value::Object(map) => map
+                .get("type")
+                .or_else(|| map.get("level"))
+                .or_else(|| map.get("value"))
+                .and_then(serde_json::Value::as_str),
+            _ => None,
+        };
+        if let Some(norm) = text.and_then(normalize_reasoning_effort) {
+            return Some(norm);
+        }
+    }
+    let thinking_disabled = body
+        .pointer("/thinking/type")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|t| t.eq_ignore_ascii_case("disabled"));
+    if !thinking_disabled {
+        if let Some(budget) = body
+            .pointer("/thinking/budget_tokens")
+            .and_then(serde_json::Value::as_u64)
+            .filter(|b| *b > 0)
+        {
+            return Some(
+                if budget <= 4096 {
+                    "low"
+                } else if budget <= 16384 {
+                    "medium"
+                } else {
+                    "high"
+                }
+                .to_string(),
+            );
+        }
+        if let Some(cfg) = provider_thinking {
+            if !cfg.is_disabled() {
+                if let Some(norm) = cfg
+                    .reasoning_effort
+                    .as_deref()
+                    .and_then(normalize_reasoning_effort)
+                {
+                    return Some(norm);
+                }
+                if let Some(resolved) = cfg.resolved_reasoning_effort() {
+                    return Some(resolved.to_string());
+                }
+            }
+        }
+    }
+    model.and_then(infer_model_reasoning_effort)
+}
+
+pub fn resolve_log_reasoning_effort(
+    model: Option<&str>,
+    requested_model: Option<&str>,
+    diagnostic: Option<&str>,
+    attempts_json: Option<&str>,
+) -> Option<String> {
+    if let Some(raw) = attempts_json {
+        if let Ok(attempts) = serde_json::from_str::<Vec<ProxyRequestAttempt>>(raw) {
+            for attempt in attempts.iter().rev() {
+                if let Some(effort) = attempt
+                    .reasoning_effort
+                    .as_deref()
+                    .and_then(normalize_reasoning_effort)
+                {
+                    return Some(effort);
+                }
+                if let Some(effort) = attempt
+                    .diagnostic
+                    .as_deref()
+                    .and_then(extract_diagnostic_reasoning_effort)
+                {
+                    return Some(effort);
+                }
+                if let Some(effort) = infer_model_reasoning_effort(&attempt.model) {
+                    return Some(effort);
+                }
+            }
+        }
+    }
+    if let Some(effort) = diagnostic.and_then(extract_diagnostic_reasoning_effort) {
+        return Some(effort);
+    }
+    if let Some(effort) = model.and_then(infer_model_reasoning_effort) {
+        return Some(effort);
+    }
+    requested_model.and_then(infer_model_reasoning_effort)
 }
 
 #[derive(Debug, Serialize)]
@@ -1711,6 +1886,7 @@ pub struct ProxyRequestLog {
     pub hop: Option<String>,
     pub usage_counted: bool,
     pub attempts_json: Option<String>,
+    pub reasoning_effort: Option<String>,
 }
 
 impl ProxyRequestLog {
@@ -1828,12 +2004,22 @@ pub fn list_proxy_request_logs(
         let provider_name = raw_provider_name
             .as_deref()
             .map(canonical_provider_display_name);
+        let model: Option<String> = row.get(4)?;
+        let diagnostic: Option<String> = row.get(17)?;
+        let requested_model: Option<String> = row.get(22)?;
+        let attempts_json: Option<String> = row.get(28)?;
+        let reasoning_effort = resolve_log_reasoning_effort(
+            model.as_deref(),
+            requested_model.as_deref(),
+            diagnostic.as_deref(),
+            attempts_json.as_deref(),
+        );
         Ok(ProxyRequestLog {
             id: row.get(0)?,
             created_at: row.get(1)?,
             provider_id: row.get(2)?,
             provider_name,
-            model: row.get(4)?,
+            model,
             status_code: row.get(5)?,
             input_tokens: row.get(6)?,
             cache_read_input_tokens: row.get(7)?,
@@ -1846,18 +2032,19 @@ pub fn list_proxy_request_logs(
             route: row.get(14)?,
             is_stream: row.get::<_, i64>(15)? != 0,
             error_category: row.get(16)?,
-            diagnostic: row.get(17)?,
+            diagnostic,
             data_source: row.get(18)?,
             session_id: row.get(19)?,
             stream_outcome: row.get(20)?,
             route_reason: row.get(21)?,
-            requested_model: row.get(22)?,
+            requested_model,
             upstream_id: row.get(23)?,
             profile_id: row.get(24)?,
             correlation_id: row.get(25)?,
             hop: row.get(26)?,
             usage_counted: row.get::<_, i64>(27)? != 0,
-            attempts_json: row.get(28)?,
+            attempts_json,
+            reasoning_effort,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;
@@ -4006,5 +4193,72 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn extracts_and_resolves_reasoning_effort_across_sources() {
+        let body_output_cfg = serde_json::json!({
+            "model": "claude-mythos-5-aisw-1234567890",
+            "output_config": { "effort": "xhigh" }
+        });
+        assert_eq!(
+            extract_request_reasoning_effort(&body_output_cfg, Some("gpt-6.1-sol"), None)
+                .as_deref(),
+            Some("xhigh")
+        );
+
+        let body_nested_effort = serde_json::json!({
+            "output_config": { "effort": { "level": "max" } }
+        });
+        assert_eq!(
+            extract_request_reasoning_effort(&body_nested_effort, Some("claude-opus-5.5"), None)
+                .as_deref(),
+            Some("max")
+        );
+
+        let body_openai = serde_json::json!({
+            "reasoning": { "effort": "low" }
+        });
+        assert_eq!(
+            extract_request_reasoning_effort(&body_openai, Some("gpt-5.6-sol"), None).as_deref(),
+            Some("low")
+        );
+
+        let body_empty = serde_json::json!({});
+        assert_eq!(
+            extract_request_reasoning_effort(&body_empty, Some("gemini-4-argon-medium"), None)
+                .as_deref(),
+            Some("medium")
+        );
+
+        assert_eq!(
+            resolve_log_reasoning_effort(
+                Some("gemini-3.8-flash"),
+                None,
+                Some("effort=low thinking=adaptive mapped=gemini-3.8-flash-low"),
+                None,
+            )
+            .as_deref(),
+            Some("low")
+        );
+
+        let attempt = ProxyRequestAttempt::new(
+            0,
+            Some("sub2api".to_string()),
+            Some("sub2api".to_string()),
+            "gpt-6.1-sol".to_string(),
+            Some(200),
+            120,
+            None,
+            None,
+            true,
+        )
+        .with_reasoning_effort(Some("xhigh".to_string()));
+        let attempts_json = serde_json::to_string(&vec![attempt]).unwrap();
+        assert_eq!(
+            resolve_log_reasoning_effort(Some("gpt-6.1-sol"), None, None, Some(&attempts_json))
+                .as_deref(),
+            Some("xhigh")
+        );
     }
 }

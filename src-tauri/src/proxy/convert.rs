@@ -47,6 +47,21 @@ pub fn reinject_chat_prompt_cache_key(
     }
 }
 
+fn extract_effort_str(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) if !text.trim().is_empty() => Some(text.trim().to_string()),
+        Value::Object(map) => map
+            .get("type")
+            .or_else(|| map.get("level"))
+            .or_else(|| map.get("value"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string),
+        _ => None,
+    }
+}
+
 pub fn extract_anthropic_thinking(request: &Value) -> Option<crate::provider::ThinkingConfig> {
     let mut config = crate::provider::ThinkingConfig::default();
     let mut found = false;
@@ -60,17 +75,17 @@ pub fn extract_anthropic_thinking(request: &Value) -> Option<crate::provider::Th
             config.budget_tokens = Some(budget as u32);
             found = true;
         }
-        if let Some(effort) = thinking.get("effort").and_then(Value::as_str) {
-            config.reasoning_effort = Some(effort.to_string());
+        if let Some(effort) = thinking.get("effort").and_then(extract_effort_str) {
+            config.reasoning_effort = Some(effort);
             found = true;
         }
     }
     if let Some(effort) = request
         .pointer("/output_config/effort")
         .or_else(|| request.get("effort"))
-        .and_then(Value::as_str)
+        .and_then(extract_effort_str)
     {
-        config.reasoning_effort = Some(effort.to_string());
+        config.reasoning_effort = Some(effort);
         found = true;
     }
     if found {
@@ -254,7 +269,7 @@ pub fn anthropic_to_openai_responses(
 
     if let Some(cfg) = merge_thinking_config(request, provider_thinking) {
         if !cfg.is_disabled() {
-            if let Some(effort) = cfg.resolved_reasoning_effort() {
+            if let Some(effort) = cfg.resolved_responses_reasoning_effort() {
                 result["reasoning"] = json!({ "effort": effort });
             }
             if cfg.prefix_thought.unwrap_or(false) {

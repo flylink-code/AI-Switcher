@@ -289,7 +289,14 @@ pub async fn codex_proxy_handler(
                 attempt_duration,
                 &result,
             )
-            .with_queue_wait_ms(queue_wait_ms),
+            .with_queue_wait_ms(queue_wait_ms)
+            .with_reasoning_effort(
+                crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                    &incoming,
+                    Some(&current_upstream_model),
+                    provider.thinking_config.as_ref(),
+                ),
+            ),
         );
 
         let can_explicit = allow_cross_provider_failover
@@ -498,7 +505,14 @@ pub async fn codex_proxy_handler(
                                     chat_duration,
                                     &chat_result,
                                 )
-                                .with_queue_wait_ms(queue_wait_ms),
+                                .with_queue_wait_ms(queue_wait_ms)
+                                .with_reasoning_effort(
+                                    crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                                        &incoming,
+                                        Some(&current_upstream_model),
+                                        provider.thinking_config.as_ref(),
+                                    ),
+                                ),
                             );
                             match chat_result {
                                 Ok(response) => {
@@ -1790,7 +1804,14 @@ async fn forward_copilot_anthropic_streaming_early(
                 attempt_duration,
                 &result,
             )
-            .with_queue_wait_ms(queue_wait_ms),
+            .with_queue_wait_ms(queue_wait_ms)
+            .with_reasoning_effort(
+                crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                    &incoming,
+                    Some(&upstream_model),
+                    provider.thinking_config.as_ref(),
+                ),
+            ),
         );
         let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
 

@@ -311,6 +311,34 @@ impl ThinkingConfig {
         None
     }
 
+    /// Map budget tokens or explicit reasoning effort to OpenAI Responses effort ("low" | "medium" | "high" | "xhigh").
+    pub fn resolved_responses_reasoning_effort(&self) -> Option<&'static str> {
+        if self.is_disabled() {
+            return None;
+        }
+        if let Some(effort) = self.reasoning_effort.as_deref().map(str::trim) {
+            match effort.to_ascii_lowercase().as_str() {
+                "minimal" | "low" => return Some("low"),
+                "medium" => return Some("medium"),
+                "high" => return Some("high"),
+                "xhigh" | "max" | "ultra" => return Some("xhigh"),
+                _ => {}
+            }
+        }
+        if let Some(budget) = self.budget_tokens {
+            if budget <= 4096 {
+                return Some("low");
+            } else if budget <= 16384 {
+                return Some("medium");
+            } else if budget <= 24576 {
+                return Some("high");
+            } else {
+                return Some("xhigh");
+            }
+        }
+        None
+    }
+
     /// Check if thinking is explicitly enabled or disabled for aggregator platforms (e.g. Novita/ModelScope `enable_thinking`).
     pub fn resolved_enable_thinking(&self) -> Option<bool> {
         if self.is_disabled() {
@@ -340,6 +368,8 @@ impl ThinkingConfig {
                 "minimal" | "low" => return Some(2048),
                 "medium" => return Some(8192),
                 "high" => return Some(16384),
+                "xhigh" => return Some(24576),
+                "max" | "ultra" => return Some(32768),
                 _ => {}
             }
         }

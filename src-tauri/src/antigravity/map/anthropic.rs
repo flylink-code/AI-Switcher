@@ -510,6 +510,12 @@ fn extract_effort(body: &Value) -> Option<String> {
                 .and_then(|thinking| thinking.get("effort"))
                 .and_then(effort_value_to_string)
         })
+        .or_else(|| {
+            body.get("reasoning")
+                .and_then(|reasoning| reasoning.get("effort"))
+                .and_then(effort_value_to_string)
+        })
+        .or_else(|| body.get("reasoning_effort").and_then(effort_value_to_string))
 }
 
 fn effort_value_to_string(value: &Value) -> Option<String> {

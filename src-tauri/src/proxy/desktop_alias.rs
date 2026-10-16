@@ -1,8 +1,14 @@
 //! Claude Desktop only keeps model ids that read as Anthropic, and it picks its
 //! own background model (title generation, side queries) from any id in the
-//! list that looks like a Sonnet / Haiku. Every catalog id is therefore listed
-//! as a stable `anthropic/aisw-` alias and mapped back to the public id before
-//! routing, so Desktop has no Anthropic-looking model to pick on its own.
+//! list that looks like a Sonnet / Haiku / Opus. Every catalog id is therefore
+//! listed as a stable `claude-mythos-5-aisw-` alias and mapped back to the
+//! public id before routing:
+//! - Desktop's `f3t` matches `claude-mythos-*` and unlocks 5-level reasoning
+//!   effort (`low`, `medium`, `high`, `xhigh`, `max`) on every model.
+//! - `claude.exe` (`dU` / `Bb` / `Jie` / `Qpt`) matches `claude-mythos-5` and
+//!   preserves `output_config.effort` even in 3p gateway mode.
+//! - Desktop's `zT` only probes `haiku` / `sonnet` / `opus`, so it never
+//!   hijacks any catalog row as a background probe model.
 
 use std::sync::Mutex;
 
@@ -12,10 +18,24 @@ use crate::catalog::{is_auto_public_id, CatalogEntry};
 use crate::database::dao::{get_setting, set_setting};
 use crate::database::Database;
 
-const ALIAS_PREFIX: &str = "anthropic/aisw-";
+const ALIAS_PREFIX: &str = "claude-mythos-5-aisw-";
+const LEGACY_ALIAS_PREFIX: &str = "anthropic/aisw-";
+
+pub fn is_desktop_alias(id: &str) -> bool {
+    let trimmed = id.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    lower.starts_with(ALIAS_PREFIX) || lower.starts_with(LEGACY_ALIAS_PREFIX)
+}
 
 pub fn alias_for(public_id: &str) -> String {
     format!("{ALIAS_PREFIX}{:010}", fnv1a64(public_id) % 10_000_000_000)
+}
+
+fn legacy_alias_for(public_id: &str) -> String {
+    format!(
+        "{LEGACY_ALIAS_PREFIX}{:010}",
+        fnv1a64(public_id) % 10_000_000_000
+    )
 }
 
 pub fn listed_id(public_id: &str) -> String {
@@ -78,6 +98,7 @@ pub fn public_id_for_listed(listed: &str, entries: &[CatalogEntry]) -> Option<St
         }
         if entry.public_id.eq_ignore_ascii_case(listed)
             || listed_id(&entry.public_id).eq_ignore_ascii_case(listed)
+            || legacy_alias_for(&entry.public_id).eq_ignore_ascii_case(listed)
         {
             Some(entry.public_id.clone())
         } else {
@@ -91,7 +112,7 @@ const SELECTED_SETTING: &str = "claude_desktop_selected_model";
 
 /// Marks which catalog id scheme the stored selection belongs to.
 const ID_SCHEME_SETTING: &str = "catalog_id_scheme";
-/// Scheme 2: same-name models merged and `claude.<model>` ids (no provider segment).
+/// Scheme 2: provider segment dropped from public ids, same-name models merged.
 const ID_SCHEME: &str = "2";
 
 /// Aliases are hashes of the public id, so the id scheme change (provider segment
@@ -124,7 +145,7 @@ pub fn last_selected(db: &Database) -> Option<String> {
         .with_read_conn(|conn| get_setting(conn, SELECTED_SETTING))
         .ok()
         .flatten()
-        .filter(|value| value.starts_with(ALIAS_PREFIX))?;
+        .filter(|value| is_desktop_alias(value))?;
     if let Ok(mut slot) = LAST_SELECTED.lock() {
         *slot = Some(stored.clone());
     }
@@ -135,7 +156,7 @@ pub fn last_selected(db: &Database) -> Option<String> {
 /// roles) are never a selection.
 pub fn remember_selected(db: &Database, model: &str) {
     let model = model.trim();
-    if !model.starts_with(ALIAS_PREFIX) {
+    if !is_desktop_alias(model) {
         return;
     }
     let changed = match LAST_SELECTED.lock() {
@@ -176,7 +197,7 @@ pub fn resolve_selected(
     if let Some(public_id) = public_id_for_listed(&stem, entries) {
         return Ok(public_id);
     }
-    if !requested.starts_with(ALIAS_PREFIX) {
+    if !is_desktop_alias(requested) {
         if let Some(public_id) = last_selected.and_then(|last| public_id_for_listed(last, entries))
         {
             return Ok(public_id);
@@ -339,6 +360,16 @@ mod tests {
         // 未知别名是过期选择，不能落到记忆里的模型。
         assert!(
             resolve_selected("anthropic/aisw-0000000000", &entries, Some(&luna_alias)).is_err()
+        );
+        assert!(
+            resolve_selected("claude-mythos-5-aisw-0000000000", &entries, Some(&luna_alias))
+                .is_err()
+        );
+        // 旧版 anthropic/aisw- 别名在过渡期仍能解析到同一目录项。
+        let legacy_gemini = legacy_alias_for(gemini);
+        assert_eq!(
+            resolve_selected(&legacy_gemini, &entries, Some(&luna_alias)).as_deref(),
+            Ok(gemini)
         );
         // Auto 仍交给卡片默认。
         assert_eq!(
