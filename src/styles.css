@@ -1434,6 +1434,47 @@ body {
   margin-left: 0;
 }
 
+.usage-toolbar-strip.page-strip {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px 10px;
+}
+
+.usage-toolbar-strip.page-strip > .cc-header-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.usage-toolbar-strip.page-strip > .cc-header-left::-webkit-scrollbar {
+  display: none;
+}
+
+.usage-toolbar-strip .app-segmented-switcher.ant-segmented .ant-segmented-item-label {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 20px;
+  gap: 5px;
+}
+
+.usage-toolbar-strip.page-strip > .cc-header-right {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
+@media (max-width: 820px) {
+  .usage-toolbar-strip.page-strip {
+    flex-wrap: wrap;
+  }
+
+  .usage-toolbar-strip.page-strip > .cc-header-right {
+    margin-left: 0;
+  }
+}
+
 .page-strip .ant-btn {
   height: 28px;
   padding-inline: 10px;

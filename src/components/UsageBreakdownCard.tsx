@@ -24,6 +24,26 @@ interface UsageBreakdownCardProps {
   loading?: boolean;
 }
 
+export function normalizeProviderDisplayName(raw?: string | null): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return "Unknown";
+  const stripped = trimmed
+    .replace(/\s*\((?:Built-in|built-in)\)\s*$/u, "")
+    .replace(/\s*(?:（内置）|内置反代)\s*$/u, "")
+    .trim();
+  const lower = stripped.toLowerCase();
+  if (lower === "antigravity" || lower === "antigravity-builtin" || lower === "up_ag_15830") {
+    return "Antigravity";
+  }
+  if (lower === "kiro" || lower === "kiro-builtin" || lower === "up_kiro_15831") {
+    return "Kiro";
+  }
+  if (lower === "chatgpt" || lower === "chatgpt-builtin") {
+    return "ChatGPT";
+  }
+  return stripped;
+}
+
 export function UsageBreakdownCard({
   title,
   data,
@@ -43,7 +63,12 @@ export function UsageBreakdownCard({
         dataSource={rows}
         scroll={rows.length > 6 ? { y: 240 } : undefined}
         columns={[
-          { title: t("usage.name"), dataIndex: "key", ellipsis: true },
+          {
+            title: t("usage.name"),
+            dataIndex: "key",
+            ellipsis: true,
+            render: (value: string) => normalizeProviderDisplayName(value),
+          },
           { title: t("usage.requests"), dataIndex: "requestCount", width: 88 },
           {
             title: t("usage.totalTokens"),

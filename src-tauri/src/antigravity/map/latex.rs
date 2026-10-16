@@ -52,22 +52,38 @@ fn incomplete_math_start(input: &str) -> Option<usize> {
     let bytes = input.as_bytes();
     let mut i = 0;
     let mut dollar: Option<usize> = None;
+    let mut display_dollar = false;
     let mut paren: Option<usize> = None;
     let mut bracket: Option<usize> = None;
     while i < bytes.len() {
+        if bytes[i] == b'\n' && dollar.is_some() && !display_dollar {
+            dollar = None;
+        }
         if bytes[i] == b'$' {
             if i + 1 < bytes.len() && bytes[i + 1] == b'$' {
                 // `$$` display: toggle using the same dollar slot.
                 match dollar {
-                    Some(_) => dollar = None,
-                    None => dollar = Some(i),
+                    Some(_) => {
+                        dollar = None;
+                        display_dollar = false;
+                    }
+                    None => {
+                        dollar = Some(i);
+                        display_dollar = true;
+                    }
                 }
                 i += 2;
                 continue;
             }
             match dollar {
-                Some(_) => dollar = None,
-                None => dollar = Some(i),
+                Some(_) if !display_dollar && is_valid_closing_dollar(bytes, i) => {
+                    dollar = None;
+                }
+                None if is_valid_opening_dollar(bytes, i) => {
+                    dollar = Some(i);
+                    display_dollar = false;
+                }
+                _ => {}
             }
             i += 1;
             continue;
@@ -131,15 +147,57 @@ fn replace_delimited(input: &str, open: &str, close: &str, max_chars: usize) -> 
     out
 }
 
+const DOLLAR_BYTE: u8 = 36;
+const BACKSLASH_BYTE: u8 = 92;
+
+fn is_valid_opening_dollar(bytes: &[u8], idx: usize) -> bool {
+    if bytes.get(idx) != Some(&DOLLAR_BYTE) {
+        return false;
+    }
+    if idx > 0 {
+        let prev = bytes[idx - 1];
+        if prev == DOLLAR_BYTE
+            || prev == BACKSLASH_BYTE
+            || prev.is_ascii_alphanumeric()
+            || prev == b'_'
+        {
+            return false;
+        }
+    }
+    let Some(&next) = bytes.get(idx + 1) else {
+        return false;
+    };
+    if next == DOLLAR_BYTE || next.is_ascii_whitespace() || next == b'_' {
+        return false;
+    }
+    true
+}
+
+fn is_valid_closing_dollar(bytes: &[u8], idx: usize) -> bool {
+    if bytes.get(idx) != Some(&DOLLAR_BYTE) || idx == 0 {
+        return false;
+    }
+    let prev = bytes[idx - 1];
+    if prev == DOLLAR_BYTE || prev == BACKSLASH_BYTE || prev.is_ascii_whitespace() {
+        return false;
+    }
+    if let Some(&next) = bytes.get(idx + 1) {
+        if next == DOLLAR_BYTE || next.is_ascii_alphanumeric() || next == b'_' {
+            return false;
+        }
+    }
+    true
+}
+
 fn replace_dollar_math(input: &str, max_chars: usize) -> String {
     let mut out = String::with_capacity(input.len());
     let bytes = input.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'$' && (i + 1 >= bytes.len() || bytes[i + 1] != b'$') {
+        if is_valid_opening_dollar(bytes, i) {
             if let Some(end) = find_closing_dollar(bytes, i + 1) {
                 let inner = &input[i + 1..end];
-                if looks_like_latex(inner, max_chars) {
+                if !inner.contains('\n') && looks_like_latex(inner, max_chars) {
                     out.push_str(&decode_latex_inner(inner));
                     i = end + 1;
                     continue;
@@ -158,7 +216,10 @@ fn replace_dollar_math(input: &str, max_chars: usize) -> String {
 fn find_closing_dollar(bytes: &[u8], from: usize) -> Option<usize> {
     let mut i = from;
     while i < bytes.len() {
-        if bytes[i] == b'$' && (i + 1 >= bytes.len() || bytes[i + 1] != b'$') {
+        if bytes[i] == b'\n' {
+            return None;
+        }
+        if is_valid_closing_dollar(bytes, i) {
             return Some(i);
         }
         i += 1;
@@ -166,12 +227,45 @@ fn find_closing_dollar(bytes: &[u8], from: usize) -> Option<usize> {
     None
 }
 
+fn contains_latex_command(s: &str) -> bool {
+    const BRACE_CMDS: &[&str] = &[
+        "\\text{",
+        "\\mathrm{",
+        "\\mathbf{",
+        "\\textrm{",
+        "\\mathit{",
+    ];
+    const ESCAPES: &[&str] = &["\\ ", "\\{", "\\}", "\\%", "\\#", "\\&", "\\$"];
+    if BRACE_CMDS.iter().any(|cmd| s.contains(cmd)) || ESCAPES.iter().any(|esc| s.contains(esc)) {
+        return true;
+    }
+    for (sym, _) in LATEX_SYMBOLS {
+        let mut search_from = 0;
+        while let Some(pos) = s[search_from..].find(sym) {
+            let after_idx = search_from + pos + sym.len();
+            let sym_is_alpha = sym
+                .as_bytes()
+                .last()
+                .is_some_and(|b| b.is_ascii_alphabetic());
+            let next_is_alpha = s
+                .as_bytes()
+                .get(after_idx)
+                .is_some_and(|b| b.is_ascii_alphabetic());
+            if !sym_is_alpha || !next_is_alpha {
+                return true;
+            }
+            search_from = after_idx;
+        }
+    }
+    false
+}
+
 fn looks_like_latex(inner: &str, max_chars: usize) -> bool {
     let trimmed = inner.trim();
     if trimmed.is_empty() || trimmed.chars().count() > max_chars {
         return false;
     }
-    trimmed.contains('\\')
+    contains_latex_command(trimmed)
         || trimmed.contains("_{")
         || trimmed.contains("^{")
         || (trimmed.contains('^') && trimmed.chars().any(|c| c.is_ascii_alphabetic()))
@@ -414,7 +508,8 @@ fn replace_ascii_range_tildes(input: &str) -> String {
 }
 
 /// Unwrap KaTeX in tool-call string arguments (Write `contents`, Edit `new_string`).
-/// Leave match/search fields alone so an Edit can still find raw `$...$` on disk.
+/// Leave match/search/command/code fields alone so shell commands, code edits, and
+/// search patterns are never mutated.
 pub fn unwrap_latex_in_tool_args(args: Value) -> Value {
     unwrap_latex_value(args, None)
 }
@@ -431,16 +526,40 @@ fn unwrap_latex_value(value: Value, key: Option<&str>) -> Value {
                 .map(|item| unwrap_latex_value(item, key))
                 .collect(),
         ),
-        Value::Object(map) => Value::Object(
-            map.into_iter()
-                .map(|(child_key, child)| {
-                    let next = unwrap_latex_value(child, Some(&child_key));
-                    (child_key, next)
-                })
-                .collect(),
-        ),
+        Value::Object(map) => {
+            if object_targets_non_prose_file(&map) {
+                return Value::Object(map);
+            }
+            Value::Object(
+                map.into_iter()
+                    .map(|(child_key, child)| {
+                        let next = unwrap_latex_value(child, Some(&child_key));
+                        (child_key, next)
+                    })
+                    .collect(),
+            )
+        }
         other => other,
     }
+}
+
+fn object_targets_non_prose_file(map: &serde_json::Map<String, Value>) -> bool {
+    const PATH_KEYS: &[&str] = &["path", "file_path", "filePath", "uri", "resourceUri"];
+    for k in PATH_KEYS {
+        if let Some(path_str) = map.get(*k).and_then(Value::as_str) {
+            let trimmed = path_str.trim();
+            if let Some((_, ext)) = trimmed.rsplit_once('.') {
+                let ext_lower = ext.to_ascii_lowercase();
+                if !matches!(
+                    ext_lower.as_str(),
+                    "md" | "mdx" | "txt" | "rst" | "adoc" | "markdown"
+                ) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 fn skip_unwrap_arg_key(key: &str) -> bool {
@@ -452,9 +571,35 @@ fn skip_unwrap_arg_key(key: &str) -> bool {
             | "pattern"
             | "regex"
             | "path"
+            | "paths"
+            | "files"
+            | "coverageFiles"
             | "glob"
             | "file_path"
             | "filePath"
+            | "uri"
+            | "resourceUri"
+            | "url"
+            | "command"
+            | "cmd"
+            | "script"
+            | "code"
+            | "query"
+            | "input"
+            | "shellId"
+            | "symbol"
+            | "lineContent"
+            | "selector"
+            | "fromSelector"
+            | "toSelector"
+            | "ref"
+            | "fromRef"
+            | "toRef"
+            | "id"
+            | "agent_id"
+            | "agent_ids"
+            | "session"
+            | "newCode"
     )
 }
 
@@ -600,5 +745,29 @@ mod tests {
         let (emit, hold) = split_safe_latex_prefix("path ~/");
         assert_eq!(emit, "path ~/");
         assert!(hold.is_empty());
+    }
+
+    #[test]
+    fn preserves_powershell_variables_and_command_tool_args() {
+        let ps_cmd = "Get-ChildItem \"C:\\Users\\admin\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { \x24_.Name -match 'log|\\.json' -and \x24_.FullName -notmatch 'component_crx|Default\\\\Cache|Code Cache' } | Select-Object FullName, LastWriteTime, Length";
+        assert_eq!(unwrap_gemini_latex(ps_cmd), ps_cmd);
+        let (emit, hold) = split_safe_latex_prefix(ps_cmd);
+        assert_eq!(emit, ps_cmd);
+        assert!(hold.is_empty());
+
+        let tool_args = serde_json::json!({
+            "command": ps_cmd,
+            "description": "Find log and json files"
+        });
+        assert_eq!(unwrap_latex_in_tool_args(tool_args.clone()), tool_args);
+
+        let rust_edit_args = serde_json::json!({
+            "path": "src/main.rs",
+            "new_str": "let a = \x24x; let b = \"\\le\"; let c = \x24y;"
+        });
+        assert_eq!(
+            unwrap_latex_in_tool_args(rust_edit_args.clone()),
+            rust_edit_args
+        );
     }
 }

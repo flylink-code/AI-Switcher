@@ -871,16 +871,25 @@ fn fold_provider_breakdowns(
     }
     let mut grouped: HashMap<String, Acc> = HashMap::new();
     for group in groups {
-        let acc = grouped
-            .entry(group.provider.clone())
-            .or_insert_with(|| Acc {
-                request_count: 0,
-                input_tokens: 0,
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-                output_tokens: 0,
-                costs: Vec::new(),
-            });
+        let provider_key =
+            crate::database::dao::proxy_logs::canonical_provider_display_name(&group.provider);
+        let total_tokens = group.input_tokens
+            + group.cache_read_input_tokens
+            + group.cache_creation_input_tokens
+            + group.output_tokens;
+        if crate::database::dao::proxy_logs::is_unrouted_gateway_placeholder_provider(&provider_key)
+            && total_tokens == 0
+        {
+            continue;
+        }
+        let acc = grouped.entry(provider_key).or_insert_with(|| Acc {
+            request_count: 0,
+            input_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: 0,
+            costs: Vec::new(),
+        });
         acc.request_count += group.request_count;
         acc.input_tokens += group.input_tokens;
         acc.cache_read_input_tokens += group.cache_read_input_tokens;

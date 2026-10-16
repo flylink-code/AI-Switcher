@@ -73,7 +73,7 @@ import {
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import { UsageBreakdownCard } from "@/components/UsageBreakdownCard";
+import { UsageBreakdownCard, normalizeProviderDisplayName } from "@/components/UsageBreakdownCard";
 import { UsageMetricStrip, UsageToolbar } from "@/components/usage";
 import { Stack } from "@/components/ui";
 import { formatCompactNumber } from "@/utils/formatCompact";
@@ -642,13 +642,16 @@ export default function UsagePage() {
                 if (row.dataSource === "codex_session") return t("usage.codexSessionSource");
                 if (row.dataSource === "opencode_session") return t("usage.opencodeSessionSource");
                 const viaGateway = Boolean(row.routeReason?.trim() || row.profileId?.trim());
+                const normalized = v ? normalizeProviderDisplayName(v) : null;
                 let label: string;
-                if (row.targetApp === "antigravity") {
+                if (row.targetApp === "antigravity" || normalized === "Antigravity") {
                   const rawId = row.providerId;
-                  const resolvedEmail = rawId ? (agAccountMap[rawId] || rawId) : null;
-                  label = resolvedEmail ? `Antigravity (${resolvedEmail})` : (v ?? "Antigravity");
+                  const resolvedEmail = rawId
+                    ? (agAccountMap[rawId] ?? (rawId.includes("@") ? rawId : null))
+                    : null;
+                  label = resolvedEmail ? `Antigravity (${resolvedEmail})` : "Antigravity";
                 } else {
-                  label = v ?? "—";
+                  label = normalized ?? "—";
                 }
                 return (
                   <span style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", minWidth: 0 }}>

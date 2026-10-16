@@ -193,17 +193,18 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
 export function usageSourceSegmentLabel(
   source: UsageSourceFilter,
   text: string,
+  iconSize = 16,
 ): ReactNode {
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
+        gap: iconSize <= 14 ? 5 : 6,
         whiteSpace: "nowrap",
       }}
     >
-      {usageSourceIcon(source, { size: 16 })}
+      {usageSourceIcon(source, { size: iconSize })}
       <span>{text}</span>
     </span>
   );

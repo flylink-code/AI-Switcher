@@ -1202,17 +1202,88 @@ fn pick_primary_currency_amount(amounts: &[CurrencyAmount]) -> (String, f64) {
     crate::usage::summarize_costs_as_usd(&pairs)
 }
 
+/// Normalize provider display names so built-in reverse proxies (`Antigravity (Built-in)`,
+/// `Kiro (Built-in)`, `up_ag_15830`, etc.) always fold into their canonical provider name.
+pub fn canonical_provider_display_name(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return "Unknown".to_string();
+    }
+    let stripped = trimmed
+        .strip_suffix(" (Built-in)")
+        .or_else(|| trimmed.strip_suffix(" (built-in)"))
+        .or_else(|| trimmed.strip_suffix("（内置）"))
+        .or_else(|| trimmed.strip_suffix(" 内置反代"))
+        .map(str::trim)
+        .unwrap_or(trimmed);
+    let lower = stripped.to_ascii_lowercase();
+    match lower.as_str() {
+        "antigravity" | "antigravity-builtin" | "up_ag_15830" => "Antigravity".to_string(),
+        "kiro" | "kiro-builtin" | "up_kiro_15831" => "Kiro".to_string(),
+        "chatgpt" | "chatgpt-builtin" => "ChatGPT".to_string(),
+        _ => stripped.to_string(),
+    }
+}
+
+pub fn is_unrouted_gateway_placeholder_provider(name: &str) -> bool {
+    matches!(
+        name.trim(),
+        "智能网关" | "Smart Gateway" | "__smart_gateway__"
+    )
+}
+
+const PROVIDER_RESOLVED_SQL: &str = "\
+    COALESCE(
+      CASE
+        WHEN l.provider_id = 'up_ag_15830' OR l.upstream_id = 'up_ag_15830' OR l.target_app = 'antigravity' OR l.hop = 'antigravity' THEN 'Antigravity'
+        WHEN l.provider_id = 'up_kiro_15831' OR l.upstream_id = 'up_kiro_15831' OR l.target_app = 'kiro' OR l.hop = 'kiro' THEN 'Kiro'
+        WHEN (l.provider_id = '__smart_gateway__' OR l.provider_name IN ('智能网关', 'Smart Gateway'))
+         AND NULLIF(TRIM(COALESCE(l.upstream_id, '')), '') IS NOT NULL
+        THEN COALESCE(
+          (SELECT u.name FROM upstreams u WHERE u.id = l.upstream_id LIMIT 1),
+          NULLIF(TRIM(l.upstream_id), '')
+        )
+        ELSE NULL
+      END,
+      NULLIF(TRIM(l.provider_name), ''),
+      'Unknown'
+    )";
+
 pub fn get_usage_by_provider_for_target(
     conn: &Connection,
     since: i64,
     target_app: Option<&str>,
 ) -> AppResult<Vec<UsageBreakdown>> {
-    usage_breakdown(
-        conn,
-        since,
-        target_app,
-        "COALESCE(l.provider_name, 'Unknown')",
-    )
+    let rows = usage_breakdown(conn, since, target_app, PROVIDER_RESOLVED_SQL)?;
+    let mut merged: HashMap<String, UsageBreakdown> = HashMap::new();
+    for mut row in rows {
+        let key = canonical_provider_display_name(&row.key);
+        let total_tokens = row.input_tokens
+            + row.cache_read_input_tokens
+            + row.cache_creation_input_tokens
+            + row.output_tokens;
+        if is_unrouted_gateway_placeholder_provider(&key) && total_tokens == 0 {
+            continue;
+        }
+        row.key = key.clone();
+        if let Some(existing) = merged.get_mut(&key) {
+            existing.request_count += row.request_count;
+            existing.input_tokens += row.input_tokens;
+            existing.cache_read_input_tokens += row.cache_read_input_tokens;
+            existing.cache_creation_input_tokens += row.cache_creation_input_tokens;
+            existing.output_tokens += row.output_tokens;
+            existing.estimated_cost += row.estimated_cost;
+        } else {
+            merged.insert(key, row);
+        }
+    }
+    let mut out: Vec<UsageBreakdown> = merged.into_values().collect();
+    out.sort_by(|a, b| {
+        b.request_count
+            .cmp(&a.request_count)
+            .then_with(|| a.key.cmp(&b.key))
+    });
+    Ok(out)
 }
 
 pub fn get_usage_by_provider_model_for_target(
@@ -1221,7 +1292,7 @@ pub fn get_usage_by_provider_model_for_target(
     target_app: Option<&str>,
 ) -> AppResult<Vec<UsageProviderModelGroup>> {
     let sql = format!(
-        "SELECT COALESCE(l.provider_name, 'Unknown'),
+        "SELECT {PROVIDER_RESOLVED_SQL},
                 COALESCE(l.model, 'Unknown'),
                 COUNT(*),
                 COALESCE(SUM(l.input_tokens), 0),
@@ -1232,14 +1303,15 @@ pub fn get_usage_by_provider_model_for_target(
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
            {EFFECTIVE_USAGE_FILTER}
-         GROUP BY COALESCE(l.provider_name, 'Unknown'), COALESCE(l.model, 'Unknown');"
+         GROUP BY 1, COALESCE(l.model, 'Unknown');"
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(
         named_params! { ":since": since, ":target_app": target_app },
         |row| {
+            let raw_provider: String = row.get(0)?;
             Ok(UsageProviderModelGroup {
-                provider: row.get(0)?,
+                provider: canonical_provider_display_name(&raw_provider),
                 model: row.get(1)?,
                 request_count: row.get(2)?,
                 input_tokens: row.get(3)?,
@@ -1249,7 +1321,19 @@ pub fn get_usage_by_provider_model_for_target(
             })
         },
     )?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    let mut out = Vec::new();
+    for item in rows {
+        let group = item?;
+        let total_tokens = group.input_tokens
+            + group.cache_read_input_tokens
+            + group.cache_creation_input_tokens
+            + group.output_tokens;
+        if is_unrouted_gateway_placeholder_provider(&group.provider) && total_tokens == 0 {
+            continue;
+        }
+        out.push(group);
+    }
+    Ok(out)
 }
 
 pub fn get_usage_by_model_for_target(
@@ -1718,11 +1802,15 @@ pub fn list_proxy_request_logs(
 
     let mut stmt = conn.prepare(&data_sql)?;
     let rows = stmt.query_map(data_params.as_slice(), |row| {
+        let raw_provider_name: Option<String> = row.get(3)?;
+        let provider_name = raw_provider_name
+            .as_deref()
+            .map(canonical_provider_display_name);
         Ok(ProxyRequestLog {
             id: row.get(0)?,
             created_at: row.get(1)?,
             provider_id: row.get(2)?,
-            provider_name: row.get(3)?,
+            provider_name,
             model: row.get(4)?,
             status_code: row.get(5)?,
             input_tokens: row.get(6)?,
@@ -3804,6 +3892,95 @@ mod tests {
             assert_eq!(page1.page_size, 2);
             assert_eq!(page1.data.len(), 2);
 
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn unifies_builtin_provider_names_and_drops_empty_gateway_placeholders() {
+        let db = crate::database::Database::memory().unwrap();
+        let now = Utc::now().timestamp_millis();
+        db.with_conn(|conn| {
+            insert_proxy_log_with_source(
+                conn,
+                Some("ag_1"),
+                now,
+                Some("acc_1"),
+                Some("Antigravity"),
+                Some("gemini-4-argon-high"),
+                Some(200),
+                1000,
+                0,
+                0,
+                500,
+                true,
+                120,
+                Some("antigravity"),
+                Some("openai"),
+                Some("/v1/chat/completions"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            insert_proxy_log_with_source(
+                conn,
+                Some("ag_builtin"),
+                now + 1,
+                Some("up_ag_15830"),
+                Some("Antigravity (Built-in)"),
+                Some("gemini-4-argon-high"),
+                Some(504),
+                0,
+                0,
+                0,
+                0,
+                false,
+                1500,
+                Some("vscode_copilot"),
+                Some("openai"),
+                Some("/v1/responses"),
+                false,
+                Some("upstream_timeout"),
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            insert_proxy_log_with_source(
+                conn,
+                Some("gw_empty"),
+                now + 2,
+                Some("__smart_gateway__"),
+                Some("智能网关"),
+                Some("auto"),
+                Some(401),
+                0,
+                0,
+                0,
+                0,
+                false,
+                10,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                Some("auth"),
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+
+            let by_provider = get_usage_by_provider_for_target(conn, now - 1000, None)?;
+            assert_eq!(by_provider.len(), 1);
+            assert_eq!(by_provider[0].key, "Antigravity");
+            assert_eq!(by_provider[0].request_count, 2);
+
+            let groups = get_usage_by_provider_model_for_target(conn, now - 1000, None)?;
+            assert!(groups.iter().all(|g| g.provider == "Antigravity"));
+            assert!(!groups.iter().any(|g| g.provider.contains("Built-in")));
+            assert!(!groups.iter().any(|g| g.provider == "智能网关"));
             Ok(())
         })
         .unwrap();

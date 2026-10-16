@@ -12,17 +12,17 @@ import {
 import { USAGE_PERIOD_VALUES, usagePeriodLabelKey, type UsagePeriod } from "@/utils/usagePeriod";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
-const SOURCE_SHORT_LABEL: Record<UsageSourceFilter, string> = {
-  all: "usage.sourceAll",
-  claude_code: "agentSwitcher.claudeCode",
-  claude_desktop: "agentSwitcher.desktop",
-  codex: "agentSwitcher.codex",
-  opencode: "agentSwitcher.opencode",
-  pi: "agentSwitcher.pi",
-    dsh: "agentSwitcher.dsh",
-  cline: "agentSwitcher.cline",
-  vscode_copilot: "agentSwitcher.vscodeCopilot",
-  antigravity: "usage.sourceAntigravity",
+const SOURCE_SHORT_LABEL: Record<UsageSourceFilter, { key: string; fallback: string }> = {
+  all: { key: "usage.sourceAll", fallback: "全部" },
+  claude_code: { key: "usage.shortClaudeCode", fallback: "Code" },
+  claude_desktop: { key: "agentSwitcher.desktop", fallback: "桌面版" },
+  codex: { key: "agentSwitcher.codex", fallback: "Codex" },
+  opencode: { key: "agentSwitcher.opencode", fallback: "OpenCode" },
+  pi: { key: "usage.shortPi", fallback: "Pi" },
+  dsh: { key: "agentSwitcher.dsh", fallback: "DSH" },
+  cline: { key: "agentSwitcher.cline", fallback: "Cline" },
+  vscode_copilot: { key: "usage.shortVscodeCopilot", fallback: "Copilot" },
+  antigravity: { key: "usage.sourceAntigravity", fallback: "Antigravity" },
 };
 
 export interface UsageToolbarProps {
@@ -129,7 +129,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   ];
 
   return (
-    <div className={`page-strip cc-workbench-header ${className}`.trim()} style={style}>
+    <div className={`page-strip cc-workbench-header usage-toolbar-strip ${className}`.trim()} style={style}>
       <div className="page-strip-main cc-header-left">
         <Segmented<UsageSourceFilter>
           className="app-segmented-switcher"
@@ -139,12 +139,13 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
           aria-label={t("usage.dataSource", { defaultValue: "数据来源" })}
           options={availableOptions.map((option) => {
             const fullLabel = t(option.labelKey);
-            const shortLabel = t(SOURCE_SHORT_LABEL[option.value], { defaultValue: fullLabel });
+            const shortDef = SOURCE_SHORT_LABEL[option.value];
+            const shortLabel = t(shortDef.key, { defaultValue: shortDef.fallback || fullLabel });
             return {
               value: option.value,
               label: (
                 <Tooltip title={fullLabel}>
-                  {usageSourceSegmentLabel(option.value, shortLabel)}
+                  {usageSourceSegmentLabel(option.value, shortLabel, 14)}
                 </Tooltip>
               ),
             };
@@ -155,7 +156,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
         <Select<UsagePeriod>
           size="small"
           value={period}
-          style={{ width: 148 }}
+          style={{ width: 132 }}
           aria-label={t("usage.period", { defaultValue: "统计时间" })}
           options={USAGE_PERIOD_VALUES.map((value) => ({
             value,
