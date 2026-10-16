@@ -75,13 +75,12 @@ pub fn remember_for_target(target: ProviderTarget, session_key: Option<&str>, mo
             }
         }
         guard.sessions.insert(scoped, model.to_string());
-        guard.sessions.insert(key.to_string(), model.to_string());
     }
     guard.last_by_target.insert(target, model.to_string());
     guard.last = Some(model.to_string());
 }
 
-/// Session entry first, then the most recent explicit model in this process.
+/// Session entry first, then the most recent explicit model for this target.
 pub fn recall(session_key: Option<&str>) -> Option<String> {
     recall_for_target(ProviderTarget::ClaudeCode, session_key)
 }
@@ -93,15 +92,8 @@ pub fn recall_for_target(target: ProviderTarget, session_key: Option<&str>) -> O
         if let Some(model) = guard.sessions.get(&scoped) {
             return Some(model.clone());
         }
-        if let Some(model) = guard.sessions.get(key) {
-            return Some(model.clone());
-        }
     }
-    guard
-        .last_by_target
-        .get(&target)
-        .cloned()
-        .or_else(|| guard.last.clone())
+    guard.last_by_target.get(&target).cloned()
 }
 
 #[cfg(test)]
@@ -128,6 +120,23 @@ mod tests {
         assert_eq!(
             recall(None).as_deref(),
             Some("gemini-3.8-flash-high")
+        );
+        clear_all();
+    }
+
+    #[test]
+    fn targets_do_not_leak_remembered_models_across_agents() {
+        clear_all();
+        remember_for_target(ProviderTarget::VscodeCopilot, Some("s1"), "gpt-5.6-sol");
+        assert_eq!(
+            recall_for_target(ProviderTarget::ClaudeCode, None),
+            None,
+            "Claude Code must not inherit VS Code Copilot's last model"
+        );
+        assert_eq!(
+            recall_for_target(ProviderTarget::ClaudeCode, Some("s1")),
+            None,
+            "Claude Code must not inherit VS Code Copilot's session model"
         );
         clear_all();
     }

@@ -71,6 +71,8 @@ const SKU_RATE_LIMIT_COOLDOWN_SECS: i64 = 15;
 /// One Claude 5.5 SKU 404/403 on an account that is not entitled. The rest of
 /// that account (Gemini, Claude 4.6) stays usable.
 const CLAUDE_55_UNAVAILABLE_SECS: i64 = 900;
+/// Sticky session binding active window for multi-agent isolation (10 minutes).
+const STICKY_SESSION_ACTIVE_SECS: i64 = 600;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -84,6 +86,7 @@ pub struct PoolQuotaWarning {
 
 pub struct AccountPool {
     sticky: Mutex<HashMap<String, String>>,
+    sticky_updated_at: Mutex<HashMap<String, i64>>,
     limiter: Option<Arc<AccountLimiter>>,
     /// `(account id, lowercase model)` → unix seconds until the SKU can be tried again.
     model_unavailable: Mutex<HashMap<(String, String), i64>>,
@@ -93,6 +96,7 @@ impl AccountPool {
     pub fn new() -> Self {
         Self {
             sticky: Mutex::new(HashMap::new()),
+            sticky_updated_at: Mutex::new(HashMap::new()),
             limiter: None,
             model_unavailable: Mutex::new(HashMap::new()),
         }
@@ -101,6 +105,7 @@ impl AccountPool {
     pub fn with_limiter(limiter: Arc<AccountLimiter>) -> Self {
         Self {
             sticky: Mutex::new(HashMap::new()),
+            sticky_updated_at: Mutex::new(HashMap::new()),
             limiter: Some(limiter),
             model_unavailable: Mutex::new(HashMap::new()),
         }
@@ -239,10 +244,13 @@ impl AccountPool {
                     .ok()
                     .and_then(|guard| guard.get(session).cloned())
             });
-        let Some(chosen) = choose_candidate(
+        let other_session_accounts = self.accounts_bound_to_other_sessions(session_key, now);
+        let Some(chosen) = choose_candidate_for_session(
             &candidates,
             preferred_account_id,
             sticky_id.as_deref(),
+            &other_session_accounts,
+            requested_model,
             self.limiter.as_deref(),
             family,
         ) else {
@@ -266,6 +274,9 @@ impl AccountPool {
         if let Ok(mut guard) = self.sticky.lock() {
             guard.clear();
         }
+        if let Ok(mut guard) = self.sticky_updated_at.lock() {
+            guard.clear();
+        }
     }
 
     /// Remove one session's preferred account after a transient timeout so the
@@ -277,6 +288,37 @@ impl AccountPool {
         if let Ok(mut guard) = self.sticky.lock() {
             guard.remove(session);
         }
+        if let Ok(mut guard) = self.sticky_updated_at.lock() {
+            guard.remove(session);
+        }
+    }
+
+    fn accounts_bound_to_other_sessions(
+        &self,
+        current_session: Option<&str>,
+        now: i64,
+    ) -> Vec<String> {
+        let Some(current) = current_session.filter(|value| !value.is_empty()) else {
+            return Vec::new();
+        };
+        let Ok(sticky) = self.sticky.lock() else {
+            return Vec::new();
+        };
+        let updated = self.sticky_updated_at.lock().ok();
+        let mut out = Vec::new();
+        for (session, account_id) in sticky.iter() {
+            if session == current {
+                continue;
+            }
+            let fresh = updated
+                .as_ref()
+                .and_then(|map| map.get(session).copied())
+                .is_none_or(|ts| now - ts <= STICKY_SESSION_ACTIVE_SECS);
+            if fresh && !out.contains(account_id) {
+                out.push(account_id.clone());
+            }
+        }
+        out
     }
 
     pub fn rotate_after_failure(
@@ -288,23 +330,30 @@ impl AccountPool {
         requested_model: Option<&str>,
     ) -> AppResult<(String, AntigravityAccount)> {
         let family = requested_family(requested_model);
+        let now = Utc::now().timestamp();
         if failure_forbids_whole_account(status) {
             let _ = store().mark_forbidden_403(failed_account_id, "上游返回 403 权限受限/账号异常");
         } else if failure_cools_whole_account(status) {
-            let cooldown = if status == 401 {
-                AUTH_COOLDOWN_SECS
-            } else {
-                RATE_LIMIT_COOLDOWN_SECS
-            };
-            let _ = store().mark_cooldown(
-                failed_account_id,
-                cooldown,
-                &format!("upstream status {status}"),
-            );
+            let already_cooling = store()
+                .list_accounts()
+                .ok()
+                .and_then(|list| list.into_iter().find(|item| item.id == failed_account_id))
+                .is_some_and(|item| item.cooldown_until.is_some_and(|until| until > now));
+            if !already_cooling {
+                let cooldown = if status == 401 {
+                    AUTH_COOLDOWN_SECS
+                } else {
+                    SKU_RATE_LIMIT_COOLDOWN_SECS
+                };
+                let _ = store().mark_cooldown(
+                    failed_account_id,
+                    cooldown,
+                    &format!("upstream status {status}"),
+                );
+            }
         }
         self.clear_session(session_key);
         let accounts = store().list_accounts()?;
-        let now = Utc::now().timestamp();
         let remaining: Vec<_> = accounts
             .iter()
             .filter(|account| account.id != failed_account_id)
@@ -327,7 +376,7 @@ impl AccountPool {
                 let soft = self.drop_quarantined_models(vec![soft], requested_model, now);
                 let Some(soft) = soft.into_iter().next() else {
                     return Err(AppError::Other(explain_unavailable(
-                        &remaining,
+                        &accounts,
                         now,
                         requested_model,
                     )));
@@ -340,13 +389,23 @@ impl AccountPool {
                 candidates.push(soft);
             } else {
                 return Err(AppError::Other(explain_unavailable(
-                    &remaining,
+                    &accounts,
                     now,
                     requested_model,
                 )));
             }
         }
-        sort_candidates_best_first(&mut candidates, family);
+        let other_sessions = self.accounts_bound_to_other_sessions(session_key, now);
+        let limiter = self.limiter.as_deref();
+        candidates.sort_by(|left, right| {
+            let left_busy = account_under_pressure(limiter, &left.id)
+                || other_sessions.contains(&left.id);
+            let right_busy = account_under_pressure(limiter, &right.id)
+                || other_sessions.contains(&right.id);
+            left_busy
+                .cmp(&right_busy)
+                .then_with(|| compare_candidates(left, right, family))
+        });
         let selected = match candidates.first() {
             Some(first) => ensure_token_skipping_auth_failures(&candidates, &first.id)?,
             None => {
@@ -462,6 +521,9 @@ impl AccountPool {
         };
         if let Ok(mut guard) = self.sticky.lock() {
             guard.insert(session.to_string(), account_id.to_string());
+        }
+        if let Ok(mut guard) = self.sticky_updated_at.lock() {
+            guard.insert(session.to_string(), Utc::now().timestamp());
         }
     }
 }
@@ -666,12 +728,50 @@ fn ensure_token_skipping_auth_failures(
     }))
 }
 
+fn is_ultra_account(account: &AntigravityAccount) -> bool {
+    account
+        .quota
+        .as_ref()
+        .and_then(|quota| quota.subscription_tier.as_deref())
+        .is_some_and(|tier| {
+            tier.eq_ignore_ascii_case("ULTRA") || tier.to_ascii_lowercase().contains("ultra")
+        })
+}
+
+fn is_ultra_exclusive_model(requested_model: Option<&str>) -> bool {
+    let Some(model) = requested_model.map(str::trim).filter(|m| !m.is_empty()) else {
+        return false;
+    };
+    let lower = model.to_ascii_lowercase();
+    lower.starts_with("gemini-4-argon") || super::model_catalog::is_claude_55(&lower)
+}
+
 /// Prefer an explicit account, then the user-marked active account (soft when
-/// hot), then a sticky session binding. Sticky must not override active.
+/// hot), then a sticky session binding. Sticky must not override active in single-session mode.
 fn choose_candidate<'a>(
     candidates: &'a [AntigravityAccount],
     preferred_account_id: Option<&str>,
     sticky_account_id: Option<&str>,
+    limiter: Option<&AccountLimiter>,
+    family: Option<QuotaFamily>,
+) -> Option<&'a AntigravityAccount> {
+    choose_candidate_for_session(
+        candidates,
+        preferred_account_id,
+        sticky_account_id,
+        &[],
+        None,
+        limiter,
+        family,
+    )
+}
+
+fn choose_candidate_for_session<'a>(
+    candidates: &'a [AntigravityAccount],
+    preferred_account_id: Option<&str>,
+    sticky_account_id: Option<&str>,
+    other_session_accounts: &[String],
+    requested_model: Option<&str>,
     limiter: Option<&AccountLimiter>,
     family: Option<QuotaFamily>,
 ) -> Option<&'a AntigravityAccount> {
@@ -683,15 +783,64 @@ fn choose_candidate<'a>(
             return Some(account);
         }
     }
+
+    let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
+    ranked.sort_by(|left, right| compare_candidates(left, right, family));
+
+    // Multi-agent sticky retention: if this session already has a healthy, idle
+    // sticky account that is not claimed by another session, keep it when other
+    // sessions are active or when `active` is an ULTRA account being saved for ULTRA models.
+    if let Some(sticky_id) = sticky_account_id.filter(|value| !value.is_empty()) {
+        if let Some(sticky_acc) = candidates.iter().find(|item| item.id == sticky_id) {
+            let sticky_idle = !account_under_pressure(limiter, &sticky_acc.id)
+                && !other_session_accounts.contains(&sticky_acc.id)
+                && account_has_family_remaining(sticky_acc, family);
+            let reserve_ultra = requested_model.is_some()
+                && !is_ultra_exclusive_model(requested_model)
+                && !is_ultra_account(sticky_acc)
+                && candidates
+                    .iter()
+                    .find(|item| item.is_active)
+                    .is_some_and(is_ultra_account);
+            if sticky_idle && (!other_session_accounts.is_empty() || reserve_ultra) {
+                return Some(sticky_acc);
+            }
+        }
+    }
+
+    // Reserve ULTRA accounts for ULTRA-exclusive models (gemini-4-argon-*, claude-*-5-5-*)
+    // when idle healthy PRO accounts can serve a standard model request.
+    if requested_model.is_some()
+        && !is_ultra_exclusive_model(requested_model)
+        && candidates.iter().any(is_ultra_account)
+        && candidates.iter().any(|item| !is_ultra_account(item))
+    {
+        if let Some(pro_candidate) = ranked.iter().copied().find(|account| {
+            !is_ultra_account(account)
+                && !account_under_pressure(limiter, &account.id)
+                && !other_session_accounts.contains(&account.id)
+                && account_has_family_remaining(account, family)
+                && account.health_score >= 0.4
+        }) {
+            log::info!(
+                "Antigravity pool: reserving ULTRA account for exclusive SKUs; selecting PRO account {} for {:?}",
+                pro_candidate.email,
+                requested_model
+            );
+            return Some(pro_candidate);
+        }
+    }
+
     if let Some(active) = candidates.iter().find(|item| item.is_active) {
         if account_has_family_remaining(active, family) {
-            let active_hot = account_under_pressure(limiter, &active.id);
+            let active_hot = account_under_pressure(limiter, &active.id)
+                || other_session_accounts.contains(&active.id);
             if !active_hot {
                 let active_score = candidate_scheduling_score_for(active, family);
-                let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
-                ranked.sort_by(|left, right| compare_candidates(left, right, family));
                 if let Some(best) = ranked.first().copied() {
                     if best.id != active.id
+                        && !other_session_accounts.contains(&best.id)
+                        && !account_under_pressure(limiter, &best.id)
                         && candidate_scheduling_score_for(best, family) > active_score
                     {
                         log::info!(
@@ -705,15 +854,20 @@ fn choose_candidate<'a>(
                 }
                 return Some(active);
             }
-            let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
-            ranked.sort_by(|left, right| compare_candidates(left, right, family));
             if let Some(alternate) = ranked.iter().find(|account| {
                 account.id != active.id
                     && !account_under_pressure(limiter, &account.id)
+                    && !other_session_accounts.contains(&account.id)
                     && account_has_family_remaining(account, family)
+            }).or_else(|| {
+                ranked.iter().find(|account| {
+                    account.id != active.id
+                        && !account_under_pressure(limiter, &account.id)
+                        && account_has_family_remaining(account, family)
+                })
             }) {
                 log::info!(
-                    "Antigravity pool: active {} is hot; soft-selecting {}",
+                    "Antigravity pool: active {} is busy/hot; soft-selecting {} for multi-agent isolation",
                     active.email,
                     alternate.email
                 );
@@ -729,14 +883,29 @@ fn choose_candidate<'a>(
     }
     if let Some(sticky) = sticky_account_id.filter(|value| !value.is_empty()) {
         if let Some(account) = candidates.iter().find(|item| item.id == sticky) {
-            if account_has_family_remaining(account, family) {
+            if account_has_family_remaining(account, family)
+                && (!account_under_pressure(limiter, &account.id)
+                    || ranked.iter().all(|c| account_under_pressure(limiter, &c.id)))
+            {
                 return Some(account);
             }
         }
     }
-    let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
-    ranked.sort_by(|left, right| compare_candidates(left, right, family));
-    ranked.first().copied()
+    ranked
+        .iter()
+        .copied()
+        .find(|account| {
+            !account_under_pressure(limiter, &account.id)
+                && !other_session_accounts.contains(&account.id)
+                && account_has_family_remaining(account, family)
+        })
+        .or_else(|| {
+            ranked.iter().copied().find(|account| {
+                !account_under_pressure(limiter, &account.id)
+                    && account_has_family_remaining(account, family)
+            })
+        })
+        .or_else(|| ranked.first().copied())
 }
 
 fn account_under_pressure(limiter: Option<&AccountLimiter>, account_id: &str) -> bool {
@@ -1266,5 +1435,84 @@ mod tests {
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].id, "a2");
         assert!(account.cooldown_until.is_none());
+    }
+
+    #[test]
+    fn multi_agent_sessions_isolate_onto_distinct_accounts() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        let candidates = vec![a1, a2];
+
+        // Agent 1 (vscode_copilot) has bound a1; Agent 2 (claude_desktop) arrives:
+        let other = vec!["a1".to_string()];
+        let chosen_for_agent2 = choose_candidate_for_session(
+            &candidates,
+            None,
+            None,
+            &other,
+            Some("gemini-3.8-flash-low"),
+            None,
+            Some(QuotaFamily::Gemini),
+        )
+        .expect("chosen");
+        assert_eq!(chosen_for_agent2.id, "a2");
+
+        // On Agent 2's next turn, sticky_id="a2" is retained even though a1 is active:
+        let next_turn_agent2 = choose_candidate_for_session(
+            &candidates,
+            None,
+            Some("a2"),
+            &other,
+            Some("gemini-3.8-flash-low"),
+            None,
+            Some(QuotaFamily::Gemini),
+        )
+        .expect("chosen");
+        assert_eq!(next_turn_agent2.id, "a2");
+    }
+
+    #[test]
+    fn standard_models_reserve_ultra_account_when_pro_account_is_idle() {
+        let mut ultra = sample("ultra", None);
+        ultra.is_active = true;
+        ultra.quota = Some(QuotaSnapshot {
+            subscription_tier: Some("ULTRA".into()),
+            ..QuotaSnapshot::default()
+        });
+        let mut pro = sample("pro", None);
+        pro.is_active = false;
+        pro.quota = Some(QuotaSnapshot {
+            subscription_tier: Some("PRO".into()),
+            ..QuotaSnapshot::default()
+        });
+        let candidates = vec![ultra.clone(), pro.clone()];
+
+        // Standard model (gemini-3.8-flash-low) picks PRO so ULTRA stays free:
+        let chosen_flash = choose_candidate_for_session(
+            &candidates,
+            None,
+            None,
+            &[],
+            Some("gemini-3.8-flash-low"),
+            None,
+            Some(QuotaFamily::Gemini),
+        )
+        .expect("chosen");
+        assert_eq!(chosen_flash.id, "pro");
+
+        // ULTRA-exclusive model (gemini-4-argon-medium) picks ULTRA:
+        let chosen_argon = choose_candidate_for_session(
+            &candidates,
+            None,
+            None,
+            &[],
+            Some("gemini-4-argon-medium"),
+            None,
+            Some(QuotaFamily::Gemini),
+        )
+        .expect("chosen");
+        assert_eq!(chosen_argon.id, "ultra");
     }
 }

@@ -49,14 +49,23 @@ async fn proxy_handler_inner(
     let started = Instant::now();
 
     // Resolve a seed provider so body-read failures can still be logged.
+    let catalog_enabled = gateway_catalog_enabled(&state);
     let provider: Option<Provider> = match state.db.with_conn(|conn| {
-        if crate::catalog::enabled_for_conn(conn, state.target) {
+        if catalog_enabled || crate::catalog::enabled_for_conn(conn, state.target) {
             let listed = list_providers(conn, state.target)?;
-            Ok(listed
+            if let Some(found) = listed
                 .iter()
                 .find(|item| item.is_current)
                 .cloned()
-                .or_else(|| listed.first().cloned()))
+                .or_else(|| listed.first().cloned())
+            {
+                return Ok(Some(found));
+            }
+            if catalog_enabled {
+                let upstreams = crate::database::dao::gateway::list_upstream_providers(conn, false)?;
+                return Ok(upstreams.into_iter().next());
+            }
+            Ok(None)
         } else {
             get_current_provider(conn, state.target)
         }
@@ -71,7 +80,31 @@ async fn proxy_handler_inner(
         log_early_failure(&state, uri.path(), "provider", Some(503), started.elapsed().as_millis() as i64);
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商");
     };
-    if provider.is_codex_oauth() {
+    if catalog_enabled {
+        // SmartGateway listener will resolve and hydrate the real upstream in
+        // `select_gateway_runtime_provider_with` after reading the request body.
+    } else if provider.is_smart_gateway() {
+        let token = state
+            .db
+            .with_conn(|conn| {
+                if let Some(binding) =
+                    crate::database::dao::gateway::binding_for_target(conn, state.target)?
+                {
+                    if !binding.entry_token.trim().is_empty() {
+                        return Ok(Some(binding.entry_token));
+                    }
+                }
+                Ok(None)
+            })
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| crate::gateway::service::ensure_api_key(&state.db));
+        if token.trim().is_empty() {
+            log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));
+            return json_error(StatusCode::SERVICE_UNAVAILABLE, "智能网关未配置入口令牌");
+        }
+        provider.api_key = token;
+    } else if provider.is_codex_oauth() {
         match crate::codex_oauth::manager().get_valid_token(Some(&provider.auth_binding)) {
             Ok((token, account_id)) => {
                 provider.api_key = token;
@@ -87,6 +120,8 @@ async fn proxy_handler_inner(
     } else {
         provider.api_key = match crate::database::dao::provider_runtime_api_key(&provider.api_key) {
         Ok(Some(key)) => key,
+        Ok(None) if provider.is_antigravity() => crate::antigravity::gateway::builtin_api_key(),
+        Ok(None) if provider.is_kiro() => crate::kiro::gateway::builtin_api_key(),
         Ok(None) => {
             log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));
             return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 API Key");
@@ -98,7 +133,7 @@ async fn proxy_handler_inner(
         }
         };
     }
-    if provider.base_url.trim().is_empty() {
+    if !catalog_enabled && provider.base_url.trim().is_empty() {
         log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("configuration"));
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 Base URL");
     }

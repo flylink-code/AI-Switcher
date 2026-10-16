@@ -65,15 +65,30 @@ impl ProxyConfigurable for reqwest::blocking::ClientBuilder {
     }
 }
 
+fn log_detected_proxy_once(source: &str, url: &str) {
+    static LAST_LOGGED: std::sync::OnceLock<std::sync::Mutex<Option<String>>> =
+        std::sync::OnceLock::new();
+    let slot = LAST_LOGGED.get_or_init(|| std::sync::Mutex::new(None));
+    let key = format!("{source}:{url}");
+    if let Ok(mut guard) = slot.lock() {
+        if guard.as_deref() == Some(key.as_str()) {
+            log::debug!("Detected outbound proxy from {source}: {url}");
+            return;
+        }
+        *guard = Some(key);
+    }
+    info!("Detected outbound proxy from {source}: {url}");
+}
+
 fn detect_outbound_proxy() -> Option<String> {
     if let Some(url) = proxy_from_env() {
-        info!("Detected outbound proxy from environment: {url}");
+        log_detected_proxy_once("environment", &url);
         return Some(url);
     }
     #[cfg(windows)]
     {
         if let Some(url) = proxy_from_wininet() {
-            info!("Detected outbound proxy from Windows Internet Settings: {url}");
+            log_detected_proxy_once("Windows Internet Settings", &url);
             return Some(url);
         }
     }

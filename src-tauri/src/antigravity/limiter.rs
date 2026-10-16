@@ -348,8 +348,20 @@ impl AccountLimiter {
         f(&mut state, &config)
     }
 
+    /// Number of currently active requests/streams holding a concurrency permit on this account.
+    pub fn in_flight_count(&self, account_id: &str) -> usize {
+        let config = self.config();
+        let slots = self.slots_for(&config, account_id);
+        config
+            .account_concurrency
+            .saturating_sub(slots.total.available_permits())
+    }
+
     /// Sync check used by the account pool (runs on `spawn_blocking`).
     pub fn is_under_pressure(&self, account_id: &str) -> bool {
+        if self.in_flight_count(account_id) > 0 {
+            return true;
+        }
         self.with_rate_state(account_id, |state, config| {
             state.is_under_pressure(Instant::now(), config)
         })

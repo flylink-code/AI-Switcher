@@ -2001,7 +2001,7 @@
       "logPath": "Latest log",
       "lastInstalledAt": "Last installed",
       "partialReasonsTitle": "Localization is incomplete",
-      "partialReasonsHint": "Click \"Reinstall Chinese\" to restore from the original backup and patch again. If no usable backup exists, repair or reinstall Claude Desktop from the Microsoft Store first.",
+      "partialReasonsHint": "Click \"Reinstall Chinese\" to restore and patch again, or click \"Uninstall Chinese\" to remove localization and restore original English.",
       "lastAction": "Latest action",
       "restartFailed": "Automatic restart failed",
       "updateResource": "Update from upstream",
@@ -2060,7 +2060,8 @@
       "restore": "Restore original",
       "confirmInstall": "Install Simplified Chinese resources for Claude Desktop?",
       "confirmInstallDescription": "Claude Desktop will close and Windows may request administrator access. Failures are rolled back automatically.",
-      "confirmRestore": "Restore the localization backup matching this Claude version?",
+      "confirmRestore": "Uninstall Claude Desktop Simplified Chinese and restore original?",
+      "confirmRestoreDescription": "Removes Chinese resources, resets locale to en-US, and restores frontend assets (preferring the matching version backup when available).",
       "multipleInstalls": "Multiple Claude Desktop versions were found. The highest version will be modified; verify the target path.",
       "states": {
         "unsupported": "Unsupported platform",

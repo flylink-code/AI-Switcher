@@ -242,6 +242,27 @@ pub async fn codex_proxy_handler(
     let mut failover_trace: Vec<String> = Vec::new();
     let mut attempts: Vec<ProxyRequestAttempt> = Vec::new();
 
+    if state.target == crate::provider::ProviderTarget::VscodeCopilot
+        && is_stream
+        && is_anthropic_upstream
+        && compact_fallback.is_none()
+        && !has_explicit_chain
+    {
+        return forward_copilot_anthropic_streaming_early(
+            state,
+            provider,
+            current_prepared,
+            current_upstream_model,
+            route,
+            headers,
+            incoming,
+            is_catalog_subagent,
+            route_decision,
+            started,
+        )
+        .await;
+    }
+
     let upstream = loop {
         let attempt_start = Instant::now();
         note_gateway_inflight(
@@ -1579,7 +1600,31 @@ async fn forward_anthropic_upstream(
                 if done {
                     return None;
                 }
-                let next = upstream_stream.next().await;
+                let next = match tokio::time::timeout(
+                    std::time::Duration::from_secs(3),
+                    upstream_stream.next(),
+                )
+                .await
+                {
+                    Ok(item) => item,
+                    Err(_) => {
+                        let keepalive = converter.keepalive_event();
+                        if keepalive.is_empty() {
+                            return None;
+                        }
+                        return Some((
+                            Ok::<Bytes, Infallible>(Bytes::from(keepalive)),
+                            (
+                                upstream_stream,
+                                buffer,
+                                converter,
+                                done,
+                                response_id,
+                                out_buf,
+                            ),
+                        ));
+                    }
+                };
                 let (output, done) =
                     match next {
                         Some(Ok(bytes)) => {
@@ -1680,6 +1725,302 @@ async fn forward_anthropic_upstream(
             body_db,
             body_log_id,
         ))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn forward_copilot_anthropic_streaming_early(
+    state: ProxyState,
+    mut provider: Provider,
+    prepared: PreparedCodexUpstream,
+    upstream_model: String,
+    route: String,
+    headers: HeaderMap,
+    incoming: Value,
+    is_catalog_subagent: bool,
+    route_decision: Option<crate::gateway::RouteDecision>,
+    started: Instant,
+) -> Response {
+    provider.model = upstream_model.clone();
+    let mut converter = AnthropicSseToResponsesConverter::new(&upstream_model);
+    let initial_handshake = Bytes::from(converter.start_handshake());
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, Infallible>>(64);
+    let _ = tx.try_send(Ok(initial_handshake));
+
+    tokio::spawn(async move {
+        let mut attempts: Vec<ProxyRequestAttempt> = Vec::new();
+        let attempt_start = Instant::now();
+        note_gateway_inflight(
+            &state,
+            &provider,
+            &upstream_model,
+            true,
+            route_decision.as_ref(),
+            &attempts,
+        );
+        let mut send_fut = Box::pin(super::upstream_health::send_observed_upstream_with_timing(
+            prepared.request.body(prepared.request_body),
+            &provider,
+            Some(&state),
+            true,
+        ));
+        let (result, queue_wait_ms) = loop {
+            tokio::select! {
+                biased;
+                _ = tx.closed() => {
+                    return;
+                }
+                res = &mut send_fut => {
+                    break res;
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_secs(3)) => {
+                    let keepalive = converter.keepalive_event();
+                    if !keepalive.is_empty() && tx.send(Ok(Bytes::from(keepalive))).await.is_err() {
+                        return;
+                    }
+                }
+            }
+        };
+        let attempt_duration = attempt_start.elapsed().as_millis() as i64;
+        attempts.push(
+            super::upstream_health::build_request_attempt(
+                0,
+                &provider,
+                &upstream_model,
+                attempt_duration,
+                &result,
+            )
+            .with_queue_wait_ms(queue_wait_ms),
+        );
+        let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+
+        let upstream = match result {
+            Ok(resp) => resp,
+            Err(error) => {
+                let fail_log_id = log_request_with_diagnostic(
+                    &state,
+                    &provider,
+                    None,
+                    started.elapsed().as_millis() as i64,
+                    &route,
+                    true,
+                    Some("network"),
+                    None,
+                );
+                if let Some(id) = fail_log_id.as_deref() {
+                    if let Some(decision) = route_decision.as_ref() {
+                        super::patch_route_log(&state, id, decision, 0, Some(&attempts_json));
+                    } else {
+                        super::update_proxy_log_attempts(&state, id, &attempts_json);
+                    }
+                }
+                let err_bytes = converter.error_event(&format!("上游连接失败: {error}"));
+                let _ = tx.send(Ok(Bytes::from(err_bytes))).await;
+                return;
+            }
+        };
+
+        let status =
+            StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+        let log_id = log_request_with_diagnostic(
+            &state,
+            &provider,
+            Some(i64::from(status.as_u16())),
+            started.elapsed().as_millis() as i64,
+            &route,
+            true,
+            if status.is_success() {
+                None
+            } else {
+                Some("upstream")
+            },
+            None,
+        );
+        if let Some(id) = log_id.as_deref() {
+            if let Some(decision) = route_decision.as_ref() {
+                super::patch_route_log(&state, id, decision, 0, Some(&attempts_json));
+            } else {
+                super::update_proxy_log_attempts(&state, id, &attempts_json);
+            }
+        }
+
+        if !status.is_success() {
+            let err_text = upstream.text().await.unwrap_or_default();
+            let msg = if err_text.trim().is_empty() {
+                format!("上游返回错误状态码 {status}")
+            } else {
+                format!(
+                    "上游返回错误 ({status}): {}",
+                    err_text.trim().chars().take(300).collect::<String>()
+                )
+            };
+            if let Some(id) = log_id.as_deref() {
+                let _ = state.db.with_conn(|conn| {
+                    crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                        conn,
+                        id,
+                        "upstream_error",
+                        None,
+                        Some("upstream"),
+                        Some(&msg),
+                    )
+                });
+            }
+            let err_bytes = converter.error_event(&msg);
+            let _ = tx.send(Ok(Bytes::from(err_bytes))).await;
+            return;
+        }
+
+        remember_gateway_success_upstream(
+            &state,
+            &headers,
+            &incoming,
+            &provider.id,
+            is_catalog_subagent,
+        );
+
+        let db = Arc::clone(&state.db);
+        let history = Arc::clone(&state.codex_history);
+        let target_app = state.target.as_str().to_string();
+        let provider_id = provider.id.clone();
+        let mut upstream_stream = upstream.bytes_stream();
+        let mut buffer = Vec::<u8>::new();
+        let mut out_buf = Vec::<u8>::new();
+        let mut response_id: Option<String> = None;
+
+        loop {
+            let next = tokio::select! {
+                biased;
+                _ = tx.closed() => {
+                    if let Some(id) = log_id.as_deref() {
+                        let _ = db.with_conn(|conn| {
+                            crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                conn,
+                                id,
+                                "cancelled",
+                                None,
+                                Some("cancelled"),
+                                Some("客户端提前断开流式连接"),
+                            )
+                        });
+                    }
+                    return;
+                }
+                frame = upstream_stream.next() => frame,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(3)) => {
+                    let keepalive = converter.keepalive_event();
+                    if !keepalive.is_empty() && tx.send(Ok(Bytes::from(keepalive))).await.is_err() {
+                        return;
+                    }
+                    continue;
+                }
+            };
+
+            let (output, done) = match next {
+                Some(Ok(bytes)) => {
+                    buffer.extend_from_slice(&bytes);
+                    let mut output = Vec::new();
+                    while let Some((end, delimiter_len)) = find_sse_frame_end(&buffer) {
+                        let frame = buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
+                        let Ok(frame) = std::str::from_utf8(&frame) else {
+                            continue;
+                        };
+                        if let Some((event_type, data)) = parse_anthropic_sse_frame(frame) {
+                            output.extend(converter.push_event(event_type, &data));
+                        }
+                    }
+                    (output, false)
+                }
+                Some(Err(_)) => {
+                    if let Some(id) = log_id.as_deref() {
+                        let _ = db.with_conn(|conn| {
+                            crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                conn,
+                                id,
+                                "midstream_error",
+                                None,
+                                Some("midstream_error"),
+                                Some("Codex 上游流式响应中途中断"),
+                            )
+                        });
+                    }
+                    (converter.error_event("上游流式响应中断"), true)
+                }
+                None => {
+                    if let Some(id) = log_id.as_deref() {
+                        let _ = db.with_conn(|conn| {
+                            crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                conn,
+                                id,
+                                "complete",
+                                None,
+                                None,
+                                None,
+                            )
+                        });
+                    }
+                    (converter.finish_stream(), true)
+                }
+            };
+
+            out_buf.extend_from_slice(&output);
+            while let Some(block) = super::codex_history::take_sse_block(&mut out_buf) {
+                if let Ok(text) = std::str::from_utf8(&block) {
+                    let mut data_parts = Vec::new();
+                    for line in text.lines() {
+                        if let Some(data) = line.strip_prefix("data:") {
+                            data_parts.push(data.trim_start());
+                        }
+                    }
+                    let data = data_parts.join("\n");
+                    if !data.is_empty() && data != "[DONE]" {
+                        if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                            super::response_lifecycle::record_response_event(
+                                &db,
+                                log_id.as_deref(),
+                                &value,
+                            );
+                            history.inspect_sse_event(&value, &mut response_id);
+                        }
+                    }
+                }
+            }
+            if let Some(id) = log_id.as_deref() {
+                if let Some(usage) = extract_usage_from_sse(&output) {
+                    let _ = db.with_conn(|conn| {
+                        update_proxy_log_usage_idempotent(
+                            conn,
+                            id,
+                            Some(target_app.as_str()),
+                            Some(provider_id.as_str()),
+                            usage.envelope_id.as_deref(),
+                            usage.input_tokens,
+                            usage.cache_read_input_tokens,
+                            usage.cache_creation_input_tokens,
+                            usage.output_tokens,
+                        )
+                    });
+                }
+            }
+            if !output.is_empty() && tx.send(Ok(Bytes::from(output))).await.is_err() {
+                return;
+            }
+            if done {
+                return;
+            }
+        }
+    });
+
+    let stream = futures_util::stream::unfold(rx, |mut rx| async move {
+        rx.recv().await.map(|item| (item, rx))
+    });
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header("x-accel-buffering", "no")
+        .body(Body::from_stream(stream))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 

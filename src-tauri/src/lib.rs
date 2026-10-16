@@ -703,9 +703,24 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         let background_started = std::time::Instant::now();
+        let state = app_handle.state::<AppState>();
+        // 优先启动智能网关 (15828) 与已绑定的本地代理，避免被后续配置迁移或桌面端修复阻塞。
+        if !sidecar::delegated() {
+            crate::antigravity::gateway::restore_gateway_if_enabled().await;
+            crate::kiro::gateway::restore_gateway_if_enabled().await;
+        }
+        crate::gateway::service::restore_if_enabled(Arc::clone(&state.db)).await;
+        crate::gateway::service::emit_status(&app_handle);
+        let proxy_started = std::time::Instant::now();
+        commands::proxy::ensure_runtime_proxies(&app_handle, &state).await;
+        log::info!(
+            "启动代理检查完成: duration_ms={}, background_total_ms={}",
+            proxy_started.elapsed().as_millis(),
+            background_started.elapsed().as_millis()
+        );
+
         // Let WebView paint the shell before touching legacy Desktop files.
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-        let state = app_handle.state::<AppState>();
         let repair_started = std::time::Instant::now();
         proxy::desktop_alias::reset_selection_for_catalog_id_scheme(&state.db);
         if let Err(error) = commands::providers::repair_current_desktop_profile(&state).await {
@@ -733,17 +748,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             "启动配置修复完成: duration_ms={}",
             repair_started.elapsed().as_millis()
         );
-        let proxy_started = std::time::Instant::now();
+        // 配置修复后再次确认代理与智能网关状态并广播给前端。
         commands::proxy::ensure_runtime_proxies(&app_handle, &state).await;
-        log::info!(
-            "启动代理检查完成: duration_ms={}, background_total_ms={}",
-            proxy_started.elapsed().as_millis(),
-            background_started.elapsed().as_millis()
-        );
-        if !sidecar::delegated() {
-            crate::antigravity::gateway::restore_gateway_if_enabled().await;
-            crate::kiro::gateway::restore_gateway_if_enabled().await;
-        }
         crate::gateway::service::restore_if_enabled(Arc::clone(&state.db)).await;
         crate::gateway::service::emit_status(&app_handle);
         // Post-update NSIS relaunch can still leave ports busy after the first

@@ -41,6 +41,34 @@ fn register_language(text: &str) -> (String, LanguageRegistration) {
     (result, registration)
 }
 
+/// 移除文本里每一份语言白名单中的 `zh-CN` / `zh-TW` / `zh-HK`（用于无同版本备份时卸载中文化）。
+fn unregister_language(text: &str) -> (String, usize) {
+    let mut lists_changed = 0usize;
+    let mut result = String::with_capacity(text.len());
+    let mut cursor = 0;
+    while let Some(relative) = text[cursor..].find(BASE_LANGUAGES) {
+        let start = cursor + relative;
+        let after = start + BASE_LANGUAGES.len();
+        let Some(end_offset) = text[after..].find(']') else {
+            break;
+        };
+        let end = after + end_offset;
+        let existing = &text[start..=end];
+        let replacement = existing
+            .replace(",\"zh-CN\"", "")
+            .replace(",\"zh-TW\"", "")
+            .replace(",\"zh-HK\"", "");
+        if replacement != existing {
+            lists_changed += 1;
+        }
+        result.push_str(&text[cursor..start]);
+        result.push_str(&replacement);
+        cursor = end + 1;
+    }
+    result.push_str(&text[cursor..]);
+    (result, lists_changed)
+}
+
 /// 返回 `(白名单总数, 已含 zh-CN 的数量)`。
 fn count_language_lists(text: &str) -> (usize, usize) {
     let mut total = 0;

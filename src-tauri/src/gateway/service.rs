@@ -303,32 +303,53 @@ pub async fn stop_service() -> AppResult<SmartGatewayStatus> {
 }
 
 pub async fn restore_if_enabled(db: Arc<Database>) {
-    let enabled = db
+    let setting = db
         .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
         .ok()
-        .flatten()
+        .flatten();
+    let enabled = setting
+        .as_deref()
         .map(|value| {
             matches!(
-                value.to_ascii_lowercase().as_str(),
+                value.trim().to_ascii_lowercase().as_str(),
                 "1" | "true" | "yes" | "on"
             )
         })
         .unwrap_or(false);
+    let explicitly_disabled = setting.as_deref().is_some_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "0" | "false" | "no" | "off"
+        )
+    });
     let has_binding = db
         .with_conn(|conn| Ok(has_any_binding(conn)))
         .unwrap_or(false);
-    if !enabled && !has_binding {
+    let has_upstreams = !explicitly_disabled
+        && db
+            .with_conn(|conn| {
+                Ok(!crate::database::dao::gateway::list_upstream_providers(conn, false)?.is_empty())
+            })
+            .unwrap_or(false);
+    if !enabled && !has_binding && !has_upstreams {
         return;
     }
     let port = saved_port(&db);
-    for attempt in 1..=8u32 {
+    for attempt in 1..=12u32 {
         match start_service(Arc::clone(&db), Some(port)).await {
             Ok(status) if status.running => {
                 log::info!("智能网关自动恢复成功: port={}", status.port);
                 return;
             }
             Ok(_) | Err(_) => {
-                let backoff = (300 * attempt).min(2_000);
+                if attempt < 12 {
+                    let mut slot = lock_manager();
+                    if let Some(manager) = slot.as_mut() {
+                        manager.phase = "starting".into();
+                        manager.last_error = None;
+                    }
+                }
+                let backoff = (250 * attempt).min(1_500);
                 tokio::time::sleep(Duration::from_millis(backoff as u64)).await;
             }
         }

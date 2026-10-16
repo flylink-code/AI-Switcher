@@ -163,25 +163,15 @@ pub(crate) fn select_gateway_runtime_provider_with(
 }
 
 fn configured_model_pins(
-    state: &ProxyState,
-    profile: Option<&crate::database::dao::gateway::GatewayProfile>,
+    _state: &ProxyState,
+    _profile: Option<&crate::database::dao::gateway::GatewayProfile>,
 ) -> Vec<String> {
-    let mut pins = Vec::new();
-    if let Some(profile) = profile {
-        let subagent = profile.subagent_model.trim();
-        if !subagent.is_empty() {
-            pins.push(subagent.to_string());
-        }
-    }
-    if let Ok(Some(provider)) = state.db.with_read_conn(|conn| {
-        crate::database::dao::get_current_provider(conn, state.target)
-    }) {
-        let model = provider.model.trim();
-        if !model.is_empty() {
-            pins.push(model.to_string());
-        }
-    }
-    pins
+    // Catalog mode no longer writes `ANTHROPIC_MODEL` into `~/.claude/settings.json`,
+    // so any concrete catalog model sent by Claude Code is the user's `/model` choice.
+    // Treating `sgw_claude_code.model` (the first catalog entry) as a pin caused
+    // selecting the first catalog model (e.g. `claude.gemini-3.8-flash`) to be
+    // overridden by the previously used model.
+    Vec::new()
 }
 
 fn is_copilot_subtask_or_subagent_payload(
@@ -329,6 +319,22 @@ fn prepare_upstream_request(
     } else {
         encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers)
     };
+    if state.target == ProviderTarget::ClaudeDesktop
+        && provider.is_smart_gateway()
+        && provider.model.starts_with("anthropic/aisw-")
+    {
+        if let Ok((_, entries)) = load_gateway_catalog(state, CatalogStyle::Claude) {
+            if let Some(public_id) = desktop_alias::public_id_for_listed(&provider.model, &entries) {
+                let readable = entries
+                    .iter()
+                    .find(|entry| entry.public_id.eq_ignore_ascii_case(&public_id))
+                    .map(|entry| entry.upstream_slug.clone())
+                    .filter(|slug| !slug.trim().is_empty())
+                    .unwrap_or(public_id);
+                provider.model = readable;
+            }
+        }
+    }
     // reqwest 未启用自动解压，网关要解析/改写上游 body，必须要求未压缩响应。
     let mut builder = state
         .client
@@ -530,10 +536,29 @@ async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
     let provider = state.db.with_conn(|conn| get_current_provider(conn, state.target));
     let (status, provider_id, protocol, credential_ready, upstream_status, checked_at) = match provider {
         Ok(Some(provider)) => {
-            let credential_ready = matches!(
-                state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)),
-                Ok(Some(key)) if !key.trim().is_empty()
-            );
+            let credential_ready = if gateway_catalog_enabled(&state) || provider.is_smart_gateway() {
+                state
+                    .db
+                    .with_conn(|conn| {
+                        if let Some(binding) =
+                            crate::database::dao::gateway::binding_for_target(conn, state.target)?
+                        {
+                            if !binding.entry_token.trim().is_empty() {
+                                return Ok(true);
+                            }
+                        }
+                        Ok(false)
+                    })
+                    .unwrap_or(false)
+                    || !crate::gateway::service::ensure_api_key(&state.db).trim().is_empty()
+            } else if provider.is_antigravity() || provider.is_kiro() {
+                true
+            } else {
+                matches!(
+                    state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)),
+                    Ok(Some(key)) if !key.trim().is_empty()
+                )
+            };
             let status = if credential_ready { "ok" } else { "degraded" };
             (
                 status,
@@ -709,5 +734,94 @@ fn desktop_bound_smart_gateway(state: &ProxyState) -> bool {
                 .is_some_and(|provider| provider.is_smart_gateway()))
         })
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod route_select_tests {
+    use super::*;
+
+    #[test]
+    fn claude_code_switching_back_to_first_catalog_model_routes_to_gemini() {
+        conversation_model::clear_all();
+        let mut state = tests::circuit_test_state();
+        state.listener_kind = ListenerKind::SmartGateway;
+        state.target = ProviderTarget::ClaudeCode;
+        let credential = crate::secrets::test_credentials::Credential::new("test-key");
+        state
+            .db
+            .with_conn(|conn| {
+                crate::database::dao::gateway::ensure_profile_for_target(
+                    conn,
+                    ProviderTarget::ClaudeCode,
+                )?;
+                conn.execute(
+                    "INSERT INTO providers (id, name, base_url, api_key, model, provider_kind, is_current, target_app)
+                     VALUES ('sgw_claude_code', '智能网关', 'http://127.0.0.1:15828', '', 'claude.gemini-3.8-flash', 'smart_gateway', 1, 'claude_code')",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO upstreams (id, name, base_url, api_key, model, protocol_type, provider_kind, sort_index, enabled)
+                     VALUES ('up_ag', 'Antigravity (Built-in)', 'http://127.0.0.1:15830', '', 'gemini-3.8-flash', 'anthropic', 'antigravity', 0, 1)",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO upstreams (id, name, base_url, api_key, model, protocol_type, provider_kind, sort_index, enabled)
+                     VALUES ('up_sub2', 'sub2api', 'https://8tou.com/v1', ?1, 'gpt-5.6-sol', 'openai_responses', 'standard', 1, 1)",
+                    [credential.reference()],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        crate::catalog::invalidate_view_cache();
+
+        let headers = HeaderMap::new();
+        let body = serde_json::json!({"messages": [{"role": "user", "content": "hi"}]});
+
+        // 1. User first uses gpt-5.6-sol in Claude Code (or VS Code Copilot).
+        let (p1, m1, _, d1, _) = select_gateway_runtime_provider_with(
+            &state,
+            "claude.gpt-5.6-sol",
+            false,
+            &body,
+            "/v1/messages",
+            &headers,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(p1.id, "up_sub2");
+        assert_eq!(m1, "gpt-5.6-sol");
+        assert_eq!(d1.normalized_model, "gpt-5.6-sol");
+
+        // 2. User selects claude.gemini-3.8-flash (which is also sgw_claude_code.model).
+        let (p2, m2, _, d2, _) = select_gateway_runtime_provider_with(
+            &state,
+            "claude.gemini-3.8-flash",
+            false,
+            &body,
+            "/v1/messages",
+            &headers,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(p2.id, "up_ag");
+        assert_eq!(m2, "gemini-3.8-flash");
+        assert_eq!(d2.requested_model, "claude.gemini-3.8-flash");
+        assert_eq!(d2.normalized_model, "gemini-3.8-flash");
+
+        // 3. Subsequent role request (e.g. claude-haiku-4-5) follows claude.gemini-3.8-flash.
+        let (p3, m3, _, _, _) = select_gateway_runtime_provider_with(
+            &state,
+            "claude-haiku-4-5",
+            false,
+            &body,
+            "/v1/messages",
+            &headers,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(p3.id, "up_ag");
+        assert_eq!(m3, "gemini-3.8-flash");
+        conversation_model::clear_all();
+    }
 }
 

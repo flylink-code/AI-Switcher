@@ -2001,7 +2001,7 @@
       "logPath": "最近一次日志",
       "lastInstalledAt": "最近安装时间",
       "partialReasonsTitle": "中文化状态不完整",
-      "partialReasonsHint": "点击「重新安装中文」可先从原版备份还原再重新补丁；没有可用备份时请通过应用商店修复或重装 Claude Desktop。",
+      "partialReasonsHint": "可点击「重新安装中文」还原并重新补丁，或点击「一键卸载中文」移除中文化并恢复英文原版。",
       "lastAction": "最近一次操作",
       "restartFailed": "自动重启失败",
       "updateResource": "从上游更新资源",
@@ -2060,7 +2060,8 @@
       "restore": "恢复原版",
       "confirmInstall": "安装 Claude Desktop 简体中文资源？",
       "confirmInstallDescription": "Claude Desktop 将被关闭，系统可能请求管理员权限；失败时会自动回滚。",
-      "confirmRestore": "恢复与当前 Claude 版本匹配的中文化备份？",
+      "confirmRestore": "卸载 Claude Desktop 简体中文并恢复原版？",
+      "confirmRestoreDescription": "将移除中文资源、将 locale 重置为 en-US 并还原前端文件（如有同版本备份优先从备份恢复）。",
       "multipleInstalls": "检测到多个 Claude Desktop 版本，将修改版本号最高的安装。请核对目标路径。",
       "states": {
         "unsupported": "当前平台不支持",

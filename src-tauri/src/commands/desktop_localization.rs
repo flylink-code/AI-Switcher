@@ -318,7 +318,78 @@ pub async fn install_desktop_localization(
 
 #[tauri::command]
 pub async fn restore_desktop_localization() -> AppResult<DesktopLocalizationActionResult> {
+    #[cfg(windows)]
+    {
+        if let Ok(Some(install)) = detect_install() {
+            let backup_root = get_backup_dir().join("desktop-localization");
+            let locale_paths = claude_locale_paths();
+            let fast_restore = {
+                let install = install.clone();
+                let backup_root = backup_root.clone();
+                let locale_paths = locale_paths.clone();
+                tokio::task::spawn_blocking(move || {
+                    can_restore_user_state_without_elevation(&install, &backup_root, &locale_paths)
+                })
+                .await
+                .unwrap_or(false)
+            };
+            if fast_restore {
+                let install_for_clean = install.clone();
+                let changed_files = tokio::task::spawn_blocking(move || -> AppResult<usize> {
+                    let _ = stop_claude_verified(&install_for_clean, &JobLog::none());
+                    let changed = clear_zh_locale_in_configs(&locale_paths)?;
+                    clear_last_install(&last_install_dir());
+                    Ok(changed)
+                })
+                .await
+                .map_err(|error| AppError::Other(format!("清理中文化配置异常结束: {error}")))??;
+                let restart_install = install.clone();
+                let restart_outcome =
+                    tokio::task::spawn_blocking(move || restart_claude(&restart_install))
+                        .await
+                        .unwrap_or_else(|error| {
+                            RestartOutcome::failed("none", format!("重启任务异常结束: {error}"))
+                        });
+                let base_result = DesktopLocalizationActionResult {
+                    claude_version: Some(install.version),
+                    ..DesktopLocalizationActionResult::simple(
+                        true,
+                        changed_files,
+                        "Claude Desktop 已移除中文化配置并恢复为原版状态".to_string(),
+                        None,
+                    )
+                };
+                return finish_action(Ok(base_result), "restore", move || restart_outcome);
+            }
+        }
+    }
     run_localization_action("restore", None).await
+}
+
+pub async fn auto_heal_msix_corrupted_assets_if_needed() {
+    #[cfg(windows)]
+    {
+        if crate::config::paths::test_isolation_enabled() {
+            return;
+        }
+        let needs_heal = tokio::task::spawn_blocking(|| -> usize {
+            let Ok(Some(install)) = detect_install() else {
+                return 0;
+            };
+            let backup_root = get_backup_dir().join("desktop-localization");
+            count_healable_cross_version_corrupted_assets(&backup_root, &install)
+        })
+        .await
+        .unwrap_or(0);
+        if needs_heal > 0 {
+            log::warn!(
+                "检测到 Claude Desktop MSIX 存在 {needs_heal} 个增量更新损坏的 JS 文件，自动启动恢复修复"
+            );
+            if let Err(error) = run_localization_action("restore", None).await {
+                log::warn!("自动修复 Claude Desktop MSIX 损坏文件未完成: {error}");
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -818,20 +889,39 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
         } else {
             (None, None)
         };
-        let (localized_state, partial_reasons) = evaluate_install_state(&StateInputs {
+        let (mut localized_state, mut partial_reasons) = evaluate_install_state(&StateInputs {
             frontend: frontend.is_file(),
             desktop: desktop.is_file(),
             statsig: statsig.is_file(),
             dynamic_required,
             dynamic_present,
             locale_is_zh,
-            scan,
+            scan: scan.clone(),
             scan_error,
             last_install: last_install.clone(),
             claude_version: install.version.clone(),
         });
-        let backup_available =
-            latest_backup_dir(&get_backup_dir().join("desktop-localization"), &install)
+        let backup_root = get_backup_dir().join("desktop-localization");
+        let healable_corrupted = if localized_state != "installed" {
+            count_healable_cross_version_corrupted_assets(&backup_root, &install)
+        } else {
+            0
+        };
+        if healable_corrupted > 0 {
+            localized_state = "partial";
+            partial_reasons.insert(
+                0,
+                format!(
+                    "检测到应用商店增量更新导致 {} 个前端资源块损坏（会导致页面报错 14E0UQ7），请点击「恢复原版」或「重新安装」自动修复",
+                    healable_corrupted
+                ),
+            );
+        }
+        let can_clean_without_backup = localized_state != "notInstalled"
+            && !scan.as_ref().is_some_and(PatchScan::is_corrupted);
+        let backup_available = healable_corrupted > 0
+            || can_clean_without_backup
+            || latest_backup_dir(&backup_root, &install)
                 .ok()
                 .flatten()
                 .is_some();
@@ -1395,21 +1485,46 @@ fn restore_latest_backup(
     install: &LocalizationInstall,
     locale_paths: &[PathBuf],
 ) -> AppResult<usize> {
-    let Some(backup_dir) = latest_clean_backup_dir(backup_root, install, locale_paths)? else {
-        // 有备份但都被旧版中文化污染过：恢复到脏备份等于没恢复。
-        return Err(AppError::Config(
-            if latest_backup_dir(backup_root, install)?.is_some() {
-                "没有找到未被中文化污染的备份，请通过应用商店修复或重装 Claude Desktop 后再安装"
-                    .to_string()
-            } else {
-                format!(
-                    "没有找到与 Claude Desktop {} 匹配的中文化备份",
-                    install.version
-                )
-            },
-        ));
-    };
-    restore_backup_dir(&backup_dir, install, locale_paths)
+    let mut changed = 0usize;
+    let had_clean_backup =
+        if let Some(backup_dir) = latest_clean_backup_dir(backup_root, install, locale_paths)? {
+            changed += restore_backup_dir(&backup_dir, install, locale_paths)?;
+            true
+        } else {
+            false
+        };
+    changed += heal_cross_version_corrupted_assets(backup_root, install, &JobLog::none())?;
+    for resource in zh_resource_files(install) {
+        if resource.exists() {
+            validate_restore_target(&resource, install, locale_paths)?;
+            fs::remove_file(&resource)?;
+            changed += 1;
+        }
+    }
+    if !had_clean_backup {
+        let assets_dir = frontend_assets_dir(&install.resources_path);
+        if assets_dir.is_dir() {
+            let scan = scan_dir(&assets_dir)?;
+            if scan.is_corrupted() {
+                return Err(AppError::Config(
+                    if latest_backup_dir(backup_root, install)?.is_some() {
+                        "没有找到未被中文化污染的备份，请通过应用商店修复或重装 Claude Desktop 后再安装"
+                            .to_string()
+                    } else {
+                        format!(
+                            "没有找到与 Claude Desktop {} 匹配的中文化备份",
+                            install.version
+                        )
+                    },
+                ));
+            }
+            if scan.lists_with_zh > 0 {
+                changed += unregister_zh_from_assets(&assets_dir, install, locale_paths)?;
+            }
+        }
+    }
+    changed += clear_zh_locale_in_configs(locale_paths)?;
+    Ok(changed)
 }
 
 fn restore_backup_dir(

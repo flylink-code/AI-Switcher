@@ -37,12 +37,12 @@ use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 
-const MAX_FAILOVER_HOPS: usize = 3;
-/// Account/project RPM or remaining-quota SKU 429: try this account plus one
-/// other, then return 429 instead of cooling every account in the pool.
-const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
-/// Local token-bucket / concurrency busy: try one other account, then 429.
-const MAX_LOCAL_LIMITER_HOPS: usize = 2;
+const MAX_FAILOVER_HOPS: usize = 4;
+/// Account/project RPM or remaining-quota SKU 429: walk up to 4 accounts in the
+/// pool so multi-agent workloads can rotate across all available accounts.
+const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 4;
+/// Local token-bucket / concurrency busy: try up to 4 accounts before 429.
+const MAX_LOCAL_LIMITER_HOPS: usize = 4;
 const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 const MAX_MODEL_LEVEL_ATTEMPTS: usize = 3;
 /// Classifier / subagent calls need enough budget to move off a slow account.
@@ -53,6 +53,7 @@ const SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(7);
 const SUBAGENT_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
 const MAIN_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(120);
 const MAIN_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(180);
+const MAIN_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(75);
 const SHORT_PAYLOAD_MAX_BYTES: usize = 12_000;
 const UPSTREAM_500_RETRY_BACKOFF: Duration = Duration::from_millis(250);
 
@@ -136,7 +137,7 @@ pub async fn anthropic_messages(
         ))
         .into_response();
     }
-    let session_key = session_key_from_headers(&headers);
+    let session_key = session_key_from_request(&headers, Some(&payload));
     let sticky = session_key
         .as_deref()
         .and_then(crate::antigravity::session_effort::get);
@@ -221,7 +222,7 @@ pub async fn openai_chat_completions(
             return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
         }
     };
-    let session_key = session_key_from_headers(&headers);
+    let session_key = session_key_from_request(&headers, Some(&payload));
     let mapped = match openai_to_gemini_request(&payload, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
@@ -255,7 +256,7 @@ pub async fn openai_responses(
             return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
         }
     };
-    let session_key = session_key_from_headers(&headers);
+    let session_key = session_key_from_request(&headers, Some(&payload));
     let mapped = match responses_to_gemini_request(&payload, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
@@ -445,7 +446,7 @@ async fn dispatch_generation(
     let started = Instant::now();
     let is_subagent = should_treat_as_subagent(headers, &model, &request, stream);
     let retry_deadline = retry_deadline_for(stream, is_subagent, started);
-    let session_key = session_key_from_headers(headers);
+    let session_key = session_key_from_request(headers, Some(&request));
     let model_chain: Vec<String> = model_catalog::gemini_level_fallback_chain(&model)
         .into_iter()
         .take(MAX_MODEL_LEVEL_ATTEMPTS)
@@ -759,19 +760,59 @@ async fn dispatch_generation(
                 last_fail_status = 429;
 
                 if !should_try_model_fallback_on_429(kind) {
+                    let has_other_capable_account = account_store()
+                        .list_accounts()
+                        .ok()
+                        .is_some_and(|list| {
+                            list.iter().any(|candidate| {
+                                !candidate.disabled
+                                    && candidate.id != account.id
+                                    && !exclude.contains(&candidate.id)
+                                    && candidate.allows_model(&model)
+                            })
+                        });
+                    if !has_other_capable_account && in_place_retries < 1 {
+                        in_place_retries += 1;
+                        let wait = Duration::from_secs(retry_after.unwrap_or(1).clamp(1, 3));
+                        log::info!(
+                            "Antigravity 429 on sole capable account {account_email} for {current_model}; waiting {:?} and retrying in place",
+                            wait
+                        );
+                        tokio::time::sleep(wait).await;
+                        continue 'levels;
+                    }
+                    if !has_other_capable_account && model_idx + 1 < model_chain.len() {
+                        let next = &model_chain[model_idx + 1];
+                        if account.allows_model(next) && remaining_until(retry_deadline).is_some() {
+                            log::warn!(
+                                "Antigravity 429 on sole capable account {account_email} for {current_model}; falling back to {next} on same account"
+                            );
+                            tokio::time::sleep(Duration::from_millis(250)).await;
+                            model_idx += 1;
+                            continue 'levels;
+                        }
+                    }
                     state.limiter.note_upstream_rate_limited(&account.id);
                     state.pool.clear_session(session_key.as_deref());
-                    let cooldown = crate::antigravity::pool::rate_limit_cooldown_secs(retry_after);
+                    let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
+                        &account,
+                        Some(crate::antigravity::quota::quota_family_from_model(&model)),
+                    );
+                    let cooldown = if rotate_pool {
+                        crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
+                    } else {
+                        crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after)
+                    };
                     let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
-                    stop_pool_walk = should_stop_pool_walk_after_429(hop, false);
+                    stop_pool_walk = should_stop_pool_walk_after_429(hop, rotate_pool);
                     if stop_pool_walk {
                         log::warn!(
-                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; account/project RPM persisted on two accounts, stopping pool walk",
+                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; account/project RPM persisted across pool, stopping pool walk",
                             kind.label()
                         );
                     } else {
                         log::warn!(
-                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; skipping same-account model fallback and rotating once",
+                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; rotating to next account",
                             kind.label()
                         );
                     }
@@ -1513,15 +1554,56 @@ fn anthropic_sse(value: &Value) -> Bytes {
     Bytes::from(format!("event: {event}\ndata: {value}\n\n"))
 }
 
-fn session_key_from_headers(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("x-session-id")
-        .or_else(|| headers.get("x-claude-session-id"))
-        .or_else(|| headers.get("x-anthropic-session-id"))
-        .and_then(|value| value.to_str().ok())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
+fn session_key_from_request(headers: &HeaderMap, payload: Option<&Value>) -> Option<String> {
+    let target_app = crate::gateway::correlation::header_value(
+        headers,
+        crate::gateway::correlation::TARGET_APP_HEADER,
+    );
+    let raw_header = [
+        "x-session-id",
+        "x-claude-session-id",
+        "x-anthropic-session-id",
+        "x-conversation-id",
+        "openai-conversation-id",
+        "x-vscode-session-id",
+        "session_id",
+    ]
+    .into_iter()
+    .find_map(|name| {
+        headers
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    });
+    if let Some(session) = raw_header {
+        return Some(match target_app {
+            Some(target) if !session.starts_with(&format!("{target}:")) => {
+                format!("{target}:{session}")
+            }
+            _ => session,
+        });
+    }
+    let raw_body = payload.and_then(|body| {
+        body.pointer("/metadata/user_id")
+            .or_else(|| body.get("prompt_cache_key"))
+            .or_else(|| body.get("conversation_id"))
+            .or_else(|| body.get("user"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    });
+    if let Some(session) = raw_body {
+        return Some(match target_app {
+            Some(target) if !session.starts_with(&format!("{target}:")) => {
+                format!("{target}:{session}")
+            }
+            _ => session,
+        });
+    }
+    target_app
 }
 
 fn is_subagent_request(headers: &HeaderMap) -> bool {
@@ -1561,6 +1643,8 @@ fn remaining_until(deadline: Instant) -> Option<Duration> {
 fn upstream_attempt_timeout_for(remaining: Duration, is_subagent: bool, stream: bool) -> Duration {
     if is_subagent && !stream {
         remaining.min(SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT)
+    } else if !is_subagent {
+        remaining.min(MAIN_ATTEMPT_TIMEOUT)
     } else {
         remaining
     }
@@ -2063,8 +2147,9 @@ mod tests {
             RateLimitKind::ModelQuotaExhausted
         ));
         assert!(!should_stop_pool_walk_after_429(0, false));
-        assert!(should_stop_pool_walk_after_429(1, false));
-        assert!(!should_stop_pool_walk_after_429(2, true));
+        assert!(!should_stop_pool_walk_after_429(2, false));
+        assert!(should_stop_pool_walk_after_429(3, false));
+        assert!(!should_stop_pool_walk_after_429(3, true));
     }
 
     #[test]

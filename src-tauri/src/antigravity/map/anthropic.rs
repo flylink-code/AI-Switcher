@@ -65,24 +65,23 @@ pub fn anthropic_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
+        if let Some(level) = requested_explicit {
+            // Client already picked a suffixed id — pass through (map_model_id
+            // kept it) and do not let a global effortLevel rewrite `-low`/`-medium`.
+            if thinking_kind.as_deref() != Some("disabled") {
+                remember_effort = Some(level);
+            }
+        } else if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
             model = model_catalog::with_forced_level(&model, level);
             remember_effort = Some(level);
         } else if thinking_kind.as_deref() == Some("disabled") {
             // Explore / classifiers send thinking=disabled. A bare Gemini id
             // keeps the main-agent tier (session sticky, otherwise high)
-            // instead of being forced to `-low`. An explicit suffix stays put.
-            // Do not write this tier back onto the session.
-            if requested_explicit.is_none() {
-                let level = sticky_effort
-                    .and_then(map_effort_to_suffix)
-                    .unwrap_or("high");
-                model = model_catalog::with_forced_level(&model, level);
-            }
-        } else if let Some(level) = requested_explicit {
-            // Client already picked a suffixed id — pass through (map_model_id
-            // kept it) and remember for bare follow-up turns in the session.
-            remember_effort = Some(level);
+            // instead of being forced to `-low`.
+            let level = sticky_effort
+                .and_then(map_effort_to_suffix)
+                .unwrap_or("high");
+            model = model_catalog::with_forced_level(&model, level);
         } else {
             // Bare Gemini, no effort: reuse session sticky, else default high
             // (Desktop side requests often omit effort after the user set high).
@@ -1959,12 +1958,13 @@ mod tests {
         let body = json!({
             "model": "gemini-3.8-flash-low",
             "max_tokens": 128,
+            "output_config": { "effort": "high" },
             "messages": [{"role": "user", "content": "hi"}]
         });
         let parts = anthropic_to_gemini_request(&body, Some("high"), None).unwrap();
         assert!(
             parts.model.ends_with("-low"),
-            "explicit -low should win over sticky high, got {}",
+            "explicit -low should win over sticky/body high, got {}",
             parts.model
         );
         assert_eq!(parts.remember_effort, Some("low"));

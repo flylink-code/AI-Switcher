@@ -446,8 +446,12 @@ impl AccountStore {
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Ok(());
         };
-        account.cooldown_until = Some(Utc::now().timestamp() + seconds.max(1));
-        account.health_score = (account.health_score * 0.7).max(0.05);
+        let now = Utc::now().timestamp();
+        let already_cooling = account.cooldown_until.is_some_and(|until| until > now);
+        account.cooldown_until = Some(now + seconds.max(1));
+        if !already_cooling {
+            account.health_score = (account.health_score * 0.7).max(0.05);
+        }
         if reason.contains("invalid_grant") || reason.contains("revoked") {
             account.disabled = true;
             account.disabled_reason = Some(reason.to_string());
@@ -554,6 +558,8 @@ impl AccountStore {
         }
         if quota.is_forbidden {
             account.health_score = (account.health_score * 0.5).max(0.05);
+        } else if !account.disabled && quota.has_usable_quota() {
+            account.health_score = account.health_score.max(0.85);
         }
         account.quota = Some(quota);
         if let Some(snapshot) = account.quota.as_ref() {

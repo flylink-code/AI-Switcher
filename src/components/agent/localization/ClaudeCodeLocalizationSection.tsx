@@ -76,7 +76,9 @@ export function ClaudeCodeLocalizationSection() {
     uninstallEditorHelper.isPending;
 
   const codeResourceInstalled = Boolean(
-    hub?.claudeCode.pluginEnabled || hub?.claudeCode.pluginVersion,
+    hub?.claudeCode.pluginEnabled ||
+      hub?.claudeCode.pluginVersion ||
+      hub?.claudeCode.settingsConfigured,
   );
   const codeRelation = compareResourceVersion(
     hub?.claudeCode.pluginVersion,
@@ -193,6 +195,21 @@ export function ClaudeCodeLocalizationSection() {
                         )}
                 </Button>
               </Popconfirm>
+              {codeResourceInstalled ? (
+                <Popconfirm
+                  title={t("env.localization.confirmCodeUninstall")}
+                  description={t("env.localization.confirmCodeUninstallDescription")}
+                  onConfirm={() => uninstallClaudeCode.mutate()}
+                >
+                  <Button
+                    danger
+                    loading={uninstallClaudeCode.isPending}
+                    disabled={busy}
+                  >
+                    {t("env.localization.uninstallChinese")}
+                  </Button>
+                </Popconfirm>
+              ) : null}
               <Button
                 icon={<ReloadOutlined spin={hubQuery.isFetching || upstreamQuery.isFetching} />}
                 disabled={busy}

@@ -15,6 +15,8 @@ const UPSTREAM_FALLBACKS: [&str; 3] = [
 ];
 const GENERATE_CONNECT_SECS: u64 = 5;
 const GENERATE_TIMEOUT_SECS: u64 = 600;
+const STREAM_HOST_HEADER_TIMEOUT_SECS: u64 = 40;
+const NON_STREAM_HOST_HEADER_TIMEOUT_SECS: u64 = 45;
 
 /// Skip the daily cluster for this long after a URL-level 429.
 const DAILY_HOST_LIMITED_TTL: Duration = Duration::from_secs(300);
@@ -287,7 +289,27 @@ impl UpstreamClient {
                 // Intentionally omit x-goog-user-project: consumer Antigravity OAuth
                 // often gets a phantom cloudaicompanionProject that cannot enable
                 // cloudcode-pa (403 SERVICE_DISABLED) when that header is set.
-                match request.send().await {
+                let header_timeout = Duration::from_secs(if stream {
+                    STREAM_HOST_HEADER_TIMEOUT_SECS
+                } else {
+                    NON_STREAM_HOST_HEADER_TIMEOUT_SECS
+                });
+                let send_result = match tokio::time::timeout(header_timeout, request.send()).await {
+                    Ok(res) => res,
+                    Err(_) => {
+                        last_was_network = true;
+                        last_error = "timeout".to_string();
+                        if idx == 0 {
+                            self.mark_daily_limited();
+                        }
+                        log::warn!(
+                            "Antigravity generate {method} {url} response header timeout after {}s; trying next host",
+                            header_timeout.as_secs()
+                        );
+                        break;
+                    }
+                };
+                match send_result {
                     Ok(response) => {
                         let status = response.status();
                         last_was_network = false;
@@ -339,6 +361,15 @@ impl UpstreamClient {
                                         text.chars().take(180).collect::<String>()
                                     );
                                     return Ok(rebuild_rate_limited_response(text, retry_after));
+                                }
+                                _ if rpm_backoff_attempt < 1 => {
+                                    rpm_backoff_attempt += 1;
+                                    log::debug!(
+                                        "Antigravity 429 account RPM on {url}; same-host retry {rpm_backoff_attempt}/1"
+                                    );
+                                    tokio::time::sleep(rpm_backoff_delay(rpm_backoff_attempt))
+                                        .await;
+                                    continue;
                                 }
                                 _ => {
                                     log::warn!(

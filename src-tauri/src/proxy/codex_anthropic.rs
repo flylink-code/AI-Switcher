@@ -26,7 +26,7 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
         .get("max_output_tokens")
         .or_else(|| body.get("max_tokens"))
         .and_then(Value::as_i64)
-        .unwrap_or(4096);
+        .unwrap_or(16384);
 
     let mut result = json!({
         "model": model,
@@ -83,8 +83,8 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
             "type": "enabled",
             "budget_tokens": budget
         });
-        if max_tokens <= budget {
-            result["max_tokens"] = json!(budget + 2048);
+        if max_tokens <= budget + 4096 {
+            result["max_tokens"] = json!(budget + 16384);
         }
     }
 
@@ -1039,6 +1039,31 @@ impl AnthropicSseToResponsesConverter {
         }
         let mut output = String::new();
         self.ensure_started(&mut output);
+        if !self.reasoning.trim().is_empty()
+            && !self.text_item_started
+            && self.text.trim().is_empty()
+            && self.tools.is_empty()
+        {
+            // Gemini occasionally stops right after emitting `thought` blocks without a
+            // separate `text` or `functionCall` part. Surface the reasoning text as the
+            // visible assistant message so VS Code Copilot does not silently end the turn
+            // with an empty bubble after "Finished thinking".
+            self.close_reasoning_item_if_open(&mut output);
+            self.emit_text_item_added(&mut output);
+            let fallback_text = self.reasoning.clone();
+            self.text = fallback_text.clone();
+            push_responses_event(
+                &mut output,
+                "response.output_text.delta",
+                json!({
+                    "type": "response.output_text.delta",
+                    "item_id": self.text_item_id,
+                    "output_index": self.text_output_index,
+                    "content_index": self.content_index,
+                    "delta": fallback_text,
+                }),
+            );
+        }
         let event_type = if self.status == "incomplete" {
             "response.incomplete"
         } else {
@@ -1225,6 +1250,33 @@ impl AnthropicSseToResponsesConverter {
         let mut output = String::new();
         self.ensure_started(&mut output);
         self.emit_reasoning_item_added(&mut output);
+        output.into_bytes()
+    }
+
+    pub fn keepalive_event(&mut self) -> Vec<u8> {
+        if self.completed {
+            return Vec::new();
+        }
+        let mut output = String::new();
+        self.ensure_started(&mut output);
+        if !self.reasoning_item_started {
+            self.emit_reasoning_item_added(&mut output);
+        }
+        if !self.reasoning_item_closed {
+            push_responses_event(
+                &mut output,
+                "response.reasoning_summary_text.delta",
+                json!({
+                    "type": "response.reasoning_summary_text.delta",
+                    "item_id": self.reasoning_item_id,
+                    "output_index": self.reasoning_output_index,
+                    "summary_index": 0,
+                    "delta": "",
+                }),
+            );
+        } else {
+            output.push_str(": keepalive\n\n");
+        }
         output.into_bytes()
     }
 
@@ -1619,5 +1671,26 @@ mod tests {
         assert!(delta.contains("event: response.reasoning_summary_text.done"));
         assert!(delta.contains("event: response.output_text.delta"));
         assert!(delta.contains("\"item_id\":\"msg_"));
+    }
+
+    #[test]
+    fn thinking_only_stream_surfaces_reasoning_as_visible_message() {
+        let mut converter = AnthropicSseToResponsesConverter::new("gemini-4-argon-medium");
+        let _ = converter.start_handshake();
+        let ka = String::from_utf8(converter.keepalive_event()).unwrap();
+        assert!(ka.contains("event: response.reasoning_summary_text.delta"));
+        assert!(ka.contains("\"delta\":\"\""));
+
+        let _ = converter.push_event(
+            "content_block_delta",
+            &json!({"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Analysis complete."}}),
+        );
+        let done = String::from_utf8(
+            converter.push_event("message_stop", &json!({"type":"message_stop"})),
+        )
+        .unwrap();
+        assert!(done.contains("event: response.output_text.delta"));
+        assert!(done.contains("Analysis complete."));
+        assert!(done.contains("\"type\":\"message\""));
     }
 }

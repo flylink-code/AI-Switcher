@@ -2,6 +2,9 @@
 /// Upgrade a legacy Desktop profile, and point a smart-gateway card at the
 /// first catalog model. No network preflight; credentials stay unchanged.
 pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
+    tauri::async_runtime::spawn(async {
+        crate::commands::desktop_localization::auto_heal_msix_corrupted_assets_if_needed().await;
+    });
     let applied_id = claude_desktop::current_applied_id()?;
     let legacy_profile = applied_id.as_deref() == Some(claude_desktop::LEGACY_PROFILE_ID);
     let managed_profile = applied_id.as_deref() == Some(claude_desktop::PROFILE_ID);

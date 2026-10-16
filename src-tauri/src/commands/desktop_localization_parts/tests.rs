@@ -343,6 +343,50 @@ fn restore_removes_orphan_dynamic_catalog_for_legacy_backup() {
     assert!(!dynamic.exists());
 }
 
+#[test]
+fn restore_latest_backup_resets_zh_locale_even_when_backup_had_zh_locale() {
+    let root = tempdir().unwrap();
+    let install = fake_install(root.path());
+    fs::write(bundle_path(&install), pristine_js()).unwrap();
+    let cfg = locale_path(root.path());
+    atomic_write(&cfg, br#"{"locale":"zh-CN","darkMode":"dark"}"#).unwrap();
+    let pack = fake_pack(root.path(), SAMPLE_REPLACEMENTS);
+    let backups = root.path().join("backups");
+    let locales = vec![cfg.clone()];
+
+    install_once(&install, &pack, &backups, &locales);
+    restore_latest_backup(&backups, &install, &locales).unwrap();
+
+    assert_eq!(fs::read_to_string(bundle_path(&install)).unwrap(), pristine_js());
+    for zh in zh_resource_files(&install) {
+        assert!(!zh.exists(), "应删除 {}", zh.display());
+    }
+    let restored_cfg: Value = read_json_file(&cfg).unwrap().unwrap();
+    assert_eq!(restored_cfg["locale"], "en-US");
+    assert_eq!(restored_cfg["darkMode"], "dark");
+}
+
+#[test]
+fn restore_latest_backup_cleans_up_without_same_version_backup() {
+    let root = tempdir().unwrap();
+    let install = fake_install(root.path());
+    let (patched_js, _) = register_language(&pristine_js());
+    fs::write(bundle_path(&install), &patched_js).unwrap();
+    let zh = zh_resource_files(&install);
+    atomic_write(&zh[0], b"{}").unwrap();
+    let cfg = locale_path(root.path());
+    atomic_write(&cfg, br#"{"locale":"zh-CN"}"#).unwrap();
+    let backups = root.path().join("backups");
+    let locales = vec![cfg.clone()];
+
+    let changed = restore_latest_backup(&backups, &install, &locales).unwrap();
+    assert!(changed >= 3);
+    assert_eq!(fs::read_to_string(bundle_path(&install)).unwrap(), pristine_js());
+    assert!(!zh[0].exists());
+    let restored_cfg: Value = read_json_file(&cfg).unwrap().unwrap();
+    assert_eq!(restored_cfg["locale"], "en-US");
+}
+
 fn make_backup_of(install: &LocalizationInstall, backup_root: &Path, js: &str) -> PathBuf {
     fs::write(bundle_path(install), js).unwrap();
     let changes = vec![FileChange {

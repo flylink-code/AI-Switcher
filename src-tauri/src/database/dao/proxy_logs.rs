@@ -244,6 +244,10 @@ const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 /// Uses a created_at range (not ABS) so SQLite can use indexes.
 /// Session-vs-proxy row dedup. Log lists keep outer hops so the chain is visible.
 const SESSION_DEDUP_FILTER: &str = "
+  AND NOT (
+    COALESCE(l.data_source, 'proxy') = 'claude_code_session'
+    AND lower(COALESCE(l.model, '')) LIKE 'anthropic/aisw-%'
+  )
   AND (
     COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
     OR NOT EXISTS (
@@ -251,7 +255,7 @@ const SESSION_DEDUP_FILTER: &str = "
       WHERE COALESCE(p.data_source, 'proxy') = 'proxy'
         AND (
           CASE COALESCE(l.data_source, 'proxy')
-            WHEN 'claude_code_session' THEN p.target_app = 'claude_code'
+            WHEN 'claude_code_session' THEN p.target_app IN ('claude_code', 'claude_desktop')
             WHEN 'codex_session' THEN p.target_app = 'codex'
             WHEN 'pi_session' THEN p.target_app IN ('pi', 'antigravity')
             ELSE 0
@@ -304,6 +308,10 @@ const USAGE_COUNTED_SQL: &str = "
 /// SQL fragment: drop session-sync rows that duplicate a nearby proxy row,
 /// and keep only the innermost hop for a correlated multi-hop request.
 pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
+  AND NOT (
+    COALESCE(l.data_source, 'proxy') = 'claude_code_session'
+    AND lower(COALESCE(l.model, '')) LIKE 'anthropic/aisw-%'
+  )
   AND (
     COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
     OR NOT EXISTS (
@@ -311,7 +319,7 @@ pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
       WHERE COALESCE(p.data_source, 'proxy') = 'proxy'
         AND (
           CASE COALESCE(l.data_source, 'proxy')
-            WHEN 'claude_code_session' THEN p.target_app = 'claude_code'
+            WHEN 'claude_code_session' THEN p.target_app IN ('claude_code', 'claude_desktop')
             WHEN 'codex_session' THEN p.target_app = 'codex'
             WHEN 'pi_session' THEN p.target_app IN ('pi', 'antigravity')
             ELSE 0
@@ -662,9 +670,23 @@ pub fn should_skip_claude_code_session_insert(
     cache_read_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<bool> {
-    should_skip_session_insert_for_target(
+    if model.is_some_and(|m| m.trim().to_ascii_lowercase().starts_with("anthropic/aisw-")) {
+        return Ok(true);
+    }
+    if should_skip_session_insert_for_target(
         conn,
         "claude_code",
+        created_at,
+        model,
+        input_tokens,
+        cache_read_input_tokens,
+        output_tokens,
+    )? {
+        return Ok(true);
+    }
+    should_skip_session_insert_for_target(
+        conn,
+        "claude_desktop",
         created_at,
         model,
         input_tokens,

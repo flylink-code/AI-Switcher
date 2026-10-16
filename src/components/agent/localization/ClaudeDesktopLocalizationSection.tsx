@@ -156,42 +156,56 @@ export function ClaudeDesktopLocalizationSection() {
     <Tag style={{ marginInlineEnd: 0 }}>{t("env.localization.states.unsupported")}</Tag>
   );
 
+  const canRestore = Boolean(
+    desktopInstalled || desktopPartial || localization?.backupAvailable,
+  );
+
   const restoreButton = (size: "small" | "middle") => (
     <Popconfirm
       title={t("env.localization.confirmRestore")}
+      description={t("env.localization.confirmRestoreDescription")}
       onConfirm={() => restore.mutate()}
     >
       <Button
         size={size}
         danger
         loading={restore.isPending}
-        disabled={busy || !localization?.backupAvailable}
+        disabled={busy || !canRestore}
       >
         {t("env.localization.uninstallChinese")}
       </Button>
     </Popconfirm>
   );
 
-  // 主操作：已配置 → 一键卸载（恢复原版）；否则 → 一键安装。均带 Popconfirm。
-  const action = !localization ? null : desktopInstalled ? (
-    restoreButton("small")
-  ) : (
+  const installButton = (size: "small" | "middle") => (
     <Popconfirm
       title={t("env.localization.confirmDesktopInstall")}
       description={t("env.localization.confirmDesktopInstallDescription")}
       onConfirm={() => installDesktop.mutate()}
     >
       <Button
-        size="small"
+        size={size}
         type="primary"
         loading={installDesktop.isPending}
-        disabled={busy || !localization.platformSupported || !localization.installDetected}
+        disabled={busy || !localization?.platformSupported || !localization?.installDetected}
       >
         {desktopPartial
           ? t("env.localization.reinstallChinese")
           : t("env.localization.installChinese")}
       </Button>
     </Popconfirm>
+  );
+
+  // 主操作：已配置 → 一键卸载（恢复原版）；状态不完整 → 重新安装 + 一键卸载并列；否则 → 一键安装。
+  const action = !localization ? null : desktopInstalled ? (
+    restoreButton("small")
+  ) : desktopPartial ? (
+    <Space size={6} wrap>
+      {installButton("small")}
+      {restoreButton("small")}
+    </Space>
+  ) : (
+    installButton("small")
   );
 
   // 不可用时不报错，只给一行次要提示。
@@ -343,8 +357,7 @@ export function ClaudeDesktopLocalizationSection() {
           >
             {t("env.localization.selectPack")}
           </Button>
-          {/* 未配置/不完整时主操作是安装，恢复原版放这里（依赖备份）。 */}
-          {!desktopInstalled && localization ? restoreButton("middle") : null}
+          {localization ? restoreButton("middle") : null}
           <Button
             icon={<ReloadOutlined spin={statusQuery.isFetching || upstreamQuery.isFetching} />}
             disabled={busy}

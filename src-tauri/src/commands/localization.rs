@@ -365,8 +365,18 @@ pub async fn update_claude_code_localization() -> AppResult<String> {
 
 #[tauri::command]
 pub async fn uninstall_claude_code_localization() -> AppResult<String> {
-    let executable = require_native_claude_executable().await?;
-    crate::claude_plugins::uninstall_plugin(Path::new(&executable), CLAUDE_PLUGIN_ID)?;
+    if installed_zh_cn_plugin_version().is_some() || zh_cn_plugin_enabled() {
+        if let Ok(executable) = require_native_claude_executable().await {
+            if let Err(error) =
+                crate::claude_plugins::uninstall_plugin(Path::new(&executable), CLAUDE_PLUGIN_ID)
+            {
+                if installed_zh_cn_plugin_version().is_some() {
+                    return Err(error);
+                }
+                log::warn!("Claude Code 中文插件未在 CLI 中检出，直接清理配置: {error}");
+            }
+        }
+    }
     remove_chinese_language_if_set()?;
     Ok("Claude Code 中文插件已卸载".to_string())
 }
@@ -468,12 +478,17 @@ fn remove_chinese_language_if_set() -> AppResult<()> {
 }
 
 fn remove_chinese_language_key(settings: &mut Map<String, Value>) -> bool {
+    let mut changed = false;
     if settings.get("language").and_then(Value::as_str) == Some("Chinese") {
         settings.remove("language");
-        true
-    } else {
-        false
+        changed = true;
     }
+    if let Some(plugins) = settings.get_mut("enabledPlugins").and_then(Value::as_object_mut) {
+        if plugins.remove(CLAUDE_PLUGIN_ID).is_some() {
+            changed = true;
+        }
+    }
+    changed
 }
 
 fn zh_cn_plugin_enabled() -> bool {
