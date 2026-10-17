@@ -90,6 +90,19 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
         }
     }
 
+    if !smart_gateway {
+        let effective_model = value
+            .get("model")
+            .and_then(Value::as_str)
+            .unwrap_or(&provider.model)
+            .to_string();
+        crate::proxy::codex_anthropic::ensure_deepseek_assistant_thinking(
+            &mut value,
+            &effective_model,
+            Some(&provider.base_url),
+        );
+    }
+
     serde_json::to_vec(&value)
         .map(Bytes::from)
         .unwrap_or_else(|_| original.clone())

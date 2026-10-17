@@ -144,7 +144,8 @@ impl ProxyManager {
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(models_handler))
                 .route("/v1/models/:id", get(model_retrieve_handler))
-                .route("/v1/messages", any(proxy_handler));
+                .route("/v1/messages", any(proxy_handler))
+                .route("/v1/messages/count_tokens", any(count_tokens_handler));
             if target == ProviderTarget::ClaudeDesktop {
                 app = app
                     .route(
@@ -158,6 +159,10 @@ impl ProxyManager {
                     .route(
                         &format!("{}/v1/messages", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
                         any(proxy_handler),
+                    )
+                    .route(
+                        &format!("{}/v1/messages/count_tokens", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
+                        any(count_tokens_handler),
                     );
             }
             app

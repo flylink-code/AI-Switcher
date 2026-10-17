@@ -831,6 +831,7 @@ pub struct AnthropicStreamState {
     next_index: usize,
     usage: GeminiUsage,
     text_carry: String,
+    saw_tool_use: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -866,7 +867,7 @@ impl AnthropicStreamState {
         self.flush_text_carry(&mut events, true);
         if let Some((_, index)) = self.open_block.take() {
             events.push(json!({ "type": "content_block_stop", "index": index }));
-        } else {
+        } else if self.next_index == 0 {
             // 什么内容都没来过：补一个空 text 块，保持协议完整。
             events.push(json!({
                 "type": "content_block_start",
@@ -875,9 +876,14 @@ impl AnthropicStreamState {
             }));
             events.push(json!({ "type": "content_block_stop", "index": self.next_index }));
         }
+        let stop_reason = if self.saw_tool_use {
+            "tool_use"
+        } else {
+            "end_turn"
+        };
         events.push(json!({
             "type": "message_delta",
-            "delta": { "stop_reason": "end_turn", "stop_sequence": null },
+            "delta": { "stop_reason": stop_reason, "stop_sequence": null },
             "usage": self.usage.anthropic_usage()
         }));
         events.push(json!({ "type": "message_stop" }));
@@ -1005,6 +1011,7 @@ pub fn gemini_to_anthropic_sse_chunk(
     if !assistant.tools.is_empty() {
         // Anthropic requires closing the previous block before tool_use blocks.
         state.close_open_block(&mut events);
+        state.saw_tool_use = true;
     }
     for tool in &assistant.tools {
         let index = state.next_index;
@@ -1039,7 +1046,10 @@ pub fn gemini_to_anthropic_sse_chunk(
             "index": index
         }));
     }
-    if let Some(stop_reason) = assistant.stop_reason {
+    if let Some(mut stop_reason) = assistant.stop_reason {
+        if state.saw_tool_use && stop_reason == "end_turn" {
+            stop_reason = "tool_use".into();
+        }
         state.close_open_block(&mut events);
         events.push(json!({
             "type": "message_delta",
@@ -2264,5 +2274,60 @@ mod tests {
             sanitized["properties"]["requestedSchema"]["properties"]["env"]["type"],
             "string"
         );
+    }
+
+    #[test]
+    fn sse_tool_call_across_chunks_preserves_tool_use_stop_reason() {
+        let mut state = AnthropicStreamState::default();
+        let params = no_params();
+
+        let chunk1 = json!({
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "functionCall": {
+                            "id": "call_sse_1",
+                            "name": "ask_user",
+                            "args": { "question": "Light or dark?" }
+                        }
+                    }]
+                }
+            }]
+        });
+        let events1 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.8-flash-low",
+            &chunk1,
+            None,
+            false,
+            &params,
+        );
+        assert!(events1.iter().any(|ev| {
+            ev["type"] == "content_block_start" && ev["content_block"]["type"] == "tool_use"
+        }));
+
+        let chunk2 = json!({
+            "candidates": [{
+                "content": { "parts": [] },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {
+                "promptTokenCount": 59,
+                "candidatesTokenCount": 24
+            }
+        });
+        let events2 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.8-flash-low",
+            &chunk2,
+            None,
+            false,
+            &params,
+        );
+        let msg_delta = events2
+            .iter()
+            .find(|ev| ev["type"] == "message_delta")
+            .expect("expected message_delta in final chunk");
+        assert_eq!(msg_delta["delta"]["stop_reason"], "tool_use");
     }
 }

@@ -88,7 +88,55 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
         }
     }
 
+    ensure_deepseek_assistant_thinking(&mut result, model, None);
+
     Ok(result)
+}
+
+/// DeepSeek Anthropic-compatible endpoints (`deepseek-v4-*`, `deepseek-reasoner`, etc.)
+/// run in thinking mode by default and reject multi-turn tool calls with HTTP 400
+/// (`"The content[].thinking in the thinking mode must be passed back to the API."`)
+/// whenever a historical `assistant` message contains `tool_use` without a `thinking` block.
+pub(crate) fn ensure_deepseek_assistant_thinking(
+    body: &mut Value,
+    model: &str,
+    base_url: Option<&str>,
+) {
+    let is_deepseek = model.trim().to_ascii_lowercase().contains("deepseek")
+        || base_url.is_some_and(|u| u.to_ascii_lowercase().contains("deepseek"));
+    if !is_deepseek {
+        return;
+    }
+    let thinking_disabled = body
+        .pointer("/thinking/type")
+        .and_then(Value::as_str)
+        .is_some_and(|t| t.eq_ignore_ascii_case("disabled"));
+    if thinking_disabled {
+        return;
+    }
+    let Some(messages) = body.get_mut("messages").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for msg in messages.iter_mut() {
+        if msg.get("role").and_then(Value::as_str) != Some("assistant") {
+            continue;
+        }
+        let Some(blocks) = msg.get_mut("content").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        let has_tool_use = blocks
+            .iter()
+            .any(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"));
+        let has_thinking = blocks.iter().any(|b| {
+            matches!(
+                b.get("type").and_then(Value::as_str),
+                Some("thinking" | "redacted_thinking")
+            )
+        });
+        if has_tool_use && !has_thinking {
+            blocks.insert(0, json!({"type": "thinking", "thinking": "..."}));
+        }
+    }
 }
 
 /// Map a non-streaming Anthropic Messages response to Responses-like JSON.
@@ -1710,5 +1758,21 @@ mod tests {
         assert!(done.contains("event: response.output_text.delta"));
         assert!(done.contains("Analysis complete."));
         assert!(done.contains("\"type\":\"message\""));
+    }
+
+    #[test]
+    fn deepseek_tool_use_turns_receive_thinking_block() {
+        let body: Value = serde_json::from_str(RESPONSES_REQUEST).unwrap();
+        let anthropic =
+            responses_request_to_anthropic_messages(&body, "deepseek-v4-flash").unwrap();
+        let assistant_blocks = anthropic["messages"][1]["content"].as_array().unwrap();
+        assert_eq!(assistant_blocks[0]["type"], "thinking");
+        assert_eq!(assistant_blocks[0]["thinking"], "...");
+        assert_eq!(assistant_blocks[1]["type"], "tool_use");
+
+        // Non-DeepSeek models must NOT receive synthetic unsigned thinking blocks.
+        let claude = responses_request_to_anthropic_messages(&body, "claude-sonnet-4-6").unwrap();
+        let claude_blocks = claude["messages"][1]["content"].as_array().unwrap();
+        assert_eq!(claude_blocks[0]["type"], "tool_use");
     }
 }

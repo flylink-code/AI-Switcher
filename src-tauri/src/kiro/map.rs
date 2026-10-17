@@ -42,7 +42,7 @@ pub fn prepare(
     let stream = incoming
         .get("stream")
         .and_then(|item| item.as_bool())
-        .unwrap_or(protocol == WireProtocol::Anthropic);
+        .unwrap_or(false);
     let (history, current, tools) = match protocol {
         WireProtocol::Anthropic => anthropic_turns(incoming, &backend_model)?,
         WireProtocol::OpenAiChat => openai_chat_turns(incoming, &backend_model)?,
@@ -1099,16 +1099,35 @@ pub fn openai_chat_sse(client_model: &str, reply: &CollectedReply) -> String {
 }
 
 pub fn responses_json(client_model: &str, reply: &CollectedReply) -> Value {
+    let mut output = Vec::new();
+    if !reply.text.is_empty() || reply.tools.is_empty() {
+        output.push(json!({
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": reply.text}]
+        }));
+    }
+    for tool in &reply.tools {
+        let arguments = if tool.input.trim().is_empty() {
+            "{}".to_string()
+        } else {
+            tool.input.clone()
+        };
+        output.push(json!({
+            "type": "function_call",
+            "id": format!("fc_{}", tool.id),
+            "call_id": tool.id,
+            "name": tool.name,
+            "arguments": arguments,
+            "status": "completed"
+        }));
+    }
     json!({
         "id": format!("resp_{}", Uuid::new_v4().simple()),
         "object": "response",
         "model": client_model,
         "status": "completed",
-        "output": [{
-            "type": "message",
-            "role": "assistant",
-            "content": [{"type": "output_text", "text": reply.text}]
-        }],
+        "output": output,
         "usage": {
             "input_tokens": reply.input_tokens,
             "output_tokens": reply.output_tokens,
@@ -1718,5 +1737,32 @@ mod tests {
         reply.finalize_usage(0, 8);
         assert_eq!(reply.input_tokens, 2);
         assert_eq!(reply.output_tokens, 1);
+    }
+
+    #[test]
+    fn anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools() {
+        let incoming = json!({
+            "model": "claude-haiku-4.5",
+            "max_tokens": 64,
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let prepared = prepare(WireProtocol::Anthropic, &incoming, &account()).unwrap();
+        assert!(!prepared.stream);
+
+        let reply = CollectedReply {
+            text: String::new(),
+            tools: vec![ToolCall {
+                id: "call_1".into(),
+                name: "query_metric".into(),
+                input: r#"{"metric_name":"cpu"}"#.into(),
+            }],
+            ..CollectedReply::default()
+        };
+        let resp = responses_json("claude-haiku-4.5", &reply);
+        let output = resp["output"].as_array().unwrap();
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0]["type"], "function_call");
+        assert_eq!(output[0]["call_id"], "call_1");
+        assert_eq!(output[0]["name"], "query_metric");
     }
 }

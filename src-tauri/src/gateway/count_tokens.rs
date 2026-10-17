@@ -6,14 +6,16 @@ use axum::response::{IntoResponse, Response};
 use bytes::Bytes;
 use serde_json::Value;
 
+use crate::database::dao::providers::get_current_provider;
 use crate::error::AppResult;
 use crate::provider::{api_endpoint_url, ProtocolType};
 use crate::proxy::{
-    hydrate_provider_credential, json_error, select_gateway_runtime_provider_with, ProxyState,
+    gateway_catalog_enabled, hydrate_provider_credential, json_error,
+    select_gateway_runtime_provider_with, ProxyState,
 };
 
 pub async fn handle(state: ProxyState, headers: HeaderMap, body: Bytes) -> Response {
-    let incoming: Value = match serde_json::from_slice(&body) {
+    let mut incoming: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
         Err(_) => return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"),
     };
@@ -22,27 +24,42 @@ pub async fn handle(state: ProxyState, headers: HeaderMap, body: Bytes) -> Respo
         .and_then(Value::as_str)
         .unwrap_or("auto")
         .to_string();
-    let routed = match select_gateway_runtime_provider_with(
-        &state,
-        &requested,
-        false,
-        &incoming,
-        "/v1/messages/count_tokens",
-        &headers,
-    ) {
-        Ok(Some((provider, _, _, _, _))) => provider,
-        Ok(None) => return json_error(StatusCode::BAD_GATEWAY, "没有可路由的上游"),
-        Err(error) => return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
-    };
-    let Some(provider) = (match hydrate_provider_credential(&state, routed) {
-        Ok(value) => value,
-        Err(error) => return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
-    }) else {
-        return json_error(StatusCode::BAD_GATEWAY, "上游凭据不可用");
+    let provider = if gateway_catalog_enabled(&state) {
+        match select_gateway_runtime_provider_with(
+            &state,
+            &requested,
+            false,
+            &incoming,
+            "/v1/messages/count_tokens",
+            &headers,
+        ) {
+            Ok(Some((provider, _, _, _, _))) => provider,
+            Ok(None) => return local_estimate_response(&incoming),
+            Err(error) => {
+                log::warn!("count_tokens 路由解析失败，改用本地估算: {error}");
+                return local_estimate_response(&incoming);
+            }
+        }
+    } else {
+        let current = match state.db.with_read_conn(|conn| get_current_provider(conn, state.target)) {
+            Ok(Some(provider)) => provider,
+            _ => return local_estimate_response(&incoming),
+        };
+        if current.is_smart_gateway() {
+            return local_estimate_response(&incoming);
+        }
+        match hydrate_provider_credential(&state, current) {
+            Ok(Some(provider)) => provider,
+            _ => return local_estimate_response(&incoming),
+        }
     };
 
-    if provider.protocol_type == ProtocolType::Anthropic {
-        match forward_anthropic(&state, &provider, &headers, body).await {
+    if provider.protocol_type == ProtocolType::Anthropic && !provider.is_antigravity() {
+        if !provider.model.trim().is_empty() {
+            incoming["model"] = Value::String(provider.model.trim().to_string());
+        }
+        let rewritten_body = Bytes::from(serde_json::to_vec(&incoming).unwrap_or_else(|_| body.to_vec()));
+        match forward_anthropic(&state, &provider, &headers, rewritten_body).await {
             Ok(response) => return response,
             Err(error) => {
                 log::warn!("count_tokens 上游透传失败，改用本地估算: {error}");
@@ -50,10 +67,13 @@ pub async fn handle(state: ProxyState, headers: HeaderMap, body: Bytes) -> Respo
         }
     }
 
-    let tokens = crate::gateway::estimate_request_tokens(&incoming);
+    local_estimate_response(&incoming)
+}
+
+fn local_estimate_response(incoming: &Value) -> Response {
+    let tokens = crate::gateway::estimate_request_tokens(incoming);
     let payload = serde_json::json!({
         "input_tokens": tokens,
-        "estimated": true,
     });
     Response::builder()
         .status(StatusCode::OK)
@@ -87,6 +107,12 @@ async fn forward_anthropic(
     })?;
     let status =
         StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    if !status.is_success() {
+        return Err(crate::error::AppError::Network(format!(
+            "count_tokens 上游返回状态码 {}",
+            status.as_u16()
+        )));
+    }
     let bytes = response.bytes().await.map_err(|error| {
         crate::error::AppError::Network(format!("读取 count_tokens 响应失败: {error}"))
     })?;
