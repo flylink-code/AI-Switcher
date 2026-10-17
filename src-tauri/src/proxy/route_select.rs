@@ -31,10 +31,28 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let requested_model = if state.target == ProviderTarget::ClaudeDesktop {
         // 只调用用户选的模型：Desktop 自带的标题 / 侧查询 / 裸角色名不另选模型。
         let last_selected = desktop_alias::last_selected(&state.db);
-        let resolved_model = desktop_alias::resolve_selected(&original_model, &entries, last_selected.as_deref())
-            .map_err(|unresolved| {
-                GatewaySelectionError::Catalog(crate::catalog::CatalogRequestError::StalePublicId(unresolved))
-            })?;
+        let resolved_model = match desktop_alias::resolve_selected(
+            &original_model,
+            &entries,
+            last_selected.as_deref(),
+        ) {
+            Ok(public_id) => public_id,
+            Err(unresolved) => {
+                if !desktop_alias::is_desktop_alias(&original_model) {
+                    entries
+                        .iter()
+                        .find(|entry| !crate::catalog::is_auto_public_id(&entry.public_id))
+                        .map(|entry| entry.public_id.clone())
+                        .ok_or(GatewaySelectionError::Catalog(
+                            crate::catalog::CatalogRequestError::StalePublicId(unresolved),
+                        ))?
+                } else {
+                    return Err(GatewaySelectionError::Catalog(
+                        crate::catalog::CatalogRequestError::StalePublicId(unresolved),
+                    ));
+                }
+            }
+        };
         if desktop_alias::is_desktop_alias(&original_model)
             && desktop_alias::is_listed_selection(&original_model, &entries)
         {
@@ -345,12 +363,24 @@ fn prepare_upstream_request(
     } else {
         encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers)
     };
-    if state.target == ProviderTarget::ClaudeDesktop
-        && provider.is_smart_gateway()
-        && desktop_alias::is_desktop_alias(&provider.model)
-    {
+    if state.target == ProviderTarget::ClaudeDesktop && provider.is_smart_gateway() {
         if let Ok((_, entries)) = load_gateway_catalog(state, CatalogStyle::Claude) {
-            if let Some(public_id) = desktop_alias::public_id_for_listed(&provider.model, &entries) {
+            let last_selected = desktop_alias::last_selected(&state.db);
+            let resolved_public_id = desktop_alias::resolve_selected(
+                &provider.model,
+                &entries,
+                last_selected.as_deref(),
+            )
+            .ok()
+            .or_else(|| {
+                (!desktop_alias::is_desktop_alias(&provider.model)).then(|| {
+                    entries
+                        .iter()
+                        .find(|entry| !crate::catalog::is_auto_public_id(&entry.public_id))
+                        .map(|entry| entry.public_id.clone())
+                })?
+            });
+            if let Some(public_id) = resolved_public_id {
                 let readable = entries
                     .iter()
                     .find(|entry| entry.public_id.eq_ignore_ascii_case(&public_id))

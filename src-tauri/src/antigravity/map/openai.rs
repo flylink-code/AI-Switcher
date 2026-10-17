@@ -260,9 +260,16 @@ pub fn openai_to_gemini_request(
             .filter_map(|tool| {
                 let function = tool.get("function")?;
                 let name = function.get("name").and_then(Value::as_str)?;
+                let raw_description = function
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 Some(json!({
                     "name": name,
-                    "description": function.get("description").cloned().unwrap_or(json!("")),
+                    "description": crate::proxy::codex_anthropic::enrich_edit_tool_description(
+                        name,
+                        raw_description,
+                    ),
                     "parameters": function
                         .get("parameters")
                         .map(|schema| super::anthropic::sanitize_schema(schema, 0))

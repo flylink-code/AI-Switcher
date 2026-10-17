@@ -225,7 +225,179 @@ pub(crate) fn normalize_gemini_contents(contents: &mut Vec<Value>) {
         i += 1;
     }
 
+    enforce_gemini_context_budget(&mut merged);
     *contents = merged;
+}
+
+const MAX_GEMINI_CONTEXT_CHARS: usize = 2_400_000;
+
+pub(crate) fn truncate_middle_chars(
+    text: &str,
+    max_chars: usize,
+    head_chars: usize,
+    tail_chars: usize,
+) -> String {
+    if text.len() <= max_chars {
+        return text.to_string();
+    }
+    let total_chars = text.chars().count();
+    if total_chars <= max_chars {
+        return text.to_string();
+    }
+    let head: String = text.chars().take(head_chars).collect();
+    let tail: String = text
+        .chars()
+        .rev()
+        .take(tail_chars)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    let omitted = total_chars.saturating_sub(head_chars + tail_chars);
+    format!("{head}\n\n... [{omitted} chars truncated to fit context window] ...\n\n{tail}")
+}
+
+fn estimate_part_chars(part: &Value) -> usize {
+    if let Some(text) = part.get("text").and_then(Value::as_str) {
+        return text.len();
+    }
+    if let Some(fr) = part.get("functionResponse") {
+        return fr
+            .pointer("/response/result")
+            .and_then(Value::as_str)
+            .map(str::len)
+            .unwrap_or(64);
+    }
+    if let Some(fc) = part.get("functionCall") {
+        return fc
+            .get("args")
+            .map(|v| v.to_string().len())
+            .unwrap_or(64);
+    }
+    if let Some(inline) = part.get("inlineData") {
+        return inline
+            .get("data")
+            .and_then(Value::as_str)
+            .map(str::len)
+            .unwrap_or(0);
+    }
+    64
+}
+
+fn estimate_contents_chars(contents: &[Value]) -> usize {
+    contents
+        .iter()
+        .map(|turn| {
+            turn.get("parts")
+                .and_then(Value::as_array)
+                .map(|parts| parts.iter().map(estimate_part_chars).sum::<usize>())
+                .unwrap_or(0)
+        })
+        .sum()
+}
+
+/// Guard against Gemini's 1,048,576 input token limit by progressively compacting
+/// historical tool outputs, inline media, and oversized text blocks while preserving
+/// `functionCall` / `functionResponse` turn structure.
+fn enforce_gemini_context_budget(contents: &mut [Value]) {
+    let mut total = estimate_contents_chars(contents);
+    if total <= MAX_GEMINI_CONTEXT_CHARS {
+        return;
+    }
+
+    let contents_len = contents.len();
+    let older_cutoff = contents_len.saturating_sub(2);
+    // Pass 1: compact older functionResponse outputs and inlineData payloads.
+    for idx in 0..older_cutoff {
+        if total <= MAX_GEMINI_CONTEXT_CHARS {
+            return;
+        }
+        let Some(parts) = contents[idx].get_mut("parts").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for part in parts.iter_mut() {
+            if total <= MAX_GEMINI_CONTEXT_CHARS {
+                break;
+            }
+            if let Some(result_val) = part.pointer_mut("/functionResponse/response/result") {
+                if let Some(text) = result_val.as_str() {
+                    if text.len() > 4_000 {
+                        let old_len = text.len();
+                        let compacted = truncate_middle_chars(text, 4_000, 2_500, 1_000);
+                        let new_len = compacted.len();
+                        *result_val = Value::String(compacted);
+                        total = total.saturating_sub(old_len.saturating_sub(new_len));
+                    }
+                }
+            } else if part.get("inlineData").is_some() && idx + 4 < contents_len {
+                let old_len = estimate_part_chars(part);
+                *part = json!({ "text": "[Earlier inline image omitted to fit context window]" });
+                total = total.saturating_sub(old_len.saturating_sub(64));
+            }
+        }
+    }
+
+    // Pass 2: compact older text parts if still over budget.
+    for idx in 0..older_cutoff {
+        if total <= MAX_GEMINI_CONTEXT_CHARS {
+            return;
+        }
+        let Some(parts) = contents[idx].get_mut("parts").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for part in parts.iter_mut() {
+            if total <= MAX_GEMINI_CONTEXT_CHARS {
+                break;
+            }
+            if let Some(text_val) = part.get_mut("text") {
+                if let Some(text) = text_val.as_str() {
+                    if text.len() > 4_000 {
+                        let old_len = text.len();
+                        let compacted = truncate_middle_chars(text, 4_000, 2_500, 1_000);
+                        let new_len = compacted.len();
+                        *text_val = Value::String(compacted);
+                        total = total.saturating_sub(old_len.saturating_sub(new_len));
+                    }
+                }
+            }
+        }
+    }
+
+    // Pass 3: if recent turns alone exceed budget, cap individual giant parts in the tail turns.
+    for idx in older_cutoff..contents.len() {
+        if total <= MAX_GEMINI_CONTEXT_CHARS {
+            return;
+        }
+        let Some(parts) = contents[idx].get_mut("parts").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for part in parts.iter_mut() {
+            if total <= MAX_GEMINI_CONTEXT_CHARS {
+                break;
+            }
+            if let Some(result_val) = part.pointer_mut("/functionResponse/response/result") {
+                if let Some(text) = result_val.as_str() {
+                    if text.len() > 200_000 {
+                        let old_len = text.len();
+                        let compacted = truncate_middle_chars(text, 200_000, 140_000, 40_000);
+                        let new_len = compacted.len();
+                        *result_val = Value::String(compacted);
+                        total = total.saturating_sub(old_len.saturating_sub(new_len));
+                    }
+                }
+            } else if let Some(text_val) = part.get_mut("text") {
+                if let Some(text) = text_val.as_str() {
+                    if text.len() > 200_000 {
+                        let old_len = text.len();
+                        let compacted = truncate_middle_chars(text, 200_000, 140_000, 40_000);
+                        let new_len = compacted.len();
+                        *text_val = Value::String(compacted);
+                        total = total.saturating_sub(old_len.saturating_sub(new_len));
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

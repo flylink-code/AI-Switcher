@@ -1,0 +1,6 @@
+{
+  "roots": ["src", "src-tauri", "scripts"],
+  "extensions": [".rs", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".ps1", ".bat", ".sh"],
+  "excludeSegments": ["examples", "node_modules", "target", "dist", "dist-ssr", "release", "generated", "gen", ".git", ".codemap-fixture", "artifacts", "__pycache__", ".pnpm-store"],
+  "pageRows": 100
+}

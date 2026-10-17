@@ -234,7 +234,16 @@ pub fn anthropic_to_gemini_request(
                         .and_then(Value::as_str)
                         .filter(|t| crate::proxy::convert::is_claude_server_tool_type(t))
                 })?;
-                let description = tool.get("description").cloned().unwrap_or(json!(""));
+                let raw_description = tool
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let description = json!(
+                    crate::proxy::codex_anthropic::enrich_edit_tool_description(
+                        name,
+                        raw_description,
+                    )
+                );
                 let parameters = tool
                     .get("input_schema")
                     .map(|schema| sanitize_schema(schema, 0))
@@ -597,7 +606,7 @@ fn push_system_parts(system: &Value, out: &mut Vec<Value>) {
 }
 
 pub(super) fn tool_result_text(content: &Value) -> String {
-    match content {
+    let raw = match content {
         Value::String(text) => text.clone(),
         Value::Array(blocks) => blocks
             .iter()
@@ -617,7 +626,8 @@ pub(super) fn tool_result_text(content: &Value) -> String {
             .join("\n"),
         Value::Null => String::new(),
         other => other.to_string(),
-    }
+    };
+    super::truncate_middle_chars(&raw, 120_000, 80_000, 20_000)
 }
 
 fn content_to_parts(

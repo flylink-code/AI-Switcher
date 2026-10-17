@@ -12,7 +12,10 @@ pub struct UpstreamReply {
     pub network_error: Option<String>,
 }
 
-pub async fn generate(account: &KiroAccount, payload: &serde_json::Value) -> UpstreamReply {
+pub async fn send_generate_request(
+    account: &KiroAccount,
+    payload: &serde_json::Value,
+) -> Result<reqwest::Response, String> {
     let region = if account.region.trim().is_empty() {
         "us-east-1"
     } else {
@@ -25,7 +28,8 @@ pub async fn generate(account: &KiroAccount, payload: &serde_json::Value) -> Ups
         std::env::consts::OS,
         account.machine_id
     );
-    let response = client
+    let auth_header = format!("{} {}", "Bearer", account.access_token.trim());
+    client
         .post(&url)
         .header("content-type", "application/json")
         .header("x-amzn-codewhisperer-optout", "true")
@@ -33,13 +37,15 @@ pub async fn generate(account: &KiroAccount, payload: &serde_json::Value) -> Ups
         .header("user-agent", user_agent)
         .header("amz-sdk-invocation-id", Uuid::new_v4().to_string())
         .header("amz-sdk-request", "attempt=1; max=3")
-        .header(
-            "authorization",
-            format!("Bearer {}", account.access_token.trim()),
-        )
+        .header("authorization", auth_header)
         .json(payload)
         .send()
-        .await;
+        .await
+        .map_err(|error| error.to_string())
+}
+
+pub async fn generate(account: &KiroAccount, payload: &serde_json::Value) -> UpstreamReply {
+    let response = send_generate_request(account, payload).await;
     match response {
         Ok(response) => {
             let status = response.status().as_u16();
@@ -53,7 +59,7 @@ pub async fn generate(account: &KiroAccount, payload: &serde_json::Value) -> Ups
         Err(error) => UpstreamReply {
             status: 0,
             body: Bytes::new(),
-            network_error: Some(error.to_string()),
+            network_error: Some(error),
         },
     }
 }

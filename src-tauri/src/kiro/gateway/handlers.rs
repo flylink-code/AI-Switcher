@@ -2,10 +2,10 @@
 
 use std::time::Instant;
 
-use axum::body::Bytes;
+use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::http::{header, HeaderMap, StatusCode};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::{json, Value};
 
@@ -145,21 +145,271 @@ async fn handle(
                 return error_response(protocol, StatusCode::BAD_REQUEST, &error);
             }
         };
-        let reply = upstream::generate(&account, &prepared.body).await;
-        if let Some(message) = reply.network_error {
-            state.pool.note_failure(&account.id, FailureClass::Network);
-            if attempts < max_attempts {
-                continue;
+        let http_resp = match upstream::send_generate_request(&account, &prepared.body).await {
+            Ok(resp) => resp,
+            Err(message) => {
+                state.pool.note_failure(&account.id, FailureClass::Network);
+                if attempts < max_attempts {
+                    continue;
+                }
+                log_failure(
+                    &state, &headers, &incoming, protocol, started, 504, "network",
+                );
+                return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &message);
             }
-            log_failure(
-                &state, &headers, &incoming, protocol, started, 504, "network",
+        };
+        let status_code = http_resp.status().as_u16();
+        let upstream_ok = (200..300).contains(&status_code);
+        if upstream_ok && prepared.stream {
+            use futures_util::StreamExt;
+            let client_model = client_model(&headers, &prepared.client_model);
+            let mut byte_stream = http_resp.bytes_stream();
+            let mut decoder = FrameDecoder::new();
+            let mut streamer = map::KiroSseStreamer::new(protocol, &client_model);
+            let mut initial_sse = String::new();
+            let mut raw_buf = Vec::new();
+            let mut first_frame_seen = false;
+            let mut decode_err: Option<String> = None;
+
+            while !first_frame_seen {
+                match byte_stream.next().await {
+                    Some(Ok(chunk)) => {
+                        if raw_buf.len() < 4096 {
+                            raw_buf.extend_from_slice(&chunk);
+                        }
+                        match decoder.push(&chunk) {
+                            Ok(frames) => {
+                                if !frames.is_empty() {
+                                    first_frame_seen = true;
+                                    for frame in &frames {
+                                        initial_sse.push_str(&streamer.push_frame(frame));
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                decode_err = Some(format!("{err:?}"));
+                                break;
+                            }
+                        }
+                    }
+                    Some(Err(err)) => {
+                        decode_err = Some(err.to_string());
+                        break;
+                    }
+                    None => break,
+                }
+            }
+
+            if let Some(err) = decode_err {
+                log::warn!("Kiro event-stream decode error: {err}");
+                state.pool.note_failure(&account.id, FailureClass::Rotate);
+                if attempts < max_attempts {
+                    continue;
+                }
+                log_failure(
+                    &state, &headers, &incoming, protocol, started, 502, "upstream",
+                );
+                return error_response(
+                    protocol,
+                    StatusCode::BAD_GATEWAY,
+                    &format!("Kiro 上游事件流解析失败: {err}"),
+                );
+            }
+
+            if !first_frame_seen && streamer.collected.upstream_error.is_none() {
+                if let Ok(json_body) = serde_json::from_slice::<Value>(&raw_buf) {
+                    if let Some(err_msg) = json_body
+                        .get("message")
+                        .or_else(|| json_body.pointer("/error/message"))
+                        .and_then(Value::as_str)
+                    {
+                        streamer.collected.upstream_error = Some(err_msg.to_string());
+                    }
+                } else {
+                    streamer.collected.upstream_error =
+                        Some("Kiro 上游返回了空的事件流".to_string());
+                }
+            }
+
+            if let Some(err_msg) = streamer.collected.upstream_error.as_deref() {
+                let stream_class = classify_upstream(502, err_msg, false);
+                state.pool.note_failure(&account.id, stream_class);
+                if attempts < max_attempts && stream_class != FailureClass::Client {
+                    continue;
+                }
+                let status = if stream_class == FailureClass::Client {
+                    StatusCode::BAD_REQUEST
+                } else if matches!(stream_class, FailureClass::CoolAndRotate) {
+                    StatusCode::TOO_MANY_REQUESTS
+                } else {
+                    StatusCode::BAD_GATEWAY
+                };
+                log_failure(
+                    &state,
+                    &headers,
+                    &incoming,
+                    protocol,
+                    started,
+                    status.as_u16() as i64,
+                    if status == StatusCode::BAD_REQUEST {
+                        "client"
+                    } else {
+                        "upstream"
+                    },
+                );
+                return error_response(
+                    protocol,
+                    status,
+                    &err_msg.chars().take(400).collect::<String>(),
+                );
+            }
+
+            let log_id = if map::should_log_usage("/v1/messages") {
+                crate::kiro::usage_log::insert_request(
+                    &state.db,
+                    Some(&account.id),
+                    &client_model,
+                    Some(200),
+                    started,
+                    protocol,
+                    true,
+                    None,
+                    Some(&headers),
+                )
+            } else {
+                None
+            };
+            let db = state.db.clone();
+            let context_window = crate::kiro::models::context_window(&prepared.backend_model);
+            let req_len = body.len();
+            let sse_stream = futures_util::stream::unfold(
+                (
+                    byte_stream,
+                    decoder,
+                    streamer,
+                    Some(initial_sse),
+                    false,
+                    db,
+                    log_id,
+                ),
+                move |(
+                    mut byte_stream,
+                    mut decoder,
+                    mut streamer,
+                    mut pending,
+                    done,
+                    db,
+                    log_id,
+                )| async move {
+                    if done {
+                        return None;
+                    }
+                    if let Some(init) = pending.take() {
+                        if !init.is_empty() {
+                            return Some((
+                                Ok::<Bytes, std::convert::Infallible>(Bytes::from(init)),
+                                (byte_stream, decoder, streamer, None, false, db, log_id),
+                            ));
+                        }
+                    }
+                    loop {
+                        match byte_stream.next().await {
+                            Some(Ok(chunk)) => match decoder.push(&chunk) {
+                                Ok(frames) => {
+                                    let mut out = String::new();
+                                    for frame in &frames {
+                                        out.push_str(&streamer.push_frame(frame));
+                                    }
+                                    if !out.is_empty() {
+                                        return Some((
+                                            Ok(Bytes::from(out)),
+                                            (
+                                                byte_stream,
+                                                decoder,
+                                                streamer,
+                                                None,
+                                                false,
+                                                db,
+                                                log_id,
+                                            ),
+                                        ));
+                                    }
+                                }
+                                Err(err) => {
+                                    log::warn!("Kiro mid-stream decode error: {err:?}");
+                                    let tail = streamer.finish(context_window, req_len);
+                                    if let Some(ref id) = log_id {
+                                        crate::kiro::usage_log::write_usage(
+                                            &db,
+                                            id,
+                                            streamer.collected.input_tokens,
+                                            streamer.collected.output_tokens,
+                                            streamer.collected.cache_read,
+                                            streamer.collected.cache_write,
+                                        );
+                                    }
+                                    return Some((
+                                        Ok(Bytes::from(tail)),
+                                        (byte_stream, decoder, streamer, None, true, db, log_id),
+                                    ));
+                                }
+                            },
+                            Some(Err(err)) => {
+                                log::warn!("Kiro mid-stream read error: {err}");
+                                let tail = streamer.finish(context_window, req_len);
+                                if let Some(ref id) = log_id {
+                                    crate::kiro::usage_log::write_usage(
+                                        &db,
+                                        id,
+                                        streamer.collected.input_tokens,
+                                        streamer.collected.output_tokens,
+                                        streamer.collected.cache_read,
+                                        streamer.collected.cache_write,
+                                    );
+                                }
+                                return Some((
+                                    Ok(Bytes::from(tail)),
+                                    (byte_stream, decoder, streamer, None, true, db, log_id),
+                                ));
+                            }
+                            None => {
+                                let tail = streamer.finish(context_window, req_len);
+                                if let Some(ref id) = log_id {
+                                    crate::kiro::usage_log::write_usage(
+                                        &db,
+                                        id,
+                                        streamer.collected.input_tokens,
+                                        streamer.collected.output_tokens,
+                                        streamer.collected.cache_read,
+                                        streamer.collected.cache_write,
+                                    );
+                                }
+                                return Some((
+                                    Ok(Bytes::from(tail)),
+                                    (byte_stream, decoder, streamer, None, true, db, log_id),
+                                ));
+                            }
+                        }
+                    }
+                },
             );
-            return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &message);
+
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/event-stream; charset=utf-8")
+                .header(header::CACHE_CONTROL, "no-cache")
+                .body(Body::from_stream(sse_stream))
+                .unwrap_or_else(|_| Response::new(Body::empty()));
         }
+
+        let reply = upstream::UpstreamReply {
+            status: status_code,
+            body: http_resp.bytes().await.unwrap_or_default(),
+            network_error: None,
+        };
         let text = String::from_utf8_lossy(&reply.body);
         // 2xx bodies are binary event-stream; classifying them would turn a
         // successful reply into a client error.
-        let upstream_ok = (200..300).contains(&reply.status);
         let class = if upstream_ok {
             FailureClass::Rotate
         } else {
@@ -462,4 +712,105 @@ fn log_failure(
         Some(category),
         Some(headers),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::StreamExt;
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_kiro_claude_sonnet_55_incremental_streaming_smoke() {
+        let proxy_url = crate::system_proxy::outbound_proxy_url();
+        println!("System outbound_proxy_url: {:?}", proxy_url);
+        crate::kiro::outbound::apply_loaded(&crate::kiro::outbound::OutboundSettings {
+            mode: crate::kiro::outbound::OutboundMode::System,
+            proxy_url: String::new(),
+            effective_proxy_url: proxy_url,
+        });
+        let account = tokio::task::spawn_blocking(|| {
+            crate::kiro::pool::AccountPool::new().select()
+        })
+        .await
+        .unwrap()
+        .expect("requires at least one active Kiro account in ~/.claude-switcher/kiro_accounts.json");
+        let account = ensure_access_token(&account, false)
+            .await
+            .expect("ensure_access_token for Kiro account");
+
+        for round in 1..=2 {
+            let incoming = serde_json::json!({
+                "model": "claude-sonnet-5.5",
+                "max_tokens": 256,
+                "stream": true,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "请用中文写一首五言绝句并简短赏析（控制在80字以内）。"
+                    }
+                ]
+            });
+            let prepared = map::prepare(WireProtocol::Anthropic, &incoming, &account)
+                .expect("prepare Kiro request");
+            let context_window = crate::kiro::models::context_window(&prepared.backend_model);
+            let req_len = incoming.to_string().len();
+            let t0 = Instant::now();
+            let resp = upstream::send_generate_request(&account, &prepared.body)
+                .await
+                .expect("send_generate_request to Kiro");
+            let status = resp.status().as_u16();
+            println!(
+                "[Round {round}] HTTP {status} response headers at +{}ms",
+                t0.elapsed().as_millis()
+            );
+            if status != 200 {
+                let err_body = resp.text().await.unwrap_or_default();
+                panic!("Expected 200 OK, got {status}: {err_body}");
+            }
+
+            let mut streamer = map::KiroSseStreamer::new(
+                WireProtocol::Anthropic,
+                &prepared.client_model,
+            );
+
+            let mut byte_stream = resp.bytes_stream();
+            let mut decoder = FrameDecoder::new();
+            let mut delta_chunks = 0usize;
+            let mut first_delta_ms = None;
+            let mut last_delta_ms = 0u128;
+
+            while let Some(chunk) = byte_stream.next().await {
+                let bytes = chunk.expect("stream chunk");
+                let frames = decoder.push(&bytes).expect("decode frames");
+                for frame in &frames {
+                    let out = streamer.push_frame(frame);
+                    if !out.is_empty() {
+                        if out.contains("text_delta") || out.contains("thinking_delta") {
+                            let ms = t0.elapsed().as_millis();
+                            if first_delta_ms.is_none() {
+                                first_delta_ms = Some(ms);
+                            }
+                            last_delta_ms = ms;
+                            delta_chunks += 1;
+                            if delta_chunks <= 8 {
+                                println!(
+                                    "[Round {round}] [+{ms}ms] chunk #{delta_chunks}: {}",
+                                    out.lines().find(|l| l.starts_with("data:")).unwrap_or("")
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            let fin = streamer.finish(context_window, req_len);
+            let total_ms = t0.elapsed().as_millis();
+            println!(
+                "[Round {round}] [+{total_ms}ms] stream finished: delta_chunks={delta_chunks}, first_delta={:?}ms, last_delta={last_delta_ms}ms",
+                first_delta_ms
+            );
+            assert!(delta_chunks > 1, "expected multiple incremental SSE delta chunks");
+            assert!(fin.contains("event: message_stop"));
+        }
+    }
 }

@@ -10,6 +10,12 @@ dist-ssr/
 release/
 **/target/
 examples/
-docs/
-.cursor/
+docs/*
+!docs/codemap/
+!docs/codemap/*.md
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/codemap.mdc
+.codemap-fixture/
 src-tauri\target

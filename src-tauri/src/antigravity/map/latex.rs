@@ -12,6 +12,7 @@ const DISPLAY_MATH_MAX_CHARS: usize = 4096;
 /// Claude Code treats ASCII `~` as strikethrough; emit fullwidth `～` for ranges.
 const FULLWIDTH_TILDE: char = '～';
 const RANGE_TILDE_HOLD_MAX_CHARS: usize = 64;
+const SECTION_SIGN_HOLD_MAX_CHARS: usize = 24;
 
 /// Convert Gemini-visible LaTeX into text Claude Code can display.
 pub fn unwrap_gemini_latex(input: &str) -> String {
@@ -22,15 +23,18 @@ pub fn unwrap_gemini_latex(input: &str) -> String {
     let paren = replace_delimited(&display, "\\(", "\\)", INLINE_MATH_MAX_CHARS);
     let bracket = replace_delimited(&paren, "\\[", "\\]", DISPLAY_MATH_MAX_CHARS);
     let dollars = replace_dollar_math(&bracket, INLINE_MATH_MAX_CHARS);
-    replace_ascii_range_tildes(&dollars)
+    let tildes = replace_ascii_range_tildes(&dollars);
+    replace_section_signs(&tildes)
 }
 
-/// Split so an incomplete `$...` / `\(` / `\[` span, or an incomplete
-/// numeric range tilde (`500~`), stays in `hold`.
+/// Split so an incomplete `$...` / `\(` / `\[` span, an incomplete
+/// numeric range tilde (`500~`), or an incomplete `§1.4` section reference
+/// stays in `hold`.
 pub fn split_safe_latex_prefix(input: &str) -> (String, String) {
     let math_idx = incomplete_math_start(input);
     let range_idx = incomplete_range_tilde_start(input);
-    let Some(idx) = [math_idx, range_idx].into_iter().flatten().min() else {
+    let sec_idx = incomplete_section_sign_start(input);
+    let Some(idx) = [math_idx, range_idx, sec_idx].into_iter().flatten().min() else {
         return (input.to_string(), String::new());
     };
     let max_hold_chars = if math_idx == Some(idx) {
@@ -39,10 +43,24 @@ pub fn split_safe_latex_prefix(input: &str) -> (String, String) {
         } else {
             INLINE_MATH_MAX_CHARS
         }
-    } else {
+    } else if range_idx == Some(idx) {
         RANGE_TILDE_HOLD_MAX_CHARS
+    } else {
+        SECTION_SIGN_HOLD_MAX_CHARS
     };
     if input[idx..].chars().count() > max_hold_chars {
+        return (input.to_string(), String::new());
+    }
+    (input[..idx].to_string(), input[idx..].to_string())
+}
+
+/// Split so an incomplete trailing `§1.4` section reference stays in `hold`
+/// until the section number finishes.
+pub fn split_safe_section_sign_prefix(input: &str) -> (String, String) {
+    let Some(idx) = incomplete_section_sign_start(input) else {
+        return (input.to_string(), String::new());
+    };
+    if input[idx..].chars().count() > SECTION_SIGN_HOLD_MAX_CHARS {
         return (input.to_string(), String::new());
     }
     (input[..idx].to_string(), input[idx..].to_string())
@@ -414,6 +432,7 @@ const LATEX_SYMBOLS: &[(&str, &str)] = &[
     ("\\omega", "ω"),
     ("\\pi", "π"),
     ("\\tau", "τ"),
+    ("\\S", "§"),
     ("\\,", " "),
     ("\\;", " "),
     ("\\:", " "),
@@ -580,6 +599,90 @@ fn replace_ascii_range_tildes(input: &str) -> String {
             out.push(FULLWIDTH_TILDE);
             i += 1;
             continue;
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    out
+}
+
+fn incomplete_section_sign_start(input: &str) -> Option<usize> {
+    if !input.contains('§') {
+        return None;
+    }
+    let chars: Vec<char> = input.chars().collect();
+    let sec_i = chars.iter().rposition(|&c| c == '§')?;
+    let mut j = sec_i + 1;
+    while j < chars.len() && chars[j] == ' ' {
+        j += 1;
+    }
+    if j == chars.len() {
+        return Some(chars[..sec_i].iter().map(|c| c.len_utf8()).sum());
+    }
+    if !chars[j].is_ascii_digit() {
+        return None;
+    }
+    while j < chars.len() && (chars[j].is_ascii_digit() || chars[j] == '.') {
+        j += 1;
+    }
+    if j == chars.len() {
+        Some(chars[..sec_i].iter().map(|c| c.len_utf8()).sum())
+    } else {
+        None
+    }
+}
+
+/// Normalize Western section signs before section numbers (`§1.4`, `§ 2.1.3`) into
+/// Chinese section references (`第1.4节`, `第2.1.3节`) outside backtick code spans.
+pub fn replace_section_signs(input: &str) -> String {
+    if !input.contains('§') {
+        return input.to_string();
+    }
+    let chars: Vec<char> = input.chars().collect();
+    let mut out = String::with_capacity(input.len() + 8);
+    let mut i = 0;
+    let mut in_backticks = false;
+    while i < chars.len() {
+        if chars[i] == '`' {
+            in_backticks = !in_backticks;
+            out.push(chars[i]);
+            i += 1;
+            continue;
+        }
+        if !in_backticks && chars[i] == '§' {
+            let mut j = i + 1;
+            while j < chars.len() && chars[j] == ' ' {
+                j += 1;
+            }
+            if j < chars.len() && chars[j].is_ascii_digit() {
+                let mut end = j + 1;
+                while end < chars.len() {
+                    if chars[end].is_ascii_digit() {
+                        end += 1;
+                    } else if chars[end] == '.'
+                        && end + 1 < chars.len()
+                        && chars[end + 1].is_ascii_digit()
+                    {
+                        end += 2;
+                    } else {
+                        break;
+                    }
+                }
+                let has_leading_di = i > 0 && chars[i - 1] == '第';
+                let has_trailing_unit = end < chars.len()
+                    && matches!(chars[end], '节' | '章' | '条' | '项' | '款' | '篇' | '部');
+                if !has_leading_di {
+                    out.push('第');
+                }
+                for &ch in &chars[j..end] {
+                    out.push(ch);
+                }
+                if !has_trailing_unit {
+                    out.push('节');
+                }
+                i = end;
+                continue;
+            }
         }
         out.push(chars[i]);
         i += 1;
@@ -874,5 +977,33 @@ mod tests {
             out["contents"],
             format!("电流计算公式：\n{expected_display}\n其中精简项 ≤ 50g。")
         );
+    }
+
+    #[test]
+    fn normalizes_section_signs_in_prose_and_tables_with_streaming_hold() {
+        assert_eq!(
+            replace_section_signs("| 全表无任何内嵌算式 | S1 §1.4、S2 第5项 |"),
+            "| 全表无任何内嵌算式 | S1 第1.4节、S2 第5项 |"
+        );
+        assert_eq!(
+            replace_section_signs("参见 § 2.1.3 与 `§1.4` 及 §3节"),
+            "参见 第2.1.3节 与 `§1.4` 及 第3节"
+        );
+        assert_eq!(
+            unwrap_gemini_latex("来源：S1 $\\S 1.4$、S2 第5项"),
+            "来源：S1 第1.4节、S2 第5项"
+        );
+
+        let chunks = ["| S1 §", "1", ".4", "、S2 第5项 |"];
+        let mut hold = String::new();
+        let mut streamed = String::new();
+        for chunk in chunks {
+            hold.push_str(chunk);
+            let (ready, rest) = split_safe_section_sign_prefix(&hold);
+            hold = rest;
+            streamed.push_str(&replace_section_signs(&ready));
+        }
+        streamed.push_str(&replace_section_signs(&hold));
+        assert_eq!(streamed, "| S1 第1.4节、S2 第5项 |");
     }
 }

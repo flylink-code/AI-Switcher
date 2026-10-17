@@ -45,8 +45,8 @@ Thumbs.db
 .claude-switcher/
 
 photo
-# Local AI handoff: AGENTS.md only (CLAUDE.md retired, keep ignored if recreated)
-AGENTS.md
+# Shared project handoff; CLAUDE.md remains retired.
+!AGENTS.md
 CLAUDE.md
 ui-test.html
 
@@ -59,7 +59,14 @@ docs/**
 !docs/templates/
 !docs/templates/prompts/
 !docs/templates/prompts/**
-.cursor/
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/codemap.mdc
+!docs/codemap/
+!docs/codemap/*.md
+.codemap-cache.json
+.codemap-fixture/
 1-examples-2-ccswitch-cached-tide.md
 
 # L2 failure dumps (keep the folder, not the contents)

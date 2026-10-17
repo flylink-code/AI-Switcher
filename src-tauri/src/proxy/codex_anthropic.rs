@@ -524,6 +524,8 @@ fn responses_image_to_anthropic(part: &Value) -> Option<Value> {
 
 const EDIT_UNIQUE_CONTEXT_HINT: &str = "\nIMPORTANT: Include enough surrounding context lines (such as the enclosing function header or unique adjacent statements) so `old_str` / `oldString` is 100% unique in the file and never matches multiple locations.";
 
+const VIEW_TOOL_READ_HINT: &str = "\nIMPORTANT: Never call this tool on binary or archive files (e.g. `.asar`, `.asar.bak`, `.exe`, `.dll`, `.db`, `.sqlite`, `.zip`). On Windows, `path` MUST use backslashes (`\\`) and never `file://` URIs or forward slashes (`/`). If `view_range: [1, N]` returns `[File content truncated at 20KB...]` without an explicit `Use view_range=[M, ...]` line hint, the file has fewer than `N` lines with very long/minified lines — do NOT guess higher `view_range` start lines like `[N+1, ...]` (which will fail with out-of-bounds); use a shell or search tool instead. Never retry `view` on the same file after a read failure.";
+
 pub(crate) fn enrich_edit_tool_description(name: &str, raw_description: &str) -> String {
     let lower = name.trim().to_ascii_lowercase();
     let is_edit_tool = matches!(
@@ -534,14 +536,30 @@ pub(crate) fn enrich_edit_tool_description(name: &str, raw_description: &str) ->
             | "replace_string_in_file"
             | "multi_replace_string_in_file"
     );
-    if !is_edit_tool || raw_description.contains("100% unique") {
-        return raw_description.to_string();
+    if is_edit_tool {
+        if raw_description.contains("100% unique") {
+            return raw_description.to_string();
+        }
+        return if raw_description.trim().is_empty() {
+            EDIT_UNIQUE_CONTEXT_HINT.trim_start().to_string()
+        } else {
+            format!("{raw_description}{EDIT_UNIQUE_CONTEXT_HINT}")
+        };
     }
-    if raw_description.trim().is_empty() {
-        EDIT_UNIQUE_CONTEXT_HINT.trim_start().to_string()
-    } else {
-        format!("{raw_description}{EDIT_UNIQUE_CONTEXT_HINT}")
+
+    let is_view_tool = matches!(lower.as_str(), "view" | "read_file" | "read");
+    if is_view_tool {
+        if raw_description.contains("Never call this tool on binary or archive files") {
+            return raw_description.to_string();
+        }
+        return if raw_description.trim().is_empty() {
+            VIEW_TOOL_READ_HINT.trim_start().to_string()
+        } else {
+            format!("{raw_description}{VIEW_TOOL_READ_HINT}")
+        };
     }
+
+    raw_description.to_string()
 }
 
 fn responses_tool_to_anthropic(tool: &Value) -> Option<Value> {

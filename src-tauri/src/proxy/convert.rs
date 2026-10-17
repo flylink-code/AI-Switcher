@@ -270,7 +270,10 @@ pub fn anthropic_to_openai_responses(
     if let Some(cfg) = merge_thinking_config(request, provider_thinking) {
         if !cfg.is_disabled() {
             if let Some(effort) = cfg.resolved_responses_reasoning_effort() {
-                result["reasoning"] = json!({ "effort": effort });
+                result["reasoning"] = json!({
+                    "effort": effort,
+                    "summary": "auto"
+                });
             }
             if cfg.prefix_thought.unwrap_or(false) {
                 apply_prefix_thought(&mut result);
@@ -350,7 +353,8 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
         .and_then(Value::as_str)
         .filter(|text| !text.is_empty())
     {
-        content.push(json!({"type": "text", "text": text}));
+        let normalized = crate::antigravity::map::latex::replace_section_signs(text);
+        content.push(json!({"type": "text", "text": normalized}));
     }
     for block in message
         .get("content")
@@ -365,7 +369,8 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
                     .and_then(Value::as_str)
                     .filter(|text| !text.is_empty())
                 {
-                    content.push(json!({"type": "text", "text": text}));
+                    let normalized = crate::antigravity::map::latex::replace_section_signs(text);
+                    content.push(json!({"type": "text", "text": normalized}));
                 }
             }
             // OpenAI refusal content has no dedicated Anthropic content block;
@@ -377,7 +382,8 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
                     .and_then(Value::as_str)
                     .filter(|text| !text.is_empty())
                 {
-                    content.push(json!({"type": "text", "text": text}));
+                    let normalized = crate::antigravity::map::latex::replace_section_signs(text);
+                    content.push(json!({"type": "text", "text": normalized}));
                 }
             }
             // Reasoning/thinking fields are intentionally not replayed because
@@ -489,7 +495,8 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
                 Some("output_text" | "text")
             ) {
                 if let Some(text) = block.get("text").and_then(Value::as_str) {
-                    content.push(json!({"type": "text", "text": text}));
+                    let normalized = crate::antigravity::map::latex::replace_section_signs(text);
+                    content.push(json!({"type": "text", "text": normalized}));
                 }
             } else if block.get("type").and_then(Value::as_str) == Some("refusal") {
                 if let Some(text) = block
@@ -497,10 +504,12 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
                     .or_else(|| block.get("text"))
                     .and_then(Value::as_str)
                 {
-                    content.push(json!({"type": "text", "text": text}));
+                    let normalized = crate::antigravity::map::latex::replace_section_signs(text);
+                    content.push(json!({"type": "text", "text": normalized}));
                 }
             } else if let Some(text) = block.get("text").and_then(Value::as_str) {
-                content.push(json!({"type": "text", "text": text}));
+                let normalized = crate::antigravity::map::latex::replace_section_signs(text);
+                content.push(json!({"type": "text", "text": normalized}));
             }
         }
     }
@@ -587,11 +596,13 @@ pub struct OpenAiSseConverter {
     completed: bool,
     next_block_index: usize,
     text_blocks: BTreeMap<(usize, usize), usize>,
+    text_carry: BTreeMap<(usize, usize), String>,
     tool_blocks: BTreeMap<usize, usize>,
     /// Accumulated tool-call argument text already emitted as `input_json_delta`.
     tool_arguments_sent: BTreeMap<usize, String>,
     open_blocks: Vec<usize>,
     thinking_block: Option<usize>,
+    thinking_has_delta: bool,
     /// True after a user-visible text delta. Midstream close adds an error
     /// text block only when this is still false.
     emitted_body: bool,
@@ -615,10 +626,12 @@ impl OpenAiSseConverter {
             completed: false,
             next_block_index: 0,
             text_blocks: BTreeMap::new(),
+            text_carry: BTreeMap::new(),
             tool_blocks: BTreeMap::new(),
             tool_arguments_sent: BTreeMap::new(),
             open_blocks: Vec::new(),
             thinking_block: None,
+            thinking_has_delta: false,
             emitted_body: false,
             terminal_error: false,
             input_tokens: 0,
@@ -627,6 +640,19 @@ impl OpenAiSseConverter {
             output_tokens: 0,
             stop_reason: "end_turn".to_string(),
         }
+    }
+
+    /// Emit `message_start` and an initial `ping` immediately when an HTTP 200
+    /// SSE stream begins so Claude Code / Claude Desktop never stalls with
+    /// `"This is taking a little longer than usual"` while a reasoning model
+    /// (`gpt-6.1-sol`, etc.) is thinking before its first output token.
+    pub fn initial_events(&mut self) -> Vec<u8> {
+        if self.completed {
+            return Vec::new();
+        }
+        let mut output = String::new();
+        self.ensure_started(&mut output);
+        output.into_bytes()
     }
 
     pub fn push_event(&mut self, event: &Value) -> Vec<u8> {
@@ -667,6 +693,7 @@ impl OpenAiSseConverter {
         self.terminal_error = true;
         let mut output = String::new();
         self.ensure_started(&mut output);
+        self.flush_all_text_carries(&mut output);
         self.thinking_block = None;
         for index in self.open_blocks.drain(..) {
             push_event(
@@ -729,6 +756,7 @@ impl OpenAiSseConverter {
             .filter(|text| !text.is_empty())
         {
             let index = self.ensure_thinking_block(output);
+            self.thinking_has_delta = true;
             push_event(
                 output,
                 "content_block_delta",
@@ -744,27 +772,8 @@ impl OpenAiSseConverter {
             .filter(|text| !text.is_empty())
         {
             self.emitted_body = true;
-            if let Some(t_idx) = self.thinking_block.take() {
-                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
-                    self.open_blocks.remove(pos);
-                }
-                push_event(
-                    output,
-                    "content_block_stop",
-                    json!({
-                        "type":"content_block_stop", "index":t_idx
-                    }),
-                );
-            }
-            let index = self.ensure_text_block((0, 0), output);
-            push_event(
-                output,
-                "content_block_delta",
-                json!({
-                    "type":"content_block_delta", "index":index,
-                    "delta":{"type":"text_delta", "text":text}
-                }),
-            );
+            self.close_thinking_block(output);
+            self.emit_normalized_text_delta((0, 0), text, output);
         }
         for call in delta
             .get("tool_calls")
@@ -772,18 +781,8 @@ impl OpenAiSseConverter {
             .into_iter()
             .flatten()
         {
-            if let Some(t_idx) = self.thinking_block.take() {
-                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
-                    self.open_blocks.remove(pos);
-                }
-                push_event(
-                    output,
-                    "content_block_stop",
-                    json!({
-                        "type":"content_block_stop", "index":t_idx
-                    }),
-                );
-            }
+            self.close_thinking_block(output);
+            self.flush_all_text_carries(output);
             let upstream_index = call.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
             let index = self.ensure_tool_block(
                 upstream_index,
@@ -827,21 +826,16 @@ impl OpenAiSseConverter {
             output.push_str(&String::from_utf8_lossy(&self.error_event(message)));
             return;
         }
-        if event_type == "response.output_item.added" {
+        if matches!(event_type, "response.created" | "response.in_progress") {
+            self.ensure_started(output);
+        } else if event_type == "response.output_item.added" {
             let item = event.get("item").unwrap_or(&Value::Null);
-            if item.get("type").and_then(Value::as_str) == Some("function_call") {
-                if let Some(t_idx) = self.thinking_block.take() {
-                    if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
-                        self.open_blocks.remove(pos);
-                    }
-                    push_event(
-                        output,
-                        "content_block_stop",
-                        json!({
-                            "type":"content_block_stop", "index":t_idx
-                        }),
-                    );
-                }
+            let item_type = item.get("type").and_then(Value::as_str);
+            if item_type == Some("reasoning") {
+                self.ensure_thinking_block(output);
+            } else if item_type == Some("function_call") {
+                self.close_thinking_block(output);
+                self.flush_all_text_carries(output);
                 self.stop_reason = "tool_use".to_string();
                 let upstream_index = event
                     .get("output_index")
@@ -857,6 +851,8 @@ impl OpenAiSseConverter {
                     output,
                 );
             }
+        } else if event_type == "response.reasoning_summary_part.added" {
+            self.ensure_thinking_block(output);
         } else if matches!(
             event_type,
             "response.reasoning_summary_text.delta"
@@ -869,6 +865,7 @@ impl OpenAiSseConverter {
                 .filter(|value| !value.is_empty())
             {
                 let index = self.ensure_thinking_block(output);
+                self.thinking_has_delta = true;
                 push_event(
                     output,
                     "content_block_delta",
@@ -884,18 +881,7 @@ impl OpenAiSseConverter {
                 part.get("type").and_then(Value::as_str),
                 Some("output_text" | "text")
             ) {
-                if let Some(t_idx) = self.thinking_block.take() {
-                    if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
-                        self.open_blocks.remove(pos);
-                    }
-                    push_event(
-                        output,
-                        "content_block_stop",
-                        json!({
-                            "type":"content_block_stop", "index":t_idx
-                        }),
-                    );
-                }
+                self.close_thinking_block(output);
                 let key = (
                     event
                         .get("output_index")
@@ -909,18 +895,7 @@ impl OpenAiSseConverter {
                 self.ensure_text_block(key, output);
             }
         } else if event_type == "response.output_text.delta" {
-            if let Some(t_idx) = self.thinking_block.take() {
-                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
-                    self.open_blocks.remove(pos);
-                }
-                push_event(
-                    output,
-                    "content_block_stop",
-                    json!({
-                        "type":"content_block_stop", "index":t_idx
-                    }),
-                );
-            }
+            self.close_thinking_block(output);
             let key = (
                 event
                     .get("output_index")
@@ -931,35 +906,19 @@ impl OpenAiSseConverter {
                     .and_then(Value::as_u64)
                     .unwrap_or(0) as usize,
             );
-            let index = self.ensure_text_block(key, output);
             if let Some(delta) = event
                 .get("delta")
                 .and_then(Value::as_str)
                 .filter(|value| !value.is_empty())
             {
                 self.emitted_body = true;
-                push_event(
-                    output,
-                    "content_block_delta",
-                    json!({
-                        "type":"content_block_delta", "index":index,
-                        "delta":{"type":"text_delta", "text":delta}
-                    }),
-                );
+                self.emit_normalized_text_delta(key, delta, output);
+            } else {
+                self.ensure_text_block(key, output);
             }
         } else if event_type == "response.function_call_arguments.delta" {
-            if let Some(t_idx) = self.thinking_block.take() {
-                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
-                    self.open_blocks.remove(pos);
-                }
-                push_event(
-                    output,
-                    "content_block_stop",
-                    json!({
-                        "type":"content_block_stop", "index":t_idx
-                    }),
-                );
-            }
+            self.close_thinking_block(output);
+            self.flush_all_text_carries(output);
             let upstream_index = event
                 .get("output_index")
                 .and_then(Value::as_u64)
@@ -1126,6 +1085,7 @@ impl OpenAiSseConverter {
         let index = self.next_block_index;
         self.next_block_index += 1;
         self.thinking_block = Some(index);
+        self.thinking_has_delta = false;
         self.open_blocks.push(index);
         push_event(
             output,
@@ -1136,6 +1096,76 @@ impl OpenAiSseConverter {
             }),
         );
         index
+    }
+
+    fn close_thinking_block(&mut self, output: &mut String) {
+        if let Some(t_idx) = self.thinking_block.take() {
+            if !self.thinking_has_delta {
+                push_event(
+                    output,
+                    "content_block_delta",
+                    json!({
+                        "type":"content_block_delta", "index":t_idx,
+                        "delta":{"type":"thinking_delta", "thinking":" "}
+                    }),
+                );
+                self.thinking_has_delta = true;
+            }
+            if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                self.open_blocks.remove(pos);
+            }
+            push_event(
+                output,
+                "content_block_stop",
+                json!({
+                    "type":"content_block_stop", "index":t_idx
+                }),
+            );
+        }
+    }
+
+    fn emit_normalized_text_delta(
+        &mut self,
+        key: (usize, usize),
+        delta: &str,
+        output: &mut String,
+    ) {
+        let index = self.ensure_text_block(key, output);
+        let carry = self.text_carry.entry(key).or_default();
+        carry.push_str(delta);
+        let (ready, rest) = crate::antigravity::map::latex::split_safe_section_sign_prefix(carry);
+        *carry = rest;
+        if !ready.is_empty() {
+            let normalized = crate::antigravity::map::latex::replace_section_signs(&ready);
+            push_event(
+                output,
+                "content_block_delta",
+                json!({
+                    "type":"content_block_delta", "index":index,
+                    "delta":{"type":"text_delta", "text":normalized}
+                }),
+            );
+        }
+    }
+
+    fn flush_all_text_carries(&mut self, output: &mut String) {
+        let keys: Vec<(usize, usize)> = self.text_carry.keys().copied().collect();
+        for key in keys {
+            if let Some(carry) = self.text_carry.remove(&key) {
+                if !carry.is_empty() {
+                    let index = self.ensure_text_block(key, output);
+                    let normalized = crate::antigravity::map::latex::replace_section_signs(&carry);
+                    push_event(
+                        output,
+                        "content_block_delta",
+                        json!({
+                            "type":"content_block_delta", "index":index,
+                            "delta":{"type":"text_delta", "text":normalized}
+                        }),
+                    );
+                }
+            }
+        }
     }
 
     fn ensure_text_block(&mut self, key: (usize, usize), output: &mut String) -> usize {
@@ -1192,6 +1222,8 @@ impl OpenAiSseConverter {
             return;
         }
         self.ensure_started(output);
+        self.flush_all_text_carries(output);
+        self.close_thinking_block(output);
         for index in self.open_blocks.drain(..) {
             push_event(
                 output,
@@ -2219,5 +2251,51 @@ mod tests {
         assert!(text_str.contains("event: content_block_start"));
         assert!(text_str.contains("\"type\":\"text\""));
         assert!(text_str.contains("\"text\":\"the answer is 42\""));
+    }
+
+    #[test]
+    fn responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs() {
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, "gpt-6.1-sol");
+        let init = String::from_utf8(converter.initial_events()).unwrap();
+        assert!(init.contains("event: message_start"));
+
+        let reasoning_added = String::from_utf8(converter.push_event(&json!({
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": { "id": "rs_1", "type": "reasoning" }
+        })))
+        .unwrap();
+        assert!(reasoning_added.contains("event: content_block_start"));
+        assert!(reasoning_added.contains("\"type\":\"thinking\""));
+
+        // Split section sign across chunks: "S1 §" + "1.4" + "、S2 第5项"
+        let chunk1 = String::from_utf8(converter.push_event(&json!({
+            "type": "response.output_text.delta",
+            "output_index": 1,
+            "content_index": 0,
+            "delta": "S1 §"
+        })))
+        .unwrap();
+        // Thinking block without explicit summary delta should get a single space thinking_delta before closing.
+        assert!(chunk1.contains("\"type\":\"thinking_delta\""));
+        assert!(chunk1.contains("event: content_block_stop"));
+
+        let chunk2 = String::from_utf8(converter.push_event(&json!({
+            "type": "response.output_text.delta",
+            "output_index": 1,
+            "content_index": 0,
+            "delta": "1.4"
+        })))
+        .unwrap();
+        assert!(!chunk2.contains("第1节"));
+
+        let chunk3 = String::from_utf8(converter.push_event(&json!({
+            "type": "response.output_text.delta",
+            "output_index": 1,
+            "content_index": 0,
+            "delta": "、S2 第5项"
+        })))
+        .unwrap();
+        assert!(chunk3.contains("第1.4节、S2 第5项"));
     }
 }

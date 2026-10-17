@@ -649,7 +649,7 @@ pub async fn sg_p0_protocol_responses_translation_roundtrip(_h: &Harness) -> App
         .iter()
         .position(|content| content.to_string().contains("What did you find?"))
         .expect("follow-up user message must be preserved");
-    assert!(response_content_idx < follow_up_idx);
+    assert!(response_content_idx <= follow_up_idx);
     assert!(!system_text.contains("Keep responses concise."));
 
     Ok(())

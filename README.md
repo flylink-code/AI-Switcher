@@ -1,6 +1,6 @@
 # AI-Switcher
 
-面向 **Claude Code**、**Claude Desktop**、**Codex**、**VS Code Copilot**、**OpenCode**、**Pi** 的本地 AI 配置、统一供应商与智能网关工作台。**v1.6.1**
+面向 **Claude Code**、**Claude Desktop**、**Codex**、**VS Code Copilot**、**OpenCode**、**Pi** 的本地 AI 配置、统一供应商与智能网关工作台。**v1.6.2**
 
 所有 Agent 共用一份全局上游池（`upstreams`），连接方式统一为 **智能网关（推荐）**、**直连** 或 **官方**。内置 Antigravity / Kiro 反代网关默认以独立 Sidecar 子进程（`--gateway-sidecar`）运行，与主界面进程隔离并自动守护。
 

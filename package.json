@@ -1,12 +1,17 @@
 {
   "name": "ai-switcher",
-  "version": "1.6.2-beta.2",
+  "version": "1.6.2",
   "private": true,
   "description": "Unified third-party API configuration manager for Claude Desktop, Claude Code & Codex",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
+    "codemap": "node codemap.mjs",
+    "codemap:check": "node codemap.mjs --check",
+    "codemap:test": "node --test codemap.test.mjs",
+    "codemap:benchmark": "node codemap.benchmark.mjs",
+    "codemap:hook": "node codemap.mjs --install-hook",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "lint": "eslint .",
@@ -51,8 +56,10 @@
     "eslint": "9",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
+    "tree-sitter-wasms": "0.1.13",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "web-tree-sitter": "0.25.10"
   }
 }

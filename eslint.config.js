@@ -16,6 +16,10 @@ export default tseslint.config(
       "src/types/generated/**",
     ],
   },
+  {
+    files: ["codemap*.mjs"],
+    languageOptions: { globals: globals.node },
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

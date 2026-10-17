@@ -1145,6 +1145,306 @@ pub fn should_log_usage(path: &str) -> bool {
     !path.trim_end_matches('/').ends_with("/count_tokens")
 }
 
+/// Incremental AWS EventStream -> SSE converter for real-time streaming responses.
+pub struct KiroSseStreamer {
+    protocol: WireProtocol,
+    client_model: String,
+    msg_id: String,
+    started: bool,
+    thinking_index: Option<usize>,
+    text_index: Option<usize>,
+    next_index: usize,
+    pub collected: CollectedReply,
+}
+
+impl KiroSseStreamer {
+    pub fn new(protocol: WireProtocol, client_model: &str) -> Self {
+        let prefix = match protocol {
+            WireProtocol::Anthropic => "msg",
+            WireProtocol::OpenAiChat => "chatcmpl",
+            WireProtocol::OpenAiResponses => "resp",
+        };
+        Self {
+            protocol,
+            client_model: client_model.to_string(),
+            msg_id: format!("{prefix}_{}", Uuid::new_v4().simple()),
+            started: false,
+            thinking_index: None,
+            text_index: None,
+            next_index: 0,
+            collected: CollectedReply::default(),
+        }
+    }
+
+    fn ensure_started(&mut self, out: &mut String) {
+        if self.started {
+            return;
+        }
+        self.started = true;
+        match self.protocol {
+            WireProtocol::Anthropic => {
+                push_sse(
+                    out,
+                    "message_start",
+                    &json!({
+                        "type": "message_start",
+                        "message": {
+                            "id": self.msg_id,
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [],
+                            "model": self.client_model,
+                            "stop_reason": null,
+                            "stop_sequence": null,
+                            "usage": {"input_tokens": self.collected.input_tokens, "output_tokens": 0}
+                        }
+                    }),
+                );
+            }
+            WireProtocol::OpenAiChat => {
+                let chunk = json!({
+                    "id": self.msg_id,
+                    "object": "chat.completion.chunk",
+                    "model": self.client_model,
+                    "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": null}]
+                });
+                out.push_str(&format!("data: {chunk}\n\n"));
+            }
+            WireProtocol::OpenAiResponses => {}
+        }
+    }
+
+    pub fn push_frame(&mut self, frame: &Frame) -> String {
+        self.collected.push_frame(frame);
+        if frame.message_type != "event" {
+            return String::new();
+        }
+        let Ok(payload) = serde_json::from_slice::<Value>(&frame.payload) else {
+            return String::new();
+        };
+        let mut out = String::new();
+        self.ensure_started(&mut out);
+        match frame.event_type.as_str() {
+            "reasoningContentEvent" => {
+                if let Some(text) = payload
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    match self.protocol {
+                        WireProtocol::Anthropic => {
+                            let idx = match self.thinking_index {
+                                Some(idx) => idx,
+                                None => {
+                                    if let Some(txt_idx) = self.text_index.take() {
+                                        push_sse(
+                                            &mut out,
+                                            "content_block_stop",
+                                            &json!({"type":"content_block_stop","index": txt_idx}),
+                                        );
+                                    }
+                                    let idx = self.next_index;
+                                    self.next_index += 1;
+                                    self.thinking_index = Some(idx);
+                                    push_sse(
+                                        &mut out,
+                                        "content_block_start",
+                                        &json!({"type":"content_block_start","index": idx, "content_block": {"type":"thinking","thinking":""}}),
+                                    );
+                                    idx
+                                }
+                            };
+                            push_sse(
+                                &mut out,
+                                "content_block_delta",
+                                &json!({"type":"content_block_delta","index": idx, "delta": {"type":"thinking_delta","thinking": text}}),
+                            );
+                        }
+                        WireProtocol::OpenAiChat => {
+                            let chunk = json!({
+                                "id": self.msg_id,
+                                "object": "chat.completion.chunk",
+                                "model": self.client_model,
+                                "choices": [{"index": 0, "delta": {"reasoning_content": text}, "finish_reason": null}]
+                            });
+                            out.push_str(&format!("data: {chunk}\n\n"));
+                        }
+                        WireProtocol::OpenAiResponses => {
+                            push_sse(
+                                &mut out,
+                                "response.reasoning_summary_text.delta",
+                                &json!({"type":"response.reasoning_summary_text.delta","delta": text}),
+                            );
+                        }
+                    }
+                }
+            }
+            "assistantResponseEvent" => {
+                if let Some(content) = payload
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    match self.protocol {
+                        WireProtocol::Anthropic => {
+                            if let Some(t_idx) = self.thinking_index.take() {
+                                push_sse(
+                                    &mut out,
+                                    "content_block_stop",
+                                    &json!({"type":"content_block_stop","index": t_idx}),
+                                );
+                            }
+                            let idx = match self.text_index {
+                                Some(idx) => idx,
+                                None => {
+                                    let idx = self.next_index;
+                                    self.next_index += 1;
+                                    self.text_index = Some(idx);
+                                    push_sse(
+                                        &mut out,
+                                        "content_block_start",
+                                        &json!({"type":"content_block_start","index": idx, "content_block": {"type":"text","text":""}}),
+                                    );
+                                    idx
+                                }
+                            };
+                            push_sse(
+                                &mut out,
+                                "content_block_delta",
+                                &json!({"type":"content_block_delta","index": idx, "delta": {"type":"text_delta","text": content}}),
+                            );
+                        }
+                        WireProtocol::OpenAiChat => {
+                            let chunk = json!({
+                                "id": self.msg_id,
+                                "object": "chat.completion.chunk",
+                                "model": self.client_model,
+                                "choices": [{"index": 0, "delta": {"content": content}, "finish_reason": null}]
+                            });
+                            out.push_str(&format!("data: {chunk}\n\n"));
+                        }
+                        WireProtocol::OpenAiResponses => {
+                            push_sse(
+                                &mut out,
+                                "response.output_text.delta",
+                                &json!({"type":"response.output_text.delta","delta": content}),
+                            );
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        out
+    }
+
+    pub fn finish(&mut self, context_window: u64, request_chars: usize) -> String {
+        self.collected.finalize_usage(context_window, request_chars);
+        let mut out = String::new();
+        self.ensure_started(&mut out);
+        match self.protocol {
+            WireProtocol::Anthropic => {
+                if let Some(t_idx) = self.thinking_index.take() {
+                    push_sse(
+                        &mut out,
+                        "content_block_stop",
+                        &json!({"type":"content_block_stop","index": t_idx}),
+                    );
+                }
+                if let Some(txt_idx) = self.text_index.take() {
+                    push_sse(
+                        &mut out,
+                        "content_block_stop",
+                        &json!({"type":"content_block_stop","index": txt_idx}),
+                    );
+                }
+                for tool in &self.collected.tools {
+                    let idx = self.next_index;
+                    self.next_index += 1;
+                    push_sse(
+                        &mut out,
+                        "content_block_start",
+                        &json!({"type":"content_block_start","index": idx, "content_block": {"type":"tool_use","id": tool.id, "name": tool.name, "input": {}}}),
+                    );
+                    push_sse(
+                        &mut out,
+                        "content_block_delta",
+                        &json!({"type":"content_block_delta","index": idx, "delta": {"type":"input_json_delta","partial_json": tool.input}}),
+                    );
+                    push_sse(
+                        &mut out,
+                        "content_block_stop",
+                        &json!({"type":"content_block_stop","index": idx}),
+                    );
+                }
+                let stop = if self.collected.tools.is_empty() {
+                    "end_turn"
+                } else {
+                    "tool_use"
+                };
+                push_sse(
+                    &mut out,
+                    "message_delta",
+                    &json!({"type":"message_delta","delta":{"stop_reason": stop, "stop_sequence": null}, "usage": {
+                        "input_tokens": self.collected.input_tokens,
+                        "output_tokens": self.collected.output_tokens,
+                        "cache_read_input_tokens": self.collected.cache_read,
+                        "cache_creation_input_tokens": self.collected.cache_write
+                    }}),
+                );
+                push_sse(&mut out, "message_stop", &json!({"type":"message_stop"}));
+            }
+            WireProtocol::OpenAiChat => {
+                if !self.collected.tools.is_empty() {
+                    let tool_calls: Vec<Value> = self
+                        .collected
+                        .tools
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, tool)| {
+                            json!({
+                                "index": idx,
+                                "id": tool.id,
+                                "type": "function",
+                                "function": {"name": tool.name, "arguments": tool.input}
+                            })
+                        })
+                        .collect();
+                    let chunk = json!({
+                        "id": self.msg_id,
+                        "object": "chat.completion.chunk",
+                        "model": self.client_model,
+                        "choices": [{"index": 0, "delta": {"tool_calls": tool_calls}, "finish_reason": null}]
+                    });
+                    out.push_str(&format!("data: {chunk}\n\n"));
+                }
+                let done = json!({
+                    "id": self.msg_id,
+                    "object": "chat.completion.chunk",
+                    "model": self.client_model,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": if self.collected.tools.is_empty() { "stop" } else { "tool_calls" }}],
+                    "usage": {
+                        "prompt_tokens": self.collected.input_tokens,
+                        "completion_tokens": self.collected.output_tokens,
+                        "total_tokens": self.collected.input_tokens.saturating_add(self.collected.output_tokens)
+                    }
+                });
+                out.push_str(&format!("data: {done}\n\n"));
+                out.push_str("data: [DONE]\n\n");
+            }
+            WireProtocol::OpenAiResponses => {
+                let response = responses_json(&self.client_model, &self.collected);
+                push_sse(
+                    &mut out,
+                    "response.completed",
+                    &json!({"type":"response.completed","response": response}),
+                );
+            }
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,6 @@
+---
+description: "Project code navigation and required code map refresh for all file changes"
+alwaysApply: true
+---
+
+Read and follow @AGENTS.md as the sole project handoff. Start code navigation with @CODE_MAP_INDEX.md, then module/file maps and source. After any file edit/add/delete/rename run `pnpm codemap`; before completing run `pnpm codemap:check` and review generated changes. Scope and commands: @CODE_MAP.md. Do not edit generated maps manually.

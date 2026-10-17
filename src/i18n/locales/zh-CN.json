@@ -2114,6 +2114,14 @@
     "changelogTitle": "本版本更新",
     "changelogEmpty": "当前构建没有对应的更新说明。",
     "changelog": {
+      "1_6_2": [
+        "修复 VS Code Copilot 使用 Google Gemini 等模型时调用 view / ask_user 工具参数校验失败的问题：自动归一 Windows 盘符路径与 file:// URI、纠偏 view_range 行号范围、补齐 ask_user 表单字段缺失的 type 声明，并注入大文件截断与二进制文件读取提示以防止死循环重试。",
+        "优化 Claude Code / Claude Desktop 通过 OpenAI Responses API（如 sub2api GPT 模型）流式对话体验：建连即推送 message_start 握手与 5 秒保活 ping，补齐 reasoning.summary: auto 并在进入推理阶段时立即开启 thinking 状态块，消除长思考期间的卡顿等待提示。",
+        "修复 Claude Desktop 在智能网关 Sidecar 模式下切换模型或触发后台裸模型（如 claude-opus-5-5）请求时报 400 的问题：每次解析从 SQLite 同步最新选中别名，并支持同系列多档位后缀自动回退。",
+        "重构 Kiro 反代流式输出与连接复用：新增全局 HTTP/2 keep-alive 连接池与 KiroSseStreamer 实时增量 SSE 状态机，将原本整包缓冲等待改为逐帧实时流式输出，大幅降低首字延迟与等待耗时。",
+        "新增 Antigravity 反代渐进式上下文裁剪保护：对超长单条 tool_result（120K 字符）与总上下文（2.4M 字符预算）执行首尾保留式截断，并在裁剪后二次校验回合配对完整性，避免长会话触发 400 Context too long。",
+        "优化 GPT / Gemini 响应文本规范化，自动将非代码块中的章节符号（如 §1.4）转换为中文「第1.4节」显示。"
+      ],
       "1_6_1": [
         "新增 VS Code Copilot 深度集成：支持将智能网关或直连上游模型一键写入原生 chatLanguageModels.json（仅维护 AI-Switcher 托管项，保留官方与用户自有模型），并支持 Gemini / Claude / GPT 多档推理等级（low / medium / high）选择与路由联动。",
         "重构 7 项主导航（概览 / Agent / 供应商 / 网关 / 工作区 / 用量 / 设置）：Antigravity、Kiro 与 ChatGPT (Codex OAuth) 账号池统一收归「网关」页管理，Agent 页支持卡片内 CLI 一键升级。",

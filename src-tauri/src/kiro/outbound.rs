@@ -110,16 +110,43 @@ pub fn set_effective_proxy(url: Option<String>) {
     if let Ok(mut guard) = PROXY.lock() {
         *guard = url.filter(|value| !value.trim().is_empty());
     }
+    if let Ok(mut pool) = ASYNC_CLIENT_POOL.lock() {
+        pool.clear();
+    }
 }
 
 fn current_proxy() -> Option<String> {
     PROXY.lock().ok().and_then(|guard| guard.clone())
 }
 
+static ASYNC_CLIENT_POOL: std::sync::LazyLock<Mutex<HashMap<(u64, String), Client>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn effective_proxy_cache_key() -> String {
+    if exit_hop_active() {
+        return format!(
+            "exit:{}",
+            exit_hop::local_forwarder_url_for(HopOwner::Kiro)
+                .unwrap_or_else(|| exit_hop::fail_closed_proxy_url().to_string())
+        );
+    }
+    current_proxy().unwrap_or_default()
+}
+
 pub fn build_async_client(timeout_secs: u64) -> Client {
-    client_builder(timeout_secs)
+    let key = (timeout_secs, effective_proxy_cache_key());
+    if let Ok(pool) = ASYNC_CLIENT_POOL.lock() {
+        if let Some(client) = pool.get(&key) {
+            return client.clone();
+        }
+    }
+    let client = client_builder(timeout_secs)
         .build()
-        .unwrap_or_else(|_| Client::new())
+        .unwrap_or_else(|_| Client::new());
+    if let Ok(mut pool) = ASYNC_CLIENT_POOL.lock() {
+        pool.insert(key, client.clone());
+    }
+    client
 }
 
 pub fn build_blocking_client(timeout_secs: u64) -> BlockingClient {

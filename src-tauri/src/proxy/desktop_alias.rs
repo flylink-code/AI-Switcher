@@ -138,18 +138,18 @@ pub fn reset_selection_for_catalog_id_scheme(db: &Database) {
 static LAST_SELECTED: Mutex<Option<String>> = Mutex::new(None);
 
 pub fn last_selected(db: &Database) -> Option<String> {
-    if let Some(model) = LAST_SELECTED.lock().ok().and_then(|slot| slot.clone()) {
-        return Some(model);
-    }
-    let stored = db
+    if let Some(stored) = db
         .with_read_conn(|conn| get_setting(conn, SELECTED_SETTING))
         .ok()
         .flatten()
-        .filter(|value| is_desktop_alias(value))?;
-    if let Ok(mut slot) = LAST_SELECTED.lock() {
-        *slot = Some(stored.clone());
+        .filter(|value| is_desktop_alias(value))
+    {
+        if let Ok(mut slot) = LAST_SELECTED.lock() {
+            *slot = Some(stored.clone());
+        }
+        return Some(stored);
     }
-    Some(stored)
+    LAST_SELECTED.lock().ok().and_then(|slot| slot.clone())
 }
 
 /// Remember an alias that just completed. Other ids (title generation, bare
@@ -159,17 +159,14 @@ pub fn remember_selected(db: &Database, model: &str) {
     if !is_desktop_alias(model) {
         return;
     }
-    let changed = match LAST_SELECTED.lock() {
-        Ok(mut slot) => {
-            let changed = slot.as_deref() != Some(model);
-            if changed {
-                *slot = Some(model.to_string());
-            }
-            changed
-        }
-        Err(_) => false,
-    };
-    if changed {
+    if let Ok(mut slot) = LAST_SELECTED.lock() {
+        *slot = Some(model.to_string());
+    }
+    let stored = db
+        .with_read_conn(|conn| get_setting(conn, SELECTED_SETTING))
+        .ok()
+        .flatten();
+    if stored.as_deref() != Some(model) {
         let _ = db.with_conn(|conn| set_setting(conn, SELECTED_SETTING, model));
     }
 }

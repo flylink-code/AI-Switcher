@@ -610,8 +610,8 @@ async fn proxy_handler_inner(
             );
             let upstream_stream = upstream_resp.bytes_stream();
             let stream = futures_util::stream::unfold(
-                (upstream_stream, decoder, converter, false),
-                move |(mut upstream_stream, mut decoder, mut converter, done)| {
+                (upstream_stream, decoder, converter, false, false),
+                move |(mut upstream_stream, mut decoder, mut converter, done, mut initial_sent)| {
                     let db = Arc::clone(&db);
                     let stream_log_id = stream_log_id.clone();
                     let target_app = target_app.clone();
@@ -620,7 +620,46 @@ async fn proxy_handler_inner(
                         if done {
                             return None;
                         }
-                        let next = tokio::time::timeout(idle, upstream_stream.next()).await;
+                        if !initial_sent {
+                            initial_sent = true;
+                            let init_bytes = converter.initial_events();
+                            if !init_bytes.is_empty() {
+                                return Some((
+                                    Ok::<Bytes, Infallible>(Bytes::from(init_bytes)),
+                                    (upstream_stream, decoder, converter, false, initial_sent),
+                                ));
+                            }
+                        }
+                        let wait_started = Instant::now();
+                        let heartbeat = Duration::from_secs(5);
+                        let next = loop {
+                            let elapsed = wait_started.elapsed();
+                            if elapsed >= idle {
+                                break Err(());
+                            }
+                            let remaining = idle.saturating_sub(elapsed);
+                            let step = remaining.min(heartbeat);
+                            match tokio::time::timeout(step, upstream_stream.next()).await {
+                                Ok(item) => break Ok(item),
+                                Err(_) => {
+                                    if wait_started.elapsed() < idle {
+                                        return Some((
+                                            Ok::<Bytes, Infallible>(Bytes::from_static(
+                                                b"event: ping\ndata: {\"type\":\"ping\"}\n\n",
+                                            )),
+                                            (
+                                                upstream_stream,
+                                                decoder,
+                                                converter,
+                                                false,
+                                                initial_sent,
+                                            ),
+                                        ));
+                                    }
+                                    break Err(());
+                                }
+                            }
+                        };
                         let (output, done) = match next {
                             Ok(Some(Ok(bytes))) => {
                                 let mut output = Vec::new();
@@ -728,7 +767,7 @@ async fn proxy_handler_inner(
                         }
                         Some((
                             Ok::<Bytes, Infallible>(Bytes::from(output)),
-                            (upstream_stream, decoder, converter, done),
+                            (upstream_stream, decoder, converter, done, initial_sent),
                         ))
                     }
                 },
