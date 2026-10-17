@@ -782,7 +782,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
             .flatten()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(crate::kiro::gateway::builtin_api_key)
-    } else if gateway_catalog_on(state, provider.target_app) {
+    } else if provider.is_smart_gateway() || gateway_catalog_on(state, provider.target_app) {
         state
             .db
             .with_conn(|conn| {

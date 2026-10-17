@@ -397,16 +397,47 @@ fn sanitize_schema_inner(
             let chosen = options
                 .iter()
                 .filter_map(Value::as_str)
-                .find(|t| *t != "null")
+                .find(|t| !t.eq_ignore_ascii_case("null"))
                 .unwrap_or("string")
-                .to_string();
+                .to_ascii_lowercase();
             map.insert("type".into(), json!(chosen));
         }
-        Some(Value::String(_)) => {}
+        Some(Value::String(s)) => {
+            let lower = s.trim().to_ascii_lowercase();
+            if lower != *s {
+                map.insert("type".into(), json!(lower));
+            }
+        }
         Some(_) => {
             map.remove("type");
         }
         None => {}
+    }
+
+    if !map.contains_key("type") {
+        if map.contains_key("properties") || map.contains_key("required") {
+            map.insert("type".into(), json!("object"));
+        } else if map.contains_key("items") {
+            map.insert("type".into(), json!("array"));
+        } else if map.contains_key("enum") {
+            map.insert("type".into(), json!("string"));
+        }
+    }
+
+    if map
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|t| !t.eq_ignore_ascii_case("object"))
+    {
+        map.remove("properties");
+        map.remove("required");
+    }
+    if map
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|t| !t.eq_ignore_ascii_case("array"))
+    {
+        map.remove("items");
     }
 
     if let Some(Value::Object(props)) = map.get_mut("properties") {
@@ -2201,6 +2232,36 @@ mod tests {
         assert_eq!(sanitized["properties"]["plain"]["items"]["type"], "string");
         assert_eq!(
             sanitized["properties"]["outer"]["items"]["items"]["type"],
+            "string"
+        );
+    }
+
+    #[test]
+    fn sanitize_schema_infers_object_and_normalizes_uppercase_types() {
+        let schema = json!({
+            "type": "OBJECT",
+            "properties": {
+                "requestedSchema": {
+                    "properties": {
+                        "env": {
+                            "type": "STRING",
+                            "enum": ["staging", "production"]
+                        }
+                    },
+                    "required": ["env"]
+                }
+            },
+            "required": ["requestedSchema"]
+        });
+
+        let sanitized = sanitize_schema(&schema, 0);
+        assert_eq!(sanitized["type"], "object");
+        assert_eq!(
+            sanitized["properties"]["requestedSchema"]["type"],
+            "object"
+        );
+        assert_eq!(
+            sanitized["properties"]["requestedSchema"]["properties"]["env"]["type"],
             "string"
         );
     }
