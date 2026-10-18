@@ -165,14 +165,25 @@ function isUsagePeriod(value: unknown): value is UsagePeriod {
 }
 
 function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
-  return value === "all" || value === "antigravity" || value === "vscode_copilot" || isProviderTarget(value);
+  return (
+    value === "all" ||
+    value === "antigravity" ||
+    value === "kiro" ||
+    value === "vscode_copilot" ||
+    isProviderTarget(value)
+  );
 }
 
 function coerceUsageFilter(
   value: UsageSourceFilter,
   visible: readonly ProviderTarget[],
 ): UsageSourceFilter {
-  if (value === "all" || value === "antigravity" || value === "vscode_copilot") {
+  if (
+    value === "all" ||
+    value === "antigravity" ||
+    value === "kiro" ||
+    value === "vscode_copilot"
+  ) {
     return value;
   }
   if (!isAgentUiEnabled(value) || !visible.includes(value)) {

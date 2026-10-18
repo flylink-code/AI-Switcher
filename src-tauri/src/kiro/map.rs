@@ -43,11 +43,29 @@ pub fn prepare(
         .get("stream")
         .and_then(|item| item.as_bool())
         .unwrap_or(false);
-    let (history, current, tools) = match protocol {
-        WireProtocol::Anthropic => anthropic_turns(incoming, &backend_model)?,
-        WireProtocol::OpenAiChat => openai_chat_turns(incoming, &backend_model)?,
-        WireProtocol::OpenAiResponses => responses_turns(incoming, &backend_model)?,
+    let normalized_anthropic: Option<Value> = match protocol {
+        WireProtocol::Anthropic => None,
+        WireProtocol::OpenAiChat => {
+            let responses_body =
+                crate::proxy::codex_chat::chat_completions_to_responses_body(incoming)?;
+            Some(
+                crate::proxy::codex_anthropic::responses_request_to_anthropic_messages(
+                    &responses_body,
+                    &backend_model,
+                )
+                .map_err(|e| e.to_string())?,
+            )
+        }
+        WireProtocol::OpenAiResponses => Some(
+            crate::proxy::codex_anthropic::responses_request_to_anthropic_messages(
+                incoming,
+                &backend_model,
+            )
+            .map_err(|e| e.to_string())?,
+        ),
     };
+    let effective_incoming = normalized_anthropic.as_ref().unwrap_or(incoming);
+    let (history, current, tools) = anthropic_turns(effective_incoming, &backend_model)?;
     let mut current_message = json!({
         "userInputMessage": {
             "content": current.content,
@@ -88,7 +106,7 @@ pub fn prepare(
         },
         "profileArn": streaming_profile_arn(account)
     });
-    if let Some(extra) = extra_fields(incoming, &backend_model) {
+    if let Some(extra) = extra_fields(effective_incoming, &backend_model) {
         body["additionalModelRequestFields"] = extra;
     }
     Ok(PreparedRequest {
@@ -132,72 +150,14 @@ fn anthropic_turns(
             }
         }
     }
-    let (mut history, mut current, _) = turns_from_messages(&messages, model, true)?;
+    let (mut history, mut current, _) = turns_from_messages(&messages, model)?;
     sanitize_tool_pairing_and_placeholders(&mut history, &mut current, &mut tools);
     Ok((history, current, tools))
-}
-
-fn openai_chat_turns(
-    incoming: &Value,
-    model: &str,
-) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
-    let mut tools: Vec<Value> = incoming
-        .get("tools")
-        .and_then(|item| item.as_array())
-        .map(|tools| {
-            tools
-                .iter()
-                .filter_map(|tool| tool.get("function").or(Some(tool)))
-                .filter_map(openai_tool)
-                .collect()
-        })
-        .unwrap_or_default();
-    let messages = incoming
-        .get("messages")
-        .and_then(|item| item.as_array())
-        .cloned()
-        .unwrap_or_default();
-    let (mut history, mut current, _) = turns_from_messages(&messages, model, false)?;
-    sanitize_tool_pairing_and_placeholders(&mut history, &mut current, &mut tools);
-    Ok((history, current, tools))
-}
-
-fn responses_turns(
-    incoming: &Value,
-    model: &str,
-) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
-    if let Some(input) = incoming.get("input").and_then(|item| item.as_str()) {
-        return Ok((
-            Vec::new(),
-            CurrentTurn {
-                content: input.to_string(),
-                tool_results: Vec::new(),
-                images: Vec::new(),
-            },
-            Vec::new(),
-        ));
-    }
-    let mut messages = Vec::new();
-    if let Some(items) = incoming.get("input").and_then(|item| item.as_array()) {
-        for item in items {
-            let role = item
-                .get("role")
-                .and_then(|role| role.as_str())
-                .unwrap_or("user");
-            let content = text_of(item.get("content")).unwrap_or_default();
-            messages.push(json!({"role": role, "content": content}));
-        }
-    }
-    if messages.is_empty() {
-        messages.push(json!({"role": "user", "content": ""}));
-    }
-    turns_from_messages(&messages, model, false)
 }
 
 fn turns_from_messages(
     messages: &[Value],
     model: &str,
-    anthropic: bool,
 ) -> Result<(Vec<Value>, CurrentTurn, Vec<Value>), String> {
     if messages.is_empty() {
         return Err("请求没有消息".into());
@@ -205,26 +165,22 @@ fn turns_from_messages(
     let last = messages.len() - 1;
     let mut history = Vec::new();
     for message in &messages[..last] {
-        if let Some(entry) = history_message(message, model, anthropic) {
+        if let Some(entry) = history_message(message, model) {
             history.push(entry);
         }
     }
-    let current = current_from(messages.last().unwrap(), anthropic);
+    let current = current_from(messages.last().unwrap());
     Ok((history, current, Vec::new()))
 }
 
-fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Value> {
+fn history_message(message: &Value, model: &str) -> Option<Value> {
     let role = message
         .get("role")
         .and_then(|role| role.as_str())
         .unwrap_or("user");
     if role == "assistant" {
         let mut content = text_of(message.get("content")).unwrap_or_default();
-        let tool_uses = if anthropic {
-            anthropic_tool_uses(message.get("content"))
-        } else {
-            openai_tool_uses(message)
-        };
+        let tool_uses = anthropic_tool_uses(message.get("content"));
         if content.trim().is_empty() && tool_uses.is_empty() {
             return None;
         }
@@ -238,11 +194,7 @@ fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Valu
         return Some(json!({ "assistantResponseMessage": assistant }));
     }
     let mut content = message_text(message);
-    let tool_results = if anthropic {
-        anthropic_tool_results(message.get("content"))
-    } else {
-        Vec::new()
-    };
+    let tool_results = anthropic_tool_results(message.get("content"));
     if content.trim().is_empty() {
         if tool_results.is_empty() {
             return None;
@@ -263,13 +215,9 @@ fn history_message(message: &Value, model: &str, anthropic: bool) -> Option<Valu
     Some(user)
 }
 
-fn current_from(message: &Value, anthropic: bool) -> CurrentTurn {
+fn current_from(message: &Value) -> CurrentTurn {
     let raw = message.get("content");
-    let tool_results = if anthropic {
-        anthropic_tool_results(raw)
-    } else {
-        Vec::new()
-    };
+    let tool_results = anthropic_tool_results(raw);
     let mut content = message_text(message);
     if content.trim().is_empty() && !tool_results.is_empty() {
         content = TOOL_TURN_PLACEHOLDER.to_string();
@@ -478,32 +426,6 @@ fn anthropic_tool(tool: &Value) -> Option<Value> {
     }))
 }
 
-fn openai_tool(tool: &Value) -> Option<Value> {
-    let name = tool.get("name").and_then(|item| item.as_str())?;
-    let raw_desc = tool
-        .get("description")
-        .and_then(|item| item.as_str())
-        .unwrap_or("");
-    let desc = crate::proxy::codex_anthropic::enrich_edit_tool_description(name, raw_desc);
-    let description = if desc.trim().is_empty() {
-        name.to_string()
-    } else {
-        desc
-    };
-    let schema = normalize_kiro_tool_schema(
-        tool.get("parameters")
-            .cloned()
-            .unwrap_or_else(|| json!({"type":"object"})),
-    );
-    Some(json!({
-        "toolSpecification": {
-            "name": name,
-            "description": description,
-            "inputSchema": { "json": schema }
-        }
-    }))
-}
-
 fn anthropic_tool_uses(content: Option<&Value>) -> Vec<Value> {
     let Some(blocks) = content.and_then(|item| item.as_array()) else {
         return Vec::new();
@@ -519,31 +441,6 @@ fn anthropic_tool_uses(content: Option<&Value>) -> Vec<Value> {
             }))
         })
         .collect()
-}
-
-fn openai_tool_uses(message: &Value) -> Vec<Value> {
-    message
-        .get("tool_calls")
-        .and_then(|item| item.as_array())
-        .map(|calls| {
-            calls
-                .iter()
-                .filter_map(|call| {
-                    let function = call.get("function")?;
-                    let arguments = function
-                        .get("arguments")
-                        .and_then(|item| item.as_str())
-                        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
-                        .unwrap_or_else(|| json!({}));
-                    Some(json!({
-                        "toolUseId": call.get("id").and_then(|item| item.as_str()).unwrap_or("call"),
-                        "name": function.get("name").and_then(|item| item.as_str())?,
-                        "input": arguments
-                    }))
-                })
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 fn anthropic_tool_results(content: Option<&Value>) -> Vec<Value> {
@@ -1764,5 +1661,113 @@ mod tests {
         assert_eq!(output[0]["type"], "function_call");
         assert_eq!(output[0]["call_id"], "call_1");
         assert_eq!(output[0]["name"], "query_metric");
+    }
+
+    #[test]
+    fn openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro() {
+        let chat_req = json!({
+            "model": "claude-sonnet-4.6",
+            "reasoning_effort": "high",
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read a file",
+                    "parameters": {
+                        "type": "object",
+                        "properties": { "path": { "type": "string" } }
+                    }
+                }
+            }],
+            "messages": [
+                {"role": "system", "content": "Always answer in Chinese"},
+                {"role": "user", "content": "read cargo.toml"},
+                {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_read_1",
+                        "type": "function",
+                        "function": {
+                            "name": "read_file",
+                            "arguments": "{\"path\":\"Cargo.toml\"}"
+                        }
+                    }]
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_read_1",
+                    "content": "[package]\nname = \"ai-switcher\""
+                }
+            ]
+        });
+        let prepared = prepare(WireProtocol::OpenAiChat, &chat_req, &account()).unwrap();
+        let history = prepared.body["conversationState"]["history"]
+            .as_array()
+            .unwrap();
+        assert_eq!(
+            history[0]["userInputMessage"]["content"],
+            "Always answer in Chinese"
+        );
+        assert_eq!(
+            history[1]["assistantResponseMessage"]["content"],
+            "I will follow these instructions."
+        );
+        assert_eq!(
+            history[3]["assistantResponseMessage"]["toolUses"][0]["toolUseId"],
+            "call_read_1"
+        );
+        let cur_ctx = &prepared.body["conversationState"]["currentMessage"]["userInputMessage"]
+            ["userInputMessageContext"];
+        assert_eq!(cur_ctx["toolResults"][0]["toolUseId"], "call_read_1");
+        assert_eq!(
+            cur_ctx["tools"][0]["toolSpecification"]["name"],
+            "read_file"
+        );
+        assert_eq!(
+            prepared.body["additionalModelRequestFields"]["output_config"]["effort"],
+            "high"
+        );
+
+        let resp_req = json!({
+            "model": "claude-sonnet-4.6",
+            "instructions": "Follow system rules",
+            "reasoning": { "effort": "medium" },
+            "tools": [{
+                "type": "function",
+                "name": "exec_cmd",
+                "description": "Execute shell",
+                "parameters": {
+                    "type": "object",
+                    "properties": { "cmd": { "type": "string" } }
+                }
+            }],
+            "input": [
+                {"role": "user", "content": "run ls"},
+                {
+                    "type": "function_call",
+                    "call_id": "call_exec_1",
+                    "name": "exec_cmd",
+                    "arguments": "{\"cmd\":\"ls\"}"
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_exec_1",
+                    "output": "README.md"
+                }
+            ]
+        });
+        let prepared_resp = prepare(WireProtocol::OpenAiResponses, &resp_req, &account()).unwrap();
+        let cur_resp_ctx = &prepared_resp.body["conversationState"]["currentMessage"]
+            ["userInputMessage"]["userInputMessageContext"];
+        assert_eq!(cur_resp_ctx["toolResults"][0]["toolUseId"], "call_exec_1");
+        assert_eq!(
+            cur_resp_ctx["tools"][0]["toolSpecification"]["name"],
+            "exec_cmd"
+        );
+        assert_eq!(
+            prepared_resp.body["additionalModelRequestFields"]["output_config"]["effort"],
+            "medium"
+        );
     }
 }

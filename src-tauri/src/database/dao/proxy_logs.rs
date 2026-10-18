@@ -66,11 +66,29 @@ pub fn list_gateway_route_logs(
     conditions.push("l.route_reason IS NOT NULL AND trim(l.route_reason) != ''".to_string());
 
     if let Some(ref target) = filters.target_app {
-        conditions.push("l.target_app = ?".to_string());
-        params.push(Box::new(target.clone()));
+        match target.trim() {
+            "antigravity" => {
+                conditions.push(
+                    "(l.target_app = ? OR l.hop = 'antigravity' OR l.provider_id = 'up_ag_15830' OR l.upstream_id = 'up_ag_15830' OR lower(COALESCE(l.provider_name, '')) = 'antigravity')"
+                        .to_string(),
+                );
+                params.push(Box::new("antigravity".to_string()));
+            }
+            "kiro" => {
+                conditions.push(
+                    "(l.target_app = ? OR l.hop = 'kiro' OR l.provider_id = 'up_kiro_15831' OR l.upstream_id = 'up_kiro_15831' OR lower(COALESCE(l.provider_name, '')) = 'kiro')"
+                        .to_string(),
+                );
+                params.push(Box::new("kiro".to_string()));
+            }
+            _ => {
+                conditions.push("l.target_app = ?".to_string());
+                params.push(Box::new(target.clone()));
+            }
+        }
     } else {
         conditions.push(
-            "(l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))"
+            "(l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity', 'kiro'))"
                 .to_string(),
         );
     }
@@ -1153,6 +1171,40 @@ pub(crate) const ROW_COST_SQL: &str = "\
 
 const PRICING_CURRENCY_SQL: &str = "UPPER(COALESCE(NULLIF(TRIM(p.currency), ''), 'USD'))";
 
+const TARGET_APP_USAGE_FILTER: &str = "\
+    AND (
+      :target_app IS NULL
+      OR (
+        CASE
+          WHEN :target_app = 'antigravity' THEN (
+            l.target_app = 'antigravity'
+            OR l.hop = 'antigravity'
+            OR l.provider_id = 'up_ag_15830'
+            OR l.upstream_id = 'up_ag_15830'
+            OR lower(COALESCE(l.provider_name, '')) = 'antigravity'
+          )
+          WHEN :target_app = 'kiro' THEN (
+            l.target_app = 'kiro'
+            OR l.hop = 'kiro'
+            OR l.provider_id = 'up_kiro_15831'
+            OR l.upstream_id = 'up_kiro_15831'
+            OR lower(COALESCE(l.provider_name, '')) = 'kiro'
+          )
+          ELSE (
+            l.target_app = :target_app
+            OR (
+              NULLIF(TRIM(COALESCE(l.correlation_id, '')), '') IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM proxy_request_logs c_target
+                WHERE c_target.correlation_id = l.correlation_id
+                  AND c_target.target_app = :target_app
+              )
+            )
+          )
+        END
+      )
+    )";
+
 pub fn get_usage_summary_for_target(
     conn: &Connection,
     since: i64,
@@ -1167,7 +1219,7 @@ pub fn get_usage_summary_for_target(
                 COALESCE(SUM(output_tokens), 0)
          FROM proxy_request_logs l
          WHERE l.created_at >= :since
-           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {TARGET_APP_USAGE_FILTER}
            {EFFECTIVE_USAGE_FILTER};"
     );
     let (
@@ -1198,7 +1250,7 @@ pub fn get_usage_summary_for_target(
          FROM proxy_request_logs l
          INNER JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
-           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {TARGET_APP_USAGE_FILTER}
            {EFFECTIVE_USAGE_FILTER}
          GROUP BY 1
          ORDER BY 2 DESC, 1 ASC;"
@@ -1341,7 +1393,7 @@ pub fn get_usage_by_provider_model_for_target(
                 COALESCE(SUM(l.output_tokens), 0)
          FROM proxy_request_logs l
          WHERE l.created_at >= :since
-           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {TARGET_APP_USAGE_FILTER}
            {EFFECTIVE_USAGE_FILTER}
          GROUP BY 1, COALESCE(l.model, 'Unknown');"
     );
@@ -1399,7 +1451,7 @@ fn usage_breakdown(
                 {PRICING_CURRENCY_SQL}
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
-           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {TARGET_APP_USAGE_FILTER}
            {EFFECTIVE_USAGE_FILTER}
          GROUP BY {grouping}, {PRICING_CURRENCY_SQL};"
     );
@@ -1508,7 +1560,7 @@ pub fn get_usage_trend_for_target(
                 {PRICING_CURRENCY_SQL}
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
-           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {TARGET_APP_USAGE_FILTER}
            {EFFECTIVE_USAGE_FILTER}
          GROUP BY 1, {PRICING_CURRENCY_SQL}
          ORDER BY 1 ASC;"
@@ -1957,8 +2009,30 @@ pub fn list_proxy_request_logs(
         params.push(Box::new(since));
     }
     if let Some(ref target_app) = filters.target_app {
-        conditions.push("l.target_app = ?".to_string());
-        params.push(Box::new(target_app.clone()));
+        match target_app.trim() {
+            "antigravity" => {
+                conditions.push(
+                    "(l.target_app = ? OR l.hop = 'antigravity' OR l.provider_id = 'up_ag_15830' OR l.upstream_id = 'up_ag_15830' OR lower(COALESCE(l.provider_name, '')) = 'antigravity')"
+                        .to_string(),
+                );
+                params.push(Box::new("antigravity".to_string()));
+            }
+            "kiro" => {
+                conditions.push(
+                    "(l.target_app = ? OR l.hop = 'kiro' OR l.provider_id = 'up_kiro_15831' OR l.upstream_id = 'up_kiro_15831' OR lower(COALESCE(l.provider_name, '')) = 'kiro')"
+                        .to_string(),
+                );
+                params.push(Box::new("kiro".to_string()));
+            }
+            _ => {
+                conditions.push(
+                    "(l.target_app = ? OR (NULLIF(TRIM(COALESCE(l.correlation_id, '')), '') IS NOT NULL AND EXISTS (SELECT 1 FROM proxy_request_logs c_target WHERE c_target.correlation_id = l.correlation_id AND c_target.target_app = ?)))"
+                        .to_string(),
+                );
+                params.push(Box::new(target_app.clone()));
+                params.push(Box::new(target_app.clone()));
+            }
+        }
     }
     if let Some(status_code) = filters.status_code {
         conditions.push("l.status_code = ?".to_string());
@@ -4260,5 +4334,185 @@ mod tests {
                 .as_deref(),
             Some("xhigh")
         );
+    }
+
+    #[test]
+    fn filters_usage_and_logs_by_kiro_antigravity_and_cross_hop_agent() {
+        let db = crate::database::Database::memory().unwrap();
+        let now = Utc::now().timestamp_millis();
+        db.with_conn(|conn| {
+            // 1. claude_code -> smart_gateway -> antigravity (inner hop has target_app='antigravity')
+            let cc_ag_outer = insert_proxy_log_with_source(
+                conn,
+                Some("cc_ag_outer"),
+                now,
+                Some("up_ag_15830"),
+                Some("Antigravity"),
+                Some("gemini-3.8-flash-high"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                100,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &cc_ag_outer, Some("corr_cc_ag"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &cc_ag_outer,
+                Some("gprof_cc"),
+                Some("default"),
+                0,
+                Some("gemini-3.8-flash-high"),
+                Some("up_ag_15830"),
+                Some("default"),
+                None,
+            )?;
+
+            let cc_ag_inner = insert_proxy_log_with_source(
+                conn,
+                Some("cc_ag_inner"),
+                now + 1,
+                Some("ag_acc_1"),
+                Some("Antigravity"),
+                Some("gemini-3.8-flash-high"),
+                Some(200),
+                1_200,
+                0,
+                0,
+                300,
+                true,
+                95,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &cc_ag_inner, Some("corr_cc_ag"), Some("antigravity"))?;
+
+            // 2. vscode_copilot -> smart_gateway -> kiro (inner hop has hop='kiro', target_app='vscode_copilot')
+            let copilot_kiro_outer = insert_proxy_log_with_source(
+                conn,
+                Some("cop_kiro_outer"),
+                now + 10,
+                Some("up_kiro_15831"),
+                Some("Kiro"),
+                Some("claude-haiku-4.5"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                80,
+                Some("vscode_copilot"),
+                Some("openai"),
+                Some("/v1/responses"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(
+                conn,
+                &copilot_kiro_outer,
+                Some("corr_cop_kiro"),
+                Some("smart_gateway"),
+            )?;
+            update_proxy_log_route(
+                conn,
+                &copilot_kiro_outer,
+                Some("gprof_copilot"),
+                Some("default"),
+                0,
+                Some("claude-haiku-4.5"),
+                Some("up_kiro_15831"),
+                Some("default"),
+                None,
+            )?;
+
+            let copilot_kiro_inner = insert_proxy_log_with_source(
+                conn,
+                Some("cop_kiro_inner"),
+                now + 11,
+                Some("kiro_acc_1"),
+                Some("Kiro"),
+                Some("claude-haiku-4.5"),
+                Some(200),
+                800,
+                0,
+                0,
+                200,
+                true,
+                75,
+                Some("vscode_copilot"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &copilot_kiro_inner, Some("corr_cop_kiro"), Some("kiro"))?;
+
+            // Kiro filter matches Kiro inner hop
+            let kiro_summary = get_usage_summary_for_target(conn, now - 100, Some("kiro"))?;
+            assert_eq!(kiro_summary.request_count, 1);
+            assert_eq!(kiro_summary.input_tokens, 800);
+            assert_eq!(kiro_summary.output_tokens, 200);
+
+            // Antigravity filter matches Antigravity inner hop
+            let ag_summary = get_usage_summary_for_target(conn, now - 100, Some("antigravity"))?;
+            assert_eq!(ag_summary.request_count, 1);
+            assert_eq!(ag_summary.input_tokens, 1_200);
+            assert_eq!(ag_summary.output_tokens, 300);
+
+            // Agent filter 'claude_code' includes correlated Antigravity inner hop usage
+            let cc_summary = get_usage_summary_for_target(conn, now - 100, Some("claude_code"))?;
+            assert_eq!(cc_summary.request_count, 1);
+            assert_eq!(cc_summary.input_tokens, 1_200);
+            assert_eq!(cc_summary.output_tokens, 300);
+
+            // Request logs & route logs for 'kiro'
+            let kiro_logs = list_proxy_request_logs(
+                conn,
+                &ProxyLogFilters {
+                    target_app: Some("kiro".to_string()),
+                    ..Default::default()
+                },
+                0,
+                20,
+            )?;
+            assert_eq!(kiro_logs.total, 2);
+
+            let kiro_routes = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    target_app: Some("kiro".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(kiro_routes.total, 1);
+            assert_eq!(kiro_routes.data[0].id, "cop_kiro_outer");
+            Ok(())
+        })
+        .unwrap();
     }
 }

@@ -14,7 +14,7 @@ import type {
 
 export async function getUsageDashboard(
   range: { days?: number; hours?: number; today?: boolean } | number = 30,
-  source: ProviderTarget | "all" | "antigravity" = "all",
+  source: ProviderTarget | "all" | "antigravity" | "kiro" = "all",
 ): Promise<UsageDashboard> {
   const invoke = await getInvoke();
   const params =
@@ -33,7 +33,7 @@ export async function getUsageDashboard(
 
 export async function getUsageTrend(
   range: { days?: number; hours?: number; today?: boolean } | number = 30,
-  source: ProviderTarget | "all" | "antigravity" = "all",
+  source: ProviderTarget | "all" | "antigravity" | "kiro" = "all",
 ): Promise<UsageDashboard> {
   const invoke = await getInvoke();
   const params =

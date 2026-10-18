@@ -2,11 +2,13 @@ import type { CSSProperties, ReactNode } from "react";
 import type { ProviderTarget } from "@/types/backend";
 import { isAgentUiEnabled } from "@/lib/agentVisibility";
 
-export type UsageSourceFilter = ProviderTarget | "all" | "antigravity";
+export type UsageSourceFilter = ProviderTarget | "all" | "antigravity" | "kiro";
+export type UsageSourceGroup = "all" | "agent" | "gateway";
 
 /** Claude brand orange (Anthropic “Crail”). */
 const CLAUDE_ORANGE = "#D97757";
 const ANTIGRAVITY_PURPLE = "#7C5CFC";
+const KIRO_AMBER = "#F59E0B";
 
 type IconProps = {
   size?: number;
@@ -121,6 +123,17 @@ export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps)
   );
 }
 
+/**
+ * Kiro gateway mark (stylized ghost/spark silhouette).
+ */
+export function KiroIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={{ color: KIRO_AMBER, ...style }}>
+      <path d="M12 2.5c-4.7 0-8 3.35-8 8.1v8.15c0 .78.92 1.2 1.52.7l1.98-1.65 1.85 1.62c.4.35 1 .35 1.4 0L12 18.3l1.25 1.12c.4.35 1 .35 1.4 0l1.85-1.62 1.98 1.65c.6.5 1.52.08 1.52-.7V10.6c0-4.75-3.3-8.1-8-8.1Zm-2.7 7.2a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7Zm5.4 0a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7Z" />
+    </SvgShell>
+  );
+}
+
 /** Cline mark — distinct from DSH. */
 export function ClineIcon({ size = 16, style, className }: IconProps) {
   return (
@@ -182,6 +195,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <VscodeCopilotIcon {...props} />;
     case "antigravity":
       return <AntigravityOrbitIcon {...props} />;
+    case "kiro":
+      return <KiroIcon {...props} />;
     default: {
       const _exhaustive: never = source;
       return _exhaustive;
@@ -197,6 +212,7 @@ export function usageSourceSegmentLabel(
 ): ReactNode {
   return (
     <span
+      className="usage-source-pill-content"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -205,32 +221,36 @@ export function usageSourceSegmentLabel(
       }}
     >
       {usageSourceIcon(source, { size: iconSize })}
-      <span>{text}</span>
+      <span className="usage-source-pill-text">{text}</span>
     </span>
   );
 }
 
 function isVisibleUsageSource(value: UsageSourceFilter): boolean {
-  if (value === "all" || value === "antigravity") {
+  if (value === "all" || value === "antigravity" || value === "kiro") {
     return true;
   }
   return isAgentUiEnabled(value);
 }
 
-const ALL_USAGE_SOURCE_FILTER_OPTIONS: Array<{
+export interface UsageSourceFilterOption {
   value: UsageSourceFilter;
   labelKey: string;
-}> = [
-  { value: "all", labelKey: "usage.sourceAll" },
-  { value: "claude_code", labelKey: "usage.sourceClaudeCode" },
-  { value: "claude_desktop", labelKey: "usage.sourceClaudeDesktop" },
-  { value: "codex", labelKey: "usage.sourceCodex" },
-  { value: "opencode", labelKey: "usage.sourceOpenCode" },
-  { value: "pi", labelKey: "workspace.pi" },
-  { value: "dsh", labelKey: "workspace.dsh" },
-  { value: "cline", labelKey: "workspace.cline" },
-  { value: "vscode_copilot", labelKey: "workspace.vscode_copilot" },
-  { value: "antigravity", labelKey: "usage.sourceAntigravity" },
+  group: UsageSourceGroup;
+}
+
+const ALL_USAGE_SOURCE_FILTER_OPTIONS: UsageSourceFilterOption[] = [
+  { value: "all", labelKey: "usage.sourceAll", group: "all" },
+  { value: "claude_code", labelKey: "usage.sourceClaudeCode", group: "agent" },
+  { value: "claude_desktop", labelKey: "usage.sourceClaudeDesktop", group: "agent" },
+  { value: "codex", labelKey: "usage.sourceCodex", group: "agent" },
+  { value: "opencode", labelKey: "usage.sourceOpenCode", group: "agent" },
+  { value: "pi", labelKey: "workspace.pi", group: "agent" },
+  { value: "dsh", labelKey: "workspace.dsh", group: "agent" },
+  { value: "cline", labelKey: "workspace.cline", group: "agent" },
+  { value: "vscode_copilot", labelKey: "workspace.vscode_copilot", group: "agent" },
+  { value: "antigravity", labelKey: "usage.sourceAntigravity", group: "gateway" },
+  { value: "kiro", labelKey: "usage.sourceKiro", group: "gateway" },
 ];
 
 export const USAGE_SOURCE_FILTER_OPTIONS = ALL_USAGE_SOURCE_FILTER_OPTIONS.filter((option) =>

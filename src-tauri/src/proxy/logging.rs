@@ -1166,129 +1166,133 @@ mod tests {
         use crate::database::dao::settings::set_setting;
         use crate::provider::{ClaudeModelMapping, ProviderInput, ProviderKind};
 
-        let state = circuit_test_state();
-        let seeded = state.db.with_conn(|conn| {
-            set_setting(conn, PROXY_FAILOVER_ENABLED_KEY, "true")?;
-            let current = upsert_provider(
-                conn,
-                &ProviderInput {
-                    id: None,
-                    name: "Current".into(),
-                    base_url: "https://current.example.test/v1".into(),
-                    api_key: "sk-current".into(),
-                    clear_api_key: false,
-                    model: "default".into(),
-                    model_context_window: None,
-                    auto_review_model_override: None,
-                    web_search_enabled: None,
-                    model_mapping: ClaudeModelMapping::default(),
-                    protocol_type: ProtocolType::OpenAiChat,
-                    provider_kind: ProviderKind::Standard,
-                    auth_binding: String::new(),
-                    target_app: ProviderTarget::ClaudeCode,
-                    notes: String::new(),
-                    failover_group: 0,
-                    failover_models: Vec::new(),
-                    hidden_models: Vec::new(),
-                    thinking_config: None,
-                    custom_headers: None,
-                },
-            )?;
-            set_current_provider(conn, &current.id)?;
+        let home = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(home.path(), || {
+            let state = circuit_test_state();
+            let seeded = state.db.with_conn(|conn| {
+                set_setting(conn, PROXY_FAILOVER_ENABLED_KEY, "true")?;
+                let current = upsert_provider(
+                    conn,
+                    &ProviderInput {
+                        id: None,
+                        name: "Current".into(),
+                        base_url: "https://current.example.test/v1".into(),
+                        api_key: "sk-current".into(),
+                        clear_api_key: false,
+                        model: "default".into(),
+                        model_context_window: None,
+                        auto_review_model_override: None,
+                        web_search_enabled: None,
+                        model_mapping: ClaudeModelMapping::default(),
+                        protocol_type: ProtocolType::OpenAiChat,
+                        provider_kind: ProviderKind::Standard,
+                        auth_binding: String::new(),
+                        target_app: ProviderTarget::ClaudeCode,
+                        notes: String::new(),
+                        failover_group: 0,
+                        failover_models: Vec::new(),
+                        hidden_models: Vec::new(),
+                        thinking_config: None,
+                        custom_headers: None,
+                    },
+                )?;
+                set_current_provider(conn, &current.id)?;
 
-            let _group1 = upsert_provider(
-                conn,
-                &ProviderInput {
-                    id: None,
-                    name: "Group1".into(),
-                    base_url: "https://group1.example.test/v1".into(),
-                    api_key: "sk-group1".into(),
-                    clear_api_key: false,
-                    model: "default".into(),
-                    model_context_window: None,
-                    auto_review_model_override: None,
-                    web_search_enabled: None,
-                    model_mapping: ClaudeModelMapping::default(),
-                    protocol_type: ProtocolType::OpenAiChat,
-                    provider_kind: ProviderKind::Standard,
-                    auth_binding: String::new(),
-                    target_app: ProviderTarget::ClaudeCode,
-                    notes: String::new(),
-                    failover_group: 1,
-                    failover_models: vec!["gpt-4o".into()],
-                    hidden_models: Vec::new(),
-                    thinking_config: None,
-                    custom_headers: None,
-                },
-            )?;
-            let group0 = upsert_provider(
-                conn,
-                &ProviderInput {
-                    id: None,
-                    name: "Group0".into(),
-                    base_url: "https://group0.example.test/v1".into(),
-                    api_key: "sk-group0".into(),
-                    clear_api_key: false,
-                    model: "default".into(),
-                    model_context_window: None,
-                    auto_review_model_override: None,
-                    web_search_enabled: None,
-                    model_mapping: ClaudeModelMapping::default(),
-                    protocol_type: ProtocolType::OpenAiChat,
-                    provider_kind: ProviderKind::Standard,
-                    auth_binding: String::new(),
-                    target_app: ProviderTarget::ClaudeCode,
-                    notes: String::new(),
-                    failover_group: 0,
-                    failover_models: Vec::new(),
-                    hidden_models: Vec::new(),
-                    thinking_config: None,
-                    custom_headers: None,
-                },
-            )?;
-            Ok((current.id, group0.id))
-        });
-        let (current_id, group0_id) = match seeded {
-            Ok(ids) => ids,
-            Err(error) => {
-                let message = error.to_string();
-                if message.contains("凭据")
-                    || message.contains("keyring")
-                    || message.contains("credential")
-                {
-                    return;
+                let _group1 = upsert_provider(
+                    conn,
+                    &ProviderInput {
+                        id: None,
+                        name: "Group1".into(),
+                        base_url: "https://group1.example.test/v1".into(),
+                        api_key: "sk-group1".into(),
+                        clear_api_key: false,
+                        model: "default".into(),
+                        model_context_window: None,
+                        auto_review_model_override: None,
+                        web_search_enabled: None,
+                        model_mapping: ClaudeModelMapping::default(),
+                        protocol_type: ProtocolType::OpenAiChat,
+                        provider_kind: ProviderKind::Standard,
+                        auth_binding: String::new(),
+                        target_app: ProviderTarget::ClaudeCode,
+                        notes: String::new(),
+                        failover_group: 1,
+                        failover_models: vec!["gpt-4o".into()],
+                        hidden_models: Vec::new(),
+                        thinking_config: None,
+                        custom_headers: None,
+                    },
+                )?;
+                let group0 = upsert_provider(
+                    conn,
+                    &ProviderInput {
+                        id: None,
+                        name: "Group0".into(),
+                        base_url: "https://group0.example.test/v1".into(),
+                        api_key: "sk-group0".into(),
+                        clear_api_key: false,
+                        model: "default".into(),
+                        model_context_window: None,
+                        auto_review_model_override: None,
+                        web_search_enabled: None,
+                        model_mapping: ClaudeModelMapping::default(),
+                        protocol_type: ProtocolType::OpenAiChat,
+                        provider_kind: ProviderKind::Standard,
+                        auth_binding: String::new(),
+                        target_app: ProviderTarget::ClaudeCode,
+                        notes: String::new(),
+                        failover_group: 0,
+                        failover_models: Vec::new(),
+                        hidden_models: Vec::new(),
+                        thinking_config: None,
+                        custom_headers: None,
+                    },
+                )?;
+                Ok((current.id, group0.id))
+            });
+            let (current_id, group0_id) = match seeded {
+                Ok(ids) => ids,
+                Err(error) => {
+                    let message = error.to_string();
+                    if message.contains("凭据")
+                        || message.contains("keyring")
+                        || message.contains("credential")
+                    {
+                        return;
+                    }
+                    panic!("{error}");
                 }
-                panic!("{error}");
-            }
-        };
+            };
 
-        let first = next_failover_provider(&state, std::slice::from_ref(&current_id), "claude-opus-5")
+            let first =
+                next_failover_provider(&state, std::slice::from_ref(&current_id), "claude-opus-5")
+                    .unwrap()
+                    .expect("group 0 candidate");
+            assert_eq!(first.id, group0_id);
+
+            let filtered = next_failover_provider(
+                &state,
+                &[current_id.clone(), group0_id.clone()],
+                "claude-opus-5",
+            )
+            .unwrap();
+            assert!(filtered.is_none(), "group1 whitelist should reject opus");
+
+            let ignored = next_failover_provider_ex(
+                &state,
+                &[current_id.clone(), group0_id.clone()],
+                "claude-opus-5",
+                true,
+            )
             .unwrap()
-            .expect("group 0 candidate");
-        assert_eq!(first.id, group0_id);
+            .expect("catalog failover ignores model whitelist");
+            assert_eq!(ignored.name, "Group1");
 
-        let filtered = next_failover_provider(
-            &state,
-            &[current_id.clone(), group0_id.clone()],
-            "claude-opus-5",
-        )
-        .unwrap();
-        assert!(filtered.is_none(), "group1 whitelist should reject opus");
-
-        let ignored = next_failover_provider_ex(
-            &state,
-            &[current_id.clone(), group0_id.clone()],
-            "claude-opus-5",
-            true,
-        )
-        .unwrap()
-        .expect("catalog failover ignores model whitelist");
-        assert_eq!(ignored.name, "Group1");
-
-        let matched = next_failover_provider(&state, &[current_id, group0_id], "gpt-4o-mini")
-            .unwrap()
-            .expect("group1 whitelist match");
-        assert_eq!(matched.name, "Group1");
+            let matched = next_failover_provider(&state, &[current_id, group0_id], "gpt-4o-mini")
+                .unwrap()
+                .expect("group1 whitelist match");
+            assert_eq!(matched.name, "Group1");
+        });
     }
 
     #[test]

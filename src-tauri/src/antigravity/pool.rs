@@ -366,7 +366,7 @@ impl AccountPool {
             now,
         );
         if candidates.is_empty() {
-            if remaining.is_empty() {
+            if !remaining.iter().any(|account| !account.disabled) {
                 return Err(AppError::Other(
                     "Antigravity 已尝试所有可用账号，上游均失败".into(),
                 ));
@@ -376,7 +376,7 @@ impl AccountPool {
                 let soft = self.drop_quarantined_models(vec![soft], requested_model, now);
                 let Some(soft) = soft.into_iter().next() else {
                     return Err(AppError::Other(explain_unavailable(
-                        &accounts,
+                        &remaining,
                         now,
                         requested_model,
                     )));
@@ -389,7 +389,7 @@ impl AccountPool {
                 candidates.push(soft);
             } else {
                 return Err(AppError::Other(explain_unavailable(
-                    &accounts,
+                    &remaining,
                     now,
                     requested_model,
                 )));

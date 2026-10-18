@@ -245,6 +245,7 @@ pub async fn codex_proxy_handler(
     if state.target == crate::provider::ProviderTarget::VscodeCopilot
         && is_stream
         && is_anthropic_upstream
+        && !route.contains("chat/completions")
         && compact_fallback.is_none()
         && !has_explicit_chain
     {
@@ -638,6 +639,7 @@ pub async fn codex_proxy_handler(
             upstream,
             status,
             is_streaming,
+            route.contains("chat/completions"),
             log_id,
             started,
         )
@@ -720,7 +722,11 @@ pub async fn codex_proxy_handler(
                 });
             }
         }
-        let response_bytes = ensure_responses_json_usage(response_bytes);
+        let response_bytes = if route.contains("chat/completions") {
+            response_bytes
+        } else {
+            ensure_responses_json_usage(response_bytes)
+        };
         return resp_builder
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(response_bytes))
@@ -735,6 +741,7 @@ pub async fn codex_proxy_handler(
     let mut history_buffer = Vec::new();
     let mut outbound_buffer = Vec::new();
     let mut current_response_id = None;
+    let is_chat_completions_route = route.contains("chat/completions");
     let target_app = state.target.as_str().to_string();
     let provider_id = provider.id.clone();
     let stream = upstream
@@ -786,10 +793,16 @@ pub async fn codex_proxy_handler(
                         });
                     }
                 }
+                if is_chat_completions_route {
+                    return Ok::<Bytes, Infallible>(bytes);
+                }
                 outbound_buffer.extend_from_slice(&bytes);
                 Ok::<Bytes, Infallible>(Bytes::from(drain_responses_frames(&mut outbound_buffer)))
             }
             Ok(None) => {
+                if is_chat_completions_route {
+                    return Ok(Bytes::new());
+                }
                 if !outbound_buffer.is_empty()
                     && !outbound_buffer.ends_with(b"\n\n")
                     && !outbound_buffer.ends_with(b"\r\n\r\n")
@@ -927,21 +940,19 @@ fn prepare_codex_upstream(
     };
 
     let is_compact = codex_compact::is_responses_compact_route(route);
-    let is_anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
+    let is_chat_completions_route = route.contains("chat/completions");
+    let is_native_chat_on_anthropic_gateway =
+        is_chat_completions_route && (provider.is_antigravity() || provider.is_kiro());
+    let is_anthropic_upstream =
+        provider.protocol_type == ProtocolType::Anthropic && !is_native_chat_on_anthropic_gateway;
     let wants_chat_bridge =
         !is_compact && should_bridge_responses_to_chat(provider.protocol_type, route, force_chat);
-    if is_anthropic_upstream && route.contains("chat/completions") {
-        return Err(json_error(
-            StatusCode::BAD_REQUEST,
-            "Anthropic 上游 Codex 供应商仅支持 /v1/responses",
-        ));
-    }
 
     let path = if is_compact {
         codex_compact::compact_upstream_path(provider.protocol_type).to_string()
     } else if is_anthropic_upstream {
         "/v1/messages".to_string()
-    } else if route.contains("chat/completions") || wants_chat_bridge {
+    } else if is_chat_completions_route || wants_chat_bridge {
         "/v1/chat/completions".to_string()
     } else {
         "/v1/responses".to_string()
@@ -1040,23 +1051,33 @@ fn prepare_codex_upstream(
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
-        let _ = state.codex_history.enrich_request(&mut parsed);
-        let requested_model = parsed
-            .get("model")
-            .and_then(Value::as_str)
-            .filter(|model| !model.trim().is_empty())
-            .unwrap_or(provider.model.trim());
-        let anthropic_body = match responses_request_to_anthropic_messages(&parsed, requested_model)
-        {
-            Ok(value) => value,
-            Err(error) => {
-                return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
-            }
-        };
         let stream = parsed
             .get("stream")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let requested_model = parsed
+            .get("model")
+            .and_then(Value::as_str)
+            .filter(|model| !model.trim().is_empty())
+            .unwrap_or(provider.model.trim())
+            .to_string();
+        if is_chat_completions_route {
+            parsed = match super::codex_chat::chat_completions_to_responses_body(&parsed) {
+                Ok(value) => value,
+                Err(error) => {
+                    return Err(json_error(StatusCode::BAD_REQUEST, error));
+                }
+            };
+        } else {
+            let _ = state.codex_history.enrich_request(&mut parsed);
+        }
+        let anthropic_body =
+            match responses_request_to_anthropic_messages(&parsed, &requested_model) {
+                Ok(value) => value,
+                Err(error) => {
+                    return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
+                }
+            };
         let encoded = serde_json::to_vec(&anthropic_body).unwrap_or_default();
         (encoded, stream, None)
     } else if route.contains("chat/completions") {
@@ -1513,6 +1534,7 @@ async fn forward_anthropic_upstream(
     upstream: reqwest::Response,
     status: StatusCode,
     is_streaming: bool,
+    is_chat_completions_route: bool,
     log_id: Option<String>,
     started: Instant,
 ) -> Response {
@@ -1541,7 +1563,11 @@ async fn forward_anthropic_upstream(
                     &provider,
                     Some(502),
                     started.elapsed().as_millis() as i64,
-                    "/v1/responses",
+                    if is_chat_completions_route {
+                        "/v1/chat/completions"
+                    } else {
+                        "/v1/responses"
+                    },
                     false,
                     Some("conversion"),
                 );
@@ -1551,9 +1577,14 @@ async fn forward_anthropic_upstream(
                 );
             }
         };
-        let responses = anthropic_response_to_responses(&anthropic);
-        let _ = state.codex_history.record_response(&responses);
-        let encoded = serde_json::to_vec(&responses).unwrap_or_default();
+        let payload = if is_chat_completions_route {
+            anthropic_response_to_chat_completion(&anthropic, provider.model.trim())
+        } else {
+            let responses = anthropic_response_to_responses(&anthropic);
+            let _ = state.codex_history.record_response(&responses);
+            responses
+        };
+        let encoded = serde_json::to_vec(&payload).unwrap_or_default();
         if let Some(id) = log_id.as_deref() {
             if let Some(usage) = extract_usage_from_json(&encoded) {
                 let _ = state.db.with_conn(|conn| {
@@ -1576,6 +1607,10 @@ async fn forward_anthropic_upstream(
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(encoded))
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+    }
+
+    if is_chat_completions_route {
+        return forward_anthropic_to_chat_completions_stream(state, provider, upstream, log_id);
     }
 
     let body_log_id = log_id.clone();
@@ -1731,6 +1766,387 @@ async fn forward_anthropic_upstream(
         } else {
             status
         })
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header("x-accel-buffering", "no")
+        .body(super::response_lifecycle::track_stream_body(
+            Body::from_stream(stream),
+            body_db,
+            body_log_id,
+        ))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+fn anthropic_response_to_chat_completion(anthropic: &Value, fallback_model: &str) -> Value {
+    let id = anthropic
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("chatcmpl-{}", uuid::Uuid::new_v4().simple()));
+    let model = anthropic
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(fallback_model);
+
+    let mut text_parts = Vec::new();
+    let mut reasoning_parts = Vec::new();
+    let mut tool_calls = Vec::new();
+    if let Some(blocks) = anthropic.get("content").and_then(Value::as_array) {
+        for block in blocks {
+            match block.get("type").and_then(Value::as_str) {
+                Some("text") => {
+                    if let Some(text) = block.get("text").and_then(Value::as_str) {
+                        text_parts.push(text);
+                    }
+                }
+                Some("thinking") => {
+                    if let Some(thinking) = block.get("thinking").and_then(Value::as_str) {
+                        reasoning_parts.push(thinking);
+                    }
+                }
+                Some("tool_use") => {
+                    let call_id = block
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("call_0");
+                    let name = block
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool");
+                    let args_str = match block.get("input") {
+                        Some(Value::String(s)) => s.clone(),
+                        Some(other) => serde_json::to_string(other).unwrap_or_else(|_| "{}".into()),
+                        None => "{}".to_string(),
+                    };
+                    tool_calls.push(serde_json::json!({
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": args_str,
+                        }
+                    }));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let finish_reason = match anthropic.get("stop_reason").and_then(Value::as_str) {
+        Some("tool_use") => "tool_calls",
+        Some("max_tokens") => "length",
+        _ if !tool_calls.is_empty() => "tool_calls",
+        _ => "stop",
+    };
+
+    let usage = anthropic.get("usage").cloned().unwrap_or(Value::Null);
+    let input_tokens = usage
+        .get("input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let cache_read = usage
+        .get("cache_read_input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let cache_creation = usage
+        .get("cache_creation_input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let output_tokens = usage
+        .get("output_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let prompt_tokens = input_tokens + cache_read + cache_creation;
+
+    let mut message = serde_json::Map::new();
+    message.insert("role".into(), Value::String("assistant".into()));
+    if text_parts.is_empty() && !tool_calls.is_empty() {
+        message.insert("content".into(), Value::Null);
+    } else {
+        message.insert("content".into(), Value::String(text_parts.join("")));
+    }
+    if !reasoning_parts.is_empty() {
+        message.insert(
+            "reasoning_content".into(),
+            Value::String(reasoning_parts.join("")),
+        );
+    }
+    if !tool_calls.is_empty() {
+        message.insert("tool_calls".into(), Value::Array(tool_calls));
+    }
+
+    serde_json::json!({
+        "id": id,
+        "object": "chat.completion",
+        "created": chrono::Utc::now().timestamp(),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": Value::Object(message),
+            "finish_reason": finish_reason,
+        }],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": prompt_tokens + output_tokens,
+            "prompt_tokens_details": {
+                "cached_tokens": cache_read,
+            }
+        }
+    })
+}
+
+fn forward_anthropic_to_chat_completions_stream(
+    state: ProxyState,
+    provider: Provider,
+    upstream: reqwest::Response,
+    log_id: Option<String>,
+) -> Response {
+    let body_log_id = log_id.clone();
+    let body_db = Arc::clone(&state.db);
+    let db = Arc::clone(&state.db);
+    let target_app = state.target.as_str().to_string();
+    let provider_id = provider.id.clone();
+    let fallback_model = provider.model.clone();
+    let mut sse_buffer = Vec::new();
+    let mut raw_usage_buf = Vec::new();
+    let mut chat_id = format!("chatcmpl-{}", uuid::Uuid::new_v4().simple());
+    let mut model_name = fallback_model;
+    let mut tool_index: usize = 0;
+    let mut block_to_tool_idx = std::collections::HashMap::<u64, usize>::new();
+    let mut has_tool_calls = false;
+    let mut prompt_tokens: i64 = 0;
+    let mut cached_tokens: i64 = 0;
+    let mut completion_tokens: i64 = 0;
+    let mut sent_done = false;
+
+    let stream = upstream
+        .bytes_stream()
+        .map(|chunk| match chunk {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(_) => Err(()),
+        })
+        .chain(stream::once(async { Ok(None) }))
+        .map(move |chunk| match chunk {
+            Ok(Some(bytes)) => {
+                if let Some(id) = log_id.as_deref() {
+                    raw_usage_buf.extend_from_slice(&bytes);
+                    if let Some(usage) = extract_usage_from_sse(&raw_usage_buf) {
+                        let _ = db.with_conn(|conn| {
+                            update_proxy_log_usage_idempotent(
+                                conn,
+                                id,
+                                Some(target_app.as_str()),
+                                Some(provider_id.as_str()),
+                                usage.envelope_id.as_deref(),
+                                usage.input_tokens,
+                                usage.cache_read_input_tokens,
+                                usage.cache_creation_input_tokens,
+                                usage.output_tokens,
+                            )
+                        });
+                    }
+                }
+                sse_buffer.extend_from_slice(&bytes);
+                let mut out = String::new();
+                while let Some((end, delimiter_len)) = find_sse_frame_end(&sse_buffer) {
+                    let frame = sse_buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
+                    let Ok(frame_str) = std::str::from_utf8(&frame) else {
+                        continue;
+                    };
+                    let Some((event_type, data)) = parse_anthropic_sse_frame(frame_str) else {
+                        continue;
+                    };
+                    match event_type {
+                        "message_start" => {
+                            if let Some(msg) = data.get("message") {
+                                if let Some(id) = msg.get("id").and_then(Value::as_str) {
+                                    chat_id = id.to_string();
+                                }
+                                if let Some(m) = msg.get("model").and_then(Value::as_str) {
+                                    model_name = m.to_string();
+                                }
+                                if let Some(u) = msg.get("usage") {
+                                    let inp = u.get("input_tokens").and_then(Value::as_i64).unwrap_or(0);
+                                    let cr = u.get("cache_read_input_tokens").and_then(Value::as_i64).unwrap_or(0);
+                                    let cc = u.get("cache_creation_input_tokens").and_then(Value::as_i64).unwrap_or(0);
+                                    prompt_tokens = inp + cr + cc;
+                                    cached_tokens = cr;
+                                }
+                            }
+                        }
+                        "content_block_start" => {
+                            let idx = data.get("index").and_then(Value::as_u64).unwrap_or(0);
+                            if let Some(cb) = data.get("content_block") {
+                                if cb.get("type").and_then(Value::as_str) == Some("tool_use") {
+                                    let t_idx = tool_index;
+                                    tool_index += 1;
+                                    block_to_tool_idx.insert(idx, t_idx);
+                                    has_tool_calls = true;
+                                    let call_id = cb.get("id").and_then(Value::as_str).unwrap_or("call_0");
+                                    let name = cb.get("name").and_then(Value::as_str).unwrap_or("tool");
+                                    let chunk_json = serde_json::json!({
+                                        "id": chat_id,
+                                        "object": "chat.completion.chunk",
+                                        "model": model_name,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "role": "assistant",
+                                                "tool_calls": [{
+                                                    "index": t_idx,
+                                                    "id": call_id,
+                                                    "type": "function",
+                                                    "function": {
+                                                        "name": name,
+                                                        "arguments": "",
+                                                    }
+                                                }]
+                                            },
+                                            "finish_reason": Value::Null,
+                                        }]
+                                    });
+                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                }
+                            }
+                        }
+                        "content_block_delta" => {
+                            let idx = data.get("index").and_then(Value::as_u64).unwrap_or(0);
+                            if let Some(delta) = data.get("delta") {
+                                match delta.get("type").and_then(Value::as_str) {
+                                    Some("text_delta") => {
+                                        if let Some(text) = delta.get("text").and_then(Value::as_str) {
+                                            let chunk_json = serde_json::json!({
+                                                "id": chat_id,
+                                                "object": "chat.completion.chunk",
+                                                "model": model_name,
+                                                "choices": [{
+                                                    "index": 0,
+                                                    "delta": {
+                                                        "role": "assistant",
+                                                        "content": text,
+                                                    },
+                                                    "finish_reason": Value::Null,
+                                                }]
+                                            });
+                                            out.push_str(&format!("data: {chunk_json}\n\n"));
+                                        }
+                                    }
+                                    Some("thinking_delta") => {
+                                        if let Some(thinking) = delta.get("thinking").and_then(Value::as_str) {
+                                            let chunk_json = serde_json::json!({
+                                                "id": chat_id,
+                                                "object": "chat.completion.chunk",
+                                                "model": model_name,
+                                                "choices": [{
+                                                    "index": 0,
+                                                    "delta": {
+                                                        "role": "assistant",
+                                                        "reasoning_content": thinking,
+                                                    },
+                                                    "finish_reason": Value::Null,
+                                                }]
+                                            });
+                                            out.push_str(&format!("data: {chunk_json}\n\n"));
+                                        }
+                                    }
+                                    Some("input_json_delta") => {
+                                        if let Some(partial) = delta.get("partial_json").and_then(Value::as_str) {
+                                            let t_idx = block_to_tool_idx.get(&idx).copied().unwrap_or(0);
+                                            let chunk_json = serde_json::json!({
+                                                "id": chat_id,
+                                                "object": "chat.completion.chunk",
+                                                "model": model_name,
+                                                "choices": [{
+                                                    "index": 0,
+                                                    "delta": {
+                                                        "tool_calls": [{
+                                                            "index": t_idx,
+                                                            "function": {
+                                                                "arguments": partial,
+                                                            }
+                                                        }]
+                                                    },
+                                                    "finish_reason": Value::Null,
+                                                }]
+                                            });
+                                            out.push_str(&format!("data: {chunk_json}\n\n"));
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        "message_delta" => {
+                            if let Some(u) = data.get("usage") {
+                                if let Some(out_tok) = u.get("output_tokens").and_then(Value::as_i64) {
+                                    completion_tokens = out_tok;
+                                }
+                            }
+                        }
+                        "message_stop" => {
+                            if !sent_done {
+                                sent_done = true;
+                                let finish = if has_tool_calls { "tool_calls" } else { "stop" };
+                                let final_chunk = serde_json::json!({
+                                    "id": chat_id,
+                                    "object": "chat.completion.chunk",
+                                    "model": model_name,
+                                    "choices": [{
+                                        "index": 0,
+                                        "delta": {},
+                                        "finish_reason": finish,
+                                    }],
+                                    "usage": {
+                                        "prompt_tokens": prompt_tokens,
+                                        "completion_tokens": completion_tokens,
+                                        "total_tokens": prompt_tokens + completion_tokens,
+                                        "prompt_tokens_details": {
+                                            "cached_tokens": cached_tokens,
+                                        }
+                                    }
+                                });
+                                out.push_str(&format!("data: {final_chunk}\n\ndata: [DONE]\n\n"));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                Ok::<Bytes, Infallible>(Bytes::from(out.into_bytes()))
+            }
+            Ok(None) => {
+                if !sent_done {
+                    sent_done = true;
+                    let finish = if has_tool_calls { "tool_calls" } else { "stop" };
+                    let final_chunk = serde_json::json!({
+                        "id": chat_id,
+                        "object": "chat.completion.chunk",
+                        "model": model_name,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {},
+                            "finish_reason": finish,
+                        }],
+                        "usage": {
+                            "prompt_tokens": prompt_tokens,
+                            "completion_tokens": completion_tokens,
+                            "total_tokens": prompt_tokens + completion_tokens,
+                            "prompt_tokens_details": {
+                                "cached_tokens": cached_tokens,
+                            }
+                        }
+                    });
+                    return Ok(Bytes::from(format!("data: {final_chunk}\n\ndata: [DONE]\n\n").into_bytes()));
+                }
+                Ok(Bytes::new())
+            }
+            Err(()) => Ok(Bytes::new()),
+        });
+
+    Response::builder()
+        .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
         .header(header::CACHE_CONTROL, "no-cache")
         .header("x-accel-buffering", "no")

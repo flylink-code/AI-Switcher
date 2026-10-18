@@ -1,6 +1,7 @@
 //! HTTP routes for the Kiro gateway.
 
-use std::time::Instant;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use axum::body::{Body, Bytes};
 use axum::extract::State;
@@ -10,6 +11,7 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use super::GatewayState;
+use crate::database::Database;
 use crate::kiro::account::KiroAccount;
 use crate::kiro::event_stream::FrameDecoder;
 use crate::kiro::map::{
@@ -20,6 +22,52 @@ use crate::kiro::models::DEFAULT_MODEL;
 use crate::kiro::pool::{classify_upstream, FailureClass};
 use crate::kiro::token::{ensure_access_token, should_force_refresh};
 use crate::kiro::upstream;
+
+const FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(75);
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(180);
+
+struct KiroStreamGuard {
+    streamer: map::KiroSseStreamer,
+    db: Arc<Database>,
+    log_id: Option<String>,
+    context_window: u64,
+    req_len: usize,
+    usage_flushed: bool,
+}
+
+impl KiroStreamGuard {
+    fn finish_and_flush(&mut self) -> String {
+        let tail = self.streamer.finish(self.context_window, self.req_len);
+        self.flush_usage();
+        tail
+    }
+
+    fn flush_usage(&mut self) {
+        if self.usage_flushed {
+            return;
+        }
+        self.usage_flushed = true;
+        self.streamer
+            .collected
+            .finalize_usage(self.context_window, self.req_len);
+        if let Some(ref id) = self.log_id {
+            crate::kiro::usage_log::write_usage(
+                &self.db,
+                id,
+                self.streamer.collected.input_tokens,
+                self.streamer.collected.output_tokens,
+                self.streamer.collected.cache_read,
+                self.streamer.collected.cache_write,
+            );
+        }
+    }
+}
+
+impl Drop for KiroStreamGuard {
+    fn drop(&mut self) {
+        self.flush_usage();
+    }
+}
 
 pub async fn health() -> impl IntoResponse {
     Json(json!({"ok": true}))
@@ -107,33 +155,52 @@ async fn handle(
     let started = Instant::now();
     let mut refreshed = false;
     let mut retry_same: Option<KiroAccount> = None;
+    let mut excluded_ids: Vec<String> = Vec::new();
+    let mut last_account_id: Option<String> = None;
     let mut attempts = 0;
     let max_attempts = 3;
     loop {
         attempts += 1;
-        let Some(account) = retry_same.take().or_else(|| state.pool.select()) else {
-            let response = error_response(
-                protocol,
-                StatusCode::SERVICE_UNAVAILABLE,
-                "没有可用的 Kiro 账号",
-            );
+        let Some(account) = retry_same
+            .take()
+            .or_else(|| state.pool.select_excluding(&excluded_ids))
+        else {
+            let msg = "没有可用的 Kiro 账号";
+            let response = error_response(protocol, StatusCode::SERVICE_UNAVAILABLE, msg);
             log_failure(
                 &state,
                 &headers,
                 &incoming,
                 protocol,
                 started,
+                last_account_id.as_deref(),
                 503,
                 "no_account",
+                Some(msg),
             );
             return response;
         };
+        last_account_id = Some(account.id.clone());
+        if !excluded_ids.iter().any(|id| id == &account.id) {
+            excluded_ids.push(account.id.clone());
+        }
         let account = match ensure_access_token(&account, false).await {
             Ok(account) => account,
             Err(error) => {
+                let err_text = error.to_string();
                 if attempts >= max_attempts {
-                    log_failure(&state, &headers, &incoming, protocol, started, 401, "auth");
-                    return error_response(protocol, StatusCode::UNAUTHORIZED, &error.to_string());
+                    log_failure(
+                        &state,
+                        &headers,
+                        &incoming,
+                        protocol,
+                        started,
+                        last_account_id.as_deref(),
+                        401,
+                        "auth",
+                        Some(&err_text),
+                    );
+                    return error_response(protocol, StatusCode::UNAUTHORIZED, &err_text);
                 }
                 state.pool.note_failure(&account.id, FailureClass::Auth);
                 continue;
@@ -153,7 +220,15 @@ async fn handle(
                     continue;
                 }
                 log_failure(
-                    &state, &headers, &incoming, protocol, started, 504, "network",
+                    &state,
+                    &headers,
+                    &incoming,
+                    protocol,
+                    started,
+                    last_account_id.as_deref(),
+                    504,
+                    "network",
+                    Some(&message),
                 );
                 return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &message);
             }
@@ -170,10 +245,12 @@ async fn handle(
             let mut raw_buf = Vec::new();
             let mut first_frame_seen = false;
             let mut decode_err: Option<String> = None;
+            let mut first_frame_timed_out = false;
+            let first_frame_deadline = tokio::time::Instant::now() + FIRST_FRAME_TIMEOUT;
 
             while !first_frame_seen {
-                match byte_stream.next().await {
-                    Some(Ok(chunk)) => {
+                match tokio::time::timeout_at(first_frame_deadline, byte_stream.next()).await {
+                    Ok(Some(Ok(chunk))) => {
                         if raw_buf.len() < 4096 {
                             raw_buf.extend_from_slice(&chunk);
                         }
@@ -192,28 +269,61 @@ async fn handle(
                             }
                         }
                     }
-                    Some(Err(err)) => {
+                    Ok(Some(Err(err))) => {
                         decode_err = Some(err.to_string());
                         break;
                     }
-                    None => break,
+                    Ok(None) => break,
+                    Err(_) => {
+                        first_frame_timed_out = true;
+                        break;
+                    }
                 }
             }
 
+            if first_frame_timed_out {
+                let msg = format!(
+                    "Kiro 流式首帧超时（>{}s）",
+                    FIRST_FRAME_TIMEOUT.as_secs()
+                );
+                log::warn!("{msg} account={}", account.id);
+                state.pool.note_failure(&account.id, FailureClass::Rotate);
+                if attempts < max_attempts {
+                    continue;
+                }
+                log_failure(
+                    &state,
+                    &headers,
+                    &incoming,
+                    protocol,
+                    started,
+                    last_account_id.as_deref(),
+                    504,
+                    "timeout",
+                    Some(&msg),
+                );
+                return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &msg);
+            }
+
             if let Some(err) = decode_err {
+                let msg = format!("Kiro 上游事件流解析失败: {err}");
                 log::warn!("Kiro event-stream decode error: {err}");
                 state.pool.note_failure(&account.id, FailureClass::Rotate);
                 if attempts < max_attempts {
                     continue;
                 }
                 log_failure(
-                    &state, &headers, &incoming, protocol, started, 502, "upstream",
-                );
-                return error_response(
+                    &state,
+                    &headers,
+                    &incoming,
                     protocol,
-                    StatusCode::BAD_GATEWAY,
-                    &format!("Kiro 上游事件流解析失败: {err}"),
+                    started,
+                    last_account_id.as_deref(),
+                    502,
+                    "upstream",
+                    Some(&msg),
                 );
+                return error_response(protocol, StatusCode::BAD_GATEWAY, &msg);
             }
 
             if !first_frame_seen && streamer.collected.upstream_error.is_none() {
@@ -244,24 +354,23 @@ async fn handle(
                 } else {
                     StatusCode::BAD_GATEWAY
                 };
+                let truncated: String = err_msg.chars().take(400).collect();
                 log_failure(
                     &state,
                     &headers,
                     &incoming,
                     protocol,
                     started,
+                    last_account_id.as_deref(),
                     status.as_u16() as i64,
                     if status == StatusCode::BAD_REQUEST {
                         "client"
                     } else {
                         "upstream"
                     },
+                    Some(&truncated),
                 );
-                return error_response(
-                    protocol,
-                    status,
-                    &err_msg.chars().take(400).collect::<String>(),
-                );
+                return error_response(protocol, status, &truncated);
             }
 
             let log_id = if map::should_log_usage("/v1/messages") {
@@ -274,33 +383,25 @@ async fn handle(
                     protocol,
                     true,
                     None,
+                    None,
                     Some(&headers),
                 )
             } else {
                 None
             };
-            let db = state.db.clone();
             let context_window = crate::kiro::models::context_window(&prepared.backend_model);
             let req_len = body.len();
+            let guard = KiroStreamGuard {
+                streamer,
+                db: state.db.clone(),
+                log_id,
+                context_window,
+                req_len,
+                usage_flushed: false,
+            };
             let sse_stream = futures_util::stream::unfold(
-                (
-                    byte_stream,
-                    decoder,
-                    streamer,
-                    Some(initial_sse),
-                    false,
-                    db,
-                    log_id,
-                ),
-                move |(
-                    mut byte_stream,
-                    mut decoder,
-                    mut streamer,
-                    mut pending,
-                    done,
-                    db,
-                    log_id,
-                )| async move {
+                (byte_stream, decoder, guard, Some(initial_sse), false),
+                move |(mut byte_stream, mut decoder, mut guard, mut pending, done)| async move {
                     if done {
                         return None;
                     }
@@ -308,85 +409,58 @@ async fn handle(
                         if !init.is_empty() {
                             return Some((
                                 Ok::<Bytes, std::convert::Infallible>(Bytes::from(init)),
-                                (byte_stream, decoder, streamer, None, false, db, log_id),
+                                (byte_stream, decoder, guard, None, false),
                             ));
                         }
                     }
                     loop {
-                        match byte_stream.next().await {
-                            Some(Ok(chunk)) => match decoder.push(&chunk) {
+                        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, byte_stream.next()).await {
+                            Ok(Some(Ok(chunk))) => match decoder.push(&chunk) {
                                 Ok(frames) => {
                                     let mut out = String::new();
                                     for frame in &frames {
-                                        out.push_str(&streamer.push_frame(frame));
+                                        out.push_str(&guard.streamer.push_frame(frame));
                                     }
                                     if !out.is_empty() {
                                         return Some((
                                             Ok(Bytes::from(out)),
-                                            (
-                                                byte_stream,
-                                                decoder,
-                                                streamer,
-                                                None,
-                                                false,
-                                                db,
-                                                log_id,
-                                            ),
+                                            (byte_stream, decoder, guard, None, false),
                                         ));
                                     }
                                 }
                                 Err(err) => {
                                     log::warn!("Kiro mid-stream decode error: {err:?}");
-                                    let tail = streamer.finish(context_window, req_len);
-                                    if let Some(ref id) = log_id {
-                                        crate::kiro::usage_log::write_usage(
-                                            &db,
-                                            id,
-                                            streamer.collected.input_tokens,
-                                            streamer.collected.output_tokens,
-                                            streamer.collected.cache_read,
-                                            streamer.collected.cache_write,
-                                        );
-                                    }
+                                    let tail = guard.finish_and_flush();
                                     return Some((
                                         Ok(Bytes::from(tail)),
-                                        (byte_stream, decoder, streamer, None, true, db, log_id),
+                                        (byte_stream, decoder, guard, None, true),
                                     ));
                                 }
                             },
-                            Some(Err(err)) => {
+                            Ok(Some(Err(err))) => {
                                 log::warn!("Kiro mid-stream read error: {err}");
-                                let tail = streamer.finish(context_window, req_len);
-                                if let Some(ref id) = log_id {
-                                    crate::kiro::usage_log::write_usage(
-                                        &db,
-                                        id,
-                                        streamer.collected.input_tokens,
-                                        streamer.collected.output_tokens,
-                                        streamer.collected.cache_read,
-                                        streamer.collected.cache_write,
-                                    );
-                                }
+                                let tail = guard.finish_and_flush();
                                 return Some((
                                     Ok(Bytes::from(tail)),
-                                    (byte_stream, decoder, streamer, None, true, db, log_id),
+                                    (byte_stream, decoder, guard, None, true),
                                 ));
                             }
-                            None => {
-                                let tail = streamer.finish(context_window, req_len);
-                                if let Some(ref id) = log_id {
-                                    crate::kiro::usage_log::write_usage(
-                                        &db,
-                                        id,
-                                        streamer.collected.input_tokens,
-                                        streamer.collected.output_tokens,
-                                        streamer.collected.cache_read,
-                                        streamer.collected.cache_write,
-                                    );
-                                }
+                            Ok(None) => {
+                                let tail = guard.finish_and_flush();
                                 return Some((
                                     Ok(Bytes::from(tail)),
-                                    (byte_stream, decoder, streamer, None, true, db, log_id),
+                                    (byte_stream, decoder, guard, None, true),
+                                ));
+                            }
+                            Err(_) => {
+                                log::warn!(
+                                    "Kiro mid-stream idle timeout after {}s",
+                                    STREAM_IDLE_TIMEOUT.as_secs()
+                                );
+                                let tail = guard.finish_and_flush();
+                                return Some((
+                                    Ok(Bytes::from(tail)),
+                                    (byte_stream, decoder, guard, None, true),
                                 ));
                             }
                         }
@@ -423,30 +497,51 @@ async fn handle(
                     continue;
                 }
                 Err(error) => {
-                    log_failure(&state, &headers, &incoming, protocol, started, 401, "auth");
-                    return error_response(protocol, StatusCode::UNAUTHORIZED, &error.to_string());
+                    let err_text = error.to_string();
+                    log_failure(
+                        &state,
+                        &headers,
+                        &incoming,
+                        protocol,
+                        started,
+                        last_account_id.as_deref(),
+                        401,
+                        "auth",
+                        Some(&err_text),
+                    );
+                    return error_response(protocol, StatusCode::UNAUTHORIZED, &err_text);
                 }
             }
         }
         if !upstream_ok && (reply.status == 401 || class == FailureClass::Auth) {
-            log_failure(&state, &headers, &incoming, protocol, started, 401, "auth");
-            return error_response(protocol, StatusCode::UNAUTHORIZED, "Kiro 鉴权失败");
-        }
-        if !upstream_ok && class == FailureClass::Client {
+            let msg = "Kiro 鉴权失败";
             log_failure(
                 &state,
                 &headers,
                 &incoming,
                 protocol,
                 started,
+                last_account_id.as_deref(),
+                401,
+                "auth",
+                Some(msg),
+            );
+            return error_response(protocol, StatusCode::UNAUTHORIZED, msg);
+        }
+        if !upstream_ok && class == FailureClass::Client {
+            let truncated: String = text.chars().take(400).collect();
+            log_failure(
+                &state,
+                &headers,
+                &incoming,
+                protocol,
+                started,
+                last_account_id.as_deref(),
                 reply.status as i64,
                 "client",
+                Some(&truncated),
             );
-            return error_response(
-                protocol,
-                StatusCode::BAD_REQUEST,
-                &text.chars().take(400).collect::<String>(),
-            );
+            return error_response(protocol, StatusCode::BAD_REQUEST, &truncated);
         }
         if !upstream_ok
             && matches!(
@@ -467,20 +562,19 @@ async fn handle(
                 StatusCode::BAD_GATEWAY
             };
             state.pool.note_failure(&account.id, class);
+            let truncated: String = text.chars().take(400).collect();
             log_failure(
                 &state,
                 &headers,
                 &incoming,
                 protocol,
                 started,
+                last_account_id.as_deref(),
                 status.as_u16() as i64,
                 "upstream",
+                Some(&truncated),
             );
-            let mut response = error_response(
-                protocol,
-                status,
-                &text.chars().take(400).collect::<String>(),
-            );
+            let mut response = error_response(protocol, status, &truncated);
             if status == StatusCode::TOO_MANY_REQUESTS {
                 response
                     .headers_mut()
@@ -492,19 +586,24 @@ async fn handle(
         let frames = match decoder.push(&reply.body) {
             Ok(frames) => frames,
             Err(err) => {
+                let msg = format!("Kiro 上游事件流解析失败: {err:?}");
                 log::warn!("Kiro event-stream decode error: {err:?}");
                 state.pool.note_failure(&account.id, FailureClass::Rotate);
                 if attempts < max_attempts {
                     continue;
                 }
                 log_failure(
-                    &state, &headers, &incoming, protocol, started, 502, "upstream",
-                );
-                return error_response(
+                    &state,
+                    &headers,
+                    &incoming,
                     protocol,
-                    StatusCode::BAD_GATEWAY,
-                    &format!("Kiro 上游事件流解析失败: {err:?}"),
+                    started,
+                    last_account_id.as_deref(),
+                    502,
+                    "upstream",
+                    Some(&msg),
                 );
+                return error_response(protocol, StatusCode::BAD_GATEWAY, &msg);
             }
         };
         let mut collected = CollectedReply::default();
@@ -540,24 +639,24 @@ async fn handle(
             } else {
                 StatusCode::BAD_GATEWAY
             };
+            let truncated: String = err_msg.chars().take(400).collect();
             log_failure(
                 &state,
                 &headers,
                 &incoming,
                 protocol,
                 started,
+                last_account_id.as_deref(),
                 status.as_u16() as i64,
                 if status == StatusCode::BAD_REQUEST {
                     "client"
                 } else {
                     "upstream"
-                },
+                }
+                ,
+                Some(&truncated),
             );
-            return error_response(
-                protocol,
-                status,
-                &err_msg.chars().take(400).collect::<String>(),
-            );
+            return error_response(protocol, status, &truncated);
         }
         let client_model = client_model(&headers, &prepared.client_model);
         collected.finalize_usage(
@@ -573,6 +672,7 @@ async fn handle(
                 started,
                 protocol,
                 prepared.stream,
+                None,
                 None,
                 Some(&headers),
             ) {
@@ -694,8 +794,10 @@ fn log_failure(
     incoming: &Value,
     protocol: WireProtocol,
     started: Instant,
+    account_id: Option<&str>,
     status: i64,
     category: &str,
+    diagnostic: Option<&str>,
 ) {
     let model = incoming
         .get("model")
@@ -703,13 +805,14 @@ fn log_failure(
         .unwrap_or(DEFAULT_MODEL);
     let _ = crate::kiro::usage_log::insert_request(
         &state.db,
-        None,
+        account_id,
         model,
         Some(status),
         started,
         protocol,
         false,
         Some(category),
+        diagnostic,
         Some(headers),
     );
 }

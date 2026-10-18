@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Empty, Space, Statistic, Tooltip, Typography, theme } from "antd";
+import { Empty, Space, Statistic, Tooltip, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import type { UsageDashboard } from "@/types/backend";
 import { formatCompactNumber, formatFullNumber } from "@/utils/formatCompact";
@@ -44,15 +44,15 @@ export function UsageCalendar({
   maxCellSize?: number;
 }) {
   const { i18n, t } = useTranslation();
-  const { token } = theme.useToken();
   const granularity = usagePeriodGranularity(period);
   const byDate = new Map(data.map((row) => [row.date, row]));
+  const cellBorder = "var(--usage-level-border, rgba(148, 163, 184, 0.18))";
   const levels: Level[] = [
-    { color: token.colorFillQuaternary, label: t("usage.calendarLevelNone") },
-    { color: token.colorSuccessBg, label: t("usage.calendarLevelOne") },
-    { color: token.colorSuccessBgHover, label: t("usage.calendarLevelTwo") },
-    { color: token.colorSuccessBorder, label: t("usage.calendarLevelThree") },
-    { color: token.colorSuccess, label: t("usage.calendarLevelFour") },
+    { color: "var(--as-chart-empty)", label: t("usage.calendarLevelNone") },
+    { color: "var(--as-chart-low)", label: t("usage.calendarLevelOne") },
+    { color: "var(--as-chart-mid)", label: t("usage.calendarLevelTwo") },
+    { color: "var(--as-chart-high)", label: t("usage.calendarLevelThree") },
+    { color: "var(--as-chart-peak)", label: t("usage.calendarLevelFour") },
   ];
   const monthFormatter = useMemo(
     () => new Intl.DateTimeFormat(i18n.language || undefined, { month: "short" }),
@@ -117,7 +117,7 @@ export function UsageCalendar({
         daily={daily}
         max={max}
         levels={levels}
-        border={token.colorBorderSecondary}
+        border={cellBorder}
         requestsLabel={t("usage.requests")}
         ariaLabel={t("usage.dailyStatistics")}
         orientation={orientation}
@@ -137,7 +137,7 @@ export function UsageCalendar({
       <CalendarLegend
         levels={levels}
         legend={t("usage.calendarLegend")}
-        border={token.colorBorderSecondary}
+        border={cellBorder}
         compact={compact}
       />
     </Space>

@@ -33,6 +33,7 @@ enum UsageSource {
     ClaudeDesktop,
     Codex,
     Antigravity,
+    Kiro,
     OpenCode,
     Pi,
     Dsh,
@@ -48,6 +49,7 @@ impl UsageSource {
             "claude_desktop" => Ok(Self::ClaudeDesktop),
             "codex" => Ok(Self::Codex),
             "antigravity" => Ok(Self::Antigravity),
+            "kiro" => Ok(Self::Kiro),
             "opencode" => Ok(Self::OpenCode),
             "pi" => Ok(Self::Pi),
             "dsh" => Ok(Self::Dsh),
@@ -65,6 +67,7 @@ impl UsageSource {
             // Codex rows live in proxy_request_logs (proxy HTTP + session sync).
             Self::Codex => Some(Some("codex")),
             Self::Antigravity => Some(Some("antigravity")),
+            Self::Kiro => Some(Some("kiro")),
             // OpenCode rows come from opencode.db session sync.
             Self::OpenCode => Some(Some("opencode")),
             Self::Pi => Some(Some("pi")),

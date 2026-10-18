@@ -453,6 +453,51 @@ pub fn is_copilot_auxiliary_model(id: &str) -> bool {
         || lower == "gpt-5.4-mini"
 }
 
+fn strip_gateway_style_prefix(id: &str) -> &str {
+    let trimmed = id.trim();
+    if let Some(rest) = trimmed.strip_prefix("claude.") {
+        return rest;
+    }
+    if let Some(rest) = trimmed.strip_prefix("openai.") {
+        return rest;
+    }
+    trimmed
+}
+
+fn entry_matches_requested(entry: &CatalogEntry, requested: &str) -> bool {
+    let requested = requested.trim();
+    if requested.is_empty() {
+        return false;
+    }
+    if entry.public_id.eq_ignore_ascii_case(requested)
+        || entry.upstream_slug.eq_ignore_ascii_case(requested)
+    {
+        return true;
+    }
+    let stripped = strip_gateway_style_prefix(requested);
+    if entry.public_id.eq_ignore_ascii_case(stripped)
+        || entry.upstream_slug.eq_ignore_ascii_case(stripped)
+        || strip_gateway_style_prefix(&entry.public_id).eq_ignore_ascii_case(stripped)
+    {
+        return true;
+    }
+    if let Some((first, model)) = stripped.split_once('.') {
+        if entry.upstream_slug.eq_ignore_ascii_case(model) {
+            if entry.provider_id.eq_ignore_ascii_case(first)
+                || provider_slug("", &entry.provider_id).eq_ignore_ascii_case(first)
+            {
+                return true;
+            }
+            if let Some((prov_name, _)) = entry.display_name.split_once(" · ") {
+                if provider_slug(prov_name, &entry.provider_id).eq_ignore_ascii_case(first) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Role ids follow the conversation model. An id the catalog actually lists
 /// stays as the user sent it.
 pub fn follow_conversation_model(
@@ -469,8 +514,12 @@ pub fn follow_conversation_model(
             return main.to_string();
         }
     }
+    let has_explicit_gateway_prefix = requested.starts_with("claude.")
+        || requested.starts_with("openai.")
+        || requested.starts_with("ccs-");
     if !requested.is_empty()
         && !is_auto_public_id(requested)
+        && !has_explicit_gateway_prefix
         && !catalog_in_entries(entries, requested)
     {
         if let Some(main) = remembered
@@ -570,11 +619,9 @@ pub fn is_explicit_catalog_passthrough(entries: &[CatalogEntry], requested: &str
     if is_injected_claude_role_id(requested) || is_haiku_or_subagent_slug(requested) {
         return false;
     }
-    entries.iter().any(|entry| {
-        !entry.provider_id.trim().is_empty()
-            && (entry.public_id.eq_ignore_ascii_case(requested)
-                || entry.upstream_slug.eq_ignore_ascii_case(requested))
-    })
+    entries
+        .iter()
+        .any(|entry| !entry.provider_id.trim().is_empty() && entry_matches_requested(entry, requested))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -642,11 +689,52 @@ pub fn resolve_request_strict(
         )));
     }
 
+    // Provider-qualified ids (`claude.<provider>.<model>`, `openai.<provider>.<model>`,
+    // or `<provider>.<model>`) pin a specific source even when the model has a single source.
+    let qualified = strip_gateway_style_prefix(requested);
+    if let Some((first, model)) = qualified.split_once('.') {
+        if let Some(provider) = providers
+            .iter()
+            .find(|p| provider_slug(&p.name, &p.id).eq_ignore_ascii_case(first))
+        {
+            if let Some(entry) = entries.iter().find(|entry| {
+                entry.upstream_slug.eq_ignore_ascii_case(model) && entry.provider_id == provider.id
+            }) {
+                return Ok(Some((provider.id.clone(), entry.upstream_slug.clone())));
+            }
+        }
+        if let Some(entry) = entries.iter().find(|entry| {
+            if entry.provider_id.trim().is_empty()
+                || !entry.upstream_slug.eq_ignore_ascii_case(model)
+            {
+                return false;
+            }
+            if entry.provider_id.eq_ignore_ascii_case(first)
+                || provider_slug("", &entry.provider_id).eq_ignore_ascii_case(first)
+            {
+                return true;
+            }
+            entry
+                .display_name
+                .split_once(" · ")
+                .is_some_and(|(prov_name, _)| {
+                    provider_slug(prov_name, &entry.provider_id).eq_ignore_ascii_case(first)
+                })
+        }) {
+            return Ok(Some((
+                entry.provider_id.clone(),
+                entry.upstream_slug.clone(),
+            )));
+        }
+    }
+
     let upstream_hits: Vec<&CatalogEntry> = entries
         .iter()
         .filter(|entry| {
             !entry.provider_id.trim().is_empty()
-                && entry.upstream_slug.eq_ignore_ascii_case(requested)
+                && (entry.upstream_slug.eq_ignore_ascii_case(requested)
+                    || entry.upstream_slug.eq_ignore_ascii_case(qualified)
+                    || strip_gateway_style_prefix(&entry.public_id).eq_ignore_ascii_case(qualified))
         })
         .collect();
     // A bare name published by several providers resolves to the first one in pool
@@ -667,21 +755,6 @@ pub fn resolve_request_strict(
             resolve_upstream_model(first, requested),
         )));
     }
-    // Provider-qualified ids (`claude.<provider>.<model>` or `<provider>.<model>`)
-    // issued while the model had a single source keep resolving to that provider.
-    let qualified = requested.strip_prefix("claude.").unwrap_or(requested);
-    if let Some((first, model)) = qualified.split_once('.') {
-        if let Some(provider) = providers
-            .iter()
-            .find(|p| provider_slug(&p.name, &p.id).eq_ignore_ascii_case(first))
-        {
-            if let Some(entry) = entries.iter().find(|entry| {
-                entry.upstream_slug.eq_ignore_ascii_case(model) && entry.provider_id == provider.id
-            }) {
-                return Ok(Some((provider.id.clone(), entry.upstream_slug.clone())));
-            }
-        }
-    }
     let legacy_candidates = claude_alias_candidates(requested)
         .into_iter()
         .chain(provider_qualified_model(requested, providers));
@@ -699,21 +772,23 @@ pub fn resolve_request_strict(
 
     // Keep arbitrary raw model ids working for non-gateway callers and legacy
     // provider configurations, but never treat gateway-qualified ids as raw.
-    let looks_gateway_qualified = match requested.strip_prefix("claude.") {
-        Some(rest) => rest.contains('.'),
-        None => {
-            requested.contains('.')
-                && requested.split('.').next().is_some_and(|part| {
-                    providers.iter().any(|provider| {
-                        provider_slug(&provider.name, &provider.id).eq_ignore_ascii_case(part)
-                    })
+    let looks_gateway_qualified = if requested.starts_with("claude.") || requested.starts_with("openai.") {
+        qualified.contains('.')
+    } else {
+        requested.contains('.')
+            && requested.split('.').next().is_some_and(|part| {
+                providers.iter().any(|provider| {
+                    provider_slug(&provider.name, &provider.id).eq_ignore_ascii_case(part)
                 })
-        }
+            })
     };
     if looks_gateway_qualified {
         return Err(CatalogRequestError::StalePublicId(requested.to_string()));
     }
-    if requested.starts_with("claude.") || requested.starts_with("ccs-") {
+    if requested.starts_with("claude.")
+        || requested.starts_with("openai.")
+        || requested.starts_with("ccs-")
+    {
         return Err(CatalogRequestError::UnknownPublicId(requested.to_string()));
     }
     let first = providers
@@ -945,14 +1020,9 @@ pub fn is_injected_official_model_slug(id: &str) -> bool {
 }
 
 pub fn catalog_in_entries(entries: &[CatalogEntry], requested: &str) -> bool {
-    let requested = requested.trim();
-    if requested.is_empty() {
-        return false;
-    }
-    entries.iter().any(|entry| {
-        entry.public_id.eq_ignore_ascii_case(requested)
-            || entry.upstream_slug.eq_ignore_ascii_case(requested)
-    })
+    entries
+        .iter()
+        .any(|entry| entry_matches_requested(entry, requested))
 }
 
 pub fn catalog_fallback_id(

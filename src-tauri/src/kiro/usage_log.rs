@@ -24,6 +24,7 @@ pub fn insert_request(
     protocol: WireProtocol,
     is_stream: bool,
     error_category: Option<&str>,
+    diagnostic: Option<&str>,
     headers: Option<&HeaderMap>,
 ) -> Option<String> {
     let duration_ms = started.elapsed().as_millis() as i64;
@@ -55,7 +56,7 @@ pub fn insert_request(
             Some(route),
             is_stream,
             error_category,
-            error_category,
+            diagnostic.or(error_category),
         )
     }) {
         Ok(id) => {

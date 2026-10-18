@@ -676,6 +676,27 @@ async fn dispatch_generation(
                     last_error =
                         format!("upstream attempt timeout after {}ms", timeout.as_millis());
                     last_fail_status = 504;
+                    let has_other_capable_account = account_store()
+                        .list_accounts()
+                        .ok()
+                        .is_some_and(|all| {
+                            all.iter().any(|candidate| {
+                                !candidate.disabled
+                                    && candidate.id != account.id
+                                    && !exclude.contains(&candidate.id)
+                                    && candidate.allows_model(&model)
+                            })
+                        });
+                    if !has_other_capable_account && model_idx + 1 < model_chain.len() {
+                        let next = &model_chain[model_idx + 1];
+                        if account.allows_model(next) && remaining_until(retry_deadline).is_some() {
+                            log::warn!(
+                                "Antigravity timeout on sole capable account {account_email} for {current_model}; falling back to {next} on same account"
+                            );
+                            model_idx += 1;
+                            continue 'levels;
+                        }
+                    }
                     state.pool.clear_session(session_key.as_deref());
                     log::warn!(
                         "Antigravity upstream attempt timeout on {account_email} model={last_attempted_model}; rotating account without cooldown"

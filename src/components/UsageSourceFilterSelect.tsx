@@ -26,6 +26,7 @@ export function UsageSourceFilterSelect({ value, onChange, t, size = "small" }: 
     if (
       option.value === "all" ||
       option.value === "antigravity" ||
+      option.value === "kiro" ||
       option.value === "vscode_copilot"
     ) {
       return true;
@@ -33,18 +34,50 @@ export function UsageSourceFilterSelect({ value, onChange, t, size = "small" }: 
     return visibleAgents.includes(option.value);
   });
 
+  const allOption = availableOptions.find((option) => option.group === "all");
+  const agentOptions = availableOptions.filter((option) => option.group === "agent");
+  const gatewayOptions = availableOptions.filter((option) => option.group === "gateway");
+
   return (
     <Select<UsageSourceFilter>
       size={size}
       value={value}
       onChange={onChange}
       aria-label={t("usage.sourceLabel")}
-      style={{ minWidth: size === "small" ? 148 : 168 }}
+      style={{ minWidth: size === "small" ? 156 : 176 }}
       variant="outlined"
-      options={availableOptions.map((option) => ({
-        value: option.value,
-        label: usageSourceSegmentLabel(option.value, t(option.labelKey)),
-      }))}
+      options={[
+        ...(allOption
+          ? [
+              {
+                value: allOption.value,
+                label: usageSourceSegmentLabel(allOption.value, t(allOption.labelKey)),
+              },
+            ]
+          : []),
+        ...(agentOptions.length > 0
+          ? [
+              {
+                label: t("usage.groupAgent"),
+                options: agentOptions.map((option) => ({
+                  value: option.value,
+                  label: usageSourceSegmentLabel(option.value, t(option.labelKey)),
+                })),
+              },
+            ]
+          : []),
+        ...(gatewayOptions.length > 0
+          ? [
+              {
+                label: t("usage.groupGateway"),
+                options: gatewayOptions.map((option) => ({
+                  value: option.value,
+                  label: usageSourceSegmentLabel(option.value, t(option.labelKey)),
+                })),
+              },
+            ]
+          : []),
+      ]}
     />
   );
 }

@@ -33,12 +33,26 @@ impl AccountPool {
     }
 
     pub fn select(&self) -> Option<KiroAccount> {
+        self.select_excluding(&[])
+    }
+
+    pub fn select_excluding(&self, exclude: &[String]) -> Option<KiroAccount> {
         let accounts = store().selectable();
         if accounts.is_empty() {
             return None;
         }
-        let index = self.cursor.fetch_add(1, Ordering::Relaxed) % accounts.len();
-        accounts.get(index).cloned()
+        let filtered: Vec<KiroAccount> = accounts
+            .iter()
+            .filter(|account| !exclude.iter().any(|id| id == &account.id))
+            .cloned()
+            .collect();
+        let pool = if filtered.is_empty() {
+            &accounts
+        } else {
+            &filtered
+        };
+        let index = self.cursor.fetch_add(1, Ordering::Relaxed) % pool.len();
+        pool.get(index).cloned()
     }
 
     pub fn note_failure(&self, account_id: &str, class: FailureClass) {

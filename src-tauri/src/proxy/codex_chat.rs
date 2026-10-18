@@ -69,6 +69,209 @@ pub fn responses_to_chat_completions_body(body: &Value) -> Result<Value, String>
     Ok(chat)
 }
 
+/// Convert an OpenAI Chat Completions request into a Responses JSON body.
+pub fn chat_completions_to_responses_body(body: &Value) -> Result<Value, String> {
+    let model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    let messages = body
+        .get("messages")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Chat Completions 请求缺少 messages 数组".to_string())?;
+
+    let mut instructions_parts: Vec<String> = Vec::new();
+    let mut input: Vec<Value> = Vec::new();
+    let mut seen_conversation = false;
+
+    for msg in messages {
+        let role = msg.get("role").and_then(Value::as_str).unwrap_or("user");
+        match role {
+            "system" | "developer" => {
+                let text = output_text(msg.get("content").unwrap_or(&Value::Null));
+                if !text.trim().is_empty() {
+                    if !seen_conversation {
+                        instructions_parts.push(text);
+                    } else {
+                        input.push(json!({
+                            "type": "message",
+                            "role": "user",
+                            "content": [{ "type": "input_text", "text": format!("<system-reminder>\n{text}\n</system-reminder>") }]
+                        }));
+                    }
+                }
+            }
+            "user" => {
+                seen_conversation = true;
+                let mut content_blocks: Vec<Value> = Vec::new();
+                match msg.get("content") {
+                    Some(Value::String(s)) if !s.is_empty() => {
+                        content_blocks.push(json!({ "type": "input_text", "text": s }));
+                    }
+                    Some(Value::Array(items)) => {
+                        for item in items {
+                            let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
+                            match item_type {
+                                "text" | "input_text" => {
+                                    if let Some(t) = item.get("text").and_then(Value::as_str) {
+                                        if !t.is_empty() {
+                                            content_blocks.push(json!({ "type": "input_text", "text": t }));
+                                        }
+                                    }
+                                }
+                                "image_url" | "input_image" => {
+                                    let url = item
+                                        .pointer("/image_url/url")
+                                        .or_else(|| item.get("image_url"))
+                                        .and_then(Value::as_str);
+                                    if let Some(url) = url {
+                                        content_blocks.push(json!({
+                                            "type": "input_image",
+                                            "image_url": url
+                                        }));
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                if !content_blocks.is_empty() {
+                    input.push(json!({
+                        "type": "message",
+                        "role": "user",
+                        "content": content_blocks
+                    }));
+                }
+            }
+            "assistant" => {
+                seen_conversation = true;
+                if let Some(reasoning) = msg
+                    .get("reasoning_content")
+                    .or_else(|| msg.get("reasoning"))
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.trim().is_empty())
+                {
+                    input.push(json!({
+                        "type": "reasoning",
+                        "summary": [{ "type": "summary_text", "text": reasoning }]
+                    }));
+                }
+                let text = output_text(msg.get("content").unwrap_or(&Value::Null));
+                if !text.is_empty() {
+                    input.push(json!({
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{ "type": "output_text", "text": text }]
+                    }));
+                }
+                if let Some(tool_calls) = msg.get("tool_calls").and_then(Value::as_array) {
+                    for call in tool_calls {
+                        let call_id = call
+                            .get("id")
+                            .or_else(|| call.get("call_id"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("call_tool");
+                        let name = call
+                            .pointer("/function/name")
+                            .or_else(|| call.get("name"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("tool");
+                        let arguments = match call
+                            .pointer("/function/arguments")
+                            .or_else(|| call.get("arguments"))
+                        {
+                            Some(Value::String(s)) => s.clone(),
+                            Some(other) if !other.is_null() => other.to_string(),
+                            _ => "{}".to_string(),
+                        };
+                        input.push(json!({
+                            "type": "function_call",
+                            "call_id": call_id,
+                            "name": name,
+                            "arguments": arguments
+                        }));
+                    }
+                }
+            }
+            "tool" => {
+                seen_conversation = true;
+                let call_id = msg
+                    .get("tool_call_id")
+                    .or_else(|| msg.get("call_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("call_tool");
+                let out = output_text(msg.get("content").unwrap_or(&Value::Null));
+                input.push(json!({
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": out
+                }));
+            }
+            _ => {}
+        }
+    }
+
+    if input.is_empty() {
+        return Err("Chat Completions 请求未包含可转换的对话消息".to_string());
+    }
+
+    let mut result = json!({
+        "model": model,
+        "input": input,
+        "stream": stream,
+    });
+    if !instructions_parts.is_empty() {
+        result["instructions"] = Value::String(instructions_parts.join("\n\n"));
+    }
+    if let Some(max) = body
+        .get("max_completion_tokens")
+        .or_else(|| body.get("max_tokens"))
+        .or_else(|| body.get("max_output_tokens"))
+    {
+        result["max_output_tokens"] = max.clone();
+    }
+    copy_if_present(body, &mut result, "temperature");
+    copy_if_present(body, &mut result, "top_p");
+    if let Some(effort) = extract_responses_effort(body) {
+        result["reasoning"] = json!({ "effort": effort });
+    }
+    if let Some(tools) = body.get("tools").and_then(Value::as_array) {
+        let mut converted_tools: Vec<Value> = Vec::new();
+        for tool in tools {
+            if let Some(func) = tool.get("function").and_then(Value::as_object) {
+                if let Some(name) = func.get("name").and_then(Value::as_str) {
+                    let mut entry = json!({
+                        "type": "function",
+                        "name": name,
+                        "parameters": func.get("parameters").cloned().unwrap_or_else(|| json!({"type": "object", "properties": {}}))
+                    });
+                    if let Some(desc) = func.get("description").and_then(Value::as_str) {
+                        entry["description"] = Value::String(desc.to_string());
+                    }
+                    converted_tools.push(entry);
+                }
+            } else if tool.get("name").and_then(Value::as_str).is_some() {
+                converted_tools.push(tool.clone());
+            }
+        }
+        if !converted_tools.is_empty() {
+            result["tools"] = Value::Array(converted_tools);
+        }
+    }
+    if let Some(choice) = body.get("tool_choice") {
+        if let Some(func_name) = choice.pointer("/function/name").and_then(Value::as_str) {
+            result["tool_choice"] = json!({ "type": "function", "name": func_name });
+        } else {
+            result["tool_choice"] = choice.clone();
+        }
+    }
+    Ok(result)
+}
+
 pub fn chat_response_to_responses(body: &Value, fallback_model: &str) -> Value {
     let message = body
         .pointer("/choices/0/message")

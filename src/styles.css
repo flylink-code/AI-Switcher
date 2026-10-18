@@ -221,11 +221,11 @@ body {
 .usage-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 860px) {
   .usage-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -233,7 +233,7 @@ body {
 
 .usage-metric-tile {
   min-width: 0;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid var(--as-border-card, var(--ant-color-border-secondary));
   background: var(--ant-color-bg-container, #ffffff);
@@ -251,15 +251,21 @@ body {
   gap: 4px;
   font-size: 12px;
   color: var(--color-text-secondary, var(--ant-color-text-secondary));
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .usage-metric-tile-value {
-  font-size: 22px;
+  font-size: clamp(18px, 2vw, 22px);
   font-weight: 600;
   line-height: 1.2;
   color: var(--color-text-primary, var(--ant-color-text));
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .startup-screen {
@@ -700,11 +706,11 @@ body {
   --as-brand-claude: #d97757;
   --as-brand-codex: #28cd41;
   --as-cost: #ff3b30;
-  --as-chart-empty: #e8e8ed;
-  --as-chart-low: #34c75940;
-  --as-chart-mid: #34c75980;
-  --as-chart-high: #34c759c0;
-  --as-chart-peak: #34c759;
+  --as-chart-empty: var(--usage-level-0, #e2e8f0);
+  --as-chart-low: var(--usage-level-1, #10b981);
+  --as-chart-mid: var(--usage-level-2, #3b82f6);
+  --as-chart-high: var(--usage-level-3, #f59e0b);
+  --as-chart-peak: var(--usage-level-4, #e11d48);
 }
 
 :root[data-theme="dark"] {
@@ -718,11 +724,11 @@ body {
   --as-brand-claude: #e88d6f;
   --as-brand-codex: #34d399;
   --as-cost: #f87171;
-  --as-chart-empty: #2a2a2a;
-  --as-chart-low: #14532d;
-  --as-chart-mid: #166534;
-  --as-chart-high: #15803d;
-  --as-chart-peak: #22c55e;
+  --as-chart-empty: var(--usage-level-0, #283242);
+  --as-chart-low: var(--usage-level-1, #34d399);
+  --as-chart-mid: var(--usage-level-2, #60a5fa);
+  --as-chart-high: var(--usage-level-3, #fbbf24);
+  --as-chart-peak: var(--usage-level-4, #fb7185);
 }
 
 /* ===== CC Switch style Provider Cards ===== */
@@ -1434,21 +1440,64 @@ body {
   margin-left: 0;
 }
 
-.usage-toolbar-strip.page-strip {
-  justify-content: space-between;
-  flex-wrap: nowrap;
-  gap: 8px 10px;
+.usage-toolbar-container {
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
 }
 
-.usage-toolbar-strip.page-strip > .cc-header-left {
+.usage-toolbar-strip.page-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 7px 10px;
+}
+
+.usage-toolbar-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.usage-toolbar-row--sources {
+  justify-content: flex-start;
+}
+
+.usage-toolbar-row--controls {
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 5px;
+  border-top: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+}
+
+[data-theme="dark"] .usage-toolbar-row--controls,
+.dark .usage-toolbar-row--controls,
+:root[data-theme="dark"] .usage-toolbar-row--controls {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.usage-toolbar-controls-left {
+  display: flex;
+  align-items: center;
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  gap: 6px;
 }
 
-.usage-toolbar-strip.page-strip > .cc-header-left::-webkit-scrollbar {
-  display: none;
+.usage-toolbar-controls-right {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.usage-period-select--compact.ant-select {
+  display: none !important;
 }
 
 .usage-toolbar-strip .app-segmented-switcher.ant-segmented .ant-segmented-item-label {
@@ -1458,20 +1507,165 @@ body {
   gap: 5px;
 }
 
-.usage-toolbar-strip.page-strip > .cc-header-right {
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
+.usage-source-switcher {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
   gap: 6px;
-  margin-left: auto;
 }
 
-@media (max-width: 820px) {
-  .usage-toolbar-strip.page-strip {
-    flex-wrap: wrap;
+.usage-source-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  gap: 2px;
+  padding: 2px 3px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.08));
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .usage-source-group,
+.dark .usage-source-group,
+:root[data-theme="dark"] .usage-source-group {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.usage-source-group--all {
+  padding: 2px;
+}
+
+.usage-source-group-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-text-tertiary, rgba(0, 0, 0, 0.45));
+  user-select: none;
+  white-space: nowrap;
+  border-right: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.1));
+  margin-right: 1px;
+  line-height: 18px;
+}
+
+[data-theme="dark"] .usage-source-group-tag,
+.dark .usage-source-group-tag,
+:root[data-theme="dark"] .usage-source-group-tag {
+  color: rgba(255, 255, 255, 0.48);
+  border-right-color: rgba(255, 255, 255, 0.12);
+}
+
+.usage-source-group-items {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 1px;
+}
+
+.usage-source-pill {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ant-color-text-secondary, #666);
+  padding: 2px 7px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.usage-source-pill:hover:not(.is-active) {
+  color: var(--ant-color-text, #1d1d1f);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .usage-source-pill:hover:not(.is-active),
+.dark .usage-source-pill:hover:not(.is-active),
+:root[data-theme="dark"] .usage-source-pill:hover:not(.is-active) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.usage-source-pill.is-active {
+  background: #ffffff;
+  color: var(--ant-color-text, #111111);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .usage-source-pill.is-active,
+.dark .usage-source-pill.is-active,
+:root[data-theme="dark"] .usage-source-pill.is-active {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.usage-toolbar-action-btn.ant-btn {
+  padding-inline: 8px;
+}
+
+.usage-toolbar-more-icon {
+  display: none;
+}
+
+/* Stage 1 (< 680px): Hide group text prefixes ("Agent" / "网关" / "统计时间") and compact action buttons */
+@container (max-width: 680px) {
+  .usage-source-group-tag {
+    display: none;
   }
 
-  .usage-toolbar-strip.page-strip > .cc-header-right {
-    margin-left: 0;
+  .usage-toolbar-action-btn .usage-toolbar-btn-text {
+    display: none;
+  }
+
+  .usage-toolbar-action-btn .usage-toolbar-more-icon {
+    display: inline-flex;
+  }
+
+  .usage-toolbar-action-btn.ant-btn {
+    padding-inline: 7px;
+    min-width: 28px;
+  }
+
+  .usage-toolbar-action-btn.ant-btn > .ant-btn-icon {
+    margin-inline-end: 0 !important;
+  }
+}
+
+/* Stage 2 (< 540px): Switch period pills to compact dropdown & show icon-only for inactive source pills */
+@container (max-width: 540px) {
+  .usage-period-group {
+    display: none;
+  }
+
+  .usage-period-select--compact.ant-select {
+    display: inline-flex !important;
+    width: 112px !important;
+  }
+
+  .usage-source-pill:not(.is-active):not(.usage-source-pill--all):not(.usage-period-pill) {
+    padding: 2px 5px;
+  }
+
+  .usage-source-pill:not(.is-active):not(.usage-source-pill--all):not(.usage-period-pill) .usage-source-pill-text {
+    display: none;
   }
 }
 
@@ -2049,8 +2243,8 @@ body {
   font-size: 10px;
   line-height: 1.2;
   font-weight: 600;
-  color: #34c759;
-  background: rgba(52, 199, 89, 0.14);
+  color: var(--as-chart-peak);
+  background: color-mix(in srgb, var(--as-chart-peak) 14%, transparent);
   padding: 1px 5px;
   border-radius: 4px;
   white-space: nowrap;
