@@ -695,10 +695,12 @@ impl CollectedReply {
                 let total = ((percent / 100.0) * context_window as f64)
                     .round()
                     .max(0.0) as i64;
-                let output = estimate_tokens(&self.generated_text()).min(total);
-                self.output_tokens = output;
-                self.input_tokens = total.saturating_sub(output);
-                return;
+                if total > 0 {
+                    let output = estimate_tokens(&self.generated_text()).min(total);
+                    self.output_tokens = output;
+                    self.input_tokens = total.saturating_sub(output);
+                    return;
+                }
             }
         }
         let output = estimate_tokens(&self.generated_text());
@@ -2046,5 +2048,17 @@ mod tests {
         let chat_sse = openai_chat_sse("claude-haiku-4.5", &streamer.collected);
         assert!(chat_sse.contains("\"tool_calls\""));
         assert!(chat_sse.contains("\"finish_reason\":\"tool_calls\""));
+    }
+
+    #[test]
+    fn finalize_usage_falls_back_to_char_estimate_when_tiny_context_percent_rounds_to_zero() {
+        let mut reply = CollectedReply {
+            text: "OK".to_string(),
+            context_percent: Some(0.0001),
+            ..CollectedReply::default()
+        };
+        reply.finalize_usage(200_000, 80);
+        assert!(reply.input_tokens > 0);
+        assert!(reply.output_tokens > 0);
     }
 }

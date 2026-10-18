@@ -23,7 +23,8 @@ use crate::antigravity::map::anthropic::{
 use crate::antigravity::map::args_fix::ToolParamKeys;
 use crate::antigravity::map::list_public_models;
 use crate::antigravity::map::openai::{
-    gemini_to_openai_response, gemini_to_openai_sse_chunk, openai_to_gemini_request,
+    gemini_to_openai_response, gemini_to_openai_sse_chunk_stateful, openai_to_gemini_request,
+    openai_usage_sse_chunk_with_reason, OpenAiChatStreamState,
 };
 use crate::antigravity::map::responses::{
     gemini_to_responses_response, responses_compact_stub, responses_to_gemini_request,
@@ -1267,6 +1268,7 @@ async fn stream_response(
             protocol,
             anthropic: matches!(protocol, WireProtocol::Anthropic)
                 .then(AnthropicStreamState::default),
+            openai_chat: OpenAiChatStreamState::default(),
             initial_flushed: false,
             finished: false,
             db,
@@ -1403,6 +1405,8 @@ struct StreamState {
     finished: bool,
     /// Anthropic 协议的跨 chunk 块状态（thinking/text 块开闭、message 生命周期）。
     anthropic: Option<AnthropicStreamState>,
+    /// OpenAI `/v1/chat/completions` 流式跨 chunk 状态（并行工具调用 index 递增与 finish_reason）。
+    openai_chat: OpenAiChatStreamState,
     db: Arc<Database>,
     log_id: Option<String>,
     account_id: Option<String>,
@@ -1511,7 +1515,8 @@ impl StreamState {
                     }
                     out
                 }
-                WireProtocol::OpenAiChat => sse_data(&gemini_to_openai_sse_chunk(
+                WireProtocol::OpenAiChat => sse_data(&gemini_to_openai_sse_chunk_stateful(
+                    &mut self.openai_chat,
                     &self.model,
                     &gemini,
                     self.session_key.as_deref(),
@@ -1542,10 +1547,16 @@ impl StreamState {
             WireProtocol::OpenAiChat => {
                 let mut trailer = String::new();
                 if self.last_input > 0 || self.last_output > 0 {
-                    let chunk = crate::antigravity::map::openai::openai_usage_sse_chunk(
+                    let finish_reason = if self.openai_chat.saw_tool_calls {
+                        "tool_calls"
+                    } else {
+                        "stop"
+                    };
+                    let chunk = openai_usage_sse_chunk_with_reason(
                         &self.model,
                         self.last_input,
                         self.last_output,
+                        finish_reason,
                     );
                     trailer.push_str(&format!("data: {chunk}\n\n"));
                 }
@@ -2377,6 +2388,7 @@ mod tests {
             last_cached: 0,
             usage_flushed: false,
             responses_encoder: None,
+            openai_chat: OpenAiChatStreamState::default(),
             _limiter_permit: crate::antigravity::limiter::LimiterPermit::empty(),
         };
         state.note_usage(&json!({

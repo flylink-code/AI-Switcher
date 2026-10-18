@@ -412,14 +412,46 @@ pub fn gemini_to_openai_response(
     })
 }
 
+/// Cross-chunk state for OpenAI `/v1/chat/completions` SSE streaming.
+/// Tracks monotonically increasing `tool_calls[].index` across multiple
+/// Gemini chunks and remembers whether any tool call was emitted in the turn
+/// so trailing chunks keep `finish_reason: "tool_calls"`.
+#[derive(Debug, Default)]
+pub struct OpenAiChatStreamState {
+    pub next_tool_index: usize,
+    pub saw_tool_calls: bool,
+}
+
 pub fn gemini_to_openai_sse_chunk(
     model: &str,
     gemini_chunk: &Value,
     session_key: Option<&str>,
     tool_params: &ToolParamKeys,
 ) -> Value {
-    let (text, reasoning_content, tool_calls, finish_reason) =
-        extract_assistant(gemini_chunk, session_key, tool_params);
+    let mut state = OpenAiChatStreamState::default();
+    gemini_to_openai_sse_chunk_stateful(&mut state, model, gemini_chunk, session_key, tool_params)
+}
+
+pub fn gemini_to_openai_sse_chunk_stateful(
+    state: &mut OpenAiChatStreamState,
+    model: &str,
+    gemini_chunk: &Value,
+    session_key: Option<&str>,
+    tool_params: &ToolParamKeys,
+) -> Value {
+    let (text, reasoning_content, tool_calls, mut finish_reason) =
+        extract_assistant_with_tool_offset(
+            gemini_chunk,
+            session_key,
+            tool_params,
+            &mut state.next_tool_index,
+        );
+    if !tool_calls.is_empty() {
+        state.saw_tool_calls = true;
+    }
+    if state.saw_tool_calls && finish_reason == "stop" {
+        finish_reason = "tool_calls".into();
+    }
     let mut delta = json!({ "role": "assistant" });
     if !reasoning_content.is_empty() {
         delta["reasoning_content"] = json!(reasoning_content);
@@ -450,6 +482,15 @@ pub fn gemini_to_openai_sse_chunk(
 
 /// Final `include_usage` chunk emitted before `data: [DONE]`.
 pub fn openai_usage_sse_chunk(model: &str, input: i64, output: i64) -> Value {
+    openai_usage_sse_chunk_with_reason(model, input, output, "stop")
+}
+
+pub fn openai_usage_sse_chunk_with_reason(
+    model: &str,
+    input: i64,
+    output: i64,
+    finish_reason: &str,
+) -> Value {
     let usage = GeminiUsage {
         input,
         output,
@@ -463,7 +504,7 @@ pub fn openai_usage_sse_chunk(model: &str, input: i64, output: i64) -> Value {
         "choices": [{
             "index": 0,
             "delta": {},
-            "finish_reason": "stop",
+            "finish_reason": finish_reason,
         }],
         "usage": usage.openai_usage(),
     })
@@ -473,6 +514,16 @@ pub(crate) fn extract_assistant(
     gemini: &Value,
     session_key: Option<&str>,
     tool_params: &ToolParamKeys,
+) -> (String, String, Vec<Value>, String) {
+    let mut next_tool_index = 0usize;
+    extract_assistant_with_tool_offset(gemini, session_key, tool_params, &mut next_tool_index)
+}
+
+pub(crate) fn extract_assistant_with_tool_offset(
+    gemini: &Value,
+    session_key: Option<&str>,
+    tool_params: &ToolParamKeys,
+    next_tool_index: &mut usize,
 ) -> (String, String, Vec<Value>, String) {
     let mut text = String::new();
     let mut reasoning_content = String::new();
@@ -489,7 +540,7 @@ pub(crate) fn extract_assistant(
             .and_then(|c| c.get("parts"))
             .and_then(Value::as_array)
         {
-            for (index, part) in parts.iter().enumerate() {
+            for part in parts.iter() {
                 let signature = part
                     .get("thoughtSignature")
                     .or_else(|| part.get("thought_signature"))
@@ -511,6 +562,8 @@ pub(crate) fn extract_assistant(
                     text.push_str(chunk);
                 }
                 if let Some(fc) = part.get("functionCall") {
+                    let tool_index = *next_tool_index;
+                    *next_tool_index += 1;
                     let id = fc
                         .get("id")
                         .and_then(Value::as_str)
@@ -530,7 +583,7 @@ pub(crate) fn extract_assistant(
                     ));
                     tool_calls.push(json!({
                         "id": id,
-                        "index": index,
+                        "index": tool_index,
                         "type": "function",
                         "function": {
                             "name": name,
@@ -901,6 +954,68 @@ mod tests {
             parts.request["contents"][1]["parts"][0]["thoughtSignature"],
             json!("real-tool-sig")
         );
+    }
+
+    #[test]
+    fn parallel_tool_calls_across_chunks_and_after_thought_keep_monotonic_index() {
+        let mut state = OpenAiChatStreamState::default();
+        let chunk1 = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "thinking" },
+                    { "functionCall": { "id": "call_1", "name": "get_weather", "args": { "city": "Beijing" } } }
+                ] }
+            }]
+        });
+        let chunk2 = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "functionCall": { "id": "call_2", "name": "get_weather", "args": { "city": "Shanghai" } } }
+                ] }
+            }]
+        });
+        let chunk3 = json!({
+            "candidates": [{
+                "content": { "parts": [] },
+                "finishReason": "STOP"
+            }]
+        });
+        let sse1 = gemini_to_openai_sse_chunk_stateful(
+            &mut state,
+            "gemini-3.8-flash-low",
+            &chunk1,
+            None,
+            &ToolParamKeys::new(),
+        );
+        let sse2 = gemini_to_openai_sse_chunk_stateful(
+            &mut state,
+            "gemini-3.8-flash-low",
+            &chunk2,
+            None,
+            &ToolParamKeys::new(),
+        );
+        let sse3 = gemini_to_openai_sse_chunk_stateful(
+            &mut state,
+            "gemini-3.8-flash-low",
+            &chunk3,
+            None,
+            &ToolParamKeys::new(),
+        );
+        assert_eq!(sse1["choices"][0]["delta"]["tool_calls"][0]["index"], 0);
+        assert_eq!(sse2["choices"][0]["delta"]["tool_calls"][0]["index"], 1);
+        assert_eq!(sse3["choices"][0]["finish_reason"], "tool_calls");
+
+        let trailer = openai_usage_sse_chunk_with_reason(
+            "gemini-3.8-flash-low",
+            100,
+            25,
+            if state.saw_tool_calls {
+                "tool_calls"
+            } else {
+                "stop"
+            },
+        );
+        assert_eq!(trailer["choices"][0]["finish_reason"], "tool_calls");
     }
 
     #[test]
