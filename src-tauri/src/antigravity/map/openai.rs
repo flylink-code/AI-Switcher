@@ -200,6 +200,18 @@ pub fn openai_to_gemini_request(
         }
     }
     super::normalize_gemini_contents(&mut contents);
+    if model.to_ascii_lowercase().starts_with("gemini-")
+        && contents
+            .last()
+            .and_then(|m| m.get("role"))
+            .and_then(Value::as_str)
+            == Some("model")
+    {
+        contents.push(json!({
+            "role": "user",
+            "parts": [{ "text": "Continue." }]
+        }));
+    }
 
     if contents.is_empty() {
         return Err("messages 不能为空".into());

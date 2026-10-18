@@ -323,7 +323,8 @@ pub fn apply_codex_oauth_response_body(value: &mut Value) {
     }
 }
 
-/// Strip non-standard fields from Codex Responses request bodies to avoid upstream 400 errors.
+/// Strip non-standard fields from Codex Responses request bodies to avoid upstream 400 errors,
+/// and repair unpaired `function_call` / `function_call_output` items in `input`.
 pub fn sanitize_codex_responses_body(value: &mut Value) {
     let Some(object) = value.as_object_mut() else {
         return;
@@ -333,6 +334,162 @@ pub fn sanitize_codex_responses_body(value: &mut Value) {
     object.remove("prompt_cache_key");
     object.remove("wire_api");
     object.remove("auto_review");
+
+    let has_prev_resp = object
+        .get("previous_response_id")
+        .and_then(Value::as_str)
+        .is_some_and(|s| !s.trim().is_empty());
+    if has_prev_resp {
+        return;
+    }
+    let Some(items) = object.get_mut("input").and_then(Value::as_array_mut) else {
+        return;
+    };
+    let mut all_output_ids = std::collections::HashSet::new();
+    for item in items.iter() {
+        if item.get("type").and_then(Value::as_str) == Some("function_call_output") {
+            if let Some(cid) = item
+                .get("call_id")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+            {
+                all_output_ids.insert(cid.to_string());
+            }
+        }
+    }
+    let mut seen_call_ids = std::collections::HashSet::new();
+    let mut pending_missing_outputs: Vec<String> = Vec::new();
+    let mut rebuilt = Vec::with_capacity(items.len() + 2);
+    for item in items.drain(..) {
+        let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
+        if item_type != "function_call" && !pending_missing_outputs.is_empty() {
+            for cid in pending_missing_outputs.drain(..) {
+                rebuilt.push(json!({
+                    "type": "function_call_output",
+                    "call_id": cid,
+                    "output": "[Tool execution was cancelled or skipped before returning a result]"
+                }));
+            }
+        }
+        match item_type {
+            "function_call" => {
+                if let Some(cid) = item
+                    .get("call_id")
+                    .or_else(|| item.get("id"))
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    seen_call_ids.insert(cid.to_string());
+                    if !all_output_ids.contains(cid) {
+                        pending_missing_outputs.push(cid.to_string());
+                    }
+                }
+                rebuilt.push(item);
+            }
+            "function_call_output" => {
+                if let Some(cid) = item
+                    .get("call_id")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    if !seen_call_ids.contains(cid) {
+                        seen_call_ids.insert(cid.to_string());
+                        rebuilt.push(json!({
+                            "type": "function_call",
+                            "call_id": cid,
+                            "name": "tool",
+                            "arguments": "{}"
+                        }));
+                    }
+                }
+                rebuilt.push(item);
+            }
+            _ => rebuilt.push(item),
+        }
+    }
+    *items = rebuilt;
+}
+
+/// Ensure OpenAI Chat Completions `messages` invariants:
+/// 1. Every historical `assistant` message with `tool_calls` (followed by another message or partial
+///    `tool` results) is immediately followed by matching `role: "tool"` messages for each `tool_call.id`.
+/// 2. Orphan `role: "tool"` messages without a preceding matching `assistant` `tool_calls` are
+///    converted to `role: "user"` text messages so upstream OpenAI/DeepSeek/Claude gateways do not 400.
+pub fn sanitize_openai_chat_messages(messages: &mut Vec<Value>) {
+    let mut rebuilt: Vec<Value> = Vec::with_capacity(messages.len() + 2);
+    let mut i = 0;
+    while i < messages.len() {
+        let role = messages[i]
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user");
+        if role == "assistant" {
+            let expected_ids: Vec<String> = messages[i]
+                .get("tool_calls")
+                .and_then(Value::as_array)
+                .map(|calls| {
+                    calls
+                        .iter()
+                        .filter_map(|c| {
+                            c.get("id")
+                                .and_then(Value::as_str)
+                                .filter(|s| !s.is_empty())
+                                .map(str::to_string)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            rebuilt.push(messages[i].clone());
+            i += 1;
+            if !expected_ids.is_empty() {
+                let mut tool_by_id = std::collections::HashMap::new();
+                while i < messages.len()
+                    && messages[i].get("role").and_then(Value::as_str) == Some("tool")
+                {
+                    if let Some(tid) = messages[i]
+                        .get("tool_call_id")
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                    {
+                        tool_by_id
+                            .entry(tid.to_string())
+                            .or_insert_with(|| messages[i].clone());
+                    }
+                    i += 1;
+                }
+                if i < messages.len() || !tool_by_id.is_empty() {
+                    for expected_id in expected_ids {
+                        if let Some(msg) = tool_by_id.remove(&expected_id) {
+                            rebuilt.push(msg);
+                        } else {
+                            rebuilt.push(json!({
+                                "role": "tool",
+                                "tool_call_id": expected_id,
+                                "content": "[Tool execution was cancelled or skipped before returning a result]"
+                            }));
+                        }
+                    }
+                }
+            }
+        } else if role == "tool" {
+            let content = messages[i]
+                .get("content")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            if !content.is_empty() {
+                rebuilt.push(json!({
+                    "role": "user",
+                    "content": content
+                }));
+            }
+            i += 1;
+        } else {
+            rebuilt.push(messages[i].clone());
+            i += 1;
+        }
+    }
+    *messages = rebuilt;
 }
 
 /// Model id written back to the client. A non-empty client id always wins so
@@ -2395,5 +2552,44 @@ mod tests {
         });
         let none_chat = anthropic_to_openai_chat(&none_req, "gpt-5.6-luna", false, None);
         assert_eq!(none_chat["tool_choice"], json!("none"));
+    }
+
+    #[test]
+    fn sanitize_responses_and_chat_repair_interrupted_and_orphan_tools() {
+        let mut resp = json!({
+            "model": "gpt-5.6-luna",
+            "input": [
+                { "type": "function_call_output", "call_id": "orphan_1", "output": "old" },
+                { "type": "message", "role": "user", "content": [{ "type": "input_text", "text": "run" }] },
+                { "type": "function_call", "call_id": "interrupted_1", "name": "bash", "arguments": "{}" },
+                { "type": "message", "role": "user", "content": [{ "type": "input_text", "text": "cancel" }] }
+            ]
+        });
+        sanitize_codex_responses_body(&mut resp);
+        let input = resp["input"].as_array().unwrap();
+        assert_eq!(input[0]["type"], "function_call");
+        assert_eq!(input[0]["call_id"], "orphan_1");
+        assert_eq!(input[1]["type"], "function_call_output");
+        assert_eq!(input[1]["call_id"], "orphan_1");
+        assert_eq!(input[3]["type"], "function_call");
+        assert_eq!(input[3]["call_id"], "interrupted_1");
+        assert_eq!(input[4]["type"], "function_call_output");
+        assert_eq!(input[4]["call_id"], "interrupted_1");
+
+        let mut chat_msgs = vec![
+            json!({ "role": "tool", "tool_call_id": "orphan_c1", "content": "old_out" }),
+            json!({
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{ "id": "int_c1", "type": "function", "function": { "name": "bash", "arguments": "{}" } }]
+            }),
+            json!({ "role": "user", "content": "cancel" }),
+        ];
+        sanitize_openai_chat_messages(&mut chat_msgs);
+        assert_eq!(chat_msgs[0]["role"], "user");
+        assert_eq!(chat_msgs[1]["role"], "assistant");
+        assert_eq!(chat_msgs[2]["role"], "tool");
+        assert_eq!(chat_msgs[2]["tool_call_id"], "int_c1");
+        assert_eq!(chat_msgs[3]["role"], "user");
     }
 }

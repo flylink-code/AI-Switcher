@@ -105,6 +105,94 @@ pub fn anthropic_response_to_responses_compact(body: &Value, fallback_model: &st
     compaction_envelope(id, unix_now(), model, &text, body.get("usage").cloned())
 }
 
+/// Convert a Responses compact request into an upstream `/v1/responses` fallback body
+/// for OpenAiResponses relays that do not implement `/v1/responses/compact`.
+pub fn compact_request_to_openai_responses(body: &Value, model: &str) -> AppResult<Value> {
+    reject_streaming_compact(body)?;
+    let mut result = body.clone();
+    result["model"] = json!(model);
+    result["stream"] = Value::Bool(false);
+    super::convert::sanitize_codex_responses_body(&mut result);
+    Ok(result)
+}
+
+/// Wrap an OpenAI `/v1/responses` JSON response as `response.compaction`.
+pub fn responses_response_to_responses_compact(body: &Value, fallback_model: &str) -> Value {
+    if body.get("object").and_then(Value::as_str) == Some("response.compaction") {
+        return body.clone();
+    }
+    let id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("resp_{}", Uuid::new_v4().simple()));
+    let created = body
+        .get("created_at")
+        .or_else(|| body.get("created"))
+        .and_then(Value::as_i64)
+        .unwrap_or_else(unix_now);
+    let model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(fallback_model);
+    let text = body
+        .get("output")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    item.get("content")
+                        .and_then(Value::as_array)
+                        .map(|parts| {
+                            parts
+                                .iter()
+                                .filter_map(|part| {
+                                    if matches!(
+                                        part.get("type").and_then(Value::as_str),
+                                        Some("output_text" | "text")
+                                    ) {
+                                        part.get("text").and_then(Value::as_str)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                                .join("")
+                        })
+                })
+                .collect::<Vec<_>>()
+                .join("")
+        })
+        .unwrap_or_default();
+    compaction_envelope(id, created, model, &text, body.get("usage").cloned())
+}
+
+pub fn supports_native_responses_compact(provider: &crate::provider::Provider) -> bool {
+    if provider.protocol_type != ProtocolType::OpenAiResponses {
+        return false;
+    }
+    provider.is_codex_oauth()
+        || provider.is_antigravity()
+        || provider
+            .base_url
+            .to_ascii_lowercase()
+            .contains("api.openai.com")
+}
+
+pub fn compact_upstream_path_for_provider(provider: &crate::provider::Provider) -> &'static str {
+    match provider.protocol_type {
+        ProtocolType::OpenAiResponses if supports_native_responses_compact(provider) => {
+            "/v1/responses/compact"
+        }
+        ProtocolType::OpenAiResponses => "/v1/responses",
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => "/v1/chat/completions",
+        ProtocolType::Anthropic => "/v1/messages",
+    }
+}
+
 pub fn compact_upstream_path(protocol: ProtocolType) -> &'static str {
     match protocol {
         ProtocolType::OpenAiResponses => "/v1/responses/compact",
@@ -313,5 +401,23 @@ mod tests {
         let anthropic = compact_request_to_anthropic(&request, "claude-sonnet-5").unwrap();
         assert_eq!(anthropic["stream"], false);
         assert_eq!(anthropic["messages"][0]["role"], "user");
+
+        let resp_compact = responses_response_to_responses_compact(
+            &json!({
+                "id": "resp_1",
+                "object": "response",
+                "model": "gpt-5.6-luna",
+                "output": [{
+                    "type": "message",
+                    "content": [{ "type": "output_text", "text": "compacted summary" }]
+                }]
+            }),
+            "gpt-5.6-luna",
+        );
+        assert_eq!(resp_compact["object"], "response.compaction");
+        assert_eq!(
+            resp_compact["output"][0]["content"][0]["text"],
+            "compacted summary"
+        );
     }
 }

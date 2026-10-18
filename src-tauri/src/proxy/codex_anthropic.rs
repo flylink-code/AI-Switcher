@@ -133,15 +133,41 @@ pub(crate) fn ensure_deepseek_assistant_thinking(
         let Some(blocks) = msg.get_mut("content").and_then(Value::as_array_mut) else {
             continue;
         };
+        // DeepSeek's `/anthropic` endpoint rejects `redacted_thinking` with HTTP 422
+        // ("unknown variant `redacted_thinking`") and rejects empty thinking strings.
+        let has_explicit_thinking = blocks
+            .iter()
+            .any(|b| b.get("type").and_then(Value::as_str) == Some("thinking"));
+        let mut converted_redacted = false;
+        let mut cleaned = Vec::with_capacity(blocks.len());
+        for mut b in blocks.drain(..) {
+            match b.get("type").and_then(Value::as_str) {
+                Some("redacted_thinking") => {
+                    if !has_explicit_thinking && !converted_redacted {
+                        converted_redacted = true;
+                        cleaned.push(json!({ "type": "thinking", "thinking": "..." }));
+                    }
+                }
+                Some("thinking") => {
+                    let is_empty = b
+                        .get("thinking")
+                        .and_then(Value::as_str)
+                        .is_none_or(|s| s.trim().is_empty());
+                    if is_empty {
+                        b["thinking"] = json!("...");
+                    }
+                    cleaned.push(b);
+                }
+                _ => cleaned.push(b),
+            }
+        }
+        *blocks = cleaned;
         let has_tool_use = blocks
             .iter()
             .any(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"));
-        let has_thinking = blocks.iter().any(|b| {
-            matches!(
-                b.get("type").and_then(Value::as_str),
-                Some("thinking" | "redacted_thinking")
-            )
-        });
+        let has_thinking = blocks
+            .iter()
+            .any(|b| b.get("type").and_then(Value::as_str) == Some("thinking"));
         if has_tool_use && !has_thinking {
             blocks.insert(0, json!({"type": "thinking", "thinking": "..."}));
         }
@@ -488,6 +514,13 @@ pub(crate) fn sanitize_anthropic_messages(messages: &mut Vec<Value>) {
             }
         }
         i += 1;
+    }
+
+    if merged.is_empty() {
+        merged.push(json!({
+            "role": "user",
+            "content": [{ "type": "text", "text": "..." }]
+        }));
     }
 
     *messages = merged;
@@ -1791,10 +1824,25 @@ mod tests {
             "model": "deepseek-v4-flash",
             "max_tokens": 64,
             "tool_choice": { "type": "tool", "name": "ping_host" },
-            "messages": [{ "role": "user", "content": "ping" }]
+            "messages": [
+                { "role": "user", "content": "ping" },
+                {
+                    "role": "assistant",
+                    "content": [
+                        { "type": "redacted_thinking", "data": "abc" },
+                        { "type": "thinking", "thinking": "" },
+                        { "type": "text", "text": "pong" }
+                    ]
+                }
+            ]
         });
         ensure_deepseek_assistant_thinking(&mut body, "deepseek-v4-flash", None);
         assert_eq!(body["tool_choice"], json!({ "type": "any" }));
         assert_eq!(body["max_tokens"], json!(4096));
+        let assistant_blocks = body["messages"][1]["content"].as_array().unwrap();
+        assert!(assistant_blocks
+            .iter()
+            .all(|b| b["type"] != "redacted_thinking"));
+        assert_eq!(assistant_blocks[0]["thinking"], "...");
     }
 }

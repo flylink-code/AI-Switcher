@@ -92,35 +92,20 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
 
     if !smart_gateway {
         if let Some(messages) = value.get_mut("messages").and_then(Value::as_array_mut) {
-            for msg in messages.iter_mut() {
-                if msg.get("role").and_then(Value::as_str) == Some("assistant") {
-                    continue;
-                }
-                let Some(blocks) = msg.get_mut("content").and_then(Value::as_array_mut) else {
-                    continue;
-                };
-                let has_tool_result = blocks.iter().any(|b| {
-                    matches!(
-                        b.get("type").and_then(Value::as_str),
-                        Some("tool_result" | "tool_search_tool_result")
-                    )
-                });
-                if has_tool_result && blocks.len() > 1 {
-                    let mut tool_results = Vec::with_capacity(blocks.len());
-                    let mut others = Vec::new();
-                    for b in blocks.drain(..) {
-                        if matches!(
-                            b.get("type").and_then(Value::as_str),
-                            Some("tool_result" | "tool_search_tool_result")
-                        ) {
-                            tool_results.push(b);
-                        } else {
-                            others.push(b);
-                        }
-                    }
-                    tool_results.extend(others);
-                    *blocks = tool_results;
-                }
+            let needs_sanitize = messages.iter().any(|msg| {
+                msg.get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|blocks| {
+                        blocks.iter().any(|b| {
+                            matches!(
+                                b.get("type").and_then(Value::as_str),
+                                Some("tool_use" | "tool_result" | "tool_search_tool_result")
+                            )
+                        })
+                    })
+            });
+            if needs_sanitize {
+                crate::proxy::codex_anthropic::sanitize_anthropic_messages(messages);
             }
         }
         let effective_model = value
@@ -207,6 +192,7 @@ fn encode_upstream_request(
                 stream,
             );
             overlay_legacy_thinking(&mut request, incoming, stream, provider, true);
+            convert::sanitize_codex_responses_body(&mut request);
             if provider.is_codex_oauth() {
                 convert::apply_codex_oauth_response_body(&mut request);
             }

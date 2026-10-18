@@ -378,7 +378,16 @@ pub fn classify_failure(
         };
     }
 
-    // 5. Transient server errors (5xx)
+    // 5. Relay-wrapped client validation errors (500/502 carrying upstream 400 payload rejection)
+    if status >= 500 && is_relay_client_validation_error(code.as_deref(), err_type.as_deref(), msg.as_deref(), body_str) {
+        return FailureClassification {
+            kind: FailureKind::ClientErrorIgnored,
+            cooldown: None,
+            safe_description: None,
+        };
+    }
+
+    // 6. Transient server errors (5xx)
     if status >= 500 {
         return FailureClassification {
             kind: FailureKind::Transient,
@@ -387,10 +396,49 @@ pub fn classify_failure(
         };
     }
 
-    // 6. Other client errors (405, 422, etc.)
+    // 7. Other client errors (405, 422, etc.)
     FailureClassification {
         kind: FailureKind::ClientErrorIgnored,
         cooldown: None,
         safe_description: None,
     }
+}
+
+fn is_relay_client_validation_error(
+    code: Option<&str>,
+    err_type: Option<&str>,
+    msg: Option<&str>,
+    body: &str,
+) -> bool {
+    if let Some(t) = err_type {
+        let lower = t.to_ascii_lowercase();
+        if lower == "invalid_request_error" || lower == "validation_error" {
+            return true;
+        }
+    }
+    if let Some(c) = code {
+        let lower = c.to_ascii_lowercase();
+        if lower == "invalid_request_error"
+            || lower == "context_length_exceeded"
+            || lower == "string_above_max_length"
+        {
+            return true;
+        }
+    }
+    let check = |text: &str| -> bool {
+        let lower = text.to_ascii_lowercase();
+        lower.contains("no tool output found for function call")
+            || lower.contains("no tool call found for function call output")
+            || lower.contains("requests ending with a model turn are not supported")
+            || lower.contains("context_length_exceeded")
+            || lower.contains("string_above_max_length")
+            || lower.contains("unknown variant")
+            || lower.contains("thinking mode does not support this tool_choice")
+    };
+    if let Some(m) = msg {
+        if check(m) {
+            return true;
+        }
+    }
+    check(body)
 }

@@ -26,6 +26,7 @@ pub fn responses_to_chat_completions_body(body: &Value) -> Result<Value, String>
         .get("input")
         .ok_or_else(|| "Responses 请求缺少 input 字段".to_string())?;
     messages.extend(responses_input_to_chat_messages(input)?);
+    super::convert::sanitize_openai_chat_messages(&mut messages);
     if messages.is_empty() {
         return Err("Responses 请求未包含可转换的消息".into());
     }

@@ -402,6 +402,7 @@ fn build_chat(request: &Request) -> Value {
             messages.extend(tool_results);
         }
     }
+    crate::proxy::convert::sanitize_openai_chat_messages(&mut messages);
     let mut result = json!({
         "model": request.model,
         "messages": messages,

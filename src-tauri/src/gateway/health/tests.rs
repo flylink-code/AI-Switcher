@@ -454,3 +454,14 @@ fn test_min_cooldown_remaining() {
     assert!(secs.is_some());
     assert!(secs.unwrap() > 0 && secs.unwrap() <= 5);
 }
+
+#[test]
+fn test_relay_502_client_validation_error_is_ignored_not_transient() {
+    let classification = classify_failure(
+        502,
+        None,
+        Some(r#"{"error":{"message":"No tool output found for function call fc_int_1.","type":"upstream_error"}}"#),
+    );
+    assert_eq!(classification.kind, FailureKind::ClientErrorIgnored);
+    assert_eq!(classification.cooldown, None);
+}

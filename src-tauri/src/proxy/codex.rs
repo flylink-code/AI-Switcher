@@ -695,6 +695,17 @@ pub async fn codex_proxy_handler(
                         response_bytes
                     }
                 }
+                Some(CompactFallback::Responses) => {
+                    if let Ok(upstream_json) = serde_json::from_slice::<Value>(&response_bytes) {
+                        let compact = codex_compact::responses_response_to_responses_compact(
+                            &upstream_json,
+                            provider.model.trim(),
+                        );
+                        Bytes::from(serde_json::to_vec(&compact).unwrap_or_default())
+                    } else {
+                        response_bytes
+                    }
+                }
                 _ => {
                     if let Ok(value) = serde_json::from_slice::<Value>(&response_bytes) {
                         if route.contains("chat/completions")
@@ -934,6 +945,7 @@ struct PreparedCodexUpstream {
 enum CompactFallback {
     Chat,
     Anthropic,
+    Responses,
 }
 
 fn should_bridge_responses_to_chat(protocol: ProtocolType, route: &str, force_chat: bool) -> bool {
@@ -974,7 +986,7 @@ fn prepare_codex_upstream(
         !is_compact && should_bridge_responses_to_chat(provider.protocol_type, route, force_chat);
 
     let path = if is_compact {
-        codex_compact::compact_upstream_path(provider.protocol_type).to_string()
+        codex_compact::compact_upstream_path_for_provider(provider).to_string()
     } else if is_anthropic_upstream {
         "/v1/messages".to_string()
     } else if (is_chat_completions_route && !is_chat_to_responses_bridge) || wants_chat_bridge {
@@ -1031,11 +1043,32 @@ fn prepare_codex_upstream(
             .filter(|model| !model.trim().is_empty())
             .unwrap_or(provider.model.trim());
         match provider.protocol_type {
-            ProtocolType::OpenAiResponses => (
-                serde_json::to_vec(&parsed).unwrap_or_else(|_| body.to_vec()),
-                false,
-                None,
-            ),
+            ProtocolType::OpenAiResponses
+                if codex_compact::supports_native_responses_compact(provider) =>
+            {
+                convert::sanitize_codex_responses_body(&mut parsed);
+                (
+                    serde_json::to_vec(&parsed).unwrap_or_else(|_| body.to_vec()),
+                    false,
+                    None,
+                )
+            }
+            ProtocolType::OpenAiResponses => {
+                let responses_req = match codex_compact::compact_request_to_openai_responses(
+                    &parsed,
+                    requested_model,
+                ) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
+                    }
+                };
+                (
+                    serde_json::to_vec(&responses_req).unwrap_or_default(),
+                    false,
+                    Some(CompactFallback::Responses),
+                )
+            }
             ProtocolType::OpenAiChat | ProtocolType::Proxy => {
                 let mut chat =
                     match codex_compact::compact_request_to_openai_chat(&parsed, requested_model) {
@@ -1139,6 +1172,9 @@ fn prepare_codex_upstream(
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
+        if let Some(messages) = parsed.get_mut("messages").and_then(Value::as_array_mut) {
+            convert::sanitize_openai_chat_messages(messages);
+        }
         let stream = parsed
             .get("stream")
             .and_then(Value::as_bool)
