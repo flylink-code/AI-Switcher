@@ -99,10 +99,20 @@ pub async fn anthropic_messages(
         } else {
             client_model.as_str()
         };
+        let log_model = if crate::proxy::desktop_alias::is_desktop_alias(model) {
+            payload
+                .get("model")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|v| !v.is_empty() && !crate::proxy::desktop_alias::is_desktop_alias(v))
+                .unwrap_or("claude-haiku-4-5")
+        } else {
+            model
+        };
         let _ = usage_log::insert_request(
             &state.db,
             None,
-            model,
+            log_model,
             Some(StatusCode::OK.as_u16() as i64),
             Instant::now(),
             WireProtocol::Anthropic,

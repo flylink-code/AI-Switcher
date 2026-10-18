@@ -96,6 +96,27 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
             .and_then(Value::as_str)
             .unwrap_or(&provider.model)
             .to_string();
+        let is_deepseek = effective_model
+            .trim()
+            .to_ascii_lowercase()
+            .contains("deepseek")
+            || provider.base_url.to_ascii_lowercase().contains("deepseek");
+        if is_deepseek {
+            let thinking_disabled = value
+                .pointer("/thinking/type")
+                .and_then(Value::as_str)
+                .is_some_and(|t| t.eq_ignore_ascii_case("disabled"))
+                || provider
+                    .thinking_config
+                    .as_ref()
+                    .is_some_and(|cfg| cfg.is_disabled());
+            if !thinking_disabled {
+                let cur_max = value.get("max_tokens").and_then(Value::as_u64).unwrap_or(0);
+                if cur_max > 0 && cur_max < 4096 {
+                    value["max_tokens"] = serde_json::json!(4096);
+                }
+            }
+        }
         crate::proxy::codex_anthropic::ensure_deepseek_assistant_thinking(
             &mut value,
             &effective_model,

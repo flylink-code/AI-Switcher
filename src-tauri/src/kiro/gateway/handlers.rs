@@ -238,6 +238,17 @@ async fn handle(
         if upstream_ok && prepared.stream {
             use futures_util::StreamExt;
             let client_model = client_model(&headers, &prepared.client_model);
+            let log_model = if crate::proxy::desktop_alias::is_desktop_alias(&client_model) {
+                prepared.client_model.clone()
+            } else {
+                client_model.clone()
+            };
+            let effort_diag = crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                &incoming,
+                Some(&log_model),
+                None,
+            )
+            .map(|e| format!("effort={e}"));
             let mut byte_stream = http_resp.bytes_stream();
             let mut decoder = FrameDecoder::new();
             let mut streamer = map::KiroSseStreamer::new(protocol, &client_model);
@@ -377,13 +388,13 @@ async fn handle(
                 crate::kiro::usage_log::insert_request(
                     &state.db,
                     Some(&account.id),
-                    &client_model,
+                    &log_model,
                     Some(200),
                     started,
                     protocol,
                     true,
                     None,
-                    None,
+                    effort_diag.as_deref(),
                     Some(&headers),
                 )
             } else {
@@ -659,6 +670,17 @@ async fn handle(
             return error_response(protocol, status, &truncated);
         }
         let client_model = client_model(&headers, &prepared.client_model);
+        let log_model = if crate::proxy::desktop_alias::is_desktop_alias(&client_model) {
+            prepared.client_model.clone()
+        } else {
+            client_model.clone()
+        };
+        let effort_diag = crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+            &incoming,
+            Some(&log_model),
+            None,
+        )
+        .map(|e| format!("effort={e}"));
         collected.finalize_usage(
             crate::kiro::models::context_window(&prepared.backend_model),
             body.len(),
@@ -667,13 +689,13 @@ async fn handle(
             if let Some(id) = crate::kiro::usage_log::insert_request(
                 &state.db,
                 Some(&account.id),
-                &client_model,
+                &log_model,
                 Some(200),
                 started,
                 protocol,
                 prepared.stream,
                 None,
-                None,
+                effort_diag.as_deref(),
                 Some(&headers),
             ) {
                 crate::kiro::usage_log::write_usage(

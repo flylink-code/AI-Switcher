@@ -979,6 +979,28 @@ pub fn openai_chat_sse(client_model: &str, reply: &CollectedReply) -> String {
         "choices": [{"index": 0, "delta": {"role": "assistant", "content": reply.text}, "finish_reason": null}]
     });
     out.push_str(&format!("data: {chunk}\n\n"));
+    if !reply.tools.is_empty() {
+        let tool_calls: Vec<Value> = reply
+            .tools
+            .iter()
+            .enumerate()
+            .map(|(idx, tool)| {
+                json!({
+                    "index": idx,
+                    "id": tool.id,
+                    "type": "function",
+                    "function": {"name": tool.name, "arguments": tool.input}
+                })
+            })
+            .collect();
+        let tool_chunk = json!({
+            "id": id,
+            "object": "chat.completion.chunk",
+            "model": client_model,
+            "choices": [{"index": 0, "delta": {"tool_calls": tool_calls}, "finish_reason": null}]
+        });
+        out.push_str(&format!("data: {tool_chunk}\n\n"));
+    }
     let done = json!({
         "id": id,
         "object": "chat.completion.chunk",
@@ -1035,12 +1057,123 @@ pub fn responses_json(client_model: &str, reply: &CollectedReply) -> Value {
 
 pub fn responses_sse(client_model: &str, reply: &CollectedReply) -> String {
     let response = responses_json(client_model, reply);
+    let resp_id = response
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or("resp_kiro")
+        .to_string();
+    let init_resp = json!({
+        "id": resp_id,
+        "object": "response",
+        "model": client_model,
+        "status": "in_progress",
+        "output": []
+    });
     let mut out = String::new();
     push_sse(
         &mut out,
-        "response.output_text.delta",
-        &json!({"type":"response.output_text.delta","delta": reply.text}),
+        "response.created",
+        &json!({"type":"response.created","response": init_resp}),
     );
+    push_sse(
+        &mut out,
+        "response.in_progress",
+        &json!({"type":"response.in_progress","response": init_resp}),
+    );
+    let mut out_idx: usize = 0;
+    if !reply.text.is_empty() || reply.tools.is_empty() {
+        push_sse(
+            &mut out,
+            "response.output_text.delta",
+            &json!({"type":"response.output_text.delta","delta": reply.text}),
+        );
+        push_sse(
+            &mut out,
+            "response.output_text.done",
+            &json!({
+                "type":"response.output_text.done",
+                "output_index": out_idx,
+                "content_index": 0,
+                "text": reply.text
+            }),
+        );
+        push_sse(
+            &mut out,
+            "response.output_item.done",
+            &json!({
+                "type":"response.output_item.done",
+                "output_index": out_idx,
+                "item": {
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": reply.text}]
+                }
+            }),
+        );
+        out_idx += 1;
+    }
+    for tool in &reply.tools {
+        let arguments = if tool.input.trim().is_empty() {
+            "{}".to_string()
+        } else {
+            tool.input.clone()
+        };
+        let item_id = format!("fc_{}", tool.id);
+        push_sse(
+            &mut out,
+            "response.output_item.added",
+            &json!({
+                "type": "response.output_item.added",
+                "output_index": out_idx,
+                "item": {
+                    "type": "function_call",
+                    "id": item_id,
+                    "call_id": tool.id,
+                    "name": tool.name,
+                    "arguments": "",
+                    "status": "in_progress"
+                }
+            }),
+        );
+        push_sse(
+            &mut out,
+            "response.function_call_arguments.delta",
+            &json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": item_id,
+                "output_index": out_idx,
+                "delta": arguments
+            }),
+        );
+        push_sse(
+            &mut out,
+            "response.function_call_arguments.done",
+            &json!({
+                "type": "response.function_call_arguments.done",
+                "item_id": item_id,
+                "output_index": out_idx,
+                "arguments": arguments
+            }),
+        );
+        push_sse(
+            &mut out,
+            "response.output_item.done",
+            &json!({
+                "type": "response.output_item.done",
+                "output_index": out_idx,
+                "item": {
+                    "type": "function_call",
+                    "id": item_id,
+                    "call_id": tool.id,
+                    "name": tool.name,
+                    "arguments": arguments,
+                    "status": "completed"
+                }
+            }),
+        );
+        out_idx += 1;
+    }
     push_sse(
         &mut out,
         "response.completed",
@@ -1126,7 +1259,25 @@ impl KiroSseStreamer {
                 });
                 out.push_str(&format!("data: {chunk}\n\n"));
             }
-            WireProtocol::OpenAiResponses => {}
+            WireProtocol::OpenAiResponses => {
+                let init_resp = json!({
+                    "id": self.msg_id,
+                    "object": "response",
+                    "model": self.client_model,
+                    "status": "in_progress",
+                    "output": []
+                });
+                push_sse(
+                    out,
+                    "response.created",
+                    &json!({"type": "response.created", "response": init_resp}),
+                );
+                push_sse(
+                    out,
+                    "response.in_progress",
+                    &json!({"type": "response.in_progress", "response": init_resp}),
+                );
+            }
         }
     }
 
@@ -1349,7 +1500,99 @@ impl KiroSseStreamer {
                 out.push_str("data: [DONE]\n\n");
             }
             WireProtocol::OpenAiResponses => {
-                let response = responses_json(&self.client_model, &self.collected);
+                let mut out_idx: usize = 0;
+                if !self.collected.text.is_empty() || self.collected.tools.is_empty() {
+                    let msg_item = json!({
+                        "id": format!("msg_{}", Uuid::new_v4().simple()),
+                        "type": "message",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": self.collected.text}]
+                    });
+                    push_sse(
+                        &mut out,
+                        "response.output_text.done",
+                        &json!({
+                            "type": "response.output_text.done",
+                            "output_index": out_idx,
+                            "content_index": 0,
+                            "text": self.collected.text
+                        }),
+                    );
+                    push_sse(
+                        &mut out,
+                        "response.output_item.done",
+                        &json!({
+                            "type": "response.output_item.done",
+                            "output_index": out_idx,
+                            "item": msg_item
+                        }),
+                    );
+                    out_idx += 1;
+                }
+                for tool in &self.collected.tools {
+                    let arguments = if tool.input.trim().is_empty() {
+                        "{}".to_string()
+                    } else {
+                        tool.input.clone()
+                    };
+                    let item_id = format!("fc_{}", tool.id);
+                    push_sse(
+                        &mut out,
+                        "response.output_item.added",
+                        &json!({
+                            "type": "response.output_item.added",
+                            "output_index": out_idx,
+                            "item": {
+                                "type": "function_call",
+                                "id": item_id,
+                                "call_id": tool.id,
+                                "name": tool.name,
+                                "arguments": "",
+                                "status": "in_progress"
+                            }
+                        }),
+                    );
+                    push_sse(
+                        &mut out,
+                        "response.function_call_arguments.delta",
+                        &json!({
+                            "type": "response.function_call_arguments.delta",
+                            "item_id": item_id,
+                            "output_index": out_idx,
+                            "delta": arguments
+                        }),
+                    );
+                    push_sse(
+                        &mut out,
+                        "response.function_call_arguments.done",
+                        &json!({
+                            "type": "response.function_call_arguments.done",
+                            "item_id": item_id,
+                            "output_index": out_idx,
+                            "arguments": arguments
+                        }),
+                    );
+                    push_sse(
+                        &mut out,
+                        "response.output_item.done",
+                        &json!({
+                            "type": "response.output_item.done",
+                            "output_index": out_idx,
+                            "item": {
+                                "type": "function_call",
+                                "id": item_id,
+                                "call_id": tool.id,
+                                "name": tool.name,
+                                "arguments": arguments,
+                                "status": "completed"
+                            }
+                        }),
+                    );
+                    out_idx += 1;
+                }
+                let mut response = responses_json(&self.client_model, &self.collected);
+                response["id"] = Value::String(self.msg_id.clone());
                 push_sse(
                     &mut out,
                     "response.completed",
@@ -1769,5 +2012,39 @@ mod tests {
             prepared_resp.body["additionalModelRequestFields"]["output_config"]["effort"],
             "medium"
         );
+    }
+
+    #[test]
+    fn kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls() {
+        let mut streamer = KiroSseStreamer::new(WireProtocol::OpenAiResponses, "claude-haiku-4.5");
+        let frame = Frame {
+            message_type: "event".to_string(),
+            event_type: "assistantResponseEvent".to_string(),
+            error_code: None,
+            exception_type: None,
+            payload: serde_json::to_vec(&json!({ "content": "Checking status..." })).unwrap(),
+        };
+        let chunk = streamer.push_frame(&frame);
+        assert!(chunk.contains("event: response.created"));
+        assert!(chunk.contains("event: response.in_progress"));
+        assert!(chunk.contains("event: response.output_text.delta"));
+
+        streamer.collected.tools.push(ToolCall {
+            id: "call_kiro_1".to_string(),
+            name: "run_probe".to_string(),
+            input: "{\"target\":\"gateway\"}".to_string(),
+        });
+        let tail = streamer.finish(200_000, 120);
+        assert!(tail.contains("event: response.output_text.done"));
+        assert!(tail.contains("event: response.output_item.added"));
+        assert!(tail.contains("event: response.function_call_arguments.delta"));
+        assert!(tail.contains("event: response.function_call_arguments.done"));
+        assert!(tail.contains("event: response.output_item.done"));
+        assert!(tail.contains("event: response.completed"));
+        assert!(tail.contains("\"call_id\":\"call_kiro_1\""));
+
+        let chat_sse = openai_chat_sse("claude-haiku-4.5", &streamer.collected);
+        assert!(chat_sse.contains("\"tool_calls\""));
+        assert!(chat_sse.contains("\"finish_reason\":\"tool_calls\""));
     }
 }

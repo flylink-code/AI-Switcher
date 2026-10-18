@@ -697,9 +697,25 @@ pub async fn codex_proxy_handler(
                 }
                 _ => {
                     if let Ok(value) = serde_json::from_slice::<Value>(&response_bytes) {
-                        let _ = state.codex_history.record_response(&value);
+                        if route.contains("chat/completions")
+                            && provider.protocol_type == ProtocolType::OpenAiResponses
+                        {
+                            let anthropic = convert::openai_responses_to_anthropic(
+                                &value,
+                                provider.model.trim(),
+                            );
+                            let chat = anthropic_response_to_chat_completion(
+                                &anthropic,
+                                provider.model.trim(),
+                            );
+                            Bytes::from(serde_json::to_vec(&chat).unwrap_or_default())
+                        } else {
+                            let _ = state.codex_history.record_response(&value);
+                            response_bytes
+                        }
+                    } else {
+                        response_bytes
                     }
-                    response_bytes
                 }
             }
         } else {
@@ -731,6 +747,13 @@ pub async fn codex_proxy_handler(
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(response_bytes))
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+    }
+
+    if route.contains("chat/completions")
+        && provider.protocol_type == ProtocolType::OpenAiResponses
+        && status.is_success()
+    {
+        return forward_responses_to_chat_completions_stream(state, provider, upstream, log_id);
     }
 
     let body_log_id = log_id.clone();
@@ -945,6 +968,8 @@ fn prepare_codex_upstream(
         is_chat_completions_route && (provider.is_antigravity() || provider.is_kiro());
     let is_anthropic_upstream =
         provider.protocol_type == ProtocolType::Anthropic && !is_native_chat_on_anthropic_gateway;
+    let is_chat_to_responses_bridge =
+        is_chat_completions_route && provider.protocol_type == ProtocolType::OpenAiResponses;
     let wants_chat_bridge =
         !is_compact && should_bridge_responses_to_chat(provider.protocol_type, route, force_chat);
 
@@ -952,7 +977,7 @@ fn prepare_codex_upstream(
         codex_compact::compact_upstream_path(provider.protocol_type).to_string()
     } else if is_anthropic_upstream {
         "/v1/messages".to_string()
-    } else if is_chat_completions_route || wants_chat_bridge {
+    } else if (is_chat_completions_route && !is_chat_to_responses_bridge) || wants_chat_bridge {
         "/v1/chat/completions".to_string()
     } else {
         "/v1/responses".to_string()
@@ -1080,6 +1105,33 @@ fn prepare_codex_upstream(
             };
         let encoded = serde_json::to_vec(&anthropic_body).unwrap_or_default();
         (encoded, stream, None)
+    } else if is_chat_to_responses_bridge {
+        let parsed: Value = match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(_) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
+            }
+        };
+        let mut responses_body =
+            match super::codex_chat::chat_completions_to_responses_body(&parsed) {
+                Ok(value) => value,
+                Err(error) => {
+                    return Err(json_error(StatusCode::BAD_REQUEST, error));
+                }
+            };
+        convert::sanitize_codex_responses_body(&mut responses_body);
+        if provider.is_codex_oauth() {
+            convert::apply_codex_oauth_response_body(&mut responses_body);
+        }
+        let stream = responses_body
+            .get("stream")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        (
+            serde_json::to_vec(&responses_body).unwrap_or_default(),
+            stream,
+            None,
+        )
     } else if route.contains("chat/completions") {
         let mut parsed: Value = match serde_json::from_slice(&body) {
             Ok(value) => value,
@@ -2158,6 +2210,422 @@ fn forward_anthropic_to_chat_completions_stream(
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
+fn forward_responses_to_chat_completions_stream(
+    state: ProxyState,
+    provider: Provider,
+    upstream: reqwest::Response,
+    log_id: Option<String>,
+) -> Response {
+    let body_log_id = log_id.clone();
+    let body_db = Arc::clone(&state.db);
+    let db = Arc::clone(&state.db);
+    let target_app = state.target.as_str().to_string();
+    let provider_id = provider.id.clone();
+    let fallback_model = provider.model.clone();
+    let mut sse_buffer = Vec::new();
+    let mut raw_usage_buf = Vec::new();
+    let mut chat_id = format!("chatcmpl-{}", uuid::Uuid::new_v4().simple());
+    let mut model_name = fallback_model;
+    let mut tool_index: usize = 0;
+    let mut output_to_tool_idx = std::collections::HashMap::<u64, usize>::new();
+    let mut item_to_tool_idx = std::collections::HashMap::<String, usize>::new();
+    let mut tool_args_emitted = std::collections::HashSet::<usize>::new();
+    let mut has_tool_calls = false;
+    let mut has_text_delta = false;
+    let mut prompt_tokens: i64 = 0;
+    let mut cached_tokens: i64 = 0;
+    let mut completion_tokens: i64 = 0;
+    let mut sent_done = false;
+
+    let stream = upstream
+        .bytes_stream()
+        .map(|chunk| match chunk {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(_) => Err(()),
+        })
+        .chain(stream::once(async { Ok(None) }))
+        .map(move |chunk| match chunk {
+            Ok(Some(bytes)) => {
+                if let Some(id) = log_id.as_deref() {
+                    raw_usage_buf.extend_from_slice(&bytes);
+                    if let Some(usage) = extract_usage_from_sse(&raw_usage_buf) {
+                        let _ = db.with_conn(|conn| {
+                            update_proxy_log_usage_idempotent(
+                                conn,
+                                id,
+                                Some(target_app.as_str()),
+                                Some(provider_id.as_str()),
+                                usage.envelope_id.as_deref(),
+                                usage.input_tokens,
+                                usage.cache_read_input_tokens,
+                                usage.cache_creation_input_tokens,
+                                usage.output_tokens,
+                            )
+                        });
+                    }
+                }
+                sse_buffer.extend_from_slice(&bytes);
+                let mut out = String::new();
+                while let Some((end, delimiter_len)) = find_sse_frame_end(&sse_buffer) {
+                    let frame = sse_buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
+                    let Ok(frame_str) = std::str::from_utf8(&frame) else {
+                        continue;
+                    };
+                    let Some(data_str) = parse_chat_sse_data(frame_str) else {
+                        continue;
+                    };
+                    if data_str == "[DONE]" {
+                        continue;
+                    }
+                    let Ok(data) = serde_json::from_str::<Value>(&data_str) else {
+                        continue;
+                    };
+                    let ev_type = data.get("type").and_then(Value::as_str).unwrap_or("");
+                    match ev_type {
+                        "response.created" | "response.in_progress" => {
+                            if let Some(resp) = data.get("response") {
+                                if let Some(id) = resp.get("id").and_then(Value::as_str) {
+                                    chat_id = id.to_string();
+                                }
+                                if let Some(m) = resp.get("model").and_then(Value::as_str) {
+                                    model_name = m.to_string();
+                                }
+                            }
+                        }
+                        "response.reasoning_summary_text.delta"
+                        | "response.reasoning_text.delta"
+                        | "response.reasoning.delta" => {
+                            if let Some(delta) = data.get("delta").and_then(Value::as_str) {
+                                if !delta.is_empty() {
+                                    let chunk_json = serde_json::json!({
+                                        "id": chat_id,
+                                        "object": "chat.completion.chunk",
+                                        "model": model_name,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "role": "assistant",
+                                                "reasoning_content": delta,
+                                            },
+                                            "finish_reason": Value::Null,
+                                        }]
+                                    });
+                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                }
+                            }
+                        }
+                        "response.output_text.delta" => {
+                            if let Some(delta) = data.get("delta").and_then(Value::as_str) {
+                                if !delta.is_empty() {
+                                    has_text_delta = true;
+                                    let chunk_json = serde_json::json!({
+                                        "id": chat_id,
+                                        "object": "chat.completion.chunk",
+                                        "model": model_name,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "role": "assistant",
+                                                "content": delta,
+                                            },
+                                            "finish_reason": Value::Null,
+                                        }]
+                                    });
+                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                }
+                            }
+                        }
+                        "response.output_item.added" => {
+                            let out_idx = data.get("output_index").and_then(Value::as_u64).unwrap_or(0);
+                            if let Some(item) = data.get("item") {
+                                if item.get("type").and_then(Value::as_str) == Some("function_call") {
+                                    let t_idx = tool_index;
+                                    tool_index += 1;
+                                    output_to_tool_idx.insert(out_idx, t_idx);
+                                    if let Some(item_id) = item.get("id").and_then(Value::as_str) {
+                                        item_to_tool_idx.insert(item_id.to_string(), t_idx);
+                                    }
+                                    has_tool_calls = true;
+                                    let call_id = item
+                                        .get("call_id")
+                                        .or_else(|| item.get("id"))
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("call_0");
+                                    let name = item.get("name").and_then(Value::as_str).unwrap_or("tool");
+                                    let chunk_json = serde_json::json!({
+                                        "id": chat_id,
+                                        "object": "chat.completion.chunk",
+                                        "model": model_name,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "role": "assistant",
+                                                "tool_calls": [{
+                                                    "index": t_idx,
+                                                    "id": call_id,
+                                                    "type": "function",
+                                                    "function": {
+                                                        "name": name,
+                                                        "arguments": "",
+                                                    }
+                                                }]
+                                            },
+                                            "finish_reason": Value::Null,
+                                        }]
+                                    });
+                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                }
+                            }
+                        }
+                        "response.function_call_arguments.delta" => {
+                            if let Some(delta) = data.get("delta").and_then(Value::as_str) {
+                                if !delta.is_empty() {
+                                    let t_idx = data
+                                        .get("output_index")
+                                        .and_then(Value::as_u64)
+                                        .and_then(|idx| output_to_tool_idx.get(&idx).copied())
+                                        .or_else(|| {
+                                            data.get("item_id")
+                                                .and_then(Value::as_str)
+                                                .and_then(|id| item_to_tool_idx.get(id).copied())
+                                        })
+                                        .unwrap_or(0);
+                                    tool_args_emitted.insert(t_idx);
+                                    let chunk_json = serde_json::json!({
+                                        "id": chat_id,
+                                        "object": "chat.completion.chunk",
+                                        "model": model_name,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "tool_calls": [{
+                                                    "index": t_idx,
+                                                    "function": {
+                                                        "arguments": delta,
+                                                    }
+                                                }]
+                                            },
+                                            "finish_reason": Value::Null,
+                                        }]
+                                    });
+                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                }
+                            }
+                        }
+                        "response.output_item.done" => {
+                            let out_idx = data.get("output_index").and_then(Value::as_u64).unwrap_or(0);
+                            if let Some(item) = data.get("item") {
+                                if item.get("type").and_then(Value::as_str) == Some("function_call") {
+                                    let call_id = item
+                                        .get("call_id")
+                                        .or_else(|| item.get("id"))
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("call_0");
+                                    let name = item.get("name").and_then(Value::as_str).unwrap_or("tool");
+                                    let args = item.get("arguments").and_then(Value::as_str).unwrap_or("{}");
+                                    let t_idx = if let Some(&existing) = output_to_tool_idx.get(&out_idx) {
+                                        existing
+                                    } else {
+                                        let idx = tool_index;
+                                        tool_index += 1;
+                                        output_to_tool_idx.insert(out_idx, idx);
+                                        has_tool_calls = true;
+                                        let start_chunk = serde_json::json!({
+                                            "id": chat_id,
+                                            "object": "chat.completion.chunk",
+                                            "model": model_name,
+                                            "choices": [{
+                                                "index": 0,
+                                                "delta": {
+                                                    "role": "assistant",
+                                                    "tool_calls": [{
+                                                        "index": idx,
+                                                        "id": call_id,
+                                                        "type": "function",
+                                                        "function": {
+                                                            "name": name,
+                                                            "arguments": "",
+                                                        }
+                                                    }]
+                                                },
+                                                "finish_reason": Value::Null,
+                                            }]
+                                        });
+                                        out.push_str(&format!("data: {start_chunk}\n\n"));
+                                        idx
+                                    };
+                                    if !tool_args_emitted.contains(&t_idx) && !args.is_empty() {
+                                        tool_args_emitted.insert(t_idx);
+                                        let arg_chunk = serde_json::json!({
+                                            "id": chat_id,
+                                            "object": "chat.completion.chunk",
+                                            "model": model_name,
+                                            "choices": [{
+                                                "index": 0,
+                                                "delta": {
+                                                    "tool_calls": [{
+                                                        "index": t_idx,
+                                                        "function": {
+                                                            "arguments": args,
+                                                        }
+                                                    }]
+                                                },
+                                                "finish_reason": Value::Null,
+                                            }]
+                                        });
+                                        out.push_str(&format!("data: {arg_chunk}\n\n"));
+                                    }
+                                }
+                            }
+                        }
+                        "response.completed" => {
+                            if let Some(resp) = data.get("response") {
+                                if let Some(u) = resp.get("usage") {
+                                    prompt_tokens = u.get("input_tokens").and_then(Value::as_i64).unwrap_or(prompt_tokens);
+                                    completion_tokens = u.get("output_tokens").and_then(Value::as_i64).unwrap_or(completion_tokens);
+                                    cached_tokens = u
+                                        .pointer("/input_tokens_details/cached_tokens")
+                                        .and_then(Value::as_i64)
+                                        .unwrap_or(cached_tokens);
+                                }
+                                if !has_text_delta && !has_tool_calls {
+                                    if let Some(outputs) = resp.get("output").and_then(Value::as_array) {
+                                        for (idx, item) in outputs.iter().enumerate() {
+                                            match item.get("type").and_then(Value::as_str) {
+                                                Some("message") => {
+                                                    if let Some(parts) = item.get("content").and_then(Value::as_array) {
+                                                        for part in parts {
+                                                            if let Some(t) = part.get("text").and_then(Value::as_str) {
+                                                                if !t.is_empty() {
+                                                                    has_text_delta = true;
+                                                                    let chunk_json = serde_json::json!({
+                                                                        "id": chat_id,
+                                                                        "object": "chat.completion.chunk",
+                                                                        "model": model_name,
+                                                                        "choices": [{
+                                                                            "index": 0,
+                                                                            "delta": {
+                                                                                "role": "assistant",
+                                                                                "content": t,
+                                                                            },
+                                                                            "finish_reason": Value::Null,
+                                                                        }]
+                                                                    });
+                                                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                Some("function_call") => {
+                                                    has_tool_calls = true;
+                                                    let call_id = item
+                                                        .get("call_id")
+                                                        .or_else(|| item.get("id"))
+                                                        .and_then(Value::as_str)
+                                                        .unwrap_or("call_0");
+                                                    let name = item.get("name").and_then(Value::as_str).unwrap_or("tool");
+                                                    let args = item.get("arguments").and_then(Value::as_str).unwrap_or("{}");
+                                                    let chunk_json = serde_json::json!({
+                                                        "id": chat_id,
+                                                        "object": "chat.completion.chunk",
+                                                        "model": model_name,
+                                                        "choices": [{
+                                                            "index": 0,
+                                                            "delta": {
+                                                                "role": "assistant",
+                                                                "tool_calls": [{
+                                                                    "index": idx,
+                                                                    "id": call_id,
+                                                                    "type": "function",
+                                                                    "function": {
+                                                                        "name": name,
+                                                                        "arguments": args,
+                                                                    }
+                                                                }]
+                                                            },
+                                                            "finish_reason": Value::Null,
+                                                        }]
+                                                    });
+                                                    out.push_str(&format!("data: {chunk_json}\n\n"));
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if !sent_done {
+                                sent_done = true;
+                                let finish = if has_tool_calls { "tool_calls" } else { "stop" };
+                                let final_chunk = serde_json::json!({
+                                    "id": chat_id,
+                                    "object": "chat.completion.chunk",
+                                    "model": model_name,
+                                    "choices": [{
+                                        "index": 0,
+                                        "delta": {},
+                                        "finish_reason": finish,
+                                    }],
+                                    "usage": {
+                                        "prompt_tokens": prompt_tokens,
+                                        "completion_tokens": completion_tokens,
+                                        "total_tokens": prompt_tokens + completion_tokens,
+                                        "prompt_tokens_details": {
+                                            "cached_tokens": cached_tokens,
+                                        }
+                                    }
+                                });
+                                out.push_str(&format!("data: {final_chunk}\n\ndata: [DONE]\n\n"));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                Ok::<Bytes, Infallible>(Bytes::from(out.into_bytes()))
+            }
+            Ok(None) => {
+                if !sent_done {
+                    sent_done = true;
+                    let finish = if has_tool_calls { "tool_calls" } else { "stop" };
+                    let final_chunk = serde_json::json!({
+                        "id": chat_id,
+                        "object": "chat.completion.chunk",
+                        "model": model_name,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {},
+                            "finish_reason": finish,
+                        }],
+                        "usage": {
+                            "prompt_tokens": prompt_tokens,
+                            "completion_tokens": completion_tokens,
+                            "total_tokens": prompt_tokens + completion_tokens,
+                            "prompt_tokens_details": {
+                                "cached_tokens": cached_tokens,
+                            }
+                        }
+                    });
+                    return Ok(Bytes::from(format!("data: {final_chunk}\n\ndata: [DONE]\n\n").into_bytes()));
+                }
+                Ok(Bytes::new())
+            }
+            Err(()) => Ok(Bytes::new()),
+        });
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header("x-accel-buffering", "no")
+        .body(super::response_lifecycle::track_stream_body(
+            Body::from_stream(stream),
+            body_db,
+            body_log_id,
+        ))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn forward_copilot_anthropic_streaming_early(
     state: ProxyState,
@@ -2785,5 +3253,97 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR,
             false
         ));
+    }
+
+    #[test]
+    fn chat_completions_to_responses_bridge_converts_request_and_response() {
+        let mut resp_provider = test_provider(crate::provider::ProviderKind::Standard);
+        resp_provider.base_url = "https://sub2api.example/v1/responses".into();
+        resp_provider.model = "gpt-5.6-luna".into();
+        resp_provider.protocol_type = crate::provider::ProtocolType::OpenAiResponses;
+
+        let chat_req = serde_json::json!({
+            "model": "gpt-5.6-luna",
+            "stream": false,
+            "max_completion_tokens": 256,
+            "reasoning_effort": "medium",
+            "messages": [
+                { "role": "system", "content": "Be concise." },
+                { "role": "user", "content": "Check server health." },
+                {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "ping_host",
+                            "arguments": "{\"host\":\"127.0.0.1\"}"
+                        }
+                    }]
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_1",
+                    "content": "{\"ok\":true}"
+                }
+            ],
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "ping_host",
+                    "description": "Ping a host",
+                    "parameters": {
+                        "type": "object",
+                        "properties": { "host": { "type": "string" } }
+                    }
+                }
+            }],
+            "tool_choice": "auto"
+        });
+        let mut converted = crate::proxy::codex_chat::chat_completions_to_responses_body(&chat_req).unwrap();
+        converted["model"] = serde_json::Value::String("gpt-5.6-luna".to_string());
+        assert_eq!(converted["model"], "gpt-5.6-luna");
+        assert_eq!(converted["instructions"], "Be concise.");
+        assert_eq!(converted["max_output_tokens"], 256);
+        assert_eq!(converted["reasoning"]["effort"], "medium");
+        assert_eq!(converted["tools"][0]["name"], "ping_host");
+        let input = converted["input"].as_array().unwrap();
+        assert_eq!(input.len(), 3);
+        assert_eq!(input[1]["type"], "function_call");
+        assert_eq!(input[2]["type"], "function_call_output");
+
+        let upstream_resp = serde_json::json!({
+            "id": "resp_123",
+            "model": "gpt-5.6-luna",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "reasoning",
+                    "summary": [{ "type": "summary_text", "text": "Host is up." }]
+                },
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{ "type": "output_text", "text": "Server 127.0.0.1 is healthy." }]
+                }
+            ],
+            "usage": {
+                "input_tokens": 30,
+                "output_tokens": 12,
+                "total_tokens": 42
+            }
+        });
+        let anthropic = convert::openai_responses_to_anthropic(&upstream_resp, "gpt-5.6-luna");
+        let chat_json = anthropic_response_to_chat_completion(&anthropic, "gpt-5.6-luna");
+        assert_eq!(chat_json["object"], "chat.completion");
+        assert_eq!(
+            chat_json["choices"][0]["message"]["content"],
+            "Server 127.0.0.1 is healthy."
+        );
+        assert_eq!(
+            chat_json["choices"][0]["message"]["reasoning_content"],
+            "Host is up."
+        );
     }
 }

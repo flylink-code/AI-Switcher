@@ -470,6 +470,29 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
         .into_iter()
         .flatten()
     {
+        if item.get("type").and_then(Value::as_str) == Some("reasoning") {
+            let mut reasoning_parts = Vec::new();
+            for summary_block in item
+                .get("summary")
+                .or_else(|| item.get("content"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                if let Some(t) = summary_block.get("text").and_then(Value::as_str) {
+                    if !t.is_empty() {
+                        reasoning_parts.push(t);
+                    }
+                }
+            }
+            if !reasoning_parts.is_empty() {
+                content.push(json!({
+                    "type": "thinking",
+                    "thinking": reasoning_parts.join("\n"),
+                }));
+            }
+            continue;
+        }
         if item.get("type").and_then(Value::as_str) == Some("function_call") {
             let input = item
                 .get("arguments")
