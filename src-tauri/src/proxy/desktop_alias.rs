@@ -109,6 +109,8 @@ pub fn public_id_for_listed(listed: &str, entries: &[CatalogEntry]) -> Option<St
 
 /// Settings key that remembers the model Desktop last used successfully.
 const SELECTED_SETTING: &str = "claude_desktop_selected_model";
+/// Settings key that remembers the reasoning effort Desktop's main thread last used.
+const SELECTED_EFFORT_SETTING: &str = "claude_desktop_selected_effort";
 
 /// Marks which catalog id scheme the stored selection belongs to.
 const ID_SCHEME_SETTING: &str = "catalog_id_scheme";
@@ -136,6 +138,7 @@ pub fn reset_selection_for_catalog_id_scheme(db: &Database) {
 }
 
 static LAST_SELECTED: Mutex<Option<String>> = Mutex::new(None);
+static LAST_SELECTED_EFFORT: Mutex<Option<String>> = Mutex::new(None);
 
 pub fn last_selected(db: &Database) -> Option<String> {
     if let Some(stored) = db
@@ -168,6 +171,141 @@ pub fn remember_selected(db: &Database, model: &str) {
         .flatten();
     if stored.as_deref() != Some(model) {
         let _ = db.with_conn(|conn| set_setting(conn, SELECTED_SETTING, model));
+    }
+}
+
+fn normalize_effort_level(raw: &str) -> Option<String> {
+    let normalized = raw.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "minimal" | "low" | "medium" | "high" | "xhigh" | "max" => Some(normalized),
+        _ => None,
+    }
+}
+
+pub fn last_selected_effort(db: &Database) -> Option<String> {
+    match db.with_read_conn(|conn| get_setting(conn, SELECTED_EFFORT_SETTING)) {
+        Ok(Some(stored)) => {
+            let normalized = normalize_effort_level(&stored);
+            if let Some(ref level) = normalized {
+                if let Ok(mut slot) = LAST_SELECTED_EFFORT.lock() {
+                    *slot = Some(level.clone());
+                }
+            }
+            normalized
+        }
+        Ok(None) => None,
+        Err(_) => LAST_SELECTED_EFFORT
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone()),
+    }
+}
+
+pub fn remember_selected_effort(db: &Database, effort: &str) {
+    let Some(normalized) = normalize_effort_level(effort) else {
+        return;
+    };
+    if let Ok(mut slot) = LAST_SELECTED_EFFORT.lock() {
+        *slot = Some(normalized.clone());
+    }
+    let stored = db
+        .with_read_conn(|conn| get_setting(conn, SELECTED_EFFORT_SETTING))
+        .ok()
+        .flatten();
+    if stored.as_deref() != Some(normalized.as_str()) {
+        let _ = db.with_conn(|conn| set_setting(conn, SELECTED_EFFORT_SETTING, &normalized));
+    }
+}
+
+fn extract_explicit_effort(body: &Value) -> Option<String> {
+    [
+        body.pointer("/output_config/effort")
+            .and_then(Value::as_str),
+        body.get("effort").and_then(Value::as_str),
+        body.pointer("/thinking/effort").and_then(Value::as_str),
+        body.pointer("/reasoning/effort").and_then(Value::as_str),
+        body.get("reasoning_effort").and_then(Value::as_str),
+    ]
+    .into_iter()
+    .flatten()
+    .find_map(normalize_effort_level)
+}
+
+/// True when `body` belongs to Claude Desktop's main conversation loop rather
+/// than an internal sub-query (`WebFetch` `web_fetch_apply`, `sideQuery`,
+/// `hook_prompt`, `compact`) or a `Task`/`Agent` subagent.
+///
+/// In `claude.exe`, `AskUserQuestion` and `EnterPlanMode` are non-deferred
+/// main-thread tools that are unconditionally stripped from every subagent tool
+/// pool (`Jrt`) and absent from tool-less helper queries (`yJ` / `oH`).
+pub fn is_main_thread_request(requested_model: &str, body: &Value) -> bool {
+    if !is_desktop_alias(requested_model) {
+        return false;
+    }
+    let Some(tools) = body.get("tools").and_then(Value::as_array) else {
+        return false;
+    };
+    tools.iter().any(|tool| {
+        tool.get("name")
+            .and_then(Value::as_str)
+            .is_some_and(|name| matches!(name, "AskUserQuestion" | "EnterPlanMode" | "ExitPlanMode"))
+    })
+}
+
+fn apply_effort_to_body(body: &mut Value, effort: &str) {
+    let Some(normalized) = normalize_effort_level(effort) else {
+        return;
+    };
+    let Some(root) = body.as_object_mut() else {
+        return;
+    };
+    let output_config = root
+        .entry("output_config".to_string())
+        .or_insert_with(|| json!({}));
+    if !output_config.is_object() {
+        *output_config = json!({});
+    }
+    if let Some(obj) = output_config.as_object_mut() {
+        obj.insert("effort".to_string(), Value::String(normalized.clone()));
+    }
+    if root.get("effort").is_some_and(Value::is_string) {
+        root.insert("effort".to_string(), Value::String(normalized.clone()));
+    }
+    if root.get("reasoning_effort").is_some_and(Value::is_string) {
+        root.insert(
+            "reasoning_effort".to_string(),
+            Value::String(normalized.clone()),
+        );
+    }
+    if let Some(reasoning) = root.get_mut("reasoning").and_then(Value::as_object_mut) {
+        if reasoning.contains_key("effort") {
+            reasoning.insert("effort".to_string(), Value::String(normalized.clone()));
+        }
+    }
+    if let Some(thinking) = root.get_mut("thinking").and_then(Value::as_object_mut) {
+        if thinking.contains_key("effort") {
+            thinking.insert("effort".to_string(), Value::String(normalized));
+        }
+    }
+}
+
+/// Synchronize reasoning effort across Claude Desktop's main conversation loop
+/// and its child requests (`WebFetch` summarizer, `Task`/`Agent` subagents,
+/// `sideQuery`).
+///
+/// `claude.exe` stores the user's UI-selected effort in `appState.sessionEffort`
+/// and passes it on main-thread turns, but `web_fetch_apply` (`yJ`) and
+/// subagent/side queries omit `effortValue` and fall back to the model default
+/// (`high` on `claude-mythos-5`) or `~/.claude/settings.json` `effortLevel`.
+pub fn sync_request_effort(db: &Database, requested_model: &str, body: &mut Value) {
+    if is_main_thread_request(requested_model, body) {
+        if let Some(effort) = extract_explicit_effort(body) {
+            remember_selected_effort(db, &effort);
+        }
+        return;
+    }
+    if let Some(saved_effort) = last_selected_effort(db) {
+        apply_effort_to_body(body, &saved_effort);
     }
 }
 
@@ -376,5 +514,76 @@ mod tests {
         assert_eq!(resolve_selected("", &entries, None).as_deref(), Ok(""));
         assert!(is_listed_selection(&luna_alias, &entries));
         assert!(!is_listed_selection("sonnet", &entries));
+    }
+
+    #[test]
+    fn subagent_and_webfetch_inherit_main_thread_selected_effort() {
+        let db = Database::memory().unwrap();
+        let astra_alias = alias_for("gpt-6-astra");
+
+        // 1. Main-thread turn carries AskUserQuestion/EnterPlanMode and user's "low" effort.
+        let mut main_body = json!({
+            "model": astra_alias,
+            "tools": [
+                { "name": "Bash" },
+                { "name": "AskUserQuestion" },
+                { "name": "EnterPlanMode" }
+            ],
+            "output_config": { "effort": "low" }
+        });
+        sync_request_effort(&db, &astra_alias, &mut main_body);
+        assert_eq!(last_selected_effort(&db).as_deref(), Some("low"));
+        assert_eq!(main_body["output_config"]["effort"], "low");
+
+        // 2. WebFetch internal summarizer (`web_fetch_apply`) uses the same alias,
+        // has empty tools, and falls back to `effort: "high"` in claude.exe.
+        let mut webfetch_body = json!({
+            "model": astra_alias,
+            "tools": [],
+            "output_config": { "effort": "high" }
+        });
+        sync_request_effort(&db, &astra_alias, &mut webfetch_body);
+        assert_eq!(webfetch_body["output_config"]["effort"], "low");
+
+        // 3. Task/Agent subagent strips AskUserQuestion & EnterPlanMode from tools
+        // and falls back to `effort: "high"`.
+        let mut subagent_body = json!({
+            "model": astra_alias,
+            "tools": [
+                { "name": "Bash" },
+                { "name": "Read" },
+                { "name": "WebFetch" }
+            ],
+            "output_config": { "effort": "high" }
+        });
+        sync_request_effort(&db, &astra_alias, &mut subagent_body);
+        assert_eq!(subagent_body["output_config"]["effort"], "low");
+
+        // 4. Side query (`claude-sonnet-5-20260203`) omits output_config entirely.
+        let mut side_query_body = json!({
+            "model": "claude-sonnet-5-20260203",
+            "max_tokens": 1024,
+            "messages": [{ "role": "user", "content": "title" }]
+        });
+        sync_request_effort(&db, "claude-sonnet-5-20260203", &mut side_query_body);
+        assert_eq!(side_query_body["output_config"]["effort"], "low");
+
+        // 5. User switches main-thread effort to "high" in Desktop UI; subsequent
+        // child requests follow the updated effort.
+        let mut main_high_body = json!({
+            "model": astra_alias,
+            "tools": [{ "name": "AskUserQuestion" }],
+            "output_config": { "effort": "high" }
+        });
+        sync_request_effort(&db, &astra_alias, &mut main_high_body);
+        assert_eq!(last_selected_effort(&db).as_deref(), Some("high"));
+
+        let mut follow_up_subagent = json!({
+            "model": astra_alias,
+            "tools": [{ "name": "Read" }],
+            "output_config": { "effort": "low" }
+        });
+        sync_request_effort(&db, &astra_alias, &mut follow_up_subagent);
+        assert_eq!(follow_up_subagent["output_config"]["effort"], "high");
     }
 }

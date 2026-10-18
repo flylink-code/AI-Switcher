@@ -230,6 +230,24 @@ pub fn anthropic_to_openai_chat(
         }
     }
 
+    // DeepSeek (and explicit enable_thinking=true chat models) reject object-form
+    // tool_choice ({"type":"function","function":{"name":"..."}}) in thinking mode
+    // with HTTP 400 ("Thinking mode does not support this tool_choice"), while
+    // accepting "required".
+    let thinking_explicitly_off = result.get("enable_thinking") == Some(&Value::Bool(false))
+        || request
+            .pointer("/thinking/type")
+            .and_then(Value::as_str)
+            .is_some_and(|t| t.eq_ignore_ascii_case("disabled"));
+    if result.get("tool_choice").is_some_and(Value::is_object)
+        && !thinking_explicitly_off
+        && (model.to_ascii_lowercase().contains("deepseek")
+            || result.get("enable_thinking") == Some(&Value::Bool(true))
+            || result.get("reasoning_effort").is_some())
+    {
+        result["tool_choice"] = Value::String("required".to_string());
+    }
+
     result
 }
 
@@ -1542,6 +1560,9 @@ fn append_openai_message(message: &Value, output: &mut Vec<Value>) {
         }
         _ => {}
     }
+    if role != "assistant" {
+        output.extend(tool_results.drain(..));
+    }
     if !text_blocks.is_empty() || !tool_calls.is_empty() {
         let mut result = Map::new();
         result.insert(
@@ -1635,6 +1656,7 @@ fn anthropic_tool_choice(value: &Value) -> Value {
             json!({"type":"function","function":{"name":value.get("name").and_then(Value::as_str).unwrap_or("")}})
         }
         Some("any") => Value::String("required".to_string()),
+        Some("none") => Value::String("none".to_string()),
         _ => Value::String("auto".to_string()),
     }
 }
@@ -2320,5 +2342,58 @@ mod tests {
         })))
         .unwrap();
         assert!(chunk3.contains("第1.4节、S2 第5项"));
+    }
+
+    #[test]
+    fn deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text() {
+        let request = json!({
+            "model": "claude.deepseek-v4-flash",
+            "thinking": { "type": "enabled", "budget_tokens": 4096 },
+            "tools": [{
+                "name": "calc",
+                "description": "add numbers",
+                "input_schema": { "type": "object", "properties": { "a": { "type": "integer" } } }
+            }],
+            "tool_choice": { "type": "tool", "name": "calc" },
+            "messages": [
+                { "role": "user", "content": "compute" },
+                {
+                    "role": "assistant",
+                    "content": [{
+                        "type": "tool_use",
+                        "id": "call_1",
+                        "name": "calc",
+                        "input": { "a": 1 }
+                    }]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        { "type": "text", "text": "And now double it" },
+                        { "type": "tool_result", "tool_use_id": "call_1", "content": "result=1" }
+                    ]
+                }
+            ]
+        });
+        let chat = anthropic_to_openai_chat(&request, "deepseek-v4-flash", false, None);
+        assert_eq!(chat["tool_choice"], json!("required"));
+        let msgs = chat["messages"].as_array().unwrap();
+        let tool_pos = msgs.iter().position(|m| m["role"] == "tool").unwrap();
+        let trailing_user_pos = msgs
+            .iter()
+            .rposition(|m| m["role"] == "user")
+            .unwrap();
+        assert!(
+            tool_pos < trailing_user_pos,
+            "tool role message must immediately follow assistant tool_calls before trailing user text"
+        );
+
+        let none_req = json!({
+            "model": "gpt-5.6-luna",
+            "tool_choice": { "type": "none" },
+            "messages": [{ "role": "user", "content": "hi" }]
+        });
+        let none_chat = anthropic_to_openai_chat(&none_req, "gpt-5.6-luna", false, None);
+        assert_eq!(none_chat["tool_choice"], json!("none"));
     }
 }

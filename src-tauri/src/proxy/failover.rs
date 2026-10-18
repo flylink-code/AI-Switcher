@@ -91,30 +91,50 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
     }
 
     if !smart_gateway {
+        if let Some(messages) = value.get_mut("messages").and_then(Value::as_array_mut) {
+            for msg in messages.iter_mut() {
+                if msg.get("role").and_then(Value::as_str) == Some("assistant") {
+                    continue;
+                }
+                let Some(blocks) = msg.get_mut("content").and_then(Value::as_array_mut) else {
+                    continue;
+                };
+                let has_tool_result = blocks.iter().any(|b| {
+                    matches!(
+                        b.get("type").and_then(Value::as_str),
+                        Some("tool_result" | "tool_search_tool_result")
+                    )
+                });
+                if has_tool_result && blocks.len() > 1 {
+                    let mut tool_results = Vec::with_capacity(blocks.len());
+                    let mut others = Vec::new();
+                    for b in blocks.drain(..) {
+                        if matches!(
+                            b.get("type").and_then(Value::as_str),
+                            Some("tool_result" | "tool_search_tool_result")
+                        ) {
+                            tool_results.push(b);
+                        } else {
+                            others.push(b);
+                        }
+                    }
+                    tool_results.extend(others);
+                    *blocks = tool_results;
+                }
+            }
+        }
         let effective_model = value
             .get("model")
             .and_then(Value::as_str)
             .unwrap_or(&provider.model)
             .to_string();
-        let is_deepseek = effective_model
-            .trim()
-            .to_ascii_lowercase()
-            .contains("deepseek")
-            || provider.base_url.to_ascii_lowercase().contains("deepseek");
-        if is_deepseek {
-            let thinking_disabled = value
-                .pointer("/thinking/type")
-                .and_then(Value::as_str)
-                .is_some_and(|t| t.eq_ignore_ascii_case("disabled"))
-                || provider
-                    .thinking_config
-                    .as_ref()
-                    .is_some_and(|cfg| cfg.is_disabled());
-            if !thinking_disabled {
-                let cur_max = value.get("max_tokens").and_then(Value::as_u64).unwrap_or(0);
-                if cur_max > 0 && cur_max < 4096 {
-                    value["max_tokens"] = serde_json::json!(4096);
-                }
+        if provider
+            .thinking_config
+            .as_ref()
+            .is_some_and(|cfg| cfg.is_disabled())
+        {
+            if let Some(obj) = value.as_object_mut() {
+                obj.remove("thinking");
             }
         }
         crate::proxy::codex_anthropic::ensure_deepseek_assistant_thinking(
@@ -232,7 +252,7 @@ fn overlay_legacy_thinking(
     let Some(legacy) = legacy.as_object() else {
         return;
     };
-    for key in ["reasoning_effort", "enable_thinking", "instructions", "reasoning"] {
+    for key in ["reasoning_effort", "enable_thinking", "instructions", "reasoning", "tool_choice"] {
         if let Some(value) = legacy.get(key) {
             object.insert(key.to_string(), value.clone());
         }

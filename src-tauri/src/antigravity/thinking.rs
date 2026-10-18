@@ -74,6 +74,37 @@ pub fn is_budget_constraint_error(body: &str) -> bool {
             || lower.contains("exceed"))
 }
 
+pub fn is_thought_signature_error(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    lower.contains("thought_signature")
+        || lower.contains("thoughtsignature")
+        || lower.contains("thought signature")
+}
+
+pub fn rectify_thought_signatures(request: &mut Value) {
+    let sentinel = json!(crate::antigravity::thought_sig::SKIP_VALIDATOR_SENTINEL);
+    let Some(contents) = request.get_mut("contents").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for content in contents {
+        let Some(parts) = content.get_mut("parts").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for part in parts {
+            let Some(obj) = part.as_object_mut() else {
+                continue;
+            };
+            if obj.contains_key("functionCall") {
+                obj.insert("thoughtSignature".into(), sentinel.clone());
+                obj.insert("thought_signature".into(), sentinel.clone());
+            } else {
+                obj.remove("thoughtSignature");
+                obj.remove("thought_signature");
+            }
+        }
+    }
+}
+
 pub fn rectify_generate_request(request: &mut Value) {
     let budget = RECTIFY_BUDGET;
     let min_max = u64::from(budget)
@@ -136,6 +167,38 @@ mod tests {
             "Invalid thinkingBudget: must be less than maxOutputTokens"
         ));
         assert!(!is_budget_constraint_error("missing thought_signature"));
+    }
+
+    #[test]
+    fn detects_and_rectifies_thought_signature_errors() {
+        assert!(is_thought_signature_error(
+            "Invalid value at 'request.contents[1].parts[0].thought_signature' (TYPE_BYTES), Base64 decoding failed"
+        ));
+        assert!(is_thought_signature_error("Corrupted thought signature."));
+        assert!(!is_thought_signature_error("Invalid thinkingBudget"));
+
+        let mut request = json!({
+            "contents": [
+                { "role": "user", "parts": [{ "text": "hi", "thoughtSignature": "stale" }] },
+                { "role": "model", "parts": [{
+                    "functionCall": { "id": "toolu_1", "name": "Bash", "args": {} },
+                    "thoughtSignature": "bad-sig",
+                    "thought_signature": "bad-sig"
+                }]}
+            ]
+        });
+        rectify_thought_signatures(&mut request);
+        assert!(request["contents"][0]["parts"][0]
+            .get("thoughtSignature")
+            .is_none());
+        assert_eq!(
+            request["contents"][1]["parts"][0]["thoughtSignature"],
+            json!(crate::antigravity::thought_sig::SKIP_VALIDATOR_SENTINEL)
+        );
+        assert_eq!(
+            request["contents"][1]["parts"][0]["thought_signature"],
+            json!(crate::antigravity::thought_sig::SKIP_VALIDATOR_SENTINEL)
+        );
     }
 
     #[test]

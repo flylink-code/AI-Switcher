@@ -364,11 +364,15 @@ fn build_chat(request: &Request) -> Value {
                 })),
             }
         }
+        let is_assistant = message.role == "assistant";
+        if !is_assistant {
+            messages.extend(std::mem::take(&mut tool_results));
+        }
         if !text_and_images.is_empty() || !tool_calls.is_empty() || !thinking.is_empty() {
             let mut row = Map::new();
             row.insert(
                 "role".into(),
-                json!(if message.role == "assistant" {
+                json!(if is_assistant {
                     "assistant"
                 } else {
                     "user"
@@ -394,7 +398,9 @@ fn build_chat(request: &Request) -> Value {
             }
             messages.push(Value::Object(row));
         }
-        messages.extend(tool_results);
+        if is_assistant {
+            messages.extend(tool_results);
+        }
     }
     let mut result = json!({
         "model": request.model,
@@ -559,7 +565,9 @@ fn build_responses(request: &Request) -> Value {
                     }));
                 }
                 Part::ToolResult { id, output } => {
-                    flush_content(&mut input, &mut content);
+                    if assistant {
+                        flush_content(&mut input, &mut content);
+                    }
                     input.push(json!({
                         "type": "function_call_output",
                         "call_id": id,

@@ -245,6 +245,9 @@ async fn proxy_handler_inner(
         );
         return axum::Json(probe_response).into_response();
     }
+    if state.target == ProviderTarget::ClaudeDesktop && !uri.path().ends_with("/count_tokens") {
+        desktop_alias::sync_request_effort(&state.db, &requested_model, &mut incoming);
+    }
     if state.listener_kind == ListenerKind::SmartGateway {
         if let Some(object) = incoming.as_object_mut() {
             object.insert("model".to_string(), Value::String(requested_model.clone()));

@@ -322,6 +322,15 @@ impl L1Cache {
             },
         );
     }
+
+    fn remove_tool(&mut self, id: &str) {
+        self.tool.remove(id);
+    }
+
+    fn remove_session(&mut self, key: &str) {
+        self.session.remove(key);
+        self.session_index.retain(|(sess, _), _| sess != key);
+    }
 }
 
 pub(crate) fn usable(signature: &str) -> bool {
@@ -339,6 +348,12 @@ enum WriteOp {
         key: SignatureKey,
         signature: String,
         updated_at: i64,
+    },
+    DeleteTool {
+        id: String,
+    },
+    DeleteSession {
+        session: String,
     },
     Flush(std::sync::mpsc::SyncSender<()>),
 }
@@ -668,6 +683,14 @@ fn execute_write_batch(
                AND signature = ?4;",
         )?;
 
+        let mut delete_tool_stmt = tx.prepare_cached(
+            "DELETE FROM thought_signatures WHERE kind = 0 AND key_primary = ?1;",
+        )?;
+
+        let mut delete_session_stmt = tx.prepare_cached(
+            "DELETE FROM thought_signatures WHERE kind IN (1, 2) AND key_primary = ?1;",
+        )?;
+
         for op in batch {
             match op {
                 WriteOp::Upsert {
@@ -701,6 +724,12 @@ fn execute_write_batch(
                     touch_stmt.execute(rusqlite::params![
                         kind_val, primary, secondary, signature, updated_at
                     ])?;
+                }
+                WriteOp::DeleteTool { id } => {
+                    delete_tool_stmt.execute(rusqlite::params![id])?;
+                }
+                WriteOp::DeleteSession { session } => {
+                    delete_session_stmt.execute(rusqlite::params![session])?;
                 }
                 WriteOp::Flush(_) => {}
             }
@@ -1246,6 +1275,70 @@ impl ThoughtSigStore {
             }
         }
         super::thought_sig::SKIP_VALIDATOR_SENTINEL.to_string()
+    }
+
+    pub(crate) fn evict_tool(&self, id: &str) {
+        let normalized = super::thought_sig::normalize_tool_id(id);
+        let id_clean = normalized.as_ref();
+        if id_clean.is_empty() {
+            return;
+        }
+        let raw_trimmed = id.trim();
+        {
+            let mut l1 = match self.l1.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            l1.remove_tool(id_clean);
+            if raw_trimmed != id_clean {
+                l1.remove_tool(raw_trimmed);
+            }
+            if let Some(rest) = id_clean.strip_prefix("call_") {
+                let legacy = format!("call{rest}");
+                l1.remove_tool(&legacy);
+            }
+        }
+        if !self.degraded.load(Ordering::Acquire) && self.config.max_l2_capacity > 0 {
+            let tx = match self.writer_tx.lock() {
+                Ok(g) => g.clone(),
+                Err(p) => p.into_inner().clone(),
+            };
+            if let Some(tx) = tx {
+                let _ = tx.try_send(WriteOp::DeleteTool {
+                    id: id_clean.to_string(),
+                });
+                if raw_trimmed != id_clean {
+                    let _ = tx.try_send(WriteOp::DeleteTool {
+                        id: raw_trimmed.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    pub(crate) fn evict_session(&self, key: &str) {
+        let key_clean = key.trim();
+        if key_clean.is_empty() {
+            return;
+        }
+        {
+            let mut l1 = match self.l1.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            l1.remove_session(key_clean);
+        }
+        if !self.degraded.load(Ordering::Acquire) && self.config.max_l2_capacity > 0 {
+            let tx = match self.writer_tx.lock() {
+                Ok(g) => g.clone(),
+                Err(p) => p.into_inner().clone(),
+            };
+            if let Some(tx) = tx {
+                let _ = tx.try_send(WriteOp::DeleteSession {
+                    session: key_clean.to_string(),
+                });
+            }
+        }
     }
 
     pub(crate) fn flush(&self) {

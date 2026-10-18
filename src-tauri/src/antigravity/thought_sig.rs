@@ -135,6 +135,44 @@ pub fn resolve_function_call_signature(
         .unwrap_or_else(|| SKIP_VALIDATOR_SENTINEL.to_string())
 }
 
+pub fn evict_tool_signature(tool_use_id: &str) {
+    if let Some(store) = store() {
+        store.evict_tool(tool_use_id);
+    }
+}
+
+pub fn evict_session_signatures(session_key: &str) {
+    if let Some(store) = store() {
+        store.evict_session(session_key);
+    }
+}
+
+/// 当上游因 `thought_signature` 返回 400/422 时，清理当前会话及请求内所有工具调用 ID 的被污染缓存。
+pub fn evict_request_signatures(session_key: Option<&str>, gemini_request: &serde_json::Value) {
+    if let Some(session) = session_key {
+        evict_session_signatures(session);
+    }
+    let Some(contents) = gemini_request
+        .get("contents")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return;
+    };
+    for content in contents {
+        let Some(parts) = content.get("parts").and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        for part in parts {
+            if let Some(id) = part
+                .pointer("/functionCall/id")
+                .and_then(serde_json::Value::as_str)
+            {
+                evict_tool_signature(id);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,6 +227,21 @@ mod tests {
             get_session_signature("sess_mod_rt").as_deref(),
             Some("longer-signature")
         );
+
+        // 清理被污染的签名后应回退至 None / sentinel。
+        cache_session_index_signature("sess_mod_rt", 1, "idx-sig");
+        evict_request_signatures(
+            Some("sess_mod_rt"),
+            &serde_json::json!({
+                "contents": [{
+                    "role": "model",
+                    "parts": [{ "functionCall": { "id": "toolu_mod_rt", "name": "Bash" } }]
+                }]
+            }),
+        );
+        assert_eq!(get_tool_signature("toolu_mod_rt"), None);
+        assert_eq!(get_session_signature("sess_mod_rt"), None);
+        assert_eq!(get_session_index_signature("sess_mod_rt", 1), None);
     }
 
     #[test]

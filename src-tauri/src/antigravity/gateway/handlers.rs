@@ -620,6 +620,7 @@ async fn dispatch_generation(
         let mut current_model = model.clone();
         let mut model_idx = 0usize;
         let mut budget_rectified = false;
+        let mut sig_rectified = false;
         let mut in_place_retries = 0u32;
         let mut token_renewed = false;
         let upstream = 'levels: loop {
@@ -730,16 +731,33 @@ async fn dispatch_generation(
                     break 'levels Err(());
                 }
             };
-            if matches!(response.status().as_u16(), 400 | 422) && !budget_rectified {
+            if matches!(response.status().as_u16(), 400 | 422) {
                 let status = response.status();
                 let text = response.text().await.unwrap_or_default();
-                if crate::antigravity::thinking::is_budget_constraint_error(&text) {
+                if !budget_rectified
+                    && crate::antigravity::thinking::is_budget_constraint_error(&text)
+                {
                     budget_rectified = true;
                     crate::antigravity::thinking::rectify_generate_request(&mut request);
                     log::warn!(
                         "Antigravity thinkingBudget constraint on {account_email}; rectifying and retrying same account"
                     );
                     tokio::time::sleep(Duration::from_millis(150)).await;
+                    continue 'levels;
+                }
+                if !sig_rectified
+                    && crate::antigravity::thinking::is_thought_signature_error(&text)
+                {
+                    sig_rectified = true;
+                    crate::antigravity::thought_sig::evict_request_signatures(
+                        session_key.as_deref(),
+                        &request,
+                    );
+                    crate::antigravity::thinking::rectify_thought_signatures(&mut request);
+                    log::warn!(
+                        "Antigravity thought_signature error on {account_email}; evicting poisoned cache, rectifying to sentinel, and retrying same account"
+                    );
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                     continue 'levels;
                 }
                 last_error = if text.trim().is_empty() {
@@ -1645,7 +1663,7 @@ fn session_key_from_request(headers: &HeaderMap, payload: Option<&Value>) -> Opt
             _ => session,
         });
     }
-    target_app
+    None
 }
 
 fn is_subagent_request(headers: &HeaderMap) -> bool {

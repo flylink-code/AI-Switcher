@@ -169,6 +169,17 @@ pub fn anthropic_to_gemini_request(
         contents.push(json!({ "role": gemini_role, "parts": parts }));
     }
     super::normalize_gemini_contents(&mut contents);
+    if contents
+        .last()
+        .and_then(|m| m.get("role"))
+        .and_then(Value::as_str)
+        == Some("model")
+    {
+        contents.push(json!({
+            "role": "user",
+            "parts": [{ "text": "Continue." }]
+        }));
+    }
 
     if contents.is_empty() {
         return Err("messages 不能为空".into());
@@ -734,7 +745,8 @@ fn content_to_parts(
                                     tool_use_id.to_string()
                                 }
                             });
-                        let result = tool_result_text(block.get("content").unwrap_or(&Value::Null));
+                        let content_val = block.get("content").unwrap_or(&Value::Null);
+                        let result = tool_result_text(content_val);
                         let mut function_response =
                             json!({ "name": name, "response": { "result": result } });
                         // Cloud Code converts back to Anthropic format for Claude
@@ -745,6 +757,29 @@ fn content_to_parts(
                                 json!(thought_sig::normalize_tool_id(tool_use_id).as_ref());
                         }
                         parts.push(json!({ "functionResponse": function_response }));
+                        if let Some(items) = content_val.as_array() {
+                            for item in items {
+                                if item.get("type").and_then(Value::as_str) == Some("image") {
+                                    if let Some(source) = item.get("source") {
+                                        let data = source
+                                            .get("data")
+                                            .and_then(Value::as_str)
+                                            .unwrap_or("");
+                                        let mime = source
+                                            .get("media_type")
+                                            .and_then(Value::as_str)
+                                            .unwrap_or("image/png");
+                                        if !data.is_empty()
+                                            && super::history_media::is_plausible_image_base64(data)
+                                        {
+                                            parts.push(json!({
+                                                "inlineData": { "mimeType": mime, "data": data }
+                                            }));
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     "image" => {
                         if let Some(source) = block.get("source") {
@@ -2329,5 +2364,67 @@ mod tests {
             .find(|ev| ev["type"] == "message_delta")
             .expect("expected message_delta in final chunk");
         assert_eq!(msg_delta["delta"]["stop_reason"], "tool_use");
+    }
+
+    #[test]
+    fn tool_result_with_embedded_image_preserves_inline_data_part() {
+        let body = json!({
+            "model": "gemini-3.8-flash-low",
+            "max_tokens": 64,
+            "messages": [
+                { "role": "user", "content": "capture screen" },
+                {
+                    "role": "assistant",
+                    "content": [{
+                        "type": "tool_use",
+                        "id": "toolu_img_1",
+                        "name": "screenshot",
+                        "input": {}
+                    }]
+                },
+                {
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_img_1",
+                        "content": [
+                            { "type": "text", "text": "Captured screenshot:" },
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0ioAAAAASUVORK5CYII="
+                                }
+                            }
+                        ]
+                    }]
+                }
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let user_turn = &parts.request["contents"][2]["parts"]
+            .as_array()
+            .expect("expected user parts array");
+        assert!(user_turn.iter().any(|p| p.get("functionResponse").is_some()));
+        assert!(user_turn.iter().any(|p| {
+            p["inlineData"]["mimeType"] == "image/png"
+                && p["inlineData"]["data"].as_str().is_some()
+        }));
+    }
+
+    #[test]
+    fn trailing_assistant_prefill_appends_user_continuation_turn() {
+        let body = json!({
+            "model": "gemini-3.8-flash-low",
+            "max_tokens": 64,
+            "messages": [
+                { "role": "user", "content": "Reply with JSON" },
+                { "role": "assistant", "content": "{" }
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let contents = parts.request["contents"].as_array().unwrap();
+        assert_eq!(contents.last().unwrap()["role"], "user");
     }
 }

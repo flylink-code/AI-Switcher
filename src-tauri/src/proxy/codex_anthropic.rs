@@ -114,6 +114,15 @@ pub(crate) fn ensure_deepseek_assistant_thinking(
     if thinking_disabled {
         return;
     }
+    let cur_max = body.get("max_tokens").and_then(Value::as_u64).unwrap_or(0);
+    if cur_max > 0 && cur_max < 4096 {
+        body["max_tokens"] = json!(4096);
+    }
+    // DeepSeek thinking mode rejects named tool_choice `{"type": "tool", "name": "..."}`
+    // with 400 ("Thinking mode does not support this tool_choice"), while accepting `{"type": "any"}`.
+    if body.pointer("/tool_choice/type").and_then(Value::as_str) == Some("tool") {
+        body["tool_choice"] = json!({ "type": "any" });
+    }
     let Some(messages) = body.get_mut("messages").and_then(Value::as_array_mut) else {
         return;
     };
@@ -1774,5 +1783,18 @@ mod tests {
         let claude = responses_request_to_anthropic_messages(&body, "claude-sonnet-4-6").unwrap();
         let claude_blocks = claude["messages"][1]["content"].as_array().unwrap();
         assert_eq!(claude_blocks[0]["type"], "tool_use");
+    }
+
+    #[test]
+    fn deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens() {
+        let mut body = json!({
+            "model": "deepseek-v4-flash",
+            "max_tokens": 64,
+            "tool_choice": { "type": "tool", "name": "ping_host" },
+            "messages": [{ "role": "user", "content": "ping" }]
+        });
+        ensure_deepseek_assistant_thinking(&mut body, "deepseek-v4-flash", None);
+        assert_eq!(body["tool_choice"], json!({ "type": "any" }));
+        assert_eq!(body["max_tokens"], json!(4096));
     }
 }
