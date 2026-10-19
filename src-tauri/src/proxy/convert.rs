@@ -577,7 +577,8 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
         let input = function
             .get("arguments")
             .and_then(Value::as_str)
-            .and_then(|raw| serde_json::from_str(raw).ok())
+            .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+            .filter(Value::is_object)
             .unwrap_or_else(|| json!({}));
         content.push(json!({
             "type": "tool_use",
@@ -672,7 +673,8 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
             let input = item
                 .get("arguments")
                 .and_then(Value::as_str)
-                .and_then(|raw| serde_json::from_str(raw).ok())
+                .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+                .filter(Value::is_object)
                 .unwrap_or_else(|| json!({}));
             content.push(json!({
                 "type": "tool_use",
@@ -1596,6 +1598,16 @@ fn anthropic_messages_to_responses_input(request: &Value) -> Vec<Value> {
                             message_content.push(json!({"type": text_type, "text": text}));
                         }
                     }
+                    Some("document") => {
+                        if let Some(text) = extract_anthropic_document_text(block) {
+                            message_content.push(json!({"type": text_type, "text": text}));
+                        }
+                    }
+                    Some("web_search_tool_result") => {
+                        if let Some(text) = extract_anthropic_web_search_result_text(block) {
+                            message_content.push(json!({"type": text_type, "text": text}));
+                        }
+                    }
                     Some("image") => {
                         if !is_assistant {
                             if let Some(url) = image_url(block) {
@@ -1612,16 +1624,35 @@ fn anthropic_messages_to_responses_input(request: &Value) -> Vec<Value> {
                         "name": block.get("name").and_then(Value::as_str).unwrap_or("tool"),
                         "arguments": serde_json::to_string(block.get("input").unwrap_or(&Value::Null)).unwrap_or_else(|_| "{}".to_string()),
                     })),
-                    Some("tool_result") | Some("tool_search_tool_result") => tool_items.push(json!({
-                        "type": "function_call_output",
-                        "call_id": block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),
-                        "output": content_text(block.get("content").unwrap_or(&Value::Null)),
-                    })),
+                    Some("tool_result") | Some("tool_search_tool_result") => {
+                        let raw_content = block.get("content").unwrap_or(&Value::Null);
+                        let mut out_text = content_text(raw_content);
+                        if !is_assistant {
+                            for item in raw_content.as_array().into_iter().flatten() {
+                                if item.get("type").and_then(Value::as_str) == Some("image") {
+                                    if let Some(url) = image_url(item) {
+                                        if out_text.is_empty() {
+                                            out_text = "[Image attached]".to_string();
+                                        }
+                                        message_content.push(json!({"type": "input_image", "image_url": url}));
+                                    }
+                                }
+                            }
+                        }
+                        tool_items.push(json!({
+                            "type": "function_call_output",
+                            "call_id": block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),
+                            "output": out_text,
+                        }));
+                    }
                     _ => {}
                 }
                 }
             }
             _ => {}
+        }
+        if !is_assistant {
+            output.extend(std::mem::take(&mut tool_items));
         }
         if !message_content.is_empty() {
             output.push(json!({
@@ -1705,12 +1736,28 @@ fn append_openai_message(message: &Value, output: &mut Vec<Value>) {
             for block in blocks {
                 match block.get("type").and_then(Value::as_str) {
                 Some("text") => text_blocks.push(json!({"type":"text","text":block.get("text").and_then(Value::as_str).unwrap_or("")})),
+                Some("document") => if let Some(text) = extract_anthropic_document_text(block) { text_blocks.push(json!({"type":"text","text":text})); },
+                Some("web_search_tool_result") => if let Some(text) = extract_anthropic_web_search_result_text(block) { text_blocks.push(json!({"type":"text","text":text})); },
                 // Anthropic thinking requires a signature that cannot be
                 // synthesized for OpenAI-compatible upstreams.
                 Some("thinking") => {},
                 Some("image") => if let Some(url) = image_url(block) { text_blocks.push(json!({"type":"image_url","image_url":{"url":url}})); },
                 Some("tool_use") => tool_calls.push(json!({"id":block.get("id").and_then(Value::as_str).unwrap_or("tool_call"),"type":"function","function":{"name":block.get("name").and_then(Value::as_str).unwrap_or("tool"),"arguments":serde_json::to_string(block.get("input").unwrap_or(&Value::Null)).unwrap_or_else(|_| "{}".to_string())}})),
-                Some("tool_result") | Some("tool_search_tool_result") => tool_results.push(json!({"role":"tool","tool_call_id":block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),"content":content_text(block.get("content").unwrap_or(&Value::Null))})),
+                Some("tool_result") | Some("tool_search_tool_result") => {
+                    let raw_content = block.get("content").unwrap_or(&Value::Null);
+                    let mut out_text = content_text(raw_content);
+                    for item in raw_content.as_array().into_iter().flatten() {
+                        if item.get("type").and_then(Value::as_str) == Some("image") {
+                            if let Some(url) = image_url(item) {
+                                if out_text.is_empty() {
+                                    out_text = "[Image attached]".to_string();
+                                }
+                                text_blocks.push(json!({"type":"image_url","image_url":{"url":url}}));
+                            }
+                        }
+                    }
+                    tool_results.push(json!({"role":"tool","tool_call_id":block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),"content":out_text}));
+                }
                 _ => {}
             }
             }
@@ -1752,6 +1799,108 @@ fn append_openai_message(message: &Value, output: &mut Vec<Value>) {
         output.push(Value::Object(result));
     }
     output.extend(tool_results);
+}
+
+/// Extract readable text from an Anthropic `{"type": "document"}` block
+/// (`source.type == "text" | "content" | "base64"` with text-like media_type).
+pub fn extract_anthropic_document_text(block: &Value) -> Option<String> {
+    let source = block.get("source")?;
+    let source_type = source.get("type").and_then(Value::as_str).unwrap_or("");
+    let raw_text = match source_type {
+        "text" => source
+            .get("data")
+            .or_else(|| source.get("text"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        "content" => {
+            let text = content_text(source.get("content").unwrap_or(&Value::Null));
+            (!text.is_empty()).then_some(text)
+        }
+        "base64" => {
+            let media_type = source
+                .get("media_type")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let is_text_mime = media_type.starts_with("text/")
+                || matches!(
+                    media_type.as_str(),
+                    "application/json"
+                        | "application/xml"
+                        | "application/javascript"
+                        | "application/x-yaml"
+                        | "application/csv"
+                );
+            if is_text_mime {
+                use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD};
+                use base64::Engine;
+                let data = source.get("data").and_then(Value::as_str).unwrap_or("").trim();
+                STANDARD
+                    .decode(data)
+                    .or_else(|_| STANDARD_NO_PAD.decode(data))
+                    .ok()
+                    .and_then(|bytes| String::from_utf8(bytes).ok())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }?;
+    if raw_text.trim().is_empty() {
+        return None;
+    }
+    if let Some(title) = block
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(format!("[Document: {title}]\n{raw_text}"))
+    } else {
+        Some(raw_text)
+    }
+}
+
+/// Extract readable text from an Anthropic `{"type": "web_search_tool_result"}` block.
+pub fn extract_anthropic_web_search_result_text(block: &Value) -> Option<String> {
+    let content = block.get("content")?;
+    if let Some(text) = content.as_str().map(str::trim).filter(|s| !s.is_empty()) {
+        return Some(format!("[Web Search Results]\n{text}"));
+    }
+    let items = content.as_array()?;
+    let mut lines = Vec::new();
+    for item in items {
+        match item.get("type").and_then(Value::as_str) {
+            Some("web_search_result") => {
+                let title = item.get("title").and_then(Value::as_str).unwrap_or("").trim();
+                let url = item.get("url").and_then(Value::as_str).unwrap_or("").trim();
+                let snippet = item
+                    .get("snippet")
+                    .or_else(|| item.get("text"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim();
+                if !title.is_empty() || !url.is_empty() {
+                    if snippet.is_empty() {
+                        lines.push(format!("- {title}: {url}"));
+                    } else {
+                        lines.push(format!("- {title} ({url}): {snippet}"));
+                    }
+                }
+            }
+            Some("text") => {
+                if let Some(t) = item.get("text").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty()) {
+                    lines.push(t.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    if lines.is_empty() {
+        None
+    } else {
+        Some(format!("[Web Search Results]\n{}", lines.join("\n")))
+    }
 }
 
 pub fn is_claude_server_tool_type(tool_type: &str) -> bool {
@@ -1853,14 +2002,28 @@ fn content_text(value: &Value) -> String {
         Value::String(text) => text.clone(),
         Value::Array(items) => items
             .iter()
-            .filter_map(|item| item.get("text").and_then(Value::as_str))
+            .filter_map(|item| {
+                if let Some(text) = item.get("text").and_then(Value::as_str) {
+                    Some(text.to_string())
+                } else if item.get("type").and_then(Value::as_str) == Some("document") {
+                    extract_anthropic_document_text(item)
+                } else {
+                    None
+                }
+            })
             .collect::<Vec<_>>()
             .join("\n"),
-        Value::Object(_) => value
-            .get("text")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string(),
+        Value::Object(_) => {
+            if value.get("type").and_then(Value::as_str) == Some("document") {
+                extract_anthropic_document_text(value).unwrap_or_default()
+            } else {
+                value
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string()
+            }
+        }
         _ => String::new(),
     }
 }
@@ -2591,5 +2754,32 @@ mod tests {
         assert_eq!(chat_msgs[2]["role"], "tool");
         assert_eq!(chat_msgs[2]["tool_call_id"], "int_c1");
         assert_eq!(chat_msgs[3]["role"], "user");
+    }
+
+    #[test]
+    fn extract_anthropic_document_text_handles_text_content_and_base64() {
+        let doc_text = extract_anthropic_document_text(&json!({
+            "type": "document",
+            "title": "readme.txt",
+            "source": {
+                "type": "text",
+                "media_type": "text/plain",
+                "data": "Project code is ALPHA_42."
+            }
+        }))
+        .unwrap();
+        assert!(doc_text.contains("[Document: readme.txt]"));
+        assert!(doc_text.contains("ALPHA_42"));
+
+        let b64_doc = extract_anthropic_document_text(&json!({
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": "text/markdown",
+                "data": "SGVsbG8gV29ybGQ="
+            }
+        }))
+        .unwrap();
+        assert_eq!(b64_doc, "Hello World");
     }
 }

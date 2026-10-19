@@ -92,6 +92,54 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
 
     if !smart_gateway {
         if let Some(messages) = value.get_mut("messages").and_then(Value::as_array_mut) {
+            for msg in messages.iter_mut() {
+                let Some(blocks) = msg.get_mut("content").and_then(Value::as_array_mut) else {
+                    continue;
+                };
+                for block in blocks.iter_mut() {
+                    match block.get("type").and_then(Value::as_str) {
+                        Some("document") => {
+                            if let Some(doc_text) =
+                                crate::proxy::convert::extract_anthropic_document_text(block)
+                            {
+                                *block = serde_json::json!({
+                                    "type": "text",
+                                    "text": doc_text
+                                });
+                            }
+                        }
+                        Some("tool_use") => {
+                            if !block.get("input").is_some_and(Value::is_object) {
+                                if let Some(obj) = block.as_object_mut() {
+                                    obj.insert("input".to_string(), serde_json::json!({}));
+                                }
+                            }
+                        }
+                        Some("tool_result" | "tool_search_tool_result") => {
+                            if let Some(nested) =
+                                block.get_mut("content").and_then(Value::as_array_mut)
+                            {
+                                for item in nested.iter_mut() {
+                                    if item.get("type").and_then(Value::as_str) == Some("document")
+                                    {
+                                        if let Some(doc_text) =
+                                            crate::proxy::convert::extract_anthropic_document_text(
+                                                item,
+                                            )
+                                        {
+                                            *item = serde_json::json!({
+                                                "type": "text",
+                                                "text": doc_text
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
             let needs_sanitize = messages.iter().any(|msg| {
                 msg.get("content")
                     .and_then(Value::as_array)

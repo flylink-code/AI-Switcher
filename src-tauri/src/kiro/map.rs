@@ -258,6 +258,22 @@ fn text_of(content: Option<&Value>) -> Option<String> {
                 }
                 text.push_str(piece);
             }
+        } else if kind == "document" {
+            if let Some(doc_text) = crate::proxy::convert::extract_anthropic_document_text(block) {
+                if !text.is_empty() {
+                    text.push('\n');
+                }
+                text.push_str(&doc_text);
+            }
+        } else if kind == "web_search_tool_result" {
+            if let Some(ws_text) =
+                crate::proxy::convert::extract_anthropic_web_search_result_text(block)
+            {
+                if !text.is_empty() {
+                    text.push('\n');
+                }
+                text.push_str(&ws_text);
+            }
         }
     }
     Some(text)
@@ -437,7 +453,7 @@ fn anthropic_tool_uses(content: Option<&Value>) -> Vec<Value> {
             Some(json!({
                 "toolUseId": block.get("id").and_then(|item| item.as_str())?,
                 "name": block.get("name").and_then(|item| item.as_str())?,
-                "input": block.get("input").cloned().unwrap_or_else(|| json!({}))
+                "input": block.get("input").filter(|v| v.is_object()).cloned().unwrap_or_else(|| json!({}))
             }))
         })
         .collect()
@@ -449,11 +465,28 @@ fn anthropic_tool_results(content: Option<&Value>) -> Vec<Value> {
     };
     blocks
         .iter()
-        .filter(|block| block.get("type").and_then(|item| item.as_str()) == Some("tool_result"))
+        .filter(|block| {
+            matches!(
+                block.get("type").and_then(|item| item.as_str()),
+                Some("tool_result" | "tool_search_tool_result")
+            )
+        })
         .filter_map(|block| {
-            let text = text_of(block.get("content")).unwrap_or_default();
+            let mut text = text_of(block.get("content")).unwrap_or_default();
+            if text.is_empty()
+                && block
+                    .get("content")
+                    .and_then(Value::as_array)
+                    .is_some_and(|items| {
+                        items
+                            .iter()
+                            .any(|item| item.get("type").and_then(Value::as_str) == Some("image"))
+                    })
+            {
+                text = "[Image attached]".to_string();
+            }
             Some(json!({
-                "toolUseId": block.get("tool_use_id").and_then(|item| item.as_str())?,
+                "toolUseId": block.get("tool_use_id").or_else(|| block.get("id")).and_then(|item| item.as_str())?,
                 "content": [{"text": text}],
                 "status": if block.get("is_error").and_then(|item| item.as_bool()).unwrap_or(false) { "error" } else { "success" }
             }))
@@ -461,29 +494,47 @@ fn anthropic_tool_results(content: Option<&Value>) -> Vec<Value> {
         .collect()
 }
 
+fn parse_kiro_image_block(block: &Value) -> Option<Value> {
+    if block.get("type").and_then(|item| item.as_str()) != Some("image") {
+        return None;
+    }
+    let source = block.get("source")?;
+    let data = source
+        .get("data")
+        .or_else(|| source.get("bytes"))
+        .and_then(|item| item.as_str())?;
+    let format = source
+        .get("media_type")
+        .and_then(|item| item.as_str())
+        .unwrap_or("image/png")
+        .rsplit('/')
+        .next()
+        .unwrap_or("png");
+    Some(json!({"format": format, "source": {"bytes": data}}))
+}
+
 fn anthropic_images(content: Option<&Value>) -> Vec<Value> {
     let Some(blocks) = content.and_then(|item| item.as_array()) else {
         return Vec::new();
     };
-    blocks
-        .iter()
-        .filter(|block| block.get("type").and_then(|item| item.as_str()) == Some("image"))
-        .filter_map(|block| {
-            let source = block.get("source")?;
-            let data = source
-                .get("data")
-                .or_else(|| source.get("bytes"))
-                .and_then(|item| item.as_str())?;
-            let format = source
-                .get("media_type")
-                .and_then(|item| item.as_str())
-                .unwrap_or("image/png")
-                .rsplit('/')
-                .next()
-                .unwrap_or("png");
-            Some(json!({"format": format, "source": {"bytes": data}}))
-        })
-        .collect()
+    let mut images = Vec::new();
+    for block in blocks {
+        if let Some(img) = parse_kiro_image_block(block) {
+            images.push(img);
+        } else if matches!(
+            block.get("type").and_then(|item| item.as_str()),
+            Some("tool_result" | "tool_search_tool_result")
+        ) {
+            if let Some(nested) = block.get("content").and_then(|item| item.as_array()) {
+                for item in nested {
+                    if let Some(img) = parse_kiro_image_block(item) {
+                        images.push(img);
+                    }
+                }
+            }
+        }
+    }
+    images
 }
 
 /// Models confirmed to accept `additionalModelRequestFields`.

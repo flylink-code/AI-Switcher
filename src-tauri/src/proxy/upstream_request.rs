@@ -402,9 +402,14 @@ async fn proxy_handler_inner(
             match result {
                 Ok(response) => break response,
                 Err(error) => {
+                    let failover_diag = if !failover_trace.is_empty() {
+                        format!("故障降级失败: {}", failover_trace.join(" → "))
+                    } else {
+                        format!("上游连接失败: {error}")
+                    };
                     let fail_log_id = log_request_with_diagnostic(&state, &provider, Some(502),
                         started.elapsed().as_millis() as i64, uri.path(), incoming_stream,
-                        Some("network"), Some(&format!("故障降级失败: {}", failover_trace.join(" → "))));
+                        Some("network"), Some(&failover_diag));
                     let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
                     if let Some(id) = fail_log_id.as_deref() {
                         if let Some(decision) = route_decision.as_ref() {

@@ -343,8 +343,14 @@ pub fn chat_response_to_responses(body: &Value, fallback_model: &str) -> Value {
     } else {
         "completed"
     };
+    let resp_id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("resp_{}", Uuid::new_v4().simple()));
     let mut result = json!({
-        "id": body.get("id").and_then(Value::as_str).unwrap_or("resp_proxy"),
+        "id": resp_id,
         "object": "response",
         "status": status,
         "model": body.get("model").and_then(Value::as_str).unwrap_or(fallback_model),

@@ -205,6 +205,16 @@ pub fn anthropic_to_gemini_request(
     if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
         generation["topP"] = json!(top_p);
     }
+    if let Some(stops) = body.get("stop_sequences").and_then(Value::as_array) {
+        let stop_list: Vec<&str> = stops
+            .iter()
+            .filter_map(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !stop_list.is_empty() {
+            generation["stopSequences"] = json!(stop_list);
+        }
+    }
     if gemini_target && thoughts_allowed {
         generation["thinkingConfig"] = json!({ "includeThoughts": true });
     }
@@ -660,6 +670,8 @@ pub(super) fn tool_result_text(content: &Value) -> String {
                         .get("text")
                         .and_then(Value::as_str)
                         .map(str::to_string)
+                } else if block.get("type").and_then(Value::as_str) == Some("document") {
+                    crate::proxy::convert::extract_anthropic_document_text(block)
                 } else {
                     None
                 }
@@ -709,10 +721,21 @@ fn content_to_parts(
                             }
                         }
                     }
+                    "web_search_tool_result" => {
+                        if let Some(text) =
+                            crate::proxy::convert::extract_anthropic_web_search_result_text(block)
+                        {
+                            parts.push(json!({ "text": text }));
+                        }
+                    }
                     "tool_use" => {
                         let name = block.get("name").and_then(Value::as_str).unwrap_or("tool");
                         let id = block.get("id").and_then(Value::as_str);
-                        let args = block.get("input").cloned().unwrap_or(json!({}));
+                        let args = block
+                            .get("input")
+                            .filter(|v| v.is_object())
+                            .cloned()
+                            .unwrap_or_else(|| json!({}));
                         let mut fc = json!({ "name": name, "args": args });
                         if let Some(id) = id {
                             fc["id"] = json!(thought_sig::normalize_tool_id(id).as_ref());
@@ -795,6 +818,39 @@ fn content_to_parts(
                                     "inlineData": { "mimeType": mime, "data": data }
                                 }));
                             }
+                        }
+                    }
+                    "document" => {
+                        let is_binary_doc = block
+                            .pointer("/source/type")
+                            .and_then(Value::as_str)
+                            == Some("base64")
+                            && block
+                                .pointer("/source/media_type")
+                                .and_then(Value::as_str)
+                                .is_some_and(|m| {
+                                    let lower = m.to_ascii_lowercase();
+                                    lower == "application/pdf" || lower.starts_with("image/")
+                                });
+                        if is_binary_doc {
+                            if let Some(source) = block.get("source") {
+                                let data = source.get("data").and_then(Value::as_str).unwrap_or("");
+                                let mime = source
+                                    .get("media_type")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("application/pdf");
+                                if !data.is_empty()
+                                    && super::history_media::is_plausible_image_base64(data)
+                                {
+                                    parts.push(json!({
+                                        "inlineData": { "mimeType": mime, "data": data }
+                                    }));
+                                }
+                            }
+                        } else if let Some(doc_text) =
+                            crate::proxy::convert::extract_anthropic_document_text(block)
+                        {
+                            parts.push(json!({ "text": doc_text }));
                         }
                     }
                     _ => {}
@@ -2426,5 +2482,38 @@ mod tests {
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         let contents = parts.request["contents"].as_array().unwrap();
         assert_eq!(contents.last().unwrap()["role"], "user");
+    }
+
+    #[test]
+    fn document_block_and_stop_sequences_map_to_gemini_request() {
+        let body = json!({
+            "model": "gemini-3.8-flash-low",
+            "max_tokens": 64,
+            "stop_sequences": ["STOP_HERE"],
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "title": "spec.txt",
+                        "source": {
+                            "type": "text",
+                            "media_type": "text/plain",
+                            "data": "ALPHA_42"
+                        }
+                    },
+                    { "type": "text", "text": "What is the code?" }
+                ]
+            }]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(
+            parts.request["generationConfig"]["stopSequences"],
+            json!(["STOP_HERE"])
+        );
+        let user_parts = parts.request["contents"][0]["parts"].as_array().unwrap();
+        assert!(user_parts
+            .iter()
+            .any(|p| p["text"].as_str().is_some_and(|t| t.contains("ALPHA_42"))));
     }
 }

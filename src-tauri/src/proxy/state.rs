@@ -130,22 +130,32 @@ impl ProxyManager {
             let mut app = Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(codex::codex_models_handler))
+                .route("/models", get(codex::codex_models_handler))
                 .route("/v1/models/:id", get(model_retrieve_handler))
+                .route("/models/:id", get(model_retrieve_handler))
                 .route("/v1/responses", any(codex::codex_proxy_handler))
+                .route("/responses", any(codex::codex_proxy_handler))
                 .route("/v1/responses/compact", any(codex::codex_proxy_handler))
                 .route("/responses/compact", any(codex::codex_proxy_handler))
-                .route("/v1/chat/completions", any(codex::codex_proxy_handler));
+                .route("/v1/chat/completions", any(codex::codex_proxy_handler))
+                .route("/chat/completions", any(codex::codex_proxy_handler));
             if matches!(target, ProviderTarget::OpenCode | ProviderTarget::Dsh) {
-                app = app.route("/v1/messages", any(proxy_handler));
+                app = app
+                    .route("/v1/messages", any(proxy_handler))
+                    .route("/messages", any(proxy_handler));
             }
             app
         } else {
             let mut app = Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(models_handler))
+                .route("/models", get(models_handler))
                 .route("/v1/models/:id", get(model_retrieve_handler))
+                .route("/models/:id", get(model_retrieve_handler))
                 .route("/v1/messages", any(proxy_handler))
-                .route("/v1/messages/count_tokens", any(count_tokens_handler));
+                .route("/messages", any(proxy_handler))
+                .route("/v1/messages/count_tokens", any(count_tokens_handler))
+                .route("/messages/count_tokens", any(count_tokens_handler));
             if target == ProviderTarget::ClaudeDesktop {
                 app = app
                     .route(
@@ -332,14 +342,21 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
     Router::new()
         .route("/health", get(health_handler))
         .route("/v1/models", get(models_handler))
+        .route("/models", get(models_handler))
         .route("/v1/models/:id", get(model_retrieve_handler))
+        .route("/models/:id", get(model_retrieve_handler))
         .route("/v1/messages", any(proxy_handler))
+        .route("/messages", any(proxy_handler))
         .route("/v1/messages/count_tokens", any(count_tokens_handler))
+        .route("/messages/count_tokens", any(count_tokens_handler))
         .route("/v1/chat/completions", any(smart_gateway_openai_handler))
+        .route("/chat/completions", any(smart_gateway_openai_handler))
         .route("/v1/responses", any(smart_gateway_openai_handler))
+        .route("/responses", any(smart_gateway_openai_handler))
         .route("/v1/responses/compact", any(smart_gateway_openai_handler))
         .route("/responses/compact", any(smart_gateway_openai_handler))
         .route("/v1/images/generations", any(proxy_handler))
+        .route("/images/generations", any(proxy_handler))
         .layer(DefaultBodyLimit::max(LOCAL_LISTENER_BODY_LIMIT))
         .layer(CorsLayer::permissive())
         .with_state(state)

@@ -37,12 +37,26 @@ struct KiroStreamGuard {
 
 impl KiroStreamGuard {
     fn finish_and_flush(&mut self) -> String {
+        self.finish_and_flush_with_outcome("complete", None, None)
+    }
+
+    fn finish_and_flush_with_outcome(
+        &mut self,
+        outcome: &'static str,
+        error_category: Option<&'static str>,
+        diagnostic: Option<&'static str>,
+    ) -> String {
         let tail = self.streamer.finish(self.context_window, self.req_len);
-        self.flush_usage();
+        self.flush_usage_with_outcome(outcome, error_category, diagnostic);
         tail
     }
 
-    fn flush_usage(&mut self) {
+    fn flush_usage_with_outcome(
+        &mut self,
+        outcome: &'static str,
+        error_category: Option<&'static str>,
+        diagnostic: Option<&'static str>,
+    ) {
         if self.usage_flushed {
             return;
         }
@@ -50,7 +64,22 @@ impl KiroStreamGuard {
         self.streamer
             .collected
             .finalize_usage(self.context_window, self.req_len);
+        let effective_outcome = if self.streamer.collected.upstream_error.is_some() {
+            "midstream_error"
+        } else {
+            outcome
+        };
         if let Some(ref id) = self.log_id {
+            let _ = self.db.with_conn(|conn| {
+                crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                    conn,
+                    id,
+                    effective_outcome,
+                    None,
+                    error_category,
+                    diagnostic,
+                )
+            });
             crate::kiro::usage_log::write_usage(
                 &self.db,
                 id,
@@ -65,7 +94,7 @@ impl KiroStreamGuard {
 
 impl Drop for KiroStreamGuard {
     fn drop(&mut self) {
-        self.flush_usage();
+        self.flush_usage_with_outcome("cancelled", Some("cancelled"), Some("客户端断开连接"));
     }
 }
 
@@ -441,7 +470,11 @@ async fn handle(
                                 }
                                 Err(err) => {
                                     log::warn!("Kiro mid-stream decode error: {err:?}");
-                                    let tail = guard.finish_and_flush();
+                                    let tail = guard.finish_and_flush_with_outcome(
+                                        "midstream_error",
+                                        Some("midstream_error"),
+                                        Some("Kiro 上游事件流解析中断"),
+                                    );
                                     return Some((
                                         Ok(Bytes::from(tail)),
                                         (byte_stream, decoder, guard, None, true),
@@ -450,7 +483,11 @@ async fn handle(
                             },
                             Ok(Some(Err(err))) => {
                                 log::warn!("Kiro mid-stream read error: {err}");
-                                let tail = guard.finish_and_flush();
+                                let tail = guard.finish_and_flush_with_outcome(
+                                    "midstream_error",
+                                    Some("midstream_error"),
+                                    Some("Kiro 上游流式响应中途中断"),
+                                );
                                 return Some((
                                     Ok(Bytes::from(tail)),
                                     (byte_stream, decoder, guard, None, true),
@@ -468,7 +505,11 @@ async fn handle(
                                     "Kiro mid-stream idle timeout after {}s",
                                     STREAM_IDLE_TIMEOUT.as_secs()
                                 );
-                                let tail = guard.finish_and_flush();
+                                let tail = guard.finish_and_flush_with_outcome(
+                                    "midstream_error",
+                                    Some("timeout"),
+                                    Some("Kiro 流式响应空闲超时"),
+                                );
                                 return Some((
                                     Ok(Bytes::from(tail)),
                                     (byte_stream, decoder, guard, None, true),

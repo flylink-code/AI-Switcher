@@ -551,10 +551,11 @@ pub async fn codex_proxy_handler(
     }
 
     if let Some(bytes) = prefetched_bytes {
+        let upstream_diag = super::sanitized_upstream_diagnostic(status, &bytes);
         let failover_diag = if !failover_trace.is_empty() {
-            Some(format!("故障降级: {}", failover_trace.join(" → ")))
+            format!("故障降级: {}；{}", failover_trace.join(" → "), upstream_diag)
         } else {
-            None
+            upstream_diag
         };
         let fail_log_id = log_request_with_diagnostic(
             &state,
@@ -563,8 +564,8 @@ pub async fn codex_proxy_handler(
             started.elapsed().as_millis() as i64,
             &route,
             is_stream,
-            Some("upstream"),
-            failover_diag.as_deref(),
+            Some(super::upstream_error_category(status)),
+            Some(&failover_diag),
         );
         let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
         if let Some(id) = fail_log_id.as_deref() {
@@ -599,7 +600,7 @@ pub async fn codex_proxy_handler(
         if status.is_success() {
             None
         } else {
-            Some("upstream")
+            Some(super::upstream_error_category(status))
         },
         failover_diag.as_deref(),
     );
@@ -612,12 +613,13 @@ pub async fn codex_proxy_handler(
         }
     }
 
-    let is_streaming = is_stream
-        || upstream
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.contains("text/event-stream"));
+    let is_streaming = status.is_success()
+        && (is_stream
+            || upstream
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.contains("text/event-stream")));
     if status.is_success() {
         remember_gateway_success_upstream(
             &state,
@@ -730,6 +732,12 @@ pub async fn codex_proxy_handler(
                 }
             }
         } else {
+            super::update_log_diagnostic(
+                &state,
+                log_id.as_deref(),
+                super::upstream_error_category(status),
+                &super::sanitized_upstream_diagnostic(status, &response_bytes),
+            );
             response_bytes
         };
         if let Some(id) = log_id.as_deref() {
@@ -1330,6 +1338,12 @@ async fn forward_chat_bridge_upstream(
             }
         };
         if !status.is_success() {
+            super::update_log_diagnostic(
+                &state,
+                log_id.as_deref(),
+                super::upstream_error_category(status),
+                &super::sanitized_upstream_diagnostic(status, &response_bytes),
+            );
             return Response::builder()
                 .status(status)
                 .header(header::CONTENT_TYPE, "application/json")
@@ -1637,6 +1651,12 @@ async fn forward_anthropic_upstream(
             }
         };
         if !status.is_success() {
+            super::update_log_diagnostic(
+                &state,
+                log_id.as_deref(),
+                super::upstream_error_category(status),
+                &super::sanitized_upstream_diagnostic(status, &response_bytes),
+            );
             return Response::builder()
                 .status(status)
                 .header(header::CONTENT_TYPE, "application/json")
@@ -2019,24 +2039,6 @@ fn forward_anthropic_to_chat_completions_stream(
         .chain(stream::once(async { Ok(None) }))
         .map(move |chunk| match chunk {
             Ok(Some(bytes)) => {
-                if let Some(id) = log_id.as_deref() {
-                    raw_usage_buf.extend_from_slice(&bytes);
-                    if let Some(usage) = extract_usage_from_sse(&raw_usage_buf) {
-                        let _ = db.with_conn(|conn| {
-                            update_proxy_log_usage_idempotent(
-                                conn,
-                                id,
-                                Some(target_app.as_str()),
-                                Some(provider_id.as_str()),
-                                usage.envelope_id.as_deref(),
-                                usage.input_tokens,
-                                usage.cache_read_input_tokens,
-                                usage.cache_creation_input_tokens,
-                                usage.output_tokens,
-                            )
-                        });
-                    }
-                }
                 sse_buffer.extend_from_slice(&bytes);
                 let mut out = String::new();
                 while let Some((end, delimiter_len)) = find_sse_frame_end(&sse_buffer) {
@@ -2175,6 +2177,11 @@ fn forward_anthropic_to_chat_completions_stream(
                             }
                         }
                         "message_stop" => {
+                            super::response_lifecycle::record_response_event(
+                                &db,
+                                log_id.as_deref(),
+                                &data,
+                            );
                             if !sent_done {
                                 sent_done = true;
                                 let finish = if has_tool_calls { "tool_calls" } else { "stop" };
@@ -2199,7 +2206,32 @@ fn forward_anthropic_to_chat_completions_stream(
                                 out.push_str(&format!("data: {final_chunk}\n\ndata: [DONE]\n\n"));
                             }
                         }
+                        "error" => {
+                            super::response_lifecycle::record_response_event(
+                                &db,
+                                log_id.as_deref(),
+                                &data,
+                            );
+                        }
                         _ => {}
+                    }
+                }
+                if let Some(id) = log_id.as_deref() {
+                    raw_usage_buf.extend_from_slice(&bytes);
+                    if let Some(usage) = extract_usage_from_sse(&raw_usage_buf) {
+                        let _ = db.with_conn(|conn| {
+                            update_proxy_log_usage_idempotent(
+                                conn,
+                                id,
+                                Some(target_app.as_str()),
+                                Some(provider_id.as_str()),
+                                usage.envelope_id.as_deref(),
+                                usage.input_tokens,
+                                usage.cache_read_input_tokens,
+                                usage.cache_creation_input_tokens,
+                                usage.output_tokens,
+                            )
+                        });
                     }
                 }
                 Ok::<Bytes, Infallible>(Bytes::from(out.into_bytes()))
@@ -2207,6 +2239,18 @@ fn forward_anthropic_to_chat_completions_stream(
             Ok(None) => {
                 if !sent_done {
                     sent_done = true;
+                    if let Some(id) = log_id.as_deref() {
+                        let _ = db.with_conn(|conn| {
+                            crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                conn,
+                                id,
+                                "complete",
+                                None,
+                                None,
+                                None,
+                            )
+                        });
+                    }
                     let finish = if has_tool_calls { "tool_calls" } else { "stop" };
                     let final_chunk = serde_json::json!({
                         "id": chat_id,
@@ -2230,7 +2274,21 @@ fn forward_anthropic_to_chat_completions_stream(
                 }
                 Ok(Bytes::new())
             }
-            Err(()) => Ok(Bytes::new()),
+            Err(()) => {
+                if let Some(id) = log_id.as_deref() {
+                    let _ = db.with_conn(|conn| {
+                        crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                            conn,
+                            id,
+                            "midstream_error",
+                            None,
+                            Some("midstream_error"),
+                            Some("Codex 上游流式响应中途中断"),
+                        )
+                    });
+                }
+                Ok(Bytes::new())
+            }
         });
 
     Response::builder()
@@ -2282,24 +2340,6 @@ fn forward_responses_to_chat_completions_stream(
         .chain(stream::once(async { Ok(None) }))
         .map(move |chunk| match chunk {
             Ok(Some(bytes)) => {
-                if let Some(id) = log_id.as_deref() {
-                    raw_usage_buf.extend_from_slice(&bytes);
-                    if let Some(usage) = extract_usage_from_sse(&raw_usage_buf) {
-                        let _ = db.with_conn(|conn| {
-                            update_proxy_log_usage_idempotent(
-                                conn,
-                                id,
-                                Some(target_app.as_str()),
-                                Some(provider_id.as_str()),
-                                usage.envelope_id.as_deref(),
-                                usage.input_tokens,
-                                usage.cache_read_input_tokens,
-                                usage.cache_creation_input_tokens,
-                                usage.output_tokens,
-                            )
-                        });
-                    }
-                }
                 sse_buffer.extend_from_slice(&bytes);
                 let mut out = String::new();
                 while let Some((end, delimiter_len)) = find_sse_frame_end(&sse_buffer) {
@@ -2515,6 +2555,11 @@ fn forward_responses_to_chat_completions_stream(
                             }
                         }
                         "response.completed" => {
+                            super::response_lifecycle::record_response_event(
+                                &db,
+                                log_id.as_deref(),
+                                &data,
+                            );
                             if let Some(resp) = data.get("response") {
                                 if let Some(u) = resp.get("usage") {
                                     prompt_tokens = u.get("input_tokens").and_then(Value::as_i64).unwrap_or(prompt_tokens);
@@ -2615,7 +2660,32 @@ fn forward_responses_to_chat_completions_stream(
                                 out.push_str(&format!("data: {final_chunk}\n\ndata: [DONE]\n\n"));
                             }
                         }
+                        "response.failed" | "response.incomplete" => {
+                            super::response_lifecycle::record_response_event(
+                                &db,
+                                log_id.as_deref(),
+                                &data,
+                            );
+                        }
                         _ => {}
+                    }
+                }
+                if let Some(id) = log_id.as_deref() {
+                    raw_usage_buf.extend_from_slice(&bytes);
+                    if let Some(usage) = extract_usage_from_sse(&raw_usage_buf) {
+                        let _ = db.with_conn(|conn| {
+                            update_proxy_log_usage_idempotent(
+                                conn,
+                                id,
+                                Some(target_app.as_str()),
+                                Some(provider_id.as_str()),
+                                usage.envelope_id.as_deref(),
+                                usage.input_tokens,
+                                usage.cache_read_input_tokens,
+                                usage.cache_creation_input_tokens,
+                                usage.output_tokens,
+                            )
+                        });
                     }
                 }
                 Ok::<Bytes, Infallible>(Bytes::from(out.into_bytes()))
@@ -2623,6 +2693,18 @@ fn forward_responses_to_chat_completions_stream(
             Ok(None) => {
                 if !sent_done {
                     sent_done = true;
+                    if let Some(id) = log_id.as_deref() {
+                        let _ = db.with_conn(|conn| {
+                            crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                conn,
+                                id,
+                                "complete",
+                                None,
+                                None,
+                                None,
+                            )
+                        });
+                    }
                     let finish = if has_tool_calls { "tool_calls" } else { "stop" };
                     let final_chunk = serde_json::json!({
                         "id": chat_id,
@@ -2646,7 +2728,21 @@ fn forward_responses_to_chat_completions_stream(
                 }
                 Ok(Bytes::new())
             }
-            Err(()) => Ok(Bytes::new()),
+            Err(()) => {
+                if let Some(id) = log_id.as_deref() {
+                    let _ = db.with_conn(|conn| {
+                        crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                            conn,
+                            id,
+                            "midstream_error",
+                            None,
+                            Some("midstream_error"),
+                            Some("Codex 上游流式响应中途中断"),
+                        )
+                    });
+                }
+                Ok(Bytes::new())
+            }
         });
 
     Response::builder()

@@ -531,7 +531,11 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         .route("/health", get(handlers::health))
         .route("/healthz", get(handlers::health))
         .route("/v1/models", get(handlers::list_models))
+        .route("/models", get(handlers::list_models))
+        .route("/v1/messages/count_tokens", any(handlers::count_tokens))
+        .route("/messages/count_tokens", any(handlers::count_tokens))
         .route("/v1/messages", any(handlers::anthropic_messages))
+        .route("/messages", any(handlers::anthropic_messages))
         .route(
             "/v1/chat/completions",
             any(handlers::openai_chat_completions),

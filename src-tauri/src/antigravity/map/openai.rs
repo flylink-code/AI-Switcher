@@ -119,8 +119,10 @@ pub fn openai_to_gemini_request(
                             .and_then(|f| f.get("arguments"))
                             .and_then(Value::as_str)
                             .unwrap_or("{}");
-                        let args: Value =
-                            serde_json::from_str(args_raw).unwrap_or_else(|_| json!({}));
+                        let args: Value = serde_json::from_str::<Value>(args_raw)
+                            .ok()
+                            .filter(Value::is_object)
+                            .unwrap_or_else(|| json!({}));
                         let mut fc = json!({ "name": name, "args": args });
                         let id = call.get("id").and_then(Value::as_str);
                         if let Some(id) = id {
@@ -241,6 +243,22 @@ pub fn openai_to_gemini_request(
     }
     if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
         generation["topP"] = json!(top_p);
+    }
+    match body.get("stop") {
+        Some(Value::String(s)) if !s.is_empty() => {
+            generation["stopSequences"] = json!([s]);
+        }
+        Some(Value::Array(items)) => {
+            let stop_list: Vec<&str> = items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .collect();
+            if !stop_list.is_empty() {
+                generation["stopSequences"] = json!(stop_list);
+            }
+        }
+        _ => {}
     }
     if let Some(level) = claude_thinking_level {
         if model_catalog::is_claude_55(&model) {

@@ -252,8 +252,14 @@ pub fn anthropic_response_to_responses(body: &Value) -> Value {
     } else {
         "completed"
     };
+    let resp_id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("resp_{}", uuid::Uuid::new_v4().simple()));
     let mut result = json!({
-        "id": body.get("id").and_then(Value::as_str).unwrap_or("resp_proxy"),
+        "id": resp_id,
         "object": "response",
         "status": status,
         "model": body.get("model").and_then(Value::as_str).unwrap_or(""),
@@ -329,13 +335,14 @@ fn responses_input_to_messages(input: &Value) -> AppResult<Vec<Value>> {
                 match item.get("type").and_then(Value::as_str) {
                     Some("function_call") => {
                         flush_tool_results(&mut messages, &mut pending_tool_results);
-                        let parsed_args = item
-                            .get("arguments")
-                            .and_then(Value::as_str)
-                            .and_then(|raw| serde_json::from_str(raw).ok())
-                            .unwrap_or_else(|| {
-                                item.get("arguments").cloned().unwrap_or_else(|| json!({}))
-                            });
+                        let parsed_args = match item.get("arguments") {
+                            Some(Value::String(raw)) => serde_json::from_str::<Value>(raw)
+                                .ok()
+                                .filter(Value::is_object)
+                                .unwrap_or_else(|| json!({})),
+                            Some(Value::Object(map)) => Value::Object(map.clone()),
+                            _ => json!({}),
+                        };
                         pending_tool_uses.push(json!({
                             "type": "tool_use",
                             "id": item.get("call_id").or_else(|| item.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),
@@ -345,10 +352,24 @@ fn responses_input_to_messages(input: &Value) -> AppResult<Vec<Value>> {
                     }
                     Some("function_call_output") => {
                         flush_tool_uses(&mut messages, &mut pending_tool_uses);
+                        let raw_output = item.get("output").unwrap_or(&Value::Null);
+                        let has_media = raw_output.as_array().is_some_and(|arr| {
+                            arr.iter().any(|p| {
+                                matches!(
+                                    p.get("type").and_then(Value::as_str),
+                                    Some("input_image" | "image_url" | "image")
+                                )
+                            })
+                        });
+                        let tool_content = if has_media {
+                            Value::Array(convert_responses_content(raw_output).unwrap_or_default())
+                        } else {
+                            Value::String(output_text(raw_output))
+                        };
                         pending_tool_results.push(json!({
                             "type": "tool_result",
                             "tool_use_id": item.get("call_id").and_then(Value::as_str).unwrap_or("tool_call"),
-                            "content": output_text(item.get("output").unwrap_or(&Value::Null)),
+                            "content": tool_content,
                         }));
                     }
                     _ if item.get("role").is_some() => {
@@ -434,6 +455,12 @@ pub(crate) fn sanitize_anthropic_messages(messages: &mut Vec<Value>) {
                 match b.get("type").and_then(Value::as_str) {
                     Some("thinking" | "redacted_thinking") => thinking_blocks.push(b),
                     Some("tool_use") => {
+                        let mut b = b;
+                        if !b.get("input").is_some_and(Value::is_object) {
+                            if let Some(obj) = b.as_object_mut() {
+                                obj.insert("input".to_string(), json!({}));
+                            }
+                        }
                         if let Some(id) = b
                             .get("id")
                             .and_then(Value::as_str)
@@ -572,18 +599,13 @@ fn convert_responses_content(content: &Value) -> AppResult<Vec<Value>> {
                             blocks.push(json!({"type": "text", "text": text}));
                         }
                     }
-                    Some("input_image") => {
+                    Some("input_image" | "image_url") => {
                         if let Some(image) = responses_image_to_anthropic(part) {
                             blocks.push(image);
                         }
                     }
-                    Some("image_url") => {
-                        if let Some(url) = part.pointer("/image_url/url").and_then(Value::as_str) {
-                            blocks.push(json!({
-                                "type": "image",
-                                "source": {"type": "url", "url": url}
-                            }));
-                        }
+                    Some("image") => {
+                        blocks.push(part.clone());
                     }
                     _ => {}
                 }

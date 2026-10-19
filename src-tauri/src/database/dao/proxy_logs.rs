@@ -1014,6 +1014,22 @@ pub fn update_proxy_log_usage_idempotent(
                 |row| row.get(0),
             )?;
             if exists > 0 {
+                conn.execute(
+                    "UPDATE proxy_request_logs
+                     SET input_tokens = MAX(COALESCE(input_tokens, 0), ?1),
+                         cache_read_input_tokens = MAX(COALESCE(cache_read_input_tokens, 0), ?2),
+                         cache_creation_input_tokens = MAX(COALESCE(cache_creation_input_tokens, 0), ?3),
+                         output_tokens = MAX(COALESCE(output_tokens, 0), ?4),
+                         usage_available = 1
+                     WHERE id = ?5;",
+                    params![
+                        input_tokens,
+                        cache_read_input_tokens,
+                        cache_creation_input_tokens,
+                        output_tokens,
+                        stable
+                    ],
+                )?;
                 conn.execute("DELETE FROM proxy_request_logs WHERE id = ?;", params![id])?;
                 return Ok(());
             }
@@ -1087,20 +1103,30 @@ pub fn stable_proxy_usage_id(
 }
 
 pub fn extract_usage_envelope_id(value: &serde_json::Value) -> Option<String> {
+    let is_placeholder = |item: &str| {
+        matches!(
+            item.to_ascii_lowercase().as_str(),
+            "response.created" | "resp_proxy" | "msg_proxy" | "chatcmpl-proxy" | "chatcmpl_proxy"
+        )
+    };
     value
         .pointer("/response/id")
+        .or_else(|| value.pointer("/message/id"))
         .or_else(|| value.get("id"))
         .or_else(|| value.get("responseId"))
         .and_then(|item| item.as_str())
         .map(str::trim)
-        .filter(|item| !item.is_empty() && !item.eq_ignore_ascii_case("response.created"))
+        .filter(|item| !item.is_empty() && !is_placeholder(item))
         .map(str::to_string)
         .or_else(|| {
             value
                 .get("id")
                 .and_then(|item| item.as_str())
                 .map(str::trim)
-                .filter(|item| item.starts_with("chatcmpl-") || item.starts_with("resp_"))
+                .filter(|item| {
+                    (item.starts_with("chatcmpl-") || item.starts_with("resp_"))
+                        && !is_placeholder(item)
+                })
                 .map(str::to_string)
         })
 }

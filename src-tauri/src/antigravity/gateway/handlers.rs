@@ -78,6 +78,18 @@ pub async fn list_models(State(state): State<GatewayState>, headers: HeaderMap) 
     .into_response()
 }
 
+pub async fn count_tokens(
+    State(state): State<GatewayState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(response) = authorize(&state, &headers) {
+        return response;
+    }
+    let tokens = (body.len() / 4).max(1);
+    (StatusCode::OK, Json(json!({ "input_tokens": tokens }))).into_response()
+}
+
 pub async fn anthropic_messages(
     State(state): State<GatewayState>,
     headers: HeaderMap,
@@ -1328,9 +1340,22 @@ async fn stream_response(
                     Ok(Some(Ok(bytes))) => {
                         state.buffer.push(&bytes);
                     }
-                    Ok(Some(Err(_))) | Ok(None) => {
+                    Ok(Some(Err(_))) => {
                         let trailing = state.finish_events();
-                        state.flush_usage();
+                        state.flush_usage_with_outcome(
+                            "midstream_error",
+                            Some("midstream_error"),
+                            Some("Antigravity 上游流式响应中途中断"),
+                        );
+                        state.finished = true;
+                        if trailing.is_empty() {
+                            return None;
+                        }
+                        return Some((Ok::<Bytes, Infallible>(trailing), state));
+                    }
+                    Ok(None) => {
+                        let trailing = state.finish_events();
+                        state.flush_usage_with_outcome("complete", None, None);
                         state.finished = true;
                         if trailing.is_empty() {
                             return None;
@@ -1343,7 +1368,11 @@ async fn stream_response(
                             state.model
                         );
                         let trailing = state.finish_events();
-                        state.flush_usage();
+                        state.flush_usage_with_outcome(
+                            "midstream_error",
+                            Some("timeout"),
+                            Some("Antigravity 流式响应空闲超时"),
+                        );
                         state.finished = true;
                         if trailing.is_empty() {
                             return None;
@@ -1371,8 +1400,10 @@ impl Drop for StreamState {
                 "Antigravity client disconnected; cancelling upstream stream model={}",
                 self.model
             );
+            self.flush_usage_with_outcome("cancelled", Some("cancelled"), Some("客户端断开连接"));
+        } else {
+            self.flush_usage_with_outcome("complete", None, None);
         }
-        self.flush_usage();
     }
 }
 
@@ -1455,6 +1486,15 @@ impl StreamState {
     }
 
     fn flush_usage(&mut self) {
+        self.flush_usage_with_outcome("complete", None, None);
+    }
+
+    fn flush_usage_with_outcome(
+        &mut self,
+        outcome: &'static str,
+        error_category: Option<&'static str>,
+        diagnostic: Option<&'static str>,
+    ) {
         if self.usage_flushed {
             return;
         }
@@ -1462,6 +1502,16 @@ impl StreamState {
         let Some(log_id) = self.log_id.as_deref() else {
             return;
         };
+        let _ = self.db.with_conn(|conn| {
+            crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                conn,
+                log_id,
+                outcome,
+                None,
+                error_category,
+                diagnostic,
+            )
+        });
         usage_log::update_usage_tokens(
             &self.db,
             log_id,

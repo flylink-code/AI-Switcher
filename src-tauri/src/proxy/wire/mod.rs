@@ -78,6 +78,7 @@ pub struct Request {
     pub max_tokens: Option<u64>,
     pub temperature: Option<Value>,
     pub top_p: Option<Value>,
+    pub stop_sequences: Vec<String>,
     pub stream: bool,
     pub tools: Vec<ToolDef>,
     pub tool_choice: Option<ToolChoice>,
@@ -188,6 +189,18 @@ fn parse_anthropic(body: &Value) -> Request {
         max_tokens: body.get("max_tokens").and_then(Value::as_u64),
         temperature: body.get("temperature").cloned(),
         top_p: body.get("top_p").cloned(),
+        stop_sequences: body
+            .get("stop_sequences")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default(),
         stream: body.get("stream").and_then(Value::as_bool).unwrap_or(false),
         tools: anthropic_tools(body),
         tool_choice: body.get("tool_choice").map(anthropic_tool_choice),
@@ -219,6 +232,9 @@ fn build_anthropic(request: &Request) -> Value {
     }
     copy_option(&mut result, "temperature", request.temperature.as_ref());
     copy_option(&mut result, "top_p", request.top_p.as_ref());
+    if !request.stop_sequences.is_empty() {
+        result["stop_sequences"] = json!(request.stop_sequences);
+    }
     if !request.tools.is_empty() {
         result["tools"] = Value::Array(request.tools.iter().map(anthropic_tool_json).collect());
     }
@@ -241,7 +257,7 @@ fn parse_chat(body: &Value) -> Request {
             .get("role")
             .and_then(Value::as_str)
             .unwrap_or("user");
-        if role == "system" {
+        if role == "system" || role == "developer" {
             let text = content_text(message.get("content").unwrap_or(&Value::Null));
             if !system.is_empty() && !text.is_empty() {
                 system.push('\n');
@@ -313,9 +329,22 @@ fn parse_chat(body: &Value) -> Request {
         model: string_field(body, "model"),
         system,
         messages,
-        max_tokens: body.get("max_tokens").and_then(Value::as_u64),
+        max_tokens: body
+            .get("max_tokens")
+            .or_else(|| body.get("max_completion_tokens"))
+            .and_then(Value::as_u64),
         temperature: body.get("temperature").cloned(),
         top_p: body.get("top_p").cloned(),
+        stop_sequences: match body.get("stop") {
+            Some(Value::String(s)) if !s.is_empty() => vec![s.clone()],
+            Some(Value::Array(items)) => items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .collect(),
+            _ => Vec::new(),
+        },
         stream: body.get("stream").and_then(Value::as_bool).unwrap_or(false),
         tools: chat_tools(body),
         tool_choice: body.get("tool_choice").map(chat_tool_choice),
@@ -416,6 +445,9 @@ fn build_chat(request: &Request) -> Value {
     }
     copy_option(&mut result, "temperature", request.temperature.as_ref());
     copy_option(&mut result, "top_p", request.top_p.as_ref());
+    if !request.stop_sequences.is_empty() {
+        result["stop"] = json!(request.stop_sequences);
+    }
     if !request.tools.is_empty() {
         result["tools"] = Value::Array(request.tools.iter().map(chat_tool_json).collect());
     }
@@ -508,6 +540,7 @@ fn parse_responses(body: &Value) -> Request {
             .and_then(Value::as_u64),
         temperature: body.get("temperature").cloned(),
         top_p: body.get("top_p").cloned(),
+        stop_sequences: Vec::new(),
         stream: body.get("stream").and_then(Value::as_bool).unwrap_or(false),
         tools: responses_tools(body),
         tool_choice: body.get("tool_choice").map(responses_tool_choice),
@@ -800,7 +833,39 @@ fn build_anthropic_response(response: &Response, client_model: &str) -> Value {
 fn parts_from_anthropic_content(content: &Value) -> Vec<Part> {
     match content {
         Value::String(text) if !text.is_empty() => vec![Part::Text(text.clone())],
-        Value::Array(blocks) => blocks.iter().filter_map(anthropic_block).collect(),
+        Value::Array(blocks) => {
+            let mut parts = Vec::new();
+            for block in blocks {
+                if matches!(
+                    block.get("type").and_then(Value::as_str),
+                    Some("tool_result" | "tool_search_tool_result")
+                ) {
+                    let id = block
+                        .get("tool_use_id")
+                        .or_else(|| block.get("id"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("tool_call")
+                        .to_string();
+                    let raw_content = block.get("content").unwrap_or(&Value::Null);
+                    let mut output = content_text(raw_content);
+                    let nested_images: Vec<Part> = raw_content
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|item| item.get("type").and_then(Value::as_str) == Some("image"))
+                        .filter_map(image_from_anthropic)
+                        .collect();
+                    if output.is_empty() && !nested_images.is_empty() {
+                        output = "[Image attached]".to_string();
+                    }
+                    parts.push(Part::ToolResult { id, output });
+                    parts.extend(nested_images);
+                } else if let Some(part) = anthropic_block(block) {
+                    parts.push(part);
+                }
+            }
+            parts
+        }
         _ => Vec::new(),
     }
 }
@@ -812,6 +877,12 @@ fn anthropic_block(block: &Value) -> Option<Part> {
             .and_then(Value::as_str)
             .filter(|text| !text.is_empty())
             .map(|text| Part::Text(text.to_string())),
+        Some("document") => {
+            crate::proxy::convert::extract_anthropic_document_text(block).map(Part::Text)
+        }
+        Some("web_search_tool_result") => {
+            crate::proxy::convert::extract_anthropic_web_search_result_text(block).map(Part::Text)
+        }
         Some("thinking") => block
             .get("thinking")
             .and_then(Value::as_str)
@@ -978,7 +1049,10 @@ fn anthropic_blocks(parts: &[Part]) -> Vec<Value> {
             }
         }
         Part::ToolCall { id, name, arguments } => {
-            let input = serde_json::from_str::<Value>(arguments).unwrap_or_else(|_| json!({}));
+            let input = serde_json::from_str::<Value>(arguments)
+                .ok()
+                .filter(Value::is_object)
+                .unwrap_or_else(|| json!({}));
             Some(json!({"type": "tool_use", "id": id, "name": name, "input": input}))
         }
         Part::ToolResult { id, output } => Some(json!({"type": "tool_result", "tool_use_id": id, "content": output})),
@@ -1230,14 +1304,28 @@ fn content_text(value: &Value) -> String {
         Value::String(text) => text.clone(),
         Value::Array(items) => items
             .iter()
-            .filter_map(|item| item.get("text").and_then(Value::as_str))
+            .filter_map(|item| {
+                if let Some(text) = item.get("text").and_then(Value::as_str) {
+                    Some(text.to_string())
+                } else if item.get("type").and_then(Value::as_str) == Some("document") {
+                    crate::proxy::convert::extract_anthropic_document_text(item)
+                } else {
+                    None
+                }
+            })
             .collect::<Vec<_>>()
             .join("\n"),
-        Value::Object(_) => value
-            .get("text")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string(),
+        Value::Object(_) => {
+            if value.get("type").and_then(Value::as_str) == Some("document") {
+                crate::proxy::convert::extract_anthropic_document_text(value).unwrap_or_default()
+            } else {
+                value
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string()
+            }
+        }
         _ => String::new(),
     }
 }

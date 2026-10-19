@@ -193,14 +193,6 @@ pub fn compact_upstream_path_for_provider(provider: &crate::provider::Provider) 
     }
 }
 
-pub fn compact_upstream_path(protocol: ProtocolType) -> &'static str {
-    match protocol {
-        ProtocolType::OpenAiResponses => "/v1/responses/compact",
-        ProtocolType::OpenAiChat | ProtocolType::Proxy => "/v1/chat/completions",
-        ProtocolType::Anthropic => "/v1/messages",
-    }
-}
-
 fn responses_compact_to_chat_like(body: &Value, model: &str) -> AppResult<Value> {
     let mut messages = Vec::new();
     if let Some(instructions) = body.get("instructions").and_then(Value::as_str) {
