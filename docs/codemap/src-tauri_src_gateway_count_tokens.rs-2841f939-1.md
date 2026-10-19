@@ -4,13 +4,16 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/count_tokens.rs) · page 1/1
 
-Source SHA-256: ebf7c9a02e59c49198277f99f13dc4f021a7ec10541521e23974e9a3a56b80d4
+Source SHA-256: 7ff88f607e22479fb1ed3a45b97f4fb11344824f5b41db30072dfaf082393224
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| handle | function_item |  | [15](../../src-tauri/src/gateway/count_tokens.rs#L15) |
-| log::warn | macro invocation (unexpanded) | handle | [48](../../src-tauri/src/gateway/count_tokens.rs#L48) |
-| serde_json::json | macro invocation (unexpanded) | handle | [54](../../src-tauri/src/gateway/count_tokens.rs#L54) |
-| forward_anthropic | function_item |  | [65](../../src-tauri/src/gateway/count_tokens.rs#L65) |
-| format | macro invocation (unexpanded) | forward_anthropic | [86](../../src-tauri/src/gateway/count_tokens.rs#L86) |
-| format | macro invocation (unexpanded) | forward_anthropic | [91](../../src-tauri/src/gateway/count_tokens.rs#L91) |
+| handle | function_item |  | [17](../../src-tauri/src/gateway/count_tokens.rs#L17) |
+| log::warn | macro invocation (unexpanded) | handle | [39](../../src-tauri/src/gateway/count_tokens.rs#L39) |
+| log::warn | macro invocation (unexpanded) | handle | [65](../../src-tauri/src/gateway/count_tokens.rs#L65) |
+| local_estimate_response | function_item |  | [73](../../src-tauri/src/gateway/count_tokens.rs#L73) |
+| serde_json::json | macro invocation (unexpanded) | local_estimate_response | [75](../../src-tauri/src/gateway/count_tokens.rs#L75) |
+| forward_anthropic | function_item |  | [85](../../src-tauri/src/gateway/count_tokens.rs#L85) |
+| format | macro invocation (unexpanded) | forward_anthropic | [106](../../src-tauri/src/gateway/count_tokens.rs#L106) |
+| format | macro invocation (unexpanded) | forward_anthropic | [111](../../src-tauri/src/gateway/count_tokens.rs#L111) |
+| format | macro invocation (unexpanded) | forward_anthropic | [117](../../src-tauri/src/gateway/count_tokens.rs#L117) |

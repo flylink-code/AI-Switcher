@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/pool.rs) · page 1/1
 
-Source SHA-256: 4188e21e4037d58b3f8a8913aa827ccfbf01b33976ec5ff085b85263128fb820
+Source SHA-256: 80786625e28161501bd9d521e4202dd99025952179ed4002b38d6f81d4197f94
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,17 +20,18 @@ Source SHA-256: 4188e21e4037d58b3f8a8913aa827ccfbf01b33976ec5ff085b85263128fb820
 | AccountPool | impl |  | [28](../../src-tauri/src/kiro/pool.rs#L28) |
 | new | function_item | AccountPool | [29](../../src-tauri/src/kiro/pool.rs#L29) |
 | select | function_item | AccountPool | [35](../../src-tauri/src/kiro/pool.rs#L35) |
-| note_failure | function_item | AccountPool | [44](../../src-tauri/src/kiro/pool.rs#L44) |
-| Default for AccountPool | impl |  | [60](../../src-tauri/src/kiro/pool.rs#L60) |
-| default | function_item | Default for AccountPool | [61](../../src-tauri/src/kiro/pool.rs#L61) |
-| classify_upstream | function_item |  | [66](../../src-tauri/src/kiro/pool.rs#L66) |
-| is_monthly_limit | function_item |  | [88](../../src-tauri/src/kiro/pool.rs#L88) |
-| REASONS | const_item | is_monthly_limit | [89](../../src-tauri/src/kiro/pool.rs#L89) |
-| is_client_validation | function_item |  | [108](../../src-tauri/src/kiro/pool.rs#L108) |
-| tests | mod_item |  | [114](../../src-tauri/src/kiro/pool.rs#L114) |
-| monthly_limit_disables_and_network_does_not_rotate | function_item | tests | [118](../../src-tauri/src/kiro/pool.rs#L118) |
-| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [119](../../src-tauri/src/kiro/pool.rs#L119) |
-| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [123](../../src-tauri/src/kiro/pool.rs#L123) |
-| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [124](../../src-tauri/src/kiro/pool.rs#L124) |
-| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [128](../../src-tauri/src/kiro/pool.rs#L128) |
-| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [132](../../src-tauri/src/kiro/pool.rs#L132) |
+| select_excluding | function_item | AccountPool | [39](../../src-tauri/src/kiro/pool.rs#L39) |
+| note_failure | function_item | AccountPool | [58](../../src-tauri/src/kiro/pool.rs#L58) |
+| Default for AccountPool | impl |  | [74](../../src-tauri/src/kiro/pool.rs#L74) |
+| default | function_item | Default for AccountPool | [75](../../src-tauri/src/kiro/pool.rs#L75) |
+| classify_upstream | function_item |  | [80](../../src-tauri/src/kiro/pool.rs#L80) |
+| is_monthly_limit | function_item |  | [102](../../src-tauri/src/kiro/pool.rs#L102) |
+| REASONS | const_item | is_monthly_limit | [103](../../src-tauri/src/kiro/pool.rs#L103) |
+| is_client_validation | function_item |  | [122](../../src-tauri/src/kiro/pool.rs#L122) |
+| tests | mod_item |  | [128](../../src-tauri/src/kiro/pool.rs#L128) |
+| monthly_limit_disables_and_network_does_not_rotate | function_item | tests | [132](../../src-tauri/src/kiro/pool.rs#L132) |
+| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [133](../../src-tauri/src/kiro/pool.rs#L133) |
+| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [137](../../src-tauri/src/kiro/pool.rs#L137) |
+| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [138](../../src-tauri/src/kiro/pool.rs#L138) |
+| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [142](../../src-tauri/src/kiro/pool.rs#L142) |
+| assert_eq | macro invocation (unexpanded) | tests::monthly_limit_disables_and_network_does_not_rotate | [146](../../src-tauri/src/kiro/pool.rs#L146) |

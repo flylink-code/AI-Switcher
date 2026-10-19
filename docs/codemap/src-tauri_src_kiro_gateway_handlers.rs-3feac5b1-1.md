@@ -4,45 +4,70 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/gateway/handlers.rs) · page 1/1
 
-Source SHA-256: 30f4f1cb8144d656185a961b866e7179228429ed0dd998e814e7dceeb9fed421
+Source SHA-256: 4301881b49b10d3ff6266156b4a73f22b9e67301a5b74ef9da6741634d83c08f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| health | function_item |  | [24](../../src-tauri/src/kiro/gateway/handlers.rs#L24) |
-| json | macro invocation (unexpanded) | health | [25](../../src-tauri/src/kiro/gateway/handlers.rs#L25) |
-| list_models | function_item |  | [28](../../src-tauri/src/kiro/gateway/handlers.rs#L28) |
-| json | macro invocation (unexpanded) | list_models | [43](../../src-tauri/src/kiro/gateway/handlers.rs#L43) |
-| json | macro invocation (unexpanded) | list_models | [55](../../src-tauri/src/kiro/gateway/handlers.rs#L55) |
-| count_tokens | function_item |  | [58](../../src-tauri/src/kiro/gateway/handlers.rs#L58) |
-| json | macro invocation (unexpanded) | count_tokens | [67](../../src-tauri/src/kiro/gateway/handlers.rs#L67) |
-| anthropic_messages | function_item |  | [70](../../src-tauri/src/kiro/gateway/handlers.rs#L70) |
-| openai_chat | function_item |  | [78](../../src-tauri/src/kiro/gateway/handlers.rs#L78) |
-| openai_responses | function_item |  | [86](../../src-tauri/src/kiro/gateway/handlers.rs#L86) |
-| handle | function_item |  | [94](../../src-tauri/src/kiro/gateway/handlers.rs#L94) |
-| format | macro invocation (unexpanded) | handle | [190](../../src-tauri/src/kiro/gateway/handlers.rs#L190) |
-| log::warn | macro invocation (unexpanded) | handle | [204](../../src-tauri/src/kiro/gateway/handlers.rs#L204) |
-| format | macro invocation (unexpanded) | handle | [215](../../src-tauri/src/kiro/gateway/handlers.rs#L215) |
-| matches | macro invocation (unexpanded) | handle | [242](../../src-tauri/src/kiro/gateway/handlers.rs#L242) |
-| log::warn | macro invocation (unexpanded) | handle | [339](../../src-tauri/src/kiro/gateway/handlers.rs#L339) |
-| log::warn | macro invocation (unexpanded) | handle | [358](../../src-tauri/src/kiro/gateway/handlers.rs#L358) |
-| matches | macro invocation (unexpanded) | handle | [452](../../src-tauri/src/kiro/gateway/handlers.rs#L452) |
-| log::warn | macro invocation (unexpanded) | handle | [495](../../src-tauri/src/kiro/gateway/handlers.rs#L495) |
-| format | macro invocation (unexpanded) | handle | [506](../../src-tauri/src/kiro/gateway/handlers.rs#L506) |
-| matches | macro invocation (unexpanded) | handle | [538](../../src-tauri/src/kiro/gateway/handlers.rs#L538) |
-| client_model | function_item |  | [593](../../src-tauri/src/kiro/gateway/handlers.rs#L593) |
-| authorize | function_item |  | [603](../../src-tauri/src/kiro/gateway/handlers.rs#L603) |
-| success_response | function_item |  | [631](../../src-tauri/src/kiro/gateway/handlers.rs#L631) |
-| error_response | function_item |  | [669](../../src-tauri/src/kiro/gateway/handlers.rs#L669) |
-| json | macro invocation (unexpanded) | error_response | [682](../../src-tauri/src/kiro/gateway/handlers.rs#L682) |
-| json | macro invocation (unexpanded) | error_response | [685](../../src-tauri/src/kiro/gateway/handlers.rs#L685) |
-| log_failure | function_item |  | [691](../../src-tauri/src/kiro/gateway/handlers.rs#L691) |
-| tests | mod_item |  | [718](../../src-tauri/src/kiro/gateway/handlers.rs#L718) |
-| live_kiro_claude_sonnet_55_incremental_streaming_smoke | function_item | tests | [724](../../src-tauri/src/kiro/gateway/handlers.rs#L724) |
-| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [726](../../src-tauri/src/kiro/gateway/handlers.rs#L726) |
-| serde_json::json | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [743](../../src-tauri/src/kiro/gateway/handlers.rs#L743) |
-| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [763](../../src-tauri/src/kiro/gateway/handlers.rs#L763) |
-| panic | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [769](../../src-tauri/src/kiro/gateway/handlers.rs#L769) |
-| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [797](../../src-tauri/src/kiro/gateway/handlers.rs#L797) |
-| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [808](../../src-tauri/src/kiro/gateway/handlers.rs#L808) |
-| assert | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [812](../../src-tauri/src/kiro/gateway/handlers.rs#L812) |
-| assert | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [813](../../src-tauri/src/kiro/gateway/handlers.rs#L813) |
+| FIRST_FRAME_TIMEOUT | const_item |  | [26](../../src-tauri/src/kiro/gateway/handlers.rs#L26) |
+| STREAM_IDLE_TIMEOUT | const_item |  | [27](../../src-tauri/src/kiro/gateway/handlers.rs#L27) |
+| KiroStreamGuard | struct_item |  | [29](../../src-tauri/src/kiro/gateway/handlers.rs#L29) |
+| streamer | field_declaration | KiroStreamGuard | [30](../../src-tauri/src/kiro/gateway/handlers.rs#L30) |
+| db | field_declaration | KiroStreamGuard | [31](../../src-tauri/src/kiro/gateway/handlers.rs#L31) |
+| log_id | field_declaration | KiroStreamGuard | [32](../../src-tauri/src/kiro/gateway/handlers.rs#L32) |
+| context_window | field_declaration | KiroStreamGuard | [33](../../src-tauri/src/kiro/gateway/handlers.rs#L33) |
+| req_len | field_declaration | KiroStreamGuard | [34](../../src-tauri/src/kiro/gateway/handlers.rs#L34) |
+| usage_flushed | field_declaration | KiroStreamGuard | [35](../../src-tauri/src/kiro/gateway/handlers.rs#L35) |
+| KiroStreamGuard | impl |  | [38](../../src-tauri/src/kiro/gateway/handlers.rs#L38) |
+| finish_and_flush | function_item | KiroStreamGuard | [39](../../src-tauri/src/kiro/gateway/handlers.rs#L39) |
+| finish_and_flush_with_outcome | function_item | KiroStreamGuard | [43](../../src-tauri/src/kiro/gateway/handlers.rs#L43) |
+| flush_usage_with_outcome | function_item | KiroStreamGuard | [54](../../src-tauri/src/kiro/gateway/handlers.rs#L54) |
+| Drop for KiroStreamGuard | impl |  | [95](../../src-tauri/src/kiro/gateway/handlers.rs#L95) |
+| drop | function_item | Drop for KiroStreamGuard | [96](../../src-tauri/src/kiro/gateway/handlers.rs#L96) |
+| health | function_item |  | [101](../../src-tauri/src/kiro/gateway/handlers.rs#L101) |
+| json | macro invocation (unexpanded) | health | [102](../../src-tauri/src/kiro/gateway/handlers.rs#L102) |
+| build_public_models | function_item |  | [105](../../src-tauri/src/kiro/gateway/handlers.rs#L105) |
+| json | macro invocation (unexpanded) | build_public_models | [120](../../src-tauri/src/kiro/gateway/handlers.rs#L120) |
+| list_models | function_item |  | [134](../../src-tauri/src/kiro/gateway/handlers.rs#L134) |
+| json | macro invocation (unexpanded) | list_models | [135](../../src-tauri/src/kiro/gateway/handlers.rs#L135) |
+| get_model | function_item |  | [138](../../src-tauri/src/kiro/gateway/handlers.rs#L138) |
+| format | macro invocation (unexpanded) | get_model | [151](../../src-tauri/src/kiro/gateway/handlers.rs#L151) |
+| count_tokens | function_item |  | [155](../../src-tauri/src/kiro/gateway/handlers.rs#L155) |
+| json | macro invocation (unexpanded) | count_tokens | [164](../../src-tauri/src/kiro/gateway/handlers.rs#L164) |
+| anthropic_messages | function_item |  | [167](../../src-tauri/src/kiro/gateway/handlers.rs#L167) |
+| openai_chat | function_item |  | [175](../../src-tauri/src/kiro/gateway/handlers.rs#L175) |
+| openai_responses | function_item |  | [183](../../src-tauri/src/kiro/gateway/handlers.rs#L183) |
+| openai_responses_compact | function_item |  | [191](../../src-tauri/src/kiro/gateway/handlers.rs#L191) |
+| format | macro invocation (unexpanded) | openai_responses_compact | [205](../../src-tauri/src/kiro/gateway/handlers.rs#L205) |
+| handle | function_item |  | [242](../../src-tauri/src/kiro/gateway/handlers.rs#L242) |
+| format | macro invocation (unexpanded) | handle | [351](../../src-tauri/src/kiro/gateway/handlers.rs#L351) |
+| format | macro invocation (unexpanded) | handle | [378](../../src-tauri/src/kiro/gateway/handlers.rs#L378) |
+| format | macro invocation (unexpanded) | handle | [396](../../src-tauri/src/kiro/gateway/handlers.rs#L396) |
+| log::warn | macro invocation (unexpanded) | handle | [400](../../src-tauri/src/kiro/gateway/handlers.rs#L400) |
+| format | macro invocation (unexpanded) | handle | [420](../../src-tauri/src/kiro/gateway/handlers.rs#L420) |
+| log::warn | macro invocation (unexpanded) | handle | [421](../../src-tauri/src/kiro/gateway/handlers.rs#L421) |
+| matches | macro invocation (unexpanded) | handle | [463](../../src-tauri/src/kiro/gateway/handlers.rs#L463) |
+| log::warn | macro invocation (unexpanded) | handle | [543](../../src-tauri/src/kiro/gateway/handlers.rs#L543) |
+| log::warn | macro invocation (unexpanded) | handle | [556](../../src-tauri/src/kiro/gateway/handlers.rs#L556) |
+| log::warn | macro invocation (unexpanded) | handle | [575](../../src-tauri/src/kiro/gateway/handlers.rs#L575) |
+| matches | macro invocation (unexpanded) | handle | [670](../../src-tauri/src/kiro/gateway/handlers.rs#L670) |
+| format | macro invocation (unexpanded) | handle | [712](../../src-tauri/src/kiro/gateway/handlers.rs#L712) |
+| log::warn | macro invocation (unexpanded) | handle | [713](../../src-tauri/src/kiro/gateway/handlers.rs#L713) |
+| matches | macro invocation (unexpanded) | handle | [760](../../src-tauri/src/kiro/gateway/handlers.rs#L760) |
+| format | macro invocation (unexpanded) | handle | [795](../../src-tauri/src/kiro/gateway/handlers.rs#L795) |
+| client_model | function_item |  | [827](../../src-tauri/src/kiro/gateway/handlers.rs#L827) |
+| authorize | function_item |  | [837](../../src-tauri/src/kiro/gateway/handlers.rs#L837) |
+| success_response | function_item |  | [865](../../src-tauri/src/kiro/gateway/handlers.rs#L865) |
+| error_response | function_item |  | [903](../../src-tauri/src/kiro/gateway/handlers.rs#L903) |
+| json | macro invocation (unexpanded) | error_response | [916](../../src-tauri/src/kiro/gateway/handlers.rs#L916) |
+| json | macro invocation (unexpanded) | error_response | [919](../../src-tauri/src/kiro/gateway/handlers.rs#L919) |
+| log_failure | function_item |  | [925](../../src-tauri/src/kiro/gateway/handlers.rs#L925) |
+| tests | mod_item |  | [955](../../src-tauri/src/kiro/gateway/handlers.rs#L955) |
+| live_kiro_claude_sonnet_55_incremental_streaming_smoke | function_item | tests | [961](../../src-tauri/src/kiro/gateway/handlers.rs#L961) |
+| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [963](../../src-tauri/src/kiro/gateway/handlers.rs#L963) |
+| serde_json::json | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [980](../../src-tauri/src/kiro/gateway/handlers.rs#L980) |
+| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1000](../../src-tauri/src/kiro/gateway/handlers.rs#L1000) |
+| panic | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1006](../../src-tauri/src/kiro/gateway/handlers.rs#L1006) |
+| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1034](../../src-tauri/src/kiro/gateway/handlers.rs#L1034) |
+| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1045](../../src-tauri/src/kiro/gateway/handlers.rs#L1045) |
+| assert | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1049](../../src-tauri/src/kiro/gateway/handlers.rs#L1049) |
+| assert | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1050](../../src-tauri/src/kiro/gateway/handlers.rs#L1050) |

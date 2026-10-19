@@ -11,15 +11,15 @@
 | [src-tauri/src/kiro/account.rs](../../src-tauri/src/kiro/account.rs) | 96 | [1](src-tauri_src_kiro_account.rs-c9270f2d-1.md) |
 | [src-tauri/src/kiro/account_test.rs](../../src-tauri/src/kiro/account_test.rs) | 20 | [1](src-tauri_src_kiro_account_test.rs-a6aa5d3e-1.md) |
 | [src-tauri/src/kiro/event_stream.rs](../../src-tauri/src/kiro/event_stream.rs) | 44 | [1](src-tauri_src_kiro_event_stream.rs-fa222588-1.md) |
-| [src-tauri/src/kiro/gateway/handlers.rs](../../src-tauri/src/kiro/gateway/handlers.rs) | 38 | [1](src-tauri_src_kiro_gateway_handlers.rs-3feac5b1-1.md) |
+| [src-tauri/src/kiro/gateway/handlers.rs](../../src-tauri/src/kiro/gateway/handlers.rs) | 63 | [1](src-tauri_src_kiro_gateway_handlers.rs-3feac5b1-1.md) |
 | [src-tauri/src/kiro/gateway/mod.rs](../../src-tauri/src/kiro/gateway/mod.rs) | 56 | [1](src-tauri_src_kiro_gateway_mod.rs-81b0ebcf-1.md) |
-| [src-tauri/src/kiro/map.rs](../../src-tauri/src/kiro/map.rs) | 226 | [1](src-tauri_src_kiro_map.rs-5b8487b4-1.md) [2](src-tauri_src_kiro_map.rs-5b8487b4-2.md) [3](src-tauri_src_kiro_map.rs-5b8487b4-3.md) |
+| [src-tauri/src/kiro/map.rs](../../src-tauri/src/kiro/map.rs) | 282 | [1](src-tauri_src_kiro_map.rs-5b8487b4-1.md) [2](src-tauri_src_kiro_map.rs-5b8487b4-2.md) [3](src-tauri_src_kiro_map.rs-5b8487b4-3.md) |
 | [src-tauri/src/kiro/mod.rs](../../src-tauri/src/kiro/mod.rs) | 14 | [1](src-tauri_src_kiro_mod.rs-6602ae42-1.md) |
 | [src-tauri/src/kiro/model_list.rs](../../src-tauri/src/kiro/model_list.rs) | 6 | [1](src-tauri_src_kiro_model_list.rs-f0688d86-1.md) |
 | [src-tauri/src/kiro/models.rs](../../src-tauri/src/kiro/models.rs) | 65 | [1](src-tauri_src_kiro_models.rs-9c6789f5-1.md) |
 | [src-tauri/src/kiro/oauth.rs](../../src-tauri/src/kiro/oauth.rs) | 165 | [1](src-tauri_src_kiro_oauth.rs-da94bac8-1.md) [2](src-tauri_src_kiro_oauth.rs-da94bac8-2.md) |
 | [src-tauri/src/kiro/outbound.rs](../../src-tauri/src/kiro/outbound.rs) | 95 | [1](src-tauri_src_kiro_outbound.rs-2160860f-1.md) |
-| [src-tauri/src/kiro/pool.rs](../../src-tauri/src/kiro/pool.rs) | 26 | [1](src-tauri_src_kiro_pool.rs-41c0adf5-1.md) |
+| [src-tauri/src/kiro/pool.rs](../../src-tauri/src/kiro/pool.rs) | 27 | [1](src-tauri_src_kiro_pool.rs-41c0adf5-1.md) |
 | [src-tauri/src/kiro/quota.rs](../../src-tauri/src/kiro/quota.rs) | 41 | [1](src-tauri_src_kiro_quota.rs-55144ed6-1.md) |
 | [src-tauri/src/kiro/token.rs](../../src-tauri/src/kiro/token.rs) | 32 | [1](src-tauri_src_kiro_token.rs-d86c59b2-1.md) |
 | [src-tauri/src/kiro/upstream.rs](../../src-tauri/src/kiro/upstream.rs) | 9 | [1](src-tauri_src_kiro_upstream.rs-40626936-1.md) |

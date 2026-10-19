@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/gateway/handlers.rs) · page 1/3
 
-Source SHA-256: ed0bbe33fd45df88bd30c4ac1f9b6e04c8e4dae9b4c26a47716236f25f34309e
+Source SHA-256: 7ba9157e2ceff5195d982ed14d69ae5d72d6df2d691d69f7937823c0e52be817
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| MAX_FAILOVER_HOPS | const_item |  | [40](../../src-tauri/src/antigravity/gateway/handlers.rs#L40) |
-| MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS | const_item |  | [43](../../src-tauri/src/antigravity/gateway/handlers.rs#L43) |
-| MAX_LOCAL_LIMITER_HOPS | const_item |  | [45](../../src-tauri/src/antigravity/gateway/handlers.rs#L45) |
-| CS_SUBAGENT_HEADER | const_item |  | [46](../../src-tauri/src/antigravity/gateway/handlers.rs#L46) |
-| MAX_MODEL_LEVEL_ATTEMPTS | const_item |  | [47](../../src-tauri/src/antigravity/gateway/handlers.rs#L47) |
-| SUBAGENT_NON_STREAM_RETRY_DEADLINE | const_item |  | [51](../../src-tauri/src/antigravity/gateway/handlers.rs#L51) |
-| SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT | const_item |  | [52](../../src-tauri/src/antigravity/gateway/handlers.rs#L52) |
-| SUBAGENT_STREAM_RETRY_DEADLINE | const_item |  | [53](../../src-tauri/src/antigravity/gateway/handlers.rs#L53) |
-| MAIN_NON_STREAM_RETRY_DEADLINE | const_item |  | [54](../../src-tauri/src/antigravity/gateway/handlers.rs#L54) |
-| MAIN_STREAM_RETRY_DEADLINE | const_item |  | [55](../../src-tauri/src/antigravity/gateway/handlers.rs#L55) |
-| MAIN_ATTEMPT_TIMEOUT | const_item |  | [56](../../src-tauri/src/antigravity/gateway/handlers.rs#L56) |
-| SHORT_PAYLOAD_MAX_BYTES | const_item |  | [57](../../src-tauri/src/antigravity/gateway/handlers.rs#L57) |
-| UPSTREAM_500_RETRY_BACKOFF | const_item |  | [58](../../src-tauri/src/antigravity/gateway/handlers.rs#L58) |
-| GenerateAttemptError | enum_item |  | [60](../../src-tauri/src/antigravity/gateway/handlers.rs#L60) |
-| Timeout | enum_variant | GenerateAttemptError | [61](../../src-tauri/src/antigravity/gateway/handlers.rs#L61) |
-| Upstream | enum_variant | GenerateAttemptError | [62](../../src-tauri/src/antigravity/gateway/handlers.rs#L62) |
-| health | function_item |  | [65](../../src-tauri/src/antigravity/gateway/handlers.rs#L65) |
-| json | macro invocation (unexpanded) | health | [66](../../src-tauri/src/antigravity/gateway/handlers.rs#L66) |
-| list_models | function_item |  | [69](../../src-tauri/src/antigravity/gateway/handlers.rs#L69) |
-| json | macro invocation (unexpanded) | list_models | [73](../../src-tauri/src/antigravity/gateway/handlers.rs#L73) |
-| anthropic_messages | function_item |  | [80](../../src-tauri/src/antigravity/gateway/handlers.rs#L80) |
-| format | macro invocation (unexpanded) | anthropic_messages | [91](../../src-tauri/src/antigravity/gateway/handlers.rs#L91) |
-| log::info | macro invocation (unexpanded) | anthropic_messages | [157](../../src-tauri/src/antigravity/gateway/handlers.rs#L157) |
-| anthropic_envelope_model | function_item |  | [182](../../src-tauri/src/antigravity/gateway/handlers.rs#L182) |
-| anthropic_client_model | function_item |  | [196](../../src-tauri/src/antigravity/gateway/handlers.rs#L196) |
-| openai_chat_completions | function_item |  | [211](../../src-tauri/src/antigravity/gateway/handlers.rs#L211) |
-| format | macro invocation (unexpanded) | openai_chat_completions | [222](../../src-tauri/src/antigravity/gateway/handlers.rs#L222) |
-| openai_responses | function_item |  | [245](../../src-tauri/src/antigravity/gateway/handlers.rs#L245) |
-| format | macro invocation (unexpanded) | openai_responses | [256](../../src-tauri/src/antigravity/gateway/handlers.rs#L256) |
-| openai_responses_compact | function_item |  | [280](../../src-tauri/src/antigravity/gateway/handlers.rs#L280) |
-| format | macro invocation (unexpanded) | openai_responses_compact | [291](../../src-tauri/src/antigravity/gateway/handlers.rs#L291) |
-| openai_images_generations | function_item |  | [325](../../src-tauri/src/antigravity/gateway/handlers.rs#L325) |
-| format | macro invocation (unexpanded) | openai_images_generations | [339](../../src-tauri/src/antigravity/gateway/handlers.rs#L339) |
-| json | macro invocation (unexpanded) | openai_images_generations | [372](../../src-tauri/src/antigravity/gateway/handlers.rs#L372) |
-| json | macro invocation (unexpanded) | openai_images_generations | [423](../../src-tauri/src/antigravity/gateway/handlers.rs#L423) |
-| json | macro invocation (unexpanded) | openai_images_generations | [427](../../src-tauri/src/antigravity/gateway/handlers.rs#L427) |
-| dispatch_generation | function_item |  | [434](../../src-tauri/src/antigravity/gateway/handlers.rs#L434) |
-| log::info | macro invocation (unexpanded) | dispatch_generation | [454](../../src-tauri/src/antigravity/gateway/handlers.rs#L454) |
-| format | macro invocation (unexpanded) | dispatch_generation | [535](../../src-tauri/src/antigravity/gateway/handlers.rs#L535) |
-| log::info | macro invocation (unexpanded) | dispatch_generation | [549](../../src-tauri/src/antigravity/gateway/handlers.rs#L549) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [562](../../src-tauri/src/antigravity/gateway/handlers.rs#L562) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [574](../../src-tauri/src/antigravity/gateway/handlers.rs#L574) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [597](../../src-tauri/src/antigravity/gateway/handlers.rs#L597) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [602](../../src-tauri/src/antigravity/gateway/handlers.rs#L602) |
-| matches | macro invocation (unexpanded) | dispatch_generation | [659](../../src-tauri/src/antigravity/gateway/handlers.rs#L659) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [661](../../src-tauri/src/antigravity/gateway/handlers.rs#L661) |
-| format | macro invocation (unexpanded) | dispatch_generation | [677](../../src-tauri/src/antigravity/gateway/handlers.rs#L677) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [680](../../src-tauri/src/antigravity/gateway/handlers.rs#L680) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [689](../../src-tauri/src/antigravity/gateway/handlers.rs#L689) |
-| matches | macro invocation (unexpanded) | dispatch_generation | [701](../../src-tauri/src/antigravity/gateway/handlers.rs#L701) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [707](../../src-tauri/src/antigravity/gateway/handlers.rs#L707) |
-| format | macro invocation (unexpanded) | dispatch_generation | [714](../../src-tauri/src/antigravity/gateway/handlers.rs#L714) |
-| format | macro invocation (unexpanded) | dispatch_generation | [716](../../src-tauri/src/antigravity/gateway/handlers.rs#L716) |
-| log::info | macro invocation (unexpanded) | dispatch_generation | [746](../../src-tauri/src/antigravity/gateway/handlers.rs#L746) |
-| format | macro invocation (unexpanded) | dispatch_generation | [755](../../src-tauri/src/antigravity/gateway/handlers.rs#L755) |
-| log::info | macro invocation (unexpanded) | dispatch_generation | [777](../../src-tauri/src/antigravity/gateway/handlers.rs#L777) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [787](../../src-tauri/src/antigravity/gateway/handlers.rs#L787) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [809](../../src-tauri/src/antigravity/gateway/handlers.rs#L809) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [814](../../src-tauri/src/antigravity/gateway/handlers.rs#L814) |
-| log::info | macro invocation (unexpanded) | dispatch_generation | [828](../../src-tauri/src/antigravity/gateway/handlers.rs#L828) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [834](../../src-tauri/src/antigravity/gateway/handlers.rs#L834) |
-| format | macro invocation (unexpanded) | dispatch_generation | [863](../../src-tauri/src/antigravity/gateway/handlers.rs#L863) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [871](../../src-tauri/src/antigravity/gateway/handlers.rs#L871) |
-| log::info | macro invocation (unexpanded) | dispatch_generation | [891](../../src-tauri/src/antigravity/gateway/handlers.rs#L891) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [899](../../src-tauri/src/antigravity/gateway/handlers.rs#L899) |
-| format | macro invocation (unexpanded) | dispatch_generation | [905](../../src-tauri/src/antigravity/gateway/handlers.rs#L905) |
+| MAX_FAILOVER_HOPS | const_item |  | [41](../../src-tauri/src/antigravity/gateway/handlers.rs#L41) |
+| MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS | const_item |  | [44](../../src-tauri/src/antigravity/gateway/handlers.rs#L44) |
+| MAX_LOCAL_LIMITER_HOPS | const_item |  | [46](../../src-tauri/src/antigravity/gateway/handlers.rs#L46) |
+| CS_SUBAGENT_HEADER | const_item |  | [47](../../src-tauri/src/antigravity/gateway/handlers.rs#L47) |
+| MAX_MODEL_LEVEL_ATTEMPTS | const_item |  | [48](../../src-tauri/src/antigravity/gateway/handlers.rs#L48) |
+| SUBAGENT_NON_STREAM_RETRY_DEADLINE | const_item |  | [52](../../src-tauri/src/antigravity/gateway/handlers.rs#L52) |
+| SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT | const_item |  | [53](../../src-tauri/src/antigravity/gateway/handlers.rs#L53) |
+| SUBAGENT_STREAM_RETRY_DEADLINE | const_item |  | [54](../../src-tauri/src/antigravity/gateway/handlers.rs#L54) |
+| MAIN_NON_STREAM_RETRY_DEADLINE | const_item |  | [55](../../src-tauri/src/antigravity/gateway/handlers.rs#L55) |
+| MAIN_STREAM_RETRY_DEADLINE | const_item |  | [56](../../src-tauri/src/antigravity/gateway/handlers.rs#L56) |
+| MAIN_ATTEMPT_TIMEOUT | const_item |  | [57](../../src-tauri/src/antigravity/gateway/handlers.rs#L57) |
+| SHORT_PAYLOAD_MAX_BYTES | const_item |  | [58](../../src-tauri/src/antigravity/gateway/handlers.rs#L58) |
+| UPSTREAM_500_RETRY_BACKOFF | const_item |  | [59](../../src-tauri/src/antigravity/gateway/handlers.rs#L59) |
+| GenerateAttemptError | enum_item |  | [61](../../src-tauri/src/antigravity/gateway/handlers.rs#L61) |
+| Timeout | enum_variant | GenerateAttemptError | [62](../../src-tauri/src/antigravity/gateway/handlers.rs#L62) |
+| Upstream | enum_variant | GenerateAttemptError | [63](../../src-tauri/src/antigravity/gateway/handlers.rs#L63) |
+| health | function_item |  | [66](../../src-tauri/src/antigravity/gateway/handlers.rs#L66) |
+| json | macro invocation (unexpanded) | health | [67](../../src-tauri/src/antigravity/gateway/handlers.rs#L67) |
+| list_models | function_item |  | [70](../../src-tauri/src/antigravity/gateway/handlers.rs#L70) |
+| json | macro invocation (unexpanded) | list_models | [74](../../src-tauri/src/antigravity/gateway/handlers.rs#L74) |
+| get_model | function_item |  | [81](../../src-tauri/src/antigravity/gateway/handlers.rs#L81) |
+| format | macro invocation (unexpanded) | get_model | [104](../../src-tauri/src/antigravity/gateway/handlers.rs#L104) |
+| count_tokens | function_item |  | [107](../../src-tauri/src/antigravity/gateway/handlers.rs#L107) |
+| json | macro invocation (unexpanded) | count_tokens | [116](../../src-tauri/src/antigravity/gateway/handlers.rs#L116) |
+| anthropic_messages | function_item |  | [119](../../src-tauri/src/antigravity/gateway/handlers.rs#L119) |
+| format | macro invocation (unexpanded) | anthropic_messages | [130](../../src-tauri/src/antigravity/gateway/handlers.rs#L130) |
+| log::info | macro invocation (unexpanded) | anthropic_messages | [206](../../src-tauri/src/antigravity/gateway/handlers.rs#L206) |
+| anthropic_envelope_model | function_item |  | [231](../../src-tauri/src/antigravity/gateway/handlers.rs#L231) |
+| anthropic_client_model | function_item |  | [245](../../src-tauri/src/antigravity/gateway/handlers.rs#L245) |
+| openai_chat_completions | function_item |  | [260](../../src-tauri/src/antigravity/gateway/handlers.rs#L260) |
+| format | macro invocation (unexpanded) | openai_chat_completions | [271](../../src-tauri/src/antigravity/gateway/handlers.rs#L271) |
+| openai_responses | function_item |  | [294](../../src-tauri/src/antigravity/gateway/handlers.rs#L294) |
+| format | macro invocation (unexpanded) | openai_responses | [305](../../src-tauri/src/antigravity/gateway/handlers.rs#L305) |
+| openai_responses_compact | function_item |  | [329](../../src-tauri/src/antigravity/gateway/handlers.rs#L329) |
+| format | macro invocation (unexpanded) | openai_responses_compact | [340](../../src-tauri/src/antigravity/gateway/handlers.rs#L340) |
+| openai_images_generations | function_item |  | [374](../../src-tauri/src/antigravity/gateway/handlers.rs#L374) |
+| format | macro invocation (unexpanded) | openai_images_generations | [388](../../src-tauri/src/antigravity/gateway/handlers.rs#L388) |
+| json | macro invocation (unexpanded) | openai_images_generations | [421](../../src-tauri/src/antigravity/gateway/handlers.rs#L421) |
+| json | macro invocation (unexpanded) | openai_images_generations | [472](../../src-tauri/src/antigravity/gateway/handlers.rs#L472) |
+| json | macro invocation (unexpanded) | openai_images_generations | [476](../../src-tauri/src/antigravity/gateway/handlers.rs#L476) |
+| dispatch_generation | function_item |  | [483](../../src-tauri/src/antigravity/gateway/handlers.rs#L483) |
+| log::info | macro invocation (unexpanded) | dispatch_generation | [503](../../src-tauri/src/antigravity/gateway/handlers.rs#L503) |
+| format | macro invocation (unexpanded) | dispatch_generation | [588](../../src-tauri/src/antigravity/gateway/handlers.rs#L588) |
+| log::info | macro invocation (unexpanded) | dispatch_generation | [603](../../src-tauri/src/antigravity/gateway/handlers.rs#L603) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [616](../../src-tauri/src/antigravity/gateway/handlers.rs#L616) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [628](../../src-tauri/src/antigravity/gateway/handlers.rs#L628) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [651](../../src-tauri/src/antigravity/gateway/handlers.rs#L651) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [656](../../src-tauri/src/antigravity/gateway/handlers.rs#L656) |
+| matches | macro invocation (unexpanded) | dispatch_generation | [714](../../src-tauri/src/antigravity/gateway/handlers.rs#L714) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [716](../../src-tauri/src/antigravity/gateway/handlers.rs#L716) |
+| format | macro invocation (unexpanded) | dispatch_generation | [732](../../src-tauri/src/antigravity/gateway/handlers.rs#L732) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [748](../../src-tauri/src/antigravity/gateway/handlers.rs#L748) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [756](../../src-tauri/src/antigravity/gateway/handlers.rs#L756) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [765](../../src-tauri/src/antigravity/gateway/handlers.rs#L765) |
+| matches | macro invocation (unexpanded) | dispatch_generation | [777](../../src-tauri/src/antigravity/gateway/handlers.rs#L777) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [785](../../src-tauri/src/antigravity/gateway/handlers.rs#L785) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [800](../../src-tauri/src/antigravity/gateway/handlers.rs#L800) |
+| format | macro invocation (unexpanded) | dispatch_generation | [807](../../src-tauri/src/antigravity/gateway/handlers.rs#L807) |
+| format | macro invocation (unexpanded) | dispatch_generation | [809](../../src-tauri/src/antigravity/gateway/handlers.rs#L809) |
+| log::info | macro invocation (unexpanded) | dispatch_generation | [839](../../src-tauri/src/antigravity/gateway/handlers.rs#L839) |
+| format | macro invocation (unexpanded) | dispatch_generation | [848](../../src-tauri/src/antigravity/gateway/handlers.rs#L848) |
+| log::info | macro invocation (unexpanded) | dispatch_generation | [870](../../src-tauri/src/antigravity/gateway/handlers.rs#L870) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [880](../../src-tauri/src/antigravity/gateway/handlers.rs#L880) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [902](../../src-tauri/src/antigravity/gateway/handlers.rs#L902) |
 | log::warn | macro invocation (unexpanded) | dispatch_generation | [907](../../src-tauri/src/antigravity/gateway/handlers.rs#L907) |
-| matches | macro invocation (unexpanded) | dispatch_generation | [931](../../src-tauri/src/antigravity/gateway/handlers.rs#L931) |
-| format | macro invocation (unexpanded) | dispatch_generation | [935](../../src-tauri/src/antigravity/gateway/handlers.rs#L935) |
-| format | macro invocation (unexpanded) | dispatch_generation | [937](../../src-tauri/src/antigravity/gateway/handlers.rs#L937) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [939](../../src-tauri/src/antigravity/gateway/handlers.rs#L939) |
-| matches | macro invocation (unexpanded) | dispatch_generation | [956](../../src-tauri/src/antigravity/gateway/handlers.rs#L956) |
-| format | macro invocation (unexpanded) | dispatch_generation | [964](../../src-tauri/src/antigravity/gateway/handlers.rs#L964) |
-| format | macro invocation (unexpanded) | dispatch_generation | [967](../../src-tauri/src/antigravity/gateway/handlers.rs#L967) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [985](../../src-tauri/src/antigravity/gateway/handlers.rs#L985) |
+| log::info | macro invocation (unexpanded) | dispatch_generation | [921](../../src-tauri/src/antigravity/gateway/handlers.rs#L921) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [927](../../src-tauri/src/antigravity/gateway/handlers.rs#L927) |
+| format | macro invocation (unexpanded) | dispatch_generation | [956](../../src-tauri/src/antigravity/gateway/handlers.rs#L956) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [964](../../src-tauri/src/antigravity/gateway/handlers.rs#L964) |
+| log::info | macro invocation (unexpanded) | dispatch_generation | [984](../../src-tauri/src/antigravity/gateway/handlers.rs#L984) |
 | log::warn | macro invocation (unexpanded) | dispatch_generation | [992](../../src-tauri/src/antigravity/gateway/handlers.rs#L992) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [998](../../src-tauri/src/antigravity/gateway/handlers.rs#L998) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1010](../../src-tauri/src/antigravity/gateway/handlers.rs#L1010) |
-| format | macro invocation (unexpanded) | dispatch_generation | [1025](../../src-tauri/src/antigravity/gateway/handlers.rs#L1025) |
-| format | macro invocation (unexpanded) | dispatch_generation | [1027](../../src-tauri/src/antigravity/gateway/handlers.rs#L1027) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1035](../../src-tauri/src/antigravity/gateway/handlers.rs#L1035) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1040](../../src-tauri/src/antigravity/gateway/handlers.rs#L1040) |
-| format | macro invocation (unexpanded) | dispatch_generation | [1061](../../src-tauri/src/antigravity/gateway/handlers.rs#L1061) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1063](../../src-tauri/src/antigravity/gateway/handlers.rs#L1063) |
-| format | macro invocation (unexpanded) | dispatch_generation | [1149](../../src-tauri/src/antigravity/gateway/handlers.rs#L1149) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1158](../../src-tauri/src/antigravity/gateway/handlers.rs#L1158) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1165](../../src-tauri/src/antigravity/gateway/handlers.rs#L1165) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1172](../../src-tauri/src/antigravity/gateway/handlers.rs#L1172) |
-| log::warn | macro invocation (unexpanded) | dispatch_generation | [1179](../../src-tauri/src/antigravity/gateway/handlers.rs#L1179) |
-| ensure_project_id | function_item |  | [1201](../../src-tauri/src/antigravity/gateway/handlers.rs#L1201) |
-| stream_response | function_item |  | [1215](../../src-tauri/src/antigravity/gateway/handlers.rs#L1215) |
-| matches | macro invocation (unexpanded) | stream_response | [1229](../../src-tauri/src/antigravity/gateway/handlers.rs#L1229) |
-| matches | macro invocation (unexpanded) | stream_response | [1237](../../src-tauri/src/antigravity/gateway/handlers.rs#L1237) |
-| log::error | macro invocation (unexpanded) | stream_response | [1290](../../src-tauri/src/antigravity/gateway/handlers.rs#L1290) |
-| Drop for StreamState | impl |  | [1316](../../src-tauri/src/antigravity/gateway/handlers.rs#L1316) |
-| drop | function_item | Drop for StreamState | [1317](../../src-tauri/src/antigravity/gateway/handlers.rs#L1317) |
-| log::info | macro invocation (unexpanded) | Drop for StreamState::drop | [1319](../../src-tauri/src/antigravity/gateway/handlers.rs#L1319) |
-| SseLineBuffer | struct_item |  | [1331](../../src-tauri/src/antigravity/gateway/handlers.rs#L1331) |
-| bytes | field_declaration | SseLineBuffer | [1332](../../src-tauri/src/antigravity/gateway/handlers.rs#L1332) |
-| SseLineBuffer | impl |  | [1335](../../src-tauri/src/antigravity/gateway/handlers.rs#L1335) |
+| format | macro invocation (unexpanded) | dispatch_generation | [998](../../src-tauri/src/antigravity/gateway/handlers.rs#L998) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1000](../../src-tauri/src/antigravity/gateway/handlers.rs#L1000) |
+| matches | macro invocation (unexpanded) | dispatch_generation | [1024](../../src-tauri/src/antigravity/gateway/handlers.rs#L1024) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1028](../../src-tauri/src/antigravity/gateway/handlers.rs#L1028) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1030](../../src-tauri/src/antigravity/gateway/handlers.rs#L1030) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1032](../../src-tauri/src/antigravity/gateway/handlers.rs#L1032) |
+| matches | macro invocation (unexpanded) | dispatch_generation | [1049](../../src-tauri/src/antigravity/gateway/handlers.rs#L1049) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1057](../../src-tauri/src/antigravity/gateway/handlers.rs#L1057) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1060](../../src-tauri/src/antigravity/gateway/handlers.rs#L1060) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1078](../../src-tauri/src/antigravity/gateway/handlers.rs#L1078) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1085](../../src-tauri/src/antigravity/gateway/handlers.rs#L1085) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1091](../../src-tauri/src/antigravity/gateway/handlers.rs#L1091) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1103](../../src-tauri/src/antigravity/gateway/handlers.rs#L1103) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1118](../../src-tauri/src/antigravity/gateway/handlers.rs#L1118) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1120](../../src-tauri/src/antigravity/gateway/handlers.rs#L1120) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1128](../../src-tauri/src/antigravity/gateway/handlers.rs#L1128) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1133](../../src-tauri/src/antigravity/gateway/handlers.rs#L1133) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1154](../../src-tauri/src/antigravity/gateway/handlers.rs#L1154) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1156](../../src-tauri/src/antigravity/gateway/handlers.rs#L1156) |
+| format | macro invocation (unexpanded) | dispatch_generation | [1242](../../src-tauri/src/antigravity/gateway/handlers.rs#L1242) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1251](../../src-tauri/src/antigravity/gateway/handlers.rs#L1251) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1258](../../src-tauri/src/antigravity/gateway/handlers.rs#L1258) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1265](../../src-tauri/src/antigravity/gateway/handlers.rs#L1265) |
+| log::warn | macro invocation (unexpanded) | dispatch_generation | [1272](../../src-tauri/src/antigravity/gateway/handlers.rs#L1272) |
+| ensure_project_id | function_item |  | [1294](../../src-tauri/src/antigravity/gateway/handlers.rs#L1294) |
+| stream_response | function_item |  | [1308](../../src-tauri/src/antigravity/gateway/handlers.rs#L1308) |
+| matches | macro invocation (unexpanded) | stream_response | [1322](../../src-tauri/src/antigravity/gateway/handlers.rs#L1322) |
+| matches | macro invocation (unexpanded) | stream_response | [1330](../../src-tauri/src/antigravity/gateway/handlers.rs#L1330) |
+| log::error | macro invocation (unexpanded) | stream_response | [1398](../../src-tauri/src/antigravity/gateway/handlers.rs#L1398) |

@@ -4,7 +4,7 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health/classifier.rs) · page 1/1
 
-Source SHA-256: c1230eeef088fe02b9d9217f99a724235a1cae5769851b3bbd87a31216191e84
+Source SHA-256: adb327e6ceeaf0aaec506312d25671f1272c5173189926c066ed59f7e9ec4044
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -28,3 +28,4 @@ Source SHA-256: c1230eeef088fe02b9d9217f99a724235a1cae5769851b3bbd87a31216191e84
 | is_rate_limit_error | function_item |  | [224](../../src-tauri/src/gateway/health/classifier.rs#L224) |
 | matches_model_not_found | function_item |  | [255](../../src-tauri/src/gateway/health/classifier.rs#L255) |
 | classify_failure | function_item |  | [306](../../src-tauri/src/gateway/health/classifier.rs#L306) |
+| is_relay_client_validation_error | function_item |  | [407](../../src-tauri/src/gateway/health/classifier.rs#L407) |

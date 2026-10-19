@@ -18,9 +18,9 @@
 | [src/components/ProviderQuotaView.tsx](../../src/components/ProviderQuotaView.tsx) | 46 | [1](src_components_ProviderQuotaView.tsx-6c2cee5d-1.md) |
 | [src/components/StartupScreen.tsx](../../src/components/StartupScreen.tsx) | 12 | [1](src_components_StartupScreen.tsx-966387a8-1.md) |
 | [src/components/UsageBreakdownCard.tsx](../../src/components/UsageBreakdownCard.tsx) | 23 | [1](src_components_UsageBreakdownCard.tsx-68d5d138-1.md) |
-| [src/components/UsageCalendar.tsx](../../src/components/UsageCalendar.tsx) | 184 | [1](src_components_UsageCalendar.tsx-a4745035-1.md) [2](src_components_UsageCalendar.tsx-a4745035-2.md) |
-| [src/components/UsageSourceFilterSelect.tsx](../../src/components/UsageSourceFilterSelect.tsx) | 12 | [1](src_components_UsageSourceFilterSelect.tsx-b07e0cfb-1.md) |
-| [src/components/UsageSourceIcons.tsx](../../src/components/UsageSourceIcons.tsx) | 59 | [1](src_components_UsageSourceIcons.tsx-81f75568-1.md) |
+| [src/components/UsageCalendar.tsx](../../src/components/UsageCalendar.tsx) | 183 | [1](src_components_UsageCalendar.tsx-a4745035-1.md) [2](src_components_UsageCalendar.tsx-a4745035-2.md) |
+| [src/components/UsageSourceFilterSelect.tsx](../../src/components/UsageSourceFilterSelect.tsx) | 15 | [1](src_components_UsageSourceFilterSelect.tsx-b07e0cfb-1.md) |
+| [src/components/UsageSourceIcons.tsx](../../src/components/UsageSourceIcons.tsx) | 67 | [1](src_components_UsageSourceIcons.tsx-81f75568-1.md) |
 | [src/components/WorkspaceTargetSegmented.tsx](../../src/components/WorkspaceTargetSegmented.tsx) | 26 | [1](src_components_WorkspaceTargetSegmented.tsx-c4e00a19-1.md) |
 | [src/components/agent/CodexAdvancedSettings.tsx](../../src/components/agent/CodexAdvancedSettings.tsx) | 25 | [1](src_components_agent_CodexAdvancedSettings.tsx-1b56e78f-1.md) |
 | [src/components/agent/VscodeCopilotCard.tsx](../../src/components/agent/VscodeCopilotCard.tsx) | 55 | [1](src_components_agent_VscodeCopilotCard.tsx-0b466129-1.md) |
@@ -85,7 +85,7 @@
 | [src/components/ui/index.ts](../../src/components/ui/index.ts) | 0 | [1](src_components_ui_index.ts-eadb6fcb-1.md) |
 | [src/components/usage/MetricTrendBars.tsx](../../src/components/usage/MetricTrendBars.tsx) | 45 | [1](src_components_usage_MetricTrendBars.tsx-84c25cdf-1.md) |
 | [src/components/usage/UsageMetricStrip.tsx](../../src/components/usage/UsageMetricStrip.tsx) | 26 | [1](src_components_usage_UsageMetricStrip.tsx-1d0af6fc-1.md) |
-| [src/components/usage/UsageToolbar.tsx](../../src/components/usage/UsageToolbar.tsx) | 60 | [1](src_components_usage_UsageToolbar.tsx-0e08d453-1.md) |
+| [src/components/usage/UsageToolbar.tsx](../../src/components/usage/UsageToolbar.tsx) | 72 | [1](src_components_usage_UsageToolbar.tsx-0e08d453-1.md) |
 | [src/components/usage/index.ts](../../src/components/usage/index.ts) | 0 | [1](src_components_usage_index.ts-74eaf173-1.md) |
 | [src/components/v2/shell/AppBrand.tsx](../../src/components/v2/shell/AppBrand.tsx) | 9 | [1](src_components_v2_shell_AppBrand.tsx-f44ef02c-1.md) |
 | [src/components/v2/shell/DesktopShell.tsx](../../src/components/v2/shell/DesktopShell.tsx) | 21 | [1](src_components_v2_shell_DesktopShell.tsx-e0909fd4-1.md) |

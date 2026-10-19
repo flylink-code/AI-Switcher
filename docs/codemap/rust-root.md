@@ -11,7 +11,7 @@
 | [src-tauri/src/agents.rs](../../src-tauri/src/agents.rs) | 137 | [1](src-tauri_src_agents.rs-71aa9a40-1.md) [2](src-tauri_src_agents.rs-71aa9a40-2.md) |
 | [src-tauri/src/autostart_windows.rs](../../src-tauri/src/autostart_windows.rs) | 56 | [1](src-tauri_src_autostart_windows.rs-0e10f825-1.md) |
 | [src-tauri/src/backup.rs](../../src-tauri/src/backup.rs) | 164 | [1](src-tauri_src_backup.rs-3e1aa9c4-1.md) [2](src-tauri_src_backup.rs-3e1aa9c4-2.md) |
-| [src-tauri/src/catalog.rs](../../src-tauri/src/catalog.rs) | 335 | [1](src-tauri_src_catalog.rs-b56dca4e-1.md) [2](src-tauri_src_catalog.rs-b56dca4e-2.md) [3](src-tauri_src_catalog.rs-b56dca4e-3.md) [4](src-tauri_src_catalog.rs-b56dca4e-4.md) |
+| [src-tauri/src/catalog.rs](../../src-tauri/src/catalog.rs) | 337 | [1](src-tauri_src_catalog.rs-b56dca4e-1.md) [2](src-tauri_src_catalog.rs-b56dca4e-2.md) [3](src-tauri_src_catalog.rs-b56dca4e-3.md) [4](src-tauri_src_catalog.rs-b56dca4e-4.md) |
 | [src-tauri/src/claude_plugins.rs](../../src-tauri/src/claude_plugins.rs) | 139 | [1](src-tauri_src_claude_plugins.rs-e71178e2-1.md) [2](src-tauri_src_claude_plugins.rs-e71178e2-2.md) |
 | [src-tauri/src/codex_oauth.rs](../../src-tauri/src/codex_oauth.rs) | 86 | [1](src-tauri_src_codex_oauth.rs-0c2dab42-1.md) |
 | [src-tauri/src/codex_plugins.rs](../../src-tauri/src/codex_plugins.rs) | 132 | [1](src-tauri_src_codex_plugins.rs-f62478d2-1.md) [2](src-tauri_src_codex_plugins.rs-f62478d2-2.md) |

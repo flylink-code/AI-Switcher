@@ -215,6 +215,13 @@ pub fn openai_to_gemini_request(
         }));
     }
 
+    if contents.is_empty() && !system_parts.is_empty() {
+        contents.push(json!({
+            "role": "user",
+            "parts": system_parts.clone(),
+        }));
+    }
+
     if contents.is_empty() {
         return Err("messages 不能为空".into());
     }
@@ -271,12 +278,15 @@ pub fn openai_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model)
-        {
-            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
-            generation["maxOutputTokens"] =
-                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
-            crate::antigravity::thinking::apply_thinking_budget(&mut generation, budget, true);
+        if crate::antigravity::thinking::supports_explicit_thinking_budget(&model) {
+            if let Some(budget) =
+                crate::antigravity::thinking::resolve_thinking_budget(body, &model)
+            {
+                let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+                generation["maxOutputTokens"] =
+                    json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+                crate::antigravity::thinking::apply_thinking_budget(&mut generation, budget, true);
+            }
         }
     }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {

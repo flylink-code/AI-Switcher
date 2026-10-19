@@ -185,6 +185,9 @@ pub fn anthropic_to_gemini_request(
         return Err("messages 不能为空".into());
     }
 
+    if gemini_target {
+        strip_sdk_identity(&mut system_parts);
+    }
     let mut request = json!({ "contents": contents });
     if !system_parts.is_empty() {
         request["systemInstruction"] = json!({
@@ -227,16 +230,22 @@ pub fn anthropic_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model)
-        {
-            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
-            generation["maxOutputTokens"] =
-                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
-            crate::antigravity::thinking::apply_thinking_budget(
-                &mut generation,
-                budget,
-                thoughts_allowed,
-            );
+        // Flash models accept an explicit numeric thinkingBudget; Pro / Argon
+        // tier models encode reasoning effort in their `-low`/`-medium`/`-high`
+        // model suffix and only accept `includeThoughts: true`.
+        if crate::antigravity::thinking::supports_explicit_thinking_budget(&model) {
+            if let Some(budget) =
+                crate::antigravity::thinking::resolve_thinking_budget(body, &model)
+            {
+                let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+                generation["maxOutputTokens"] =
+                    json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+                crate::antigravity::thinking::apply_thinking_budget(
+                    &mut generation,
+                    budget,
+                    thoughts_allowed,
+                );
+            }
         }
     }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
@@ -623,6 +632,28 @@ fn strip_billing_metadata(text: &str) -> Option<String> {
         .collect();
     let joined = kept.join("\n");
     (!joined.trim().is_empty()).then_some(joined)
+}
+
+// Cloud Code Gemini returns RESOURCE_EXHAUSTED for the SDK's fixed Claude
+// identity, even with no tools. Keep client instructions and conversation text.
+fn strip_sdk_identity(parts: &mut Vec<Value>) {
+    const IDENTITY: &str = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
+    parts.retain_mut(|part| {
+        let Some(text) = part.get("text").and_then(Value::as_str) else {
+            return true;
+        };
+        if !text.split('\n').any(|line| line.trim() == IDENTITY) {
+            return true;
+        }
+        let clean = text
+            .split('\n')
+            .filter(|line| line.trim() != IDENTITY)
+            .collect::<Vec<_>>()
+            .join("\n");
+        let keep = !clean.trim().is_empty();
+        part["text"] = json!(clean);
+        keep
+    });
 }
 
 fn push_system_text(text: &str, out: &mut Vec<Value>) {
@@ -2260,6 +2291,44 @@ mod tests {
     }
 
     #[test]
+    fn sdk_identity_is_removed_only_from_gemini_system_instructions() {
+        let identity = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
+        for system in [
+            json!(format!("{identity}\nKeep my instructions.")),
+            json!([
+                {"type": "text", "text": "x-anthropic-billing-header: cc_version=test;"},
+                {"type": "text", "text": identity, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": "Keep my instructions."}
+            ]),
+        ] {
+            let mut body = json!({
+                "model": "gemini-4-argon-medium",
+                "max_tokens": 32000,
+                "thinking": {"type": "adaptive"},
+                "output_config": {"effort": "high"},
+                "system": system,
+                "messages": [{"role": "user", "content": identity}]
+            });
+            let mapped = anthropic_to_gemini_request(&body, None, None).unwrap();
+            assert_eq!(mapped.model, "gemini-4-argon-medium");
+            assert_eq!(mapped.request["systemInstruction"]["parts"], json!([{"text": "Keep my instructions."}]));
+            assert_eq!(mapped.request["contents"][0]["parts"][0]["text"], identity);
+            assert_eq!(mapped.request["generationConfig"]["maxOutputTokens"], 32000);
+
+            body["model"] = json!("claude-sonnet-5-5-medium");
+            let mapped = anthropic_to_gemini_request(&body, None, None).unwrap();
+            assert!(mapped.request["systemInstruction"].to_string().contains(identity));
+        }
+        let body = json!({
+            "model": "gemini-4-argon-medium",
+            "system": identity,
+            "messages": [{"role": "user", "content": "Reply OK"}]
+        });
+        let mapped = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert!(mapped.request.get("systemInstruction").is_none());
+    }
+
+    #[test]
     fn gemini_budget_tokens_become_thinking_budget_and_pad_max_tokens() {
         let body = json!({
             "model": "gemini-3.8-flash",
@@ -2279,6 +2348,30 @@ mod tests {
         assert!(parts.request["generationConfig"]["thinkingConfig"]
             .get("thinkingLevel")
             .is_none());
+    }
+
+    #[test]
+    fn argon_skips_numeric_thinking_budget_and_keeps_explicit_suffix() {
+        let body = json!({
+            "model": "gemini-4-argon-medium",
+            "max_tokens": 32000,
+            "output_config": { "effort": "high" },
+            "thinking": { "type": "enabled", "budget_tokens": 24576 },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(parts.model, "gemini-4-argon-medium");
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"],
+            json!({ "includeThoughts": true })
+        );
+        assert!(parts.request["generationConfig"]["thinkingConfig"]
+            .get("thinkingBudget")
+            .is_none());
+        assert_eq!(
+            parts.request["generationConfig"]["maxOutputTokens"],
+            json!(32000)
+        );
     }
 
     #[test]

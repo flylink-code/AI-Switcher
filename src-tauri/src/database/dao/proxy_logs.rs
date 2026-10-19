@@ -666,15 +666,42 @@ pub fn insert_proxy_log_with_source(
     Ok(id)
 }
 
+static RENAMED_LOG_IDS: std::sync::OnceLock<std::sync::Mutex<HashMap<String, String>>> =
+    std::sync::OnceLock::new();
+
+fn remember_renamed_log_id(old_id: &str, new_id: &str) {
+    if old_id.is_empty() || new_id.is_empty() || old_id == new_id {
+        return;
+    }
+    let map = RENAMED_LOG_IDS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+    if let Ok(mut guard) = map.lock() {
+        if guard.len() >= 4096 {
+            guard.clear();
+        }
+        guard.insert(old_id.to_string(), new_id.to_string());
+    }
+}
+
+pub fn resolve_proxy_log_id(id: &str) -> String {
+    let map = RENAMED_LOG_IDS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+    if let Ok(guard) = map.lock() {
+        if let Some(mapped) = guard.get(id) {
+            return mapped.clone();
+        }
+    }
+    id.to_string()
+}
+
 pub fn update_proxy_log_hop(
     conn: &Connection,
     id: &str,
     correlation_id: Option<&str>,
     hop: Option<&str>,
 ) -> AppResult<()> {
+    let resolved = resolve_proxy_log_id(id);
     conn.execute(
         "UPDATE proxy_request_logs SET correlation_id = COALESCE(?, correlation_id), hop = COALESCE(?, hop) WHERE id = ?;",
-        params![correlation_id, hop, id],
+        params![correlation_id, hop, resolved],
     )?;
     Ok(())
 }
@@ -991,6 +1018,7 @@ pub fn update_proxy_log_usage_idempotent(
     cache_creation_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<()> {
+    let effective_id = resolve_proxy_log_id(id);
     let stable_id = envelope_id
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -1007,7 +1035,7 @@ pub fn update_proxy_log_usage_idempotent(
         });
 
     if let Some(stable) = stable_id.as_deref() {
-        if stable != id {
+        if stable != effective_id {
             let exists: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM proxy_request_logs WHERE id = ?;",
                 params![stable],
@@ -1030,18 +1058,26 @@ pub fn update_proxy_log_usage_idempotent(
                         stable
                     ],
                 )?;
-                conn.execute("DELETE FROM proxy_request_logs WHERE id = ?;", params![id])?;
+                conn.execute(
+                    "DELETE FROM proxy_request_logs WHERE id = ?;",
+                    params![effective_id],
+                )?;
+                remember_renamed_log_id(id, stable);
+                remember_renamed_log_id(&effective_id, stable);
                 return Ok(());
             }
             conn.execute(
                 "UPDATE proxy_request_logs SET id = ? WHERE id = ?;",
-                params![stable, id],
+                params![stable, effective_id],
             )?;
             conn.execute(
                 "UPDATE proxy_request_logs
-                 SET input_tokens = ?, cache_read_input_tokens = ?,
-                     cache_creation_input_tokens = ?, output_tokens = ?, usage_available = 1
-                 WHERE id = ?;",
+                 SET input_tokens = MAX(COALESCE(input_tokens, 0), ?1),
+                     cache_read_input_tokens = MAX(COALESCE(cache_read_input_tokens, 0), ?2),
+                     cache_creation_input_tokens = MAX(COALESCE(cache_creation_input_tokens, 0), ?3),
+                     output_tokens = MAX(COALESCE(output_tokens, 0), ?4),
+                     usage_available = 1
+                 WHERE id = ?5;",
                 params![
                     input_tokens,
                     cache_read_input_tokens,
@@ -1050,21 +1086,26 @@ pub fn update_proxy_log_usage_idempotent(
                     stable
                 ],
             )?;
+            remember_renamed_log_id(id, stable);
+            remember_renamed_log_id(&effective_id, stable);
             return Ok(());
         }
     }
 
     conn.execute(
         "UPDATE proxy_request_logs
-         SET input_tokens = ?, cache_read_input_tokens = ?,
-             cache_creation_input_tokens = ?, output_tokens = ?, usage_available = 1
-         WHERE id = ?;",
+         SET input_tokens = MAX(COALESCE(input_tokens, 0), ?1),
+             cache_read_input_tokens = MAX(COALESCE(cache_read_input_tokens, 0), ?2),
+             cache_creation_input_tokens = MAX(COALESCE(cache_creation_input_tokens, 0), ?3),
+             output_tokens = MAX(COALESCE(output_tokens, 0), ?4),
+             usage_available = 1
+         WHERE id = ?5;",
         params![
             input_tokens,
             cache_read_input_tokens,
             cache_creation_input_tokens,
             output_tokens,
-            id
+            effective_id
         ],
     )?;
     Ok(())
@@ -1137,11 +1178,12 @@ pub fn update_proxy_log_diagnostic(
     error_category: &str,
     diagnostic: &str,
 ) -> AppResult<()> {
+    let resolved = resolve_proxy_log_id(id);
     conn.execute(
         "UPDATE proxy_request_logs
          SET error_category = ?, diagnostic = ?
          WHERE id = ?;",
-        params![error_category, diagnostic, id],
+        params![error_category, diagnostic, resolved],
     )?;
     Ok(())
 }
@@ -1157,6 +1199,7 @@ pub fn update_proxy_log_route(
     route_mode: Option<&str>,
     attempts_json: Option<&str>,
 ) -> AppResult<()> {
+    let resolved = resolve_proxy_log_id(id);
     conn.execute(
         "UPDATE proxy_request_logs
          SET profile_id = ?, route_reason = ?, attempt_index = ?, requested_model = ?, upstream_id = ?, route_mode = ?,
@@ -1170,7 +1213,7 @@ pub fn update_proxy_log_route(
             upstream_id,
             route_mode,
             attempts_json,
-            id
+            resolved
         ],
     )?;
     Ok(())
@@ -1181,9 +1224,10 @@ pub fn update_proxy_log_attempts(
     id: &str,
     attempts_json: &str,
 ) -> AppResult<()> {
+    let resolved = resolve_proxy_log_id(id);
     conn.execute(
         "UPDATE proxy_request_logs SET attempts_json = ? WHERE id = ?;",
-        params![attempts_json, id],
+        params![attempts_json, resolved],
     )?;
     Ok(())
 }
@@ -2004,13 +2048,14 @@ pub fn update_proxy_log_stream_outcome(
     error_category: Option<&str>,
     diagnostic: Option<&str>,
 ) -> AppResult<()> {
+    let resolved = resolve_proxy_log_id(id);
     let changed = conn.execute(
         "UPDATE proxy_request_logs
          SET stream_outcome = ?1, duration_ms = COALESCE(?2, duration_ms),
              error_category = COALESCE(?3, error_category),
              diagnostic = COALESCE(?4, diagnostic)
          WHERE id = ?5 AND stream_outcome IS NULL;",
-        params![stream_outcome, duration_ms, error_category, diagnostic, id],
+        params![stream_outcome, duration_ms, error_category, diagnostic, resolved],
     )?;
     if changed > 0 {
         crate::usage_events::notify_log_recorded();

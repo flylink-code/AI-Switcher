@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/failover.rs) · page 1/1
 
-Source SHA-256: e780e98e0ab9f1deeeb53cfc91d44ca5334e7b8b24514f6f03b67c79d1f863ae
+Source SHA-256: 86f7ae81d51f332a8b503d72b8a0aa70ac9329a1b41fac098470daf5de014ccf
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -19,6 +19,10 @@ Source SHA-256: e780e98e0ab9f1deeeb53cfc91d44ca5334e7b8b24514f6f03b67c79d1f863ae
 | rewrite_body | function_item |  | [46](../../src-tauri/src/proxy/failover.rs#L46) |
 | serde_json::json | macro invocation (unexpanded) | rewrite_body | [80](../../src-tauri/src/proxy/failover.rs#L80) |
 | serde_json::json | macro invocation (unexpanded) | rewrite_body | [86](../../src-tauri/src/proxy/failover.rs#L86) |
-| session_prompt_cache_hint | function_item |  | [98](../../src-tauri/src/proxy/failover.rs#L98) |
-| encode_upstream_request | function_item |  | [117](../../src-tauri/src/proxy/failover.rs#L117) |
-| overlay_legacy_thinking | function_item |  | [168](../../src-tauri/src/proxy/failover.rs#L168) |
+| serde_json::json | macro invocation (unexpanded) | rewrite_body | [105](../../src-tauri/src/proxy/failover.rs#L105) |
+| serde_json::json | macro invocation (unexpanded) | rewrite_body | [114](../../src-tauri/src/proxy/failover.rs#L114) |
+| serde_json::json | macro invocation (unexpanded) | rewrite_body | [130](../../src-tauri/src/proxy/failover.rs#L130) |
+| matches | macro invocation (unexpanded) | rewrite_body | [148](../../src-tauri/src/proxy/failover.rs#L148) |
+| session_prompt_cache_hint | function_item |  | [185](../../src-tauri/src/proxy/failover.rs#L185) |
+| encode_upstream_request | function_item |  | [204](../../src-tauri/src/proxy/failover.rs#L204) |
+| overlay_legacy_thinking | function_item |  | [256](../../src-tauri/src/proxy/failover.rs#L256) |

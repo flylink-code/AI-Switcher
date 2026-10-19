@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/gateway/mod.rs) · page 1/1
 
-Source SHA-256: f53e736fb7022994b4b55ae05437b9e7340ff9b253fad2b93be3328746d2280f
+Source SHA-256: b5bb3ad10c1e7e63b7dd893bc65067be86e6a065cd9cdc5faa2916d9a325f22c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -90,20 +90,20 @@ Source SHA-256: f53e736fb7022994b4b55ae05437b9e7340ff9b253fad2b93be3328746d2280f
 | start_gateway | function_item |  | [438](../../src-tauri/src/antigravity/gateway/mod.rs#L438) |
 | log::warn | macro invocation (unexpanded) | start_gateway | [451](../../src-tauri/src/antigravity/gateway/mod.rs#L451) |
 | format | macro invocation (unexpanded) | start_gateway | [519](../../src-tauri/src/antigravity/gateway/mod.rs#L519) |
-| log::error | macro invocation (unexpanded) | start_gateway | [573](../../src-tauri/src/antigravity/gateway/mod.rs#L573) |
-| log::info | macro invocation (unexpanded) | start_gateway | [592](../../src-tauri/src/antigravity/gateway/mod.rs#L592) |
-| stop_gateway | function_item |  | [596](../../src-tauri/src/antigravity/gateway/mod.rs#L596) |
-| stop_gateway_keep_flag | function_item |  | [607](../../src-tauri/src/antigravity/gateway/mod.rs#L607) |
-| log::warn | macro invocation (unexpanded) | stop_gateway_keep_flag | [615](../../src-tauri/src/antigravity/gateway/mod.rs#L615) |
-| log::warn | macro invocation (unexpanded) | stop_gateway_keep_flag | [616](../../src-tauri/src/antigravity/gateway/mod.rs#L616) |
-| restore_gateway_if_enabled | function_item |  | [625](../../src-tauri/src/antigravity/gateway/mod.rs#L625) |
-| log::info | macro invocation (unexpanded) | restore_gateway_if_enabled | [630](../../src-tauri/src/antigravity/gateway/mod.rs#L630) |
-| log::error | macro invocation (unexpanded) | restore_gateway_if_enabled | [635](../../src-tauri/src/antigravity/gateway/mod.rs#L635) |
-| clear_sticky_sessions | function_item |  | [641](../../src-tauri/src/antigravity/gateway/mod.rs#L641) |
-| builtin_api_key | function_item |  | [648](../../src-tauri/src/antigravity/gateway/mod.rs#L648) |
-| configured_port | function_item |  | [657](../../src-tauri/src/antigravity/gateway/mod.rs#L657) |
-| enabled_flag | function_item |  | [665](../../src-tauri/src/antigravity/gateway/mod.rs#L665) |
-| matches | macro invocation (unexpanded) | enabled_flag | [675](../../src-tauri/src/antigravity/gateway/mod.rs#L675) |
-| set_enabled_flag | function_item |  | [678](../../src-tauri/src/antigravity/gateway/mod.rs#L678) |
-| should_autostart | function_item |  | [687](../../src-tauri/src/antigravity/gateway/mod.rs#L687) |
-| saved_port | function_item |  | [713](../../src-tauri/src/antigravity/gateway/mod.rs#L713) |
+| log::error | macro invocation (unexpanded) | start_gateway | [579](../../src-tauri/src/antigravity/gateway/mod.rs#L579) |
+| log::info | macro invocation (unexpanded) | start_gateway | [598](../../src-tauri/src/antigravity/gateway/mod.rs#L598) |
+| stop_gateway | function_item |  | [602](../../src-tauri/src/antigravity/gateway/mod.rs#L602) |
+| stop_gateway_keep_flag | function_item |  | [613](../../src-tauri/src/antigravity/gateway/mod.rs#L613) |
+| log::warn | macro invocation (unexpanded) | stop_gateway_keep_flag | [621](../../src-tauri/src/antigravity/gateway/mod.rs#L621) |
+| log::warn | macro invocation (unexpanded) | stop_gateway_keep_flag | [622](../../src-tauri/src/antigravity/gateway/mod.rs#L622) |
+| restore_gateway_if_enabled | function_item |  | [631](../../src-tauri/src/antigravity/gateway/mod.rs#L631) |
+| log::info | macro invocation (unexpanded) | restore_gateway_if_enabled | [636](../../src-tauri/src/antigravity/gateway/mod.rs#L636) |
+| log::error | macro invocation (unexpanded) | restore_gateway_if_enabled | [641](../../src-tauri/src/antigravity/gateway/mod.rs#L641) |
+| clear_sticky_sessions | function_item |  | [647](../../src-tauri/src/antigravity/gateway/mod.rs#L647) |
+| builtin_api_key | function_item |  | [654](../../src-tauri/src/antigravity/gateway/mod.rs#L654) |
+| configured_port | function_item |  | [663](../../src-tauri/src/antigravity/gateway/mod.rs#L663) |
+| enabled_flag | function_item |  | [671](../../src-tauri/src/antigravity/gateway/mod.rs#L671) |
+| matches | macro invocation (unexpanded) | enabled_flag | [681](../../src-tauri/src/antigravity/gateway/mod.rs#L681) |
+| set_enabled_flag | function_item |  | [684](../../src-tauri/src/antigravity/gateway/mod.rs#L684) |
+| should_autostart | function_item |  | [693](../../src-tauri/src/antigravity/gateway/mod.rs#L693) |
+| saved_port | function_item |  | [719](../../src-tauri/src/antigravity/gateway/mod.rs#L719) |

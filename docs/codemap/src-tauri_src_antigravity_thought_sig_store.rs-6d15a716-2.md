@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/thought_sig_store.rs) · page 2/3
 
-Source SHA-256: 33f8b75ea6c6cfa45671753f0debb654b6f4a26e7765466e30f943fda1f7b35e
+Source SHA-256: c32608b9a57f6f7f6da3f331b978fd7766ff177f1c231285f2361bcec8af71b7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| degraded | field_declaration | ThoughtSigStore | [843](../../src-tauri/src/antigravity/thought_sig_store.rs#L843) |
-| ThoughtSigStore | impl |  | [846](../../src-tauri/src/antigravity/thought_sig_store.rs#L846) |
-| init | function_item | ThoughtSigStore | [847](../../src-tauri/src/antigravity/thought_sig_store.rs#L847) |
-| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [864](../../src-tauri/src/antigravity/thought_sig_store.rs#L864) |
-| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [879](../../src-tauri/src/antigravity/thought_sig_store.rs#L879) |
-| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [895](../../src-tauri/src/antigravity/thought_sig_store.rs#L895) |
-| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [910](../../src-tauri/src/antigravity/thought_sig_store.rs#L910) |
-| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [935](../../src-tauri/src/antigravity/thought_sig_store.rs#L935) |
-| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [961](../../src-tauri/src/antigravity/thought_sig_store.rs#L961) |
-| is_degraded | function_item | ThoughtSigStore | [979](../../src-tauri/src/antigravity/thought_sig_store.rs#L979) |
-| now_secs | function_item | ThoughtSigStore | [983](../../src-tauri/src/antigravity/thought_sig_store.rs#L983) |
-| send_upsert | function_item | ThoughtSigStore | [990](../../src-tauri/src/antigravity/thought_sig_store.rs#L990) |
-| log::debug | macro invocation (unexpanded) | ThoughtSigStore::send_upsert | [1013](../../src-tauri/src/antigravity/thought_sig_store.rs#L1013) |
-| send_touch | function_item | ThoughtSigStore | [1022](../../src-tauri/src/antigravity/thought_sig_store.rs#L1022) |
-| cache_tool | function_item | ThoughtSigStore | [1043](../../src-tauri/src/antigravity/thought_sig_store.rs#L1043) |
-| get_tool | function_item | ThoughtSigStore | [1066](../../src-tauri/src/antigravity/thought_sig_store.rs#L1066) |
-| format | macro invocation (unexpanded) | ThoughtSigStore::get_tool | [1097](../../src-tauri/src/antigravity/thought_sig_store.rs#L1097) |
-| cache_session | function_item | ThoughtSigStore | [1119](../../src-tauri/src/antigravity/thought_sig_store.rs#L1119) |
-| get_session | function_item | ThoughtSigStore | [1143](../../src-tauri/src/antigravity/thought_sig_store.rs#L1143) |
-| cache_session_index | function_item | ThoughtSigStore | [1173](../../src-tauri/src/antigravity/thought_sig_store.rs#L1173) |
-| get_session_index | function_item | ThoughtSigStore | [1196](../../src-tauri/src/antigravity/thought_sig_store.rs#L1196) |
-| resolve | function_item | ThoughtSigStore | [1227](../../src-tauri/src/antigravity/thought_sig_store.rs#L1227) |
-| flush | function_item | ThoughtSigStore | [1251](../../src-tauri/src/antigravity/thought_sig_store.rs#L1251) |
-| shutdown | function_item | ThoughtSigStore | [1271](../../src-tauri/src/antigravity/thought_sig_store.rs#L1271) |
-| Drop for ThoughtSigStore | impl |  | [1292](../../src-tauri/src/antigravity/thought_sig_store.rs#L1292) |
-| drop | function_item | Drop for ThoughtSigStore | [1293](../../src-tauri/src/antigravity/thought_sig_store.rs#L1293) |
-| tests | mod_item |  | [1299](../../src-tauri/src/antigravity/thought_sig_store.rs#L1299) |
-| temp_config | function_item | tests | [1302](../../src-tauri/src/antigravity/thought_sig_store.rs#L1302) |
-| test_tool_id_normalization_survives_restart | function_item | tests | [1317](../../src-tauri/src/antigravity/thought_sig_store.rs#L1317) |
-| assert_eq | macro invocation (unexpanded) | tests::test_tool_id_normalization_survives_restart | [1323](../../src-tauri/src/antigravity/thought_sig_store.rs#L1323) |
-| assert_eq | macro invocation (unexpanded) | tests::test_tool_id_normalization_survives_restart | [1330](../../src-tauri/src/antigravity/thought_sig_store.rs#L1330) |
-| test_legacy_tool_id_remains_readable | function_item | tests | [1337](../../src-tauri/src/antigravity/thought_sig_store.rs#L1337) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_legacy_tool_id_remains_readable | [1345](../../src-tauri/src/antigravity/thought_sig_store.rs#L1345) |
-| assert_eq | macro invocation (unexpanded) | tests::test_legacy_tool_id_remains_readable | [1350](../../src-tauri/src/antigravity/thought_sig_store.rs#L1350) |
-| assert_eq | macro invocation (unexpanded) | tests::test_legacy_tool_id_remains_readable | [1351](../../src-tauri/src/antigravity/thought_sig_store.rs#L1351) |
-| test_restart_persistence_and_bounded_prewarm | function_item | tests | [1355](../../src-tauri/src/antigravity/thought_sig_store.rs#L1355) |
-| assert_eq | macro invocation (unexpanded) | tests::test_restart_persistence_and_bounded_prewarm | [1368](../../src-tauri/src/antigravity/thought_sig_store.rs#L1368) |
-| assert_eq | macro invocation (unexpanded) | tests::test_restart_persistence_and_bounded_prewarm | [1372](../../src-tauri/src/antigravity/thought_sig_store.rs#L1372) |
-| assert_eq | macro invocation (unexpanded) | tests::test_restart_persistence_and_bounded_prewarm | [1376](../../src-tauri/src/antigravity/thought_sig_store.rs#L1376) |
-| test_bounded_prewarm_filters_sentinel_empty_and_negative_index | function_item | tests | [1383](../../src-tauri/src/antigravity/thought_sig_store.rs#L1383) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1398](../../src-tauri/src/antigravity/thought_sig_store.rs#L1398) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1403](../../src-tauri/src/antigravity/thought_sig_store.rs#L1403) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1408](../../src-tauri/src/antigravity/thought_sig_store.rs#L1408) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1413](../../src-tauri/src/antigravity/thought_sig_store.rs#L1413) |
-| assert_eq | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1420](../../src-tauri/src/antigravity/thought_sig_store.rs#L1420) |
-| assert_eq | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1421](../../src-tauri/src/antigravity/thought_sig_store.rs#L1421) |
-| assert_eq | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1422](../../src-tauri/src/antigravity/thought_sig_store.rs#L1422) |
-| test_l1_ttl_expiry_without_manual_clearing | function_item | tests | [1426](../../src-tauri/src/antigravity/thought_sig_store.rs#L1426) |
-| assert_eq | macro invocation (unexpanded) | tests::test_l1_ttl_expiry_without_manual_clearing | [1435](../../src-tauri/src/antigravity/thought_sig_store.rs#L1435) |
-| assert_eq | macro invocation (unexpanded) | tests::test_l1_ttl_expiry_without_manual_clearing | [1442](../../src-tauri/src/antigravity/thought_sig_store.rs#L1442) |
-| test_throttled_touch_persists_to_sqlite | function_item | tests | [1446](../../src-tauri/src/antigravity/thought_sig_store.rs#L1446) |
-| assert_eq | macro invocation (unexpanded) | tests::test_throttled_touch_persists_to_sqlite | [1471](../../src-tauri/src/antigravity/thought_sig_store.rs#L1471) |
-| assert | macro invocation (unexpanded) | tests::test_throttled_touch_persists_to_sqlite | [1486](../../src-tauri/src/antigravity/thought_sig_store.rs#L1486) |
-| test_l1_capacities_and_eviction | function_item | tests | [1493](../../src-tauri/src/antigravity/thought_sig_store.rs#L1493) |
-| assert_eq | macro invocation (unexpanded) | tests::test_l1_capacities_and_eviction | [1503](../../src-tauri/src/antigravity/thought_sig_store.rs#L1503) |
-| assert_eq | macro invocation (unexpanded) | tests::test_l1_capacities_and_eviction | [1504](../../src-tauri/src/antigravity/thought_sig_store.rs#L1504) |
-| assert_eq | macro invocation (unexpanded) | tests::test_l1_capacities_and_eviction | [1505](../../src-tauri/src/antigravity/thought_sig_store.rs#L1505) |
-| test_cap_zero_must_not_insert | function_item | tests | [1509](../../src-tauri/src/antigravity/thought_sig_store.rs#L1509) |
-| assert_eq | macro invocation (unexpanded) | tests::test_cap_zero_must_not_insert | [1519](../../src-tauri/src/antigravity/thought_sig_store.rs#L1519) |
-| test_resolution_priority | function_item | tests | [1523](../../src-tauri/src/antigravity/thought_sig_store.rs#L1523) |
-| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1532](../../src-tauri/src/antigravity/thought_sig_store.rs#L1532) |
-| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1536](../../src-tauri/src/antigravity/thought_sig_store.rs#L1536) |
-| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1540](../../src-tauri/src/antigravity/thought_sig_store.rs#L1540) |
-| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1544](../../src-tauri/src/antigravity/thought_sig_store.rs#L1544) |
-| test_startup_corruption_recovery_and_quarantine_prune | function_item | tests | [1551](../../src-tauri/src/antigravity/thought_sig_store.rs#L1551) |
-| format | macro invocation (unexpanded) | tests::test_startup_corruption_recovery_and_quarantine_prune | [1560](../../src-tauri/src/antigravity/thought_sig_store.rs#L1560) |
-| assert | macro invocation (unexpanded) | tests::test_startup_corruption_recovery_and_quarantine_prune | [1576](../../src-tauri/src/antigravity/thought_sig_store.rs#L1576) |
-| assert_eq | macro invocation (unexpanded) | tests::test_startup_corruption_recovery_and_quarantine_prune | [1580](../../src-tauri/src/antigravity/thought_sig_store.rs#L1580) |
-| test_unwritable_path_degrades_to_memory | function_item | tests | [1587](../../src-tauri/src/antigravity/thought_sig_store.rs#L1587) |
-| assert | macro invocation (unexpanded) | tests::test_unwritable_path_degrades_to_memory | [1597](../../src-tauri/src/antigravity/thought_sig_store.rs#L1597) |
-| assert_eq | macro invocation (unexpanded) | tests::test_unwritable_path_degrades_to_memory | [1600](../../src-tauri/src/antigravity/thought_sig_store.rs#L1600) |
-| test_prewarm_preserves_recent_lru_order | function_item | tests | [1604](../../src-tauri/src/antigravity/thought_sig_store.rs#L1604) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_prewarm_preserves_recent_lru_order | [1618](../../src-tauri/src/antigravity/thought_sig_store.rs#L1618) |
-| assert_eq | macro invocation (unexpanded) | tests::test_prewarm_preserves_recent_lru_order | [1629](../../src-tauri/src/antigravity/thought_sig_store.rs#L1629) |
-| assert_eq | macro invocation (unexpanded) | tests::test_prewarm_preserves_recent_lru_order | [1630](../../src-tauri/src/antigravity/thought_sig_store.rs#L1630) |
-| test_session_shorter_signature_does_not_overwrite | function_item | tests | [1634](../../src-tauri/src/antigravity/thought_sig_store.rs#L1634) |
-| assert_eq | macro invocation (unexpanded) | tests::test_session_shorter_signature_does_not_overwrite | [1643](../../src-tauri/src/antigravity/thought_sig_store.rs#L1643) |
-| assert_eq | macro invocation (unexpanded) | tests::test_session_shorter_signature_does_not_overwrite | [1650](../../src-tauri/src/antigravity/thought_sig_store.rs#L1650) |
-| test_bounded_queue_overflow_non_blocking | function_item | tests | [1657](../../src-tauri/src/antigravity/thought_sig_store.rs#L1657) |
-| format | macro invocation (unexpanded) | tests::test_bounded_queue_overflow_non_blocking | [1664](../../src-tauri/src/antigravity/thought_sig_store.rs#L1664) |
-| format | macro invocation (unexpanded) | tests::test_bounded_queue_overflow_non_blocking | [1664](../../src-tauri/src/antigravity/thought_sig_store.rs#L1664) |
-| assert_eq | macro invocation (unexpanded) | tests::test_bounded_queue_overflow_non_blocking | [1668](../../src-tauri/src/antigravity/thought_sig_store.rs#L1668) |
-| test_is_corruption_error_detection | function_item | tests | [1672](../../src-tauri/src/antigravity/thought_sig_store.rs#L1672) |
-| assert | macro invocation (unexpanded) | tests::test_is_corruption_error_detection | [1680](../../src-tauri/src/antigravity/thought_sig_store.rs#L1680) |
-| assert | macro invocation (unexpanded) | tests::test_is_corruption_error_detection | [1689](../../src-tauri/src/antigravity/thought_sig_store.rs#L1689) |
-| assert | macro invocation (unexpanded) | tests::test_is_corruption_error_detection | [1698](../../src-tauri/src/antigravity/thought_sig_store.rs#L1698) |
-| test_write_phase_degradation_fallback_to_memory | function_item | tests | [1702](../../src-tauri/src/antigravity/thought_sig_store.rs#L1702) |
-| assert_eq | macro invocation (unexpanded) | tests::test_write_phase_degradation_fallback_to_memory | [1710](../../src-tauri/src/antigravity/thought_sig_store.rs#L1710) |
-| test_busy_database_is_not_quarantined | function_item | tests | [1717](../../src-tauri/src/antigravity/thought_sig_store.rs#L1717) |
-| assert | macro invocation (unexpanded) | tests::test_busy_database_is_not_quarantined | [1723](../../src-tauri/src/antigravity/thought_sig_store.rs#L1723) |
-| assert | macro invocation (unexpanded) | tests::test_busy_database_is_not_quarantined | [1724](../../src-tauri/src/antigravity/thought_sig_store.rs#L1724) |
-| assert_eq | macro invocation (unexpanded) | tests::test_busy_database_is_not_quarantined | [1725](../../src-tauri/src/antigravity/thought_sig_store.rs#L1725) |
-| test_l2_capacity_and_expired_rows_are_pruned | function_item | tests | [1737](../../src-tauri/src/antigravity/thought_sig_store.rs#L1737) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_l2_capacity_and_expired_rows_are_pruned | [1746](../../src-tauri/src/antigravity/thought_sig_store.rs#L1746) |
-| assert_eq | macro invocation (unexpanded) | tests::test_l2_capacity_and_expired_rows_are_pruned | [1756](../../src-tauri/src/antigravity/thought_sig_store.rs#L1756) |
-| test_touch_does_not_extend_replaced_signature | function_item | tests | [1760](../../src-tauri/src/antigravity/thought_sig_store.rs#L1760) |
-| assert | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1773](../../src-tauri/src/antigravity/thought_sig_store.rs#L1773) |
-| rusqlite::params | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1778](../../src-tauri/src/antigravity/thought_sig_store.rs#L1778) |
-| assert_eq | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1793](../../src-tauri/src/antigravity/thought_sig_store.rs#L1793) |
-| assert_eq | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1794](../../src-tauri/src/antigravity/thought_sig_store.rs#L1794) |
+| log::warn | macro invocation (unexpanded) | worker_loop | [825](../../src-tauri/src/antigravity/thought_sig_store.rs#L825) |
+| log::warn | macro invocation (unexpanded) | worker_loop | [833](../../src-tauri/src/antigravity/thought_sig_store.rs#L833) |
+| log::debug | macro invocation (unexpanded) | worker_loop | [837](../../src-tauri/src/antigravity/thought_sig_store.rs#L837) |
+| ThoughtSigStore | struct_item |  | [867](../../src-tauri/src/antigravity/thought_sig_store.rs#L867) |
+| config | field_declaration | ThoughtSigStore | [868](../../src-tauri/src/antigravity/thought_sig_store.rs#L868) |
+| l1 | field_declaration | ThoughtSigStore | [869](../../src-tauri/src/antigravity/thought_sig_store.rs#L869) |
+| writer_tx | field_declaration | ThoughtSigStore | [870](../../src-tauri/src/antigravity/thought_sig_store.rs#L870) |
+| writer_handle | field_declaration | ThoughtSigStore | [871](../../src-tauri/src/antigravity/thought_sig_store.rs#L871) |
+| degraded | field_declaration | ThoughtSigStore | [872](../../src-tauri/src/antigravity/thought_sig_store.rs#L872) |
+| ThoughtSigStore | impl |  | [875](../../src-tauri/src/antigravity/thought_sig_store.rs#L875) |
+| init | function_item | ThoughtSigStore | [876](../../src-tauri/src/antigravity/thought_sig_store.rs#L876) |
+| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [893](../../src-tauri/src/antigravity/thought_sig_store.rs#L893) |
+| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [908](../../src-tauri/src/antigravity/thought_sig_store.rs#L908) |
+| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [924](../../src-tauri/src/antigravity/thought_sig_store.rs#L924) |
+| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [939](../../src-tauri/src/antigravity/thought_sig_store.rs#L939) |
+| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [964](../../src-tauri/src/antigravity/thought_sig_store.rs#L964) |
+| log::warn | macro invocation (unexpanded) | ThoughtSigStore::init | [990](../../src-tauri/src/antigravity/thought_sig_store.rs#L990) |
+| is_degraded | function_item | ThoughtSigStore | [1008](../../src-tauri/src/antigravity/thought_sig_store.rs#L1008) |
+| now_secs | function_item | ThoughtSigStore | [1012](../../src-tauri/src/antigravity/thought_sig_store.rs#L1012) |
+| send_upsert | function_item | ThoughtSigStore | [1019](../../src-tauri/src/antigravity/thought_sig_store.rs#L1019) |
+| log::debug | macro invocation (unexpanded) | ThoughtSigStore::send_upsert | [1042](../../src-tauri/src/antigravity/thought_sig_store.rs#L1042) |
+| send_touch | function_item | ThoughtSigStore | [1051](../../src-tauri/src/antigravity/thought_sig_store.rs#L1051) |
+| cache_tool | function_item | ThoughtSigStore | [1072](../../src-tauri/src/antigravity/thought_sig_store.rs#L1072) |
+| get_tool | function_item | ThoughtSigStore | [1095](../../src-tauri/src/antigravity/thought_sig_store.rs#L1095) |
+| format | macro invocation (unexpanded) | ThoughtSigStore::get_tool | [1126](../../src-tauri/src/antigravity/thought_sig_store.rs#L1126) |
+| cache_session | function_item | ThoughtSigStore | [1148](../../src-tauri/src/antigravity/thought_sig_store.rs#L1148) |
+| get_session | function_item | ThoughtSigStore | [1172](../../src-tauri/src/antigravity/thought_sig_store.rs#L1172) |
+| cache_session_index | function_item | ThoughtSigStore | [1202](../../src-tauri/src/antigravity/thought_sig_store.rs#L1202) |
+| get_session_index | function_item | ThoughtSigStore | [1225](../../src-tauri/src/antigravity/thought_sig_store.rs#L1225) |
+| resolve | function_item | ThoughtSigStore | [1256](../../src-tauri/src/antigravity/thought_sig_store.rs#L1256) |
+| evict_tool | function_item | ThoughtSigStore | [1280](../../src-tauri/src/antigravity/thought_sig_store.rs#L1280) |
+| format | macro invocation (unexpanded) | ThoughtSigStore::evict_tool | [1297](../../src-tauri/src/antigravity/thought_sig_store.rs#L1297) |
+| evict_session | function_item | ThoughtSigStore | [1319](../../src-tauri/src/antigravity/thought_sig_store.rs#L1319) |
+| flush | function_item | ThoughtSigStore | [1344](../../src-tauri/src/antigravity/thought_sig_store.rs#L1344) |
+| shutdown | function_item | ThoughtSigStore | [1364](../../src-tauri/src/antigravity/thought_sig_store.rs#L1364) |
+| Drop for ThoughtSigStore | impl |  | [1385](../../src-tauri/src/antigravity/thought_sig_store.rs#L1385) |
+| drop | function_item | Drop for ThoughtSigStore | [1386](../../src-tauri/src/antigravity/thought_sig_store.rs#L1386) |
+| tests | mod_item |  | [1392](../../src-tauri/src/antigravity/thought_sig_store.rs#L1392) |
+| temp_config | function_item | tests | [1395](../../src-tauri/src/antigravity/thought_sig_store.rs#L1395) |
+| test_tool_id_normalization_survives_restart | function_item | tests | [1410](../../src-tauri/src/antigravity/thought_sig_store.rs#L1410) |
+| assert_eq | macro invocation (unexpanded) | tests::test_tool_id_normalization_survives_restart | [1416](../../src-tauri/src/antigravity/thought_sig_store.rs#L1416) |
+| assert_eq | macro invocation (unexpanded) | tests::test_tool_id_normalization_survives_restart | [1423](../../src-tauri/src/antigravity/thought_sig_store.rs#L1423) |
+| test_legacy_tool_id_remains_readable | function_item | tests | [1430](../../src-tauri/src/antigravity/thought_sig_store.rs#L1430) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_legacy_tool_id_remains_readable | [1438](../../src-tauri/src/antigravity/thought_sig_store.rs#L1438) |
+| assert_eq | macro invocation (unexpanded) | tests::test_legacy_tool_id_remains_readable | [1443](../../src-tauri/src/antigravity/thought_sig_store.rs#L1443) |
+| assert_eq | macro invocation (unexpanded) | tests::test_legacy_tool_id_remains_readable | [1444](../../src-tauri/src/antigravity/thought_sig_store.rs#L1444) |
+| test_restart_persistence_and_bounded_prewarm | function_item | tests | [1448](../../src-tauri/src/antigravity/thought_sig_store.rs#L1448) |
+| assert_eq | macro invocation (unexpanded) | tests::test_restart_persistence_and_bounded_prewarm | [1461](../../src-tauri/src/antigravity/thought_sig_store.rs#L1461) |
+| assert_eq | macro invocation (unexpanded) | tests::test_restart_persistence_and_bounded_prewarm | [1465](../../src-tauri/src/antigravity/thought_sig_store.rs#L1465) |
+| assert_eq | macro invocation (unexpanded) | tests::test_restart_persistence_and_bounded_prewarm | [1469](../../src-tauri/src/antigravity/thought_sig_store.rs#L1469) |
+| test_bounded_prewarm_filters_sentinel_empty_and_negative_index | function_item | tests | [1476](../../src-tauri/src/antigravity/thought_sig_store.rs#L1476) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1491](../../src-tauri/src/antigravity/thought_sig_store.rs#L1491) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1496](../../src-tauri/src/antigravity/thought_sig_store.rs#L1496) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1501](../../src-tauri/src/antigravity/thought_sig_store.rs#L1501) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1506](../../src-tauri/src/antigravity/thought_sig_store.rs#L1506) |
+| assert_eq | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1513](../../src-tauri/src/antigravity/thought_sig_store.rs#L1513) |
+| assert_eq | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1514](../../src-tauri/src/antigravity/thought_sig_store.rs#L1514) |
+| assert_eq | macro invocation (unexpanded) | tests::test_bounded_prewarm_filters_sentinel_empty_and_negative_index | [1515](../../src-tauri/src/antigravity/thought_sig_store.rs#L1515) |
+| test_l1_ttl_expiry_without_manual_clearing | function_item | tests | [1519](../../src-tauri/src/antigravity/thought_sig_store.rs#L1519) |
+| assert_eq | macro invocation (unexpanded) | tests::test_l1_ttl_expiry_without_manual_clearing | [1528](../../src-tauri/src/antigravity/thought_sig_store.rs#L1528) |
+| assert_eq | macro invocation (unexpanded) | tests::test_l1_ttl_expiry_without_manual_clearing | [1535](../../src-tauri/src/antigravity/thought_sig_store.rs#L1535) |
+| test_throttled_touch_persists_to_sqlite | function_item | tests | [1539](../../src-tauri/src/antigravity/thought_sig_store.rs#L1539) |
+| assert_eq | macro invocation (unexpanded) | tests::test_throttled_touch_persists_to_sqlite | [1564](../../src-tauri/src/antigravity/thought_sig_store.rs#L1564) |
+| assert | macro invocation (unexpanded) | tests::test_throttled_touch_persists_to_sqlite | [1579](../../src-tauri/src/antigravity/thought_sig_store.rs#L1579) |
+| test_l1_capacities_and_eviction | function_item | tests | [1586](../../src-tauri/src/antigravity/thought_sig_store.rs#L1586) |
+| assert_eq | macro invocation (unexpanded) | tests::test_l1_capacities_and_eviction | [1596](../../src-tauri/src/antigravity/thought_sig_store.rs#L1596) |
+| assert_eq | macro invocation (unexpanded) | tests::test_l1_capacities_and_eviction | [1597](../../src-tauri/src/antigravity/thought_sig_store.rs#L1597) |
+| assert_eq | macro invocation (unexpanded) | tests::test_l1_capacities_and_eviction | [1598](../../src-tauri/src/antigravity/thought_sig_store.rs#L1598) |
+| test_cap_zero_must_not_insert | function_item | tests | [1602](../../src-tauri/src/antigravity/thought_sig_store.rs#L1602) |
+| assert_eq | macro invocation (unexpanded) | tests::test_cap_zero_must_not_insert | [1612](../../src-tauri/src/antigravity/thought_sig_store.rs#L1612) |
+| test_resolution_priority | function_item | tests | [1616](../../src-tauri/src/antigravity/thought_sig_store.rs#L1616) |
+| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1625](../../src-tauri/src/antigravity/thought_sig_store.rs#L1625) |
+| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1629](../../src-tauri/src/antigravity/thought_sig_store.rs#L1629) |
+| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1633](../../src-tauri/src/antigravity/thought_sig_store.rs#L1633) |
+| assert_eq | macro invocation (unexpanded) | tests::test_resolution_priority | [1637](../../src-tauri/src/antigravity/thought_sig_store.rs#L1637) |
+| test_startup_corruption_recovery_and_quarantine_prune | function_item | tests | [1644](../../src-tauri/src/antigravity/thought_sig_store.rs#L1644) |
+| format | macro invocation (unexpanded) | tests::test_startup_corruption_recovery_and_quarantine_prune | [1653](../../src-tauri/src/antigravity/thought_sig_store.rs#L1653) |
+| assert | macro invocation (unexpanded) | tests::test_startup_corruption_recovery_and_quarantine_prune | [1669](../../src-tauri/src/antigravity/thought_sig_store.rs#L1669) |
+| assert_eq | macro invocation (unexpanded) | tests::test_startup_corruption_recovery_and_quarantine_prune | [1673](../../src-tauri/src/antigravity/thought_sig_store.rs#L1673) |
+| test_unwritable_path_degrades_to_memory | function_item | tests | [1680](../../src-tauri/src/antigravity/thought_sig_store.rs#L1680) |
+| assert | macro invocation (unexpanded) | tests::test_unwritable_path_degrades_to_memory | [1690](../../src-tauri/src/antigravity/thought_sig_store.rs#L1690) |
+| assert_eq | macro invocation (unexpanded) | tests::test_unwritable_path_degrades_to_memory | [1693](../../src-tauri/src/antigravity/thought_sig_store.rs#L1693) |
+| test_prewarm_preserves_recent_lru_order | function_item | tests | [1697](../../src-tauri/src/antigravity/thought_sig_store.rs#L1697) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_prewarm_preserves_recent_lru_order | [1711](../../src-tauri/src/antigravity/thought_sig_store.rs#L1711) |
+| assert_eq | macro invocation (unexpanded) | tests::test_prewarm_preserves_recent_lru_order | [1722](../../src-tauri/src/antigravity/thought_sig_store.rs#L1722) |
+| assert_eq | macro invocation (unexpanded) | tests::test_prewarm_preserves_recent_lru_order | [1723](../../src-tauri/src/antigravity/thought_sig_store.rs#L1723) |
+| test_session_shorter_signature_does_not_overwrite | function_item | tests | [1727](../../src-tauri/src/antigravity/thought_sig_store.rs#L1727) |
+| assert_eq | macro invocation (unexpanded) | tests::test_session_shorter_signature_does_not_overwrite | [1736](../../src-tauri/src/antigravity/thought_sig_store.rs#L1736) |
+| assert_eq | macro invocation (unexpanded) | tests::test_session_shorter_signature_does_not_overwrite | [1743](../../src-tauri/src/antigravity/thought_sig_store.rs#L1743) |
+| test_bounded_queue_overflow_non_blocking | function_item | tests | [1750](../../src-tauri/src/antigravity/thought_sig_store.rs#L1750) |
+| format | macro invocation (unexpanded) | tests::test_bounded_queue_overflow_non_blocking | [1757](../../src-tauri/src/antigravity/thought_sig_store.rs#L1757) |
+| format | macro invocation (unexpanded) | tests::test_bounded_queue_overflow_non_blocking | [1757](../../src-tauri/src/antigravity/thought_sig_store.rs#L1757) |
+| assert_eq | macro invocation (unexpanded) | tests::test_bounded_queue_overflow_non_blocking | [1761](../../src-tauri/src/antigravity/thought_sig_store.rs#L1761) |
+| test_is_corruption_error_detection | function_item | tests | [1765](../../src-tauri/src/antigravity/thought_sig_store.rs#L1765) |
+| assert | macro invocation (unexpanded) | tests::test_is_corruption_error_detection | [1773](../../src-tauri/src/antigravity/thought_sig_store.rs#L1773) |
+| assert | macro invocation (unexpanded) | tests::test_is_corruption_error_detection | [1782](../../src-tauri/src/antigravity/thought_sig_store.rs#L1782) |
+| assert | macro invocation (unexpanded) | tests::test_is_corruption_error_detection | [1791](../../src-tauri/src/antigravity/thought_sig_store.rs#L1791) |
+| test_write_phase_degradation_fallback_to_memory | function_item | tests | [1795](../../src-tauri/src/antigravity/thought_sig_store.rs#L1795) |
+| assert_eq | macro invocation (unexpanded) | tests::test_write_phase_degradation_fallback_to_memory | [1803](../../src-tauri/src/antigravity/thought_sig_store.rs#L1803) |
+| test_busy_database_is_not_quarantined | function_item | tests | [1810](../../src-tauri/src/antigravity/thought_sig_store.rs#L1810) |

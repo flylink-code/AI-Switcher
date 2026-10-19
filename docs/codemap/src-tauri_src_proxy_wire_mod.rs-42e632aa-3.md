@@ -4,22 +4,31 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/wire/mod.rs) · page 3/3
 
-Source SHA-256: fc363b2d59769211fb11da936ec45a06811c84e849ab4bcb7095562256e7dad6
+Source SHA-256: f7ad9969379624702d019b3f2b1d7979c52e8c5658e9fe427c9c793143ed4c20
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1397](../../src-tauri/src/proxy/wire/mod.rs#L1397) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1398](../../src-tauri/src/proxy/wire/mod.rs#L1398) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1399](../../src-tauri/src/proxy/wire/mod.rs#L1399) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1400](../../src-tauri/src/proxy/wire/mod.rs#L1400) |
-| chat_sse_deltas_roundtrip_text_and_tool | function_item | tests | [1404](../../src-tauri/src/proxy/wire/mod.rs#L1404) |
-| json | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1406](../../src-tauri/src/proxy/wire/mod.rs#L1406) |
-| json | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1407](../../src-tauri/src/proxy/wire/mod.rs#L1407) |
-| json | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1408](../../src-tauri/src/proxy/wire/mod.rs#L1408) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1412](../../src-tauri/src/proxy/wire/mod.rs#L1412) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1413](../../src-tauri/src/proxy/wire/mod.rs#L1413) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1414](../../src-tauri/src/proxy/wire/mod.rs#L1414) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1416](../../src-tauri/src/proxy/wire/mod.rs#L1416) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1419](../../src-tauri/src/proxy/wire/mod.rs#L1419) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1420](../../src-tauri/src/proxy/wire/mod.rs#L1420) |
-| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1423](../../src-tauri/src/proxy/wire/mod.rs#L1423) |
+| json | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1486](../../src-tauri/src/proxy/wire/mod.rs#L1486) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1501](../../src-tauri/src/proxy/wire/mod.rs#L1501) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1502](../../src-tauri/src/proxy/wire/mod.rs#L1502) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1503](../../src-tauri/src/proxy/wire/mod.rs#L1503) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1504](../../src-tauri/src/proxy/wire/mod.rs#L1504) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1505](../../src-tauri/src/proxy/wire/mod.rs#L1505) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1506](../../src-tauri/src/proxy/wire/mod.rs#L1506) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1507](../../src-tauri/src/proxy/wire/mod.rs#L1507) |
+| json | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1509](../../src-tauri/src/proxy/wire/mod.rs#L1509) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1522](../../src-tauri/src/proxy/wire/mod.rs#L1522) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1523](../../src-tauri/src/proxy/wire/mod.rs#L1523) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1524](../../src-tauri/src/proxy/wire/mod.rs#L1524) |
+| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1525](../../src-tauri/src/proxy/wire/mod.rs#L1525) |
+| chat_sse_deltas_roundtrip_text_and_tool | function_item | tests | [1529](../../src-tauri/src/proxy/wire/mod.rs#L1529) |
+| json | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1531](../../src-tauri/src/proxy/wire/mod.rs#L1531) |
+| json | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1532](../../src-tauri/src/proxy/wire/mod.rs#L1532) |
+| json | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1533](../../src-tauri/src/proxy/wire/mod.rs#L1533) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1537](../../src-tauri/src/proxy/wire/mod.rs#L1537) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1538](../../src-tauri/src/proxy/wire/mod.rs#L1538) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1539](../../src-tauri/src/proxy/wire/mod.rs#L1539) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1541](../../src-tauri/src/proxy/wire/mod.rs#L1541) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1544](../../src-tauri/src/proxy/wire/mod.rs#L1544) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1545](../../src-tauri/src/proxy/wire/mod.rs#L1545) |
+| assert | macro invocation (unexpanded) | tests::chat_sse_deltas_roundtrip_text_and_tool | [1548](../../src-tauri/src/proxy/wire/mod.rs#L1548) |

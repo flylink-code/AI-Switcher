@@ -4,7 +4,7 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health/tests.rs) · page 1/2
 
-Source SHA-256: 6f93f41d3a0abf7231ec264c99b1e543f6ed9b8e10f1c62812485518549eac2d
+Source SHA-256: 8810fb53290a28c16488a5d0631966c84aa7da58a0b1642cb494677adf0c2e77
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -4,11 +4,10 @@
 
 [Module](web-components.md) · [Source](../../src/components/UsageCalendar.tsx) · page 2/2
 
-Source SHA-256: 36c5081ca989d2a6a815e6f7bfa288efdaf108b205d5e94723b97d972dc2c8fb
+Source SHA-256: 90c3069a53f72b57cf36505bb2700e70bb52f4752bc386e4a1f5f51128884f62
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| keys | VariableDeclaration | HourlyHeatmap | [469](../../src/components/UsageCalendar.tsx#L469) |
 | hourly | VariableDeclaration | HourlyHeatmap | [470](../../src/components/UsageCalendar.tsx#L470) |
 | row | VariableDeclaration | HourlyHeatmap.hourly | [471](../../src/components/UsageCalendar.tsx#L471) |
 | tokens | VariableDeclaration | HourlyHeatmap.hourly | [472](../../src/components/UsageCalendar.tsx#L472) |

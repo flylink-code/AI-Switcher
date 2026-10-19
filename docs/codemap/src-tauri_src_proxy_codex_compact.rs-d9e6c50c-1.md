@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex_compact.rs) · page 1/1
 
-Source SHA-256: d602e0e0ed82b094d0edbe054787caac49eaf827d21506c2485f62c3a95e25df
+Source SHA-256: 2df1b57771406cc236d95fd8c03533da2ab98cbe9b47b0565ad2b2c266a9b42b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -17,38 +17,47 @@ Source SHA-256: d602e0e0ed82b094d0edbe054787caac49eaf827d21506c2485f62c3a95e25df
 | format | macro invocation (unexpanded) | chat_response_to_responses_compact | [58](../../src-tauri/src/proxy/codex_compact.rs#L58) |
 | anthropic_response_to_responses_compact | function_item |  | [76](../../src-tauri/src/proxy/codex_compact.rs#L76) |
 | format | macro invocation (unexpanded) | anthropic_response_to_responses_compact | [82](../../src-tauri/src/proxy/codex_compact.rs#L82) |
-| compact_upstream_path | function_item |  | [108](../../src-tauri/src/proxy/codex_compact.rs#L108) |
-| responses_compact_to_chat_like | function_item |  | [116](../../src-tauri/src/proxy/codex_compact.rs#L116) |
-| json | macro invocation (unexpanded) | responses_compact_to_chat_like | [120](../../src-tauri/src/proxy/codex_compact.rs#L120) |
-| json | macro invocation (unexpanded) | responses_compact_to_chat_like | [130](../../src-tauri/src/proxy/codex_compact.rs#L130) |
-| json | macro invocation (unexpanded) | responses_compact_to_chat_like | [144](../../src-tauri/src/proxy/codex_compact.rs#L144) |
-| append_compact_input_item | function_item |  | [158](../../src-tauri/src/proxy/codex_compact.rs#L158) |
-| json | macro invocation (unexpanded) | append_compact_input_item | [170](../../src-tauri/src/proxy/codex_compact.rs#L170) |
-| json | macro invocation (unexpanded) | append_compact_input_item | [176](../../src-tauri/src/proxy/codex_compact.rs#L176) |
-| content_to_plain | function_item |  | [181](../../src-tauri/src/proxy/codex_compact.rs#L181) |
-| content_to_text | function_item |  | [197](../../src-tauri/src/proxy/codex_compact.rs#L197) |
-| compaction_envelope | function_item |  | [215](../../src-tauri/src/proxy/codex_compact.rs#L215) |
-| json | macro invocation (unexpanded) | compaction_envelope | [222](../../src-tauri/src/proxy/codex_compact.rs#L222) |
-| unix_now | function_item |  | [245](../../src-tauri/src/proxy/codex_compact.rs#L245) |
-| tests | mod_item |  | [253](../../src-tauri/src/proxy/codex_compact.rs#L253) |
-| detects_compact_routes | function_item | tests | [257](../../src-tauri/src/proxy/codex_compact.rs#L257) |
-| assert | macro invocation (unexpanded) | tests::detects_compact_routes | [258](../../src-tauri/src/proxy/codex_compact.rs#L258) |
-| assert | macro invocation (unexpanded) | tests::detects_compact_routes | [259](../../src-tauri/src/proxy/codex_compact.rs#L259) |
-| assert | macro invocation (unexpanded) | tests::detects_compact_routes | [260](../../src-tauri/src/proxy/codex_compact.rs#L260) |
-| rejects_streaming_compact | function_item | tests | [264](../../src-tauri/src/proxy/codex_compact.rs#L264) |
-| assert | macro invocation (unexpanded) | tests::rejects_streaming_compact | [265](../../src-tauri/src/proxy/codex_compact.rs#L265) |
-| assert | macro invocation (unexpanded) | tests::rejects_streaming_compact | [266](../../src-tauri/src/proxy/codex_compact.rs#L266) |
-| chat_fallback_builds_messages_and_compaction_object | function_item | tests | [270](../../src-tauri/src/proxy/codex_compact.rs#L270) |
-| json | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [271](../../src-tauri/src/proxy/codex_compact.rs#L271) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [280](../../src-tauri/src/proxy/codex_compact.rs#L280) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [281](../../src-tauri/src/proxy/codex_compact.rs#L281) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [282](../../src-tauri/src/proxy/codex_compact.rs#L282) |
-| json | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [285](../../src-tauri/src/proxy/codex_compact.rs#L285) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [298](../../src-tauri/src/proxy/codex_compact.rs#L298) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [299](../../src-tauri/src/proxy/codex_compact.rs#L299) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [300](../../src-tauri/src/proxy/codex_compact.rs#L300) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [301](../../src-tauri/src/proxy/codex_compact.rs#L301) |
-| anthropic_fallback_builds_messages | function_item | tests | [305](../../src-tauri/src/proxy/codex_compact.rs#L305) |
-| json | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [306](../../src-tauri/src/proxy/codex_compact.rs#L306) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [314](../../src-tauri/src/proxy/codex_compact.rs#L314) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [315](../../src-tauri/src/proxy/codex_compact.rs#L315) |
+| compact_request_to_openai_responses | function_item |  | [110](../../src-tauri/src/proxy/codex_compact.rs#L110) |
+| json | macro invocation (unexpanded) | compact_request_to_openai_responses | [113](../../src-tauri/src/proxy/codex_compact.rs#L113) |
+| responses_response_to_responses_compact | function_item |  | [120](../../src-tauri/src/proxy/codex_compact.rs#L120) |
+| format | macro invocation (unexpanded) | responses_response_to_responses_compact | [129](../../src-tauri/src/proxy/codex_compact.rs#L129) |
+| matches | macro invocation (unexpanded) | responses_response_to_responses_compact | [153](../../src-tauri/src/proxy/codex_compact.rs#L153) |
+| supports_native_responses_compact | function_item |  | [173](../../src-tauri/src/proxy/codex_compact.rs#L173) |
+| compact_upstream_path_for_provider | function_item |  | [185](../../src-tauri/src/proxy/codex_compact.rs#L185) |
+| responses_compact_to_chat_like | function_item |  | [196](../../src-tauri/src/proxy/codex_compact.rs#L196) |
+| json | macro invocation (unexpanded) | responses_compact_to_chat_like | [200](../../src-tauri/src/proxy/codex_compact.rs#L200) |
+| json | macro invocation (unexpanded) | responses_compact_to_chat_like | [210](../../src-tauri/src/proxy/codex_compact.rs#L210) |
+| json | macro invocation (unexpanded) | responses_compact_to_chat_like | [224](../../src-tauri/src/proxy/codex_compact.rs#L224) |
+| append_compact_input_item | function_item |  | [238](../../src-tauri/src/proxy/codex_compact.rs#L238) |
+| json | macro invocation (unexpanded) | append_compact_input_item | [250](../../src-tauri/src/proxy/codex_compact.rs#L250) |
+| json | macro invocation (unexpanded) | append_compact_input_item | [256](../../src-tauri/src/proxy/codex_compact.rs#L256) |
+| content_to_plain | function_item |  | [261](../../src-tauri/src/proxy/codex_compact.rs#L261) |
+| content_to_text | function_item |  | [277](../../src-tauri/src/proxy/codex_compact.rs#L277) |
+| compaction_envelope | function_item |  | [295](../../src-tauri/src/proxy/codex_compact.rs#L295) |
+| json | macro invocation (unexpanded) | compaction_envelope | [302](../../src-tauri/src/proxy/codex_compact.rs#L302) |
+| unix_now | function_item |  | [325](../../src-tauri/src/proxy/codex_compact.rs#L325) |
+| tests | mod_item |  | [333](../../src-tauri/src/proxy/codex_compact.rs#L333) |
+| detects_compact_routes | function_item | tests | [337](../../src-tauri/src/proxy/codex_compact.rs#L337) |
+| assert | macro invocation (unexpanded) | tests::detects_compact_routes | [338](../../src-tauri/src/proxy/codex_compact.rs#L338) |
+| assert | macro invocation (unexpanded) | tests::detects_compact_routes | [339](../../src-tauri/src/proxy/codex_compact.rs#L339) |
+| assert | macro invocation (unexpanded) | tests::detects_compact_routes | [340](../../src-tauri/src/proxy/codex_compact.rs#L340) |
+| rejects_streaming_compact | function_item | tests | [344](../../src-tauri/src/proxy/codex_compact.rs#L344) |
+| assert | macro invocation (unexpanded) | tests::rejects_streaming_compact | [345](../../src-tauri/src/proxy/codex_compact.rs#L345) |
+| assert | macro invocation (unexpanded) | tests::rejects_streaming_compact | [346](../../src-tauri/src/proxy/codex_compact.rs#L346) |
+| chat_fallback_builds_messages_and_compaction_object | function_item | tests | [350](../../src-tauri/src/proxy/codex_compact.rs#L350) |
+| json | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [351](../../src-tauri/src/proxy/codex_compact.rs#L351) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [360](../../src-tauri/src/proxy/codex_compact.rs#L360) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [361](../../src-tauri/src/proxy/codex_compact.rs#L361) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [362](../../src-tauri/src/proxy/codex_compact.rs#L362) |
+| json | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [365](../../src-tauri/src/proxy/codex_compact.rs#L365) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [378](../../src-tauri/src/proxy/codex_compact.rs#L378) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [379](../../src-tauri/src/proxy/codex_compact.rs#L379) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [380](../../src-tauri/src/proxy/codex_compact.rs#L380) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_fallback_builds_messages_and_compaction_object | [381](../../src-tauri/src/proxy/codex_compact.rs#L381) |
+| anthropic_fallback_builds_messages | function_item | tests | [385](../../src-tauri/src/proxy/codex_compact.rs#L385) |
+| json | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [386](../../src-tauri/src/proxy/codex_compact.rs#L386) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [394](../../src-tauri/src/proxy/codex_compact.rs#L394) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [395](../../src-tauri/src/proxy/codex_compact.rs#L395) |
+| json | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [398](../../src-tauri/src/proxy/codex_compact.rs#L398) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [409](../../src-tauri/src/proxy/codex_compact.rs#L409) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_fallback_builds_messages | [410](../../src-tauri/src/proxy/codex_compact.rs#L410) |

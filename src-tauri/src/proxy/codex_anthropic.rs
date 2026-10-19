@@ -12,10 +12,23 @@ pub fn anthropic_version_header() -> &'static str {
 
 /// Map an OpenAI Responses request body to Anthropic `/v1/messages` JSON.
 pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> AppResult<Value> {
-    let input = body
-        .get("input")
-        .ok_or_else(|| AppError::Config("Responses 请求缺少 input 字段".to_string()))?;
-    let messages = responses_input_to_messages(input)?;
+    let mut messages = match body.get("input") {
+        Some(Value::Null) | None => Vec::new(),
+        Some(Value::String(s)) if s.trim().is_empty() => Vec::new(),
+        Some(Value::Array(arr)) if arr.is_empty() => Vec::new(),
+        Some(input) => responses_input_to_messages(input)?,
+    };
+    let system_text = body
+        .get("instructions")
+        .or_else(|| body.get("system"))
+        .map(instructions_text)
+        .unwrap_or_default();
+    if messages.is_empty() && !system_text.trim().is_empty() {
+        messages.push(json!({
+            "role": "user",
+            "content": system_text.clone(),
+        }));
+    }
     if messages.is_empty() {
         return Err(AppError::Config(
             "Responses 请求未包含可转换的消息".to_string(),
@@ -34,11 +47,8 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
         "max_tokens": max_tokens,
     });
 
-    if let Some(instructions) = body.get("instructions").or_else(|| body.get("system")) {
-        let system = instructions_text(instructions);
-        if !system.is_empty() {
-            result["system"] = Value::String(system);
-        }
+    if !system_text.is_empty() {
+        result["system"] = Value::String(system_text);
     }
 
     if let Some(stream) = body.get("stream").and_then(Value::as_bool) {
@@ -1226,6 +1236,11 @@ impl AnthropicSseToResponsesConverter {
             ));
         }
         for tool in &self.tools {
+            let arguments = if tool.arguments.trim().is_empty() {
+                "{}".to_string()
+            } else {
+                tool.arguments.clone()
+            };
             final_output.push((
                 tool.output_index,
                 json!({
@@ -1233,13 +1248,19 @@ impl AnthropicSseToResponsesConverter {
                     "type": "function_call",
                     "call_id": tool.call_id,
                     "name": tool.name,
-                    "arguments": tool.arguments,
+                    "arguments": arguments,
                     "status": "completed",
+                    "_had_empty_args": tool.arguments.trim().is_empty(),
                 }),
             ));
         }
         final_output.sort_by_key(|(index, _)| *index);
-        for (index, item) in &final_output {
+        for (index, item) in &mut final_output {
+            let had_empty_args = item
+                .as_object_mut()
+                .and_then(|obj| obj.remove("_had_empty_args"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             if item.get("type").and_then(Value::as_str) == Some("reasoning") {
                 if self.reasoning_item_closed {
                     continue;
@@ -1299,6 +1320,19 @@ impl AnthropicSseToResponsesConverter {
                     }),
                 );
             } else if item.get("type").and_then(Value::as_str) == Some("function_call") {
+                if had_empty_args {
+                    push_responses_event(
+                        &mut output,
+                        "response.function_call_arguments.delta",
+                        json!({
+                            "type": "response.function_call_arguments.delta",
+                            "item_id": item.get("id").and_then(Value::as_str).unwrap_or(""),
+                            "output_index": index,
+                            "call_id": item.get("call_id").and_then(Value::as_str).unwrap_or(""),
+                            "delta": "{}",
+                        }),
+                    );
+                }
                 push_responses_event(
                     &mut output,
                     "response.function_call_arguments.done",
@@ -1308,7 +1342,7 @@ impl AnthropicSseToResponsesConverter {
                         "output_index": index,
                         "call_id": item.get("call_id").and_then(Value::as_str).unwrap_or(""),
                         "name": item.get("name").and_then(Value::as_str).unwrap_or(""),
-                        "arguments": item.get("arguments").and_then(Value::as_str).unwrap_or(""),
+                        "arguments": item.get("arguments").and_then(Value::as_str).unwrap_or("{}"),
                     }),
                 );
             }

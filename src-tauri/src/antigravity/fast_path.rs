@@ -226,10 +226,19 @@ fn is_quota_check(body: &Value) -> bool {
     if body.get("max_tokens").and_then(Value::as_u64) != Some(1) {
         return false;
     }
+    if body
+        .get("tools")
+        .and_then(Value::as_array)
+        .is_some_and(|t| !t.is_empty())
+        || body.get("thinking").is_some_and(|t| !t.is_null())
+    {
+        return false;
+    }
     let Some(text) = single_user_text(body) else {
         return false;
     };
-    text.to_ascii_lowercase().contains("quota")
+    let lower = text.trim().to_ascii_lowercase();
+    lower.contains("quota") || matches!(lower.as_str(), "hi" | "." | "test")
 }
 
 fn is_title_generation(body: &Value) -> bool {

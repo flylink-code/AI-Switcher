@@ -4,33 +4,43 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/web_tools.rs) · page 1/1
 
-Source SHA-256: 0774c50e0b9ef4b1eb17c4dd9306ac2dbd90964cc4bc51b0c18ff3438567bdee
+Source SHA-256: 7be6c9b22c79227c23e556dfb759630cbe0329f425f6435151af83e505b76e26
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | rewrite_server_tools | function_item |  | [5](../../src-tauri/src/proxy/web_tools.rs#L5) |
 | json | macro invocation (unexpanded) | rewrite_server_tools | [13](../../src-tauri/src/proxy/web_tools.rs#L13) |
 | json | macro invocation (unexpanded) | rewrite_server_tools | [23](../../src-tauri/src/proxy/web_tools.rs#L23) |
-| is_web_search | function_item |  | [36](../../src-tauri/src/proxy/web_tools.rs#L36) |
-| is_web_fetch | function_item |  | [40](../../src-tauri/src/proxy/web_tools.rs#L40) |
-| execute_web_search | function_item |  | [44](../../src-tauri/src/proxy/web_tools.rs#L44) |
-| format | macro invocation (unexpanded) | execute_web_search | [50](../../src-tauri/src/proxy/web_tools.rs#L50) |
-| format | macro invocation (unexpanded) | execute_web_search | [52](../../src-tauri/src/proxy/web_tools.rs#L52) |
-| format | macro invocation (unexpanded) | execute_web_search | [56](../../src-tauri/src/proxy/web_tools.rs#L56) |
-| execute_web_fetch | function_item |  | [60](../../src-tauri/src/proxy/web_tools.rs#L60) |
-| format | macro invocation (unexpanded) | execute_web_fetch | [67](../../src-tauri/src/proxy/web_tools.rs#L67) |
-| materialize_web_tool_uses | function_item |  | [73](../../src-tauri/src/proxy/web_tools.rs#L73) |
-| json | macro invocation (unexpanded) | materialize_web_tool_uses | [88](../../src-tauri/src/proxy/web_tools.rs#L88) |
-| json | macro invocation (unexpanded) | materialize_web_tool_uses | [95](../../src-tauri/src/proxy/web_tools.rs#L95) |
-| fetch_text | function_item |  | [102](../../src-tauri/src/proxy/web_tools.rs#L102) |
-| format | macro invocation (unexpanded) | fetch_text | [110](../../src-tauri/src/proxy/web_tools.rs#L110) |
-| strip_tags | function_item |  | [115](../../src-tauri/src/proxy/web_tools.rs#L115) |
-| clip | function_item |  | [129](../../src-tauri/src/proxy/web_tools.rs#L129) |
-| format | macro invocation (unexpanded) | clip | [133](../../src-tauri/src/proxy/web_tools.rs#L133) |
-| urlencoding_lite | function_item |  | [137](../../src-tauri/src/proxy/web_tools.rs#L137) |
-| format | macro invocation (unexpanded) | urlencoding_lite | [145](../../src-tauri/src/proxy/web_tools.rs#L145) |
-| tests | mod_item |  | [152](../../src-tauri/src/proxy/web_tools.rs#L152) |
-| rewrites_server_search_tool | function_item | tests | [156](../../src-tauri/src/proxy/web_tools.rs#L156) |
-| json | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [157](../../src-tauri/src/proxy/web_tools.rs#L157) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [161](../../src-tauri/src/proxy/web_tools.rs#L161) |
-| assert | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [162](../../src-tauri/src/proxy/web_tools.rs#L162) |
+| json | macro invocation (unexpanded) | rewrite_server_tools | [34](../../src-tauri/src/proxy/web_tools.rs#L34) |
+| json | macro invocation (unexpanded) | rewrite_server_tools | [47](../../src-tauri/src/proxy/web_tools.rs#L47) |
+| json | macro invocation (unexpanded) | rewrite_server_tools | [66](../../src-tauri/src/proxy/web_tools.rs#L66) |
+| json | macro invocation (unexpanded) | rewrite_server_tools | [81](../../src-tauri/src/proxy/web_tools.rs#L81) |
+| is_web_search | function_item |  | [93](../../src-tauri/src/proxy/web_tools.rs#L93) |
+| is_web_fetch | function_item |  | [97](../../src-tauri/src/proxy/web_tools.rs#L97) |
+| execute_web_search | function_item |  | [101](../../src-tauri/src/proxy/web_tools.rs#L101) |
+| format | macro invocation (unexpanded) | execute_web_search | [107](../../src-tauri/src/proxy/web_tools.rs#L107) |
+| format | macro invocation (unexpanded) | execute_web_search | [109](../../src-tauri/src/proxy/web_tools.rs#L109) |
+| format | macro invocation (unexpanded) | execute_web_search | [113](../../src-tauri/src/proxy/web_tools.rs#L113) |
+| execute_web_fetch | function_item |  | [117](../../src-tauri/src/proxy/web_tools.rs#L117) |
+| format | macro invocation (unexpanded) | execute_web_fetch | [124](../../src-tauri/src/proxy/web_tools.rs#L124) |
+| materialize_web_tool_uses | function_item |  | [130](../../src-tauri/src/proxy/web_tools.rs#L130) |
+| json | macro invocation (unexpanded) | materialize_web_tool_uses | [145](../../src-tauri/src/proxy/web_tools.rs#L145) |
+| json | macro invocation (unexpanded) | materialize_web_tool_uses | [152](../../src-tauri/src/proxy/web_tools.rs#L152) |
+| fetch_text | function_item |  | [159](../../src-tauri/src/proxy/web_tools.rs#L159) |
+| format | macro invocation (unexpanded) | fetch_text | [167](../../src-tauri/src/proxy/web_tools.rs#L167) |
+| strip_tags | function_item |  | [172](../../src-tauri/src/proxy/web_tools.rs#L172) |
+| clip | function_item |  | [186](../../src-tauri/src/proxy/web_tools.rs#L186) |
+| format | macro invocation (unexpanded) | clip | [190](../../src-tauri/src/proxy/web_tools.rs#L190) |
+| urlencoding_lite | function_item |  | [194](../../src-tauri/src/proxy/web_tools.rs#L194) |
+| format | macro invocation (unexpanded) | urlencoding_lite | [202](../../src-tauri/src/proxy/web_tools.rs#L202) |
+| tests | mod_item |  | [209](../../src-tauri/src/proxy/web_tools.rs#L209) |
+| rewrites_server_search_tool | function_item | tests | [213](../../src-tauri/src/proxy/web_tools.rs#L213) |
+| json | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [214](../../src-tauri/src/proxy/web_tools.rs#L214) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [222](../../src-tauri/src/proxy/web_tools.rs#L222) |
+| assert | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [223](../../src-tauri/src/proxy/web_tools.rs#L223) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [224](../../src-tauri/src/proxy/web_tools.rs#L224) |
+| assert | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [225](../../src-tauri/src/proxy/web_tools.rs#L225) |
+| assert | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [226](../../src-tauri/src/proxy/web_tools.rs#L226) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [227](../../src-tauri/src/proxy/web_tools.rs#L227) |
+| assert | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [228](../../src-tauri/src/proxy/web_tools.rs#L228) |
+| assert | macro invocation (unexpanded) | tests::rewrites_server_search_tool | [229](../../src-tauri/src/proxy/web_tools.rs#L229) |

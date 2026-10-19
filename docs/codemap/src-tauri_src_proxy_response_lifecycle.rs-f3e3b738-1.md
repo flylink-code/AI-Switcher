@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/response_lifecycle.rs) · page 1/1
 
-Source SHA-256: 96682621a38f43190aea6a705c720236d30c924ace0d98309d99b2f9d43b7f1b
+Source SHA-256: f792287a2e411de4a1c41559b66b3979a1068b7a9cde1783fbd422d9e7598d6d
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -47,48 +47,47 @@ Source SHA-256: 96682621a38f43190aea6a705c720236d30c924ace0d98309d99b2f9d43b7f1b
 | id | field_declaration | StreamLogGuard | [172](../../src-tauri/src/proxy/response_lifecycle.rs#L172) |
 | StreamLogGuard | impl |  | [175](../../src-tauri/src/proxy/response_lifecycle.rs#L175) |
 | finish | function_item | StreamLogGuard | [176](../../src-tauri/src/proxy/response_lifecycle.rs#L176) |
-| rusqlite::params | macro invocation (unexpanded) | StreamLogGuard::finish | [190](../../src-tauri/src/proxy/response_lifecycle.rs#L190) |
-| log::warn | macro invocation (unexpanded) | StreamLogGuard::finish | [195](../../src-tauri/src/proxy/response_lifecycle.rs#L195) |
-| Drop for StreamLogGuard | impl |  | [202](../../src-tauri/src/proxy/response_lifecycle.rs#L202) |
-| drop | function_item | Drop for StreamLogGuard | [203](../../src-tauri/src/proxy/response_lifecycle.rs#L203) |
-| classify_protocol_terminal | function_item |  | [208](../../src-tauri/src/proxy/response_lifecycle.rs#L208) |
-| record_sse_terminal | function_item |  | [235](../../src-tauri/src/proxy/response_lifecycle.rs#L235) |
-| log::warn | macro invocation (unexpanded) | record_sse_terminal | [246](../../src-tauri/src/proxy/response_lifecycle.rs#L246) |
-| record_response_event | function_item |  | [255](../../src-tauri/src/proxy/response_lifecycle.rs#L255) |
-| log::warn | macro invocation (unexpanded) | record_response_event | [272](../../src-tauri/src/proxy/response_lifecycle.rs#L272) |
-| track_stream_body | function_item |  | [276](../../src-tauri/src/proxy/response_lifecycle.rs#L276) |
-| hold_response_guard | function_item |  | [295](../../src-tauri/src/proxy/response_lifecycle.rs#L295) |
-| hold_body_guard | function_item |  | [300](../../src-tauri/src/proxy/response_lifecycle.rs#L300) |
-| tests | mod_item |  | [309](../../src-tauri/src/proxy/response_lifecycle.rs#L309) |
-| log_database | function_item | tests | [319](../../src-tauri/src/proxy/response_lifecycle.rs#L319) |
-| expect_outcome | function_item | tests | [351](../../src-tauri/src/proxy/response_lifecycle.rs#L351) |
-| pending_cancel_reuses_only_its_own_log_slot | function_item | tests | [374](../../src-tauri/src/proxy/response_lifecycle.rs#L374) |
-| expect_outcome_by_id | function_item | tests | [400](../../src-tauri/src/proxy/response_lifecycle.rs#L400) |
-| stream_log_records_complete_cancel_and_error_once | function_item | tests | [423](../../src-tauri/src/proxy/response_lifecycle.rs#L423) |
-| assert_eq | macro invocation (unexpanded) | tests::stream_log_records_complete_cancel_and_error_once | [426](../../src-tauri/src/proxy/response_lifecycle.rs#L426) |
-| assert | macro invocation (unexpanded) | tests::stream_log_records_complete_cancel_and_error_once | [455](../../src-tauri/src/proxy/response_lifecycle.rs#L455) |
-| stream_log_preserves_existing_protocol_error_on_cancel | function_item | tests | [460](../../src-tauri/src/proxy/response_lifecycle.rs#L460) |
-| response_protocol_failure_cannot_become_complete_or_cancelled | function_item | tests | [483](../../src-tauri/src/proxy/response_lifecycle.rs#L483) |
-| serde_json::json | macro invocation (unexpanded) | tests::response_protocol_failure_cannot_become_complete_or_cancelled | [488](../../src-tauri/src/proxy/response_lifecycle.rs#L488) |
-| serde_json::json | macro invocation (unexpanded) | tests::response_protocol_failure_cannot_become_complete_or_cancelled | [495](../../src-tauri/src/proxy/response_lifecycle.rs#L495) |
-| assert | macro invocation (unexpanded) | tests::response_protocol_failure_cannot_become_complete_or_cancelled | [509](../../src-tauri/src/proxy/response_lifecycle.rs#L509) |
-| anthropic_and_chat_terminals_are_written_once | function_item | tests | [513](../../src-tauri/src/proxy/response_lifecycle.rs#L513) |
-| serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [518](../../src-tauri/src/proxy/response_lifecycle.rs#L518) |
-| serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [523](../../src-tauri/src/proxy/response_lifecycle.rs#L523) |
+| log::warn | macro invocation (unexpanded) | StreamLogGuard::finish | [192](../../src-tauri/src/proxy/response_lifecycle.rs#L192) |
+| Drop for StreamLogGuard | impl |  | [198](../../src-tauri/src/proxy/response_lifecycle.rs#L198) |
+| drop | function_item | Drop for StreamLogGuard | [199](../../src-tauri/src/proxy/response_lifecycle.rs#L199) |
+| classify_protocol_terminal | function_item |  | [204](../../src-tauri/src/proxy/response_lifecycle.rs#L204) |
+| record_sse_terminal | function_item |  | [231](../../src-tauri/src/proxy/response_lifecycle.rs#L231) |
+| log::warn | macro invocation (unexpanded) | record_sse_terminal | [242](../../src-tauri/src/proxy/response_lifecycle.rs#L242) |
+| record_response_event | function_item |  | [251](../../src-tauri/src/proxy/response_lifecycle.rs#L251) |
+| log::warn | macro invocation (unexpanded) | record_response_event | [268](../../src-tauri/src/proxy/response_lifecycle.rs#L268) |
+| track_stream_body | function_item |  | [272](../../src-tauri/src/proxy/response_lifecycle.rs#L272) |
+| hold_response_guard | function_item |  | [291](../../src-tauri/src/proxy/response_lifecycle.rs#L291) |
+| hold_body_guard | function_item |  | [296](../../src-tauri/src/proxy/response_lifecycle.rs#L296) |
+| tests | mod_item |  | [305](../../src-tauri/src/proxy/response_lifecycle.rs#L305) |
+| log_database | function_item | tests | [315](../../src-tauri/src/proxy/response_lifecycle.rs#L315) |
+| expect_outcome | function_item | tests | [347](../../src-tauri/src/proxy/response_lifecycle.rs#L347) |
+| pending_cancel_reuses_only_its_own_log_slot | function_item | tests | [370](../../src-tauri/src/proxy/response_lifecycle.rs#L370) |
+| expect_outcome_by_id | function_item | tests | [396](../../src-tauri/src/proxy/response_lifecycle.rs#L396) |
+| stream_log_records_complete_cancel_and_error_once | function_item | tests | [419](../../src-tauri/src/proxy/response_lifecycle.rs#L419) |
+| assert_eq | macro invocation (unexpanded) | tests::stream_log_records_complete_cancel_and_error_once | [422](../../src-tauri/src/proxy/response_lifecycle.rs#L422) |
+| assert | macro invocation (unexpanded) | tests::stream_log_records_complete_cancel_and_error_once | [451](../../src-tauri/src/proxy/response_lifecycle.rs#L451) |
+| stream_log_preserves_existing_protocol_error_on_cancel | function_item | tests | [456](../../src-tauri/src/proxy/response_lifecycle.rs#L456) |
+| response_protocol_failure_cannot_become_complete_or_cancelled | function_item | tests | [479](../../src-tauri/src/proxy/response_lifecycle.rs#L479) |
+| serde_json::json | macro invocation (unexpanded) | tests::response_protocol_failure_cannot_become_complete_or_cancelled | [484](../../src-tauri/src/proxy/response_lifecycle.rs#L484) |
+| serde_json::json | macro invocation (unexpanded) | tests::response_protocol_failure_cannot_become_complete_or_cancelled | [491](../../src-tauri/src/proxy/response_lifecycle.rs#L491) |
+| assert | macro invocation (unexpanded) | tests::response_protocol_failure_cannot_become_complete_or_cancelled | [505](../../src-tauri/src/proxy/response_lifecycle.rs#L505) |
+| anthropic_and_chat_terminals_are_written_once | function_item | tests | [509](../../src-tauri/src/proxy/response_lifecycle.rs#L509) |
+| serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [514](../../src-tauri/src/proxy/response_lifecycle.rs#L514) |
+| serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [519](../../src-tauri/src/proxy/response_lifecycle.rs#L519) |
+| serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [545](../../src-tauri/src/proxy/response_lifecycle.rs#L545) |
 | serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [549](../../src-tauri/src/proxy/response_lifecycle.rs#L549) |
-| serde_json::json | macro invocation (unexpanded) | tests::anthropic_and_chat_terminals_are_written_once | [553](../../src-tauri/src/proxy/response_lifecycle.rs#L553) |
-| Guard | struct_item | tests | [565](../../src-tauri/src/proxy/response_lifecycle.rs#L565) |
-| Drop for Guard | impl | tests | [566](../../src-tauri/src/proxy/response_lifecycle.rs#L566) |
-| drop | function_item | Drop for Guard | [567](../../src-tauri/src/proxy/response_lifecycle.rs#L567) |
-| response_guard_survives_headers_and_releases_on_body_drop | function_item | tests | [573](../../src-tauri/src/proxy/response_lifecycle.rs#L573) |
+| Guard | struct_item | tests | [561](../../src-tauri/src/proxy/response_lifecycle.rs#L561) |
+| Drop for Guard | impl | tests | [562](../../src-tauri/src/proxy/response_lifecycle.rs#L562) |
+| drop | function_item | Drop for Guard | [563](../../src-tauri/src/proxy/response_lifecycle.rs#L563) |
+| response_guard_survives_headers_and_releases_on_body_drop | function_item | tests | [569](../../src-tauri/src/proxy/response_lifecycle.rs#L569) |
+| assert_eq | macro invocation (unexpanded) | tests::response_guard_survives_headers_and_releases_on_body_drop | [573](../../src-tauri/src/proxy/response_lifecycle.rs#L573) |
+| assert_eq | macro invocation (unexpanded) | tests::response_guard_survives_headers_and_releases_on_body_drop | [575](../../src-tauri/src/proxy/response_lifecycle.rs#L575) |
 | assert_eq | macro invocation (unexpanded) | tests::response_guard_survives_headers_and_releases_on_body_drop | [577](../../src-tauri/src/proxy/response_lifecycle.rs#L577) |
-| assert_eq | macro invocation (unexpanded) | tests::response_guard_survives_headers_and_releases_on_body_drop | [579](../../src-tauri/src/proxy/response_lifecycle.rs#L579) |
-| assert_eq | macro invocation (unexpanded) | tests::response_guard_survives_headers_and_releases_on_body_drop | [581](../../src-tauri/src/proxy/response_lifecycle.rs#L581) |
-| response_guard_releases_on_complete | function_item | tests | [585](../../src-tauri/src/proxy/response_lifecycle.rs#L585) |
-| assert_eq | macro invocation (unexpanded) | tests::response_guard_releases_on_complete | [588](../../src-tauri/src/proxy/response_lifecycle.rs#L588) |
-| assert_eq | macro invocation (unexpanded) | tests::response_guard_releases_on_complete | [589](../../src-tauri/src/proxy/response_lifecycle.rs#L589) |
-| wait_for_drop | function_item | tests | [592](../../src-tauri/src/proxy/response_lifecycle.rs#L592) |
-| assert_eq | macro invocation (unexpanded) | tests::wait_for_drop | [600](../../src-tauri/src/proxy/response_lifecycle.rs#L600) |
-| tcp_disconnect_before_response_headers_drops_waiting_handler | function_item | tests | [604](../../src-tauri/src/proxy/response_lifecycle.rs#L604) |
-| tcp_disconnect_after_headers_drops_stream_guard | function_item | tests | [646](../../src-tauri/src/proxy/response_lifecycle.rs#L646) |
-| assert | macro invocation (unexpanded) | tests::tcp_disconnect_after_headers_drops_stream_guard | [685](../../src-tauri/src/proxy/response_lifecycle.rs#L685) |
+| response_guard_releases_on_complete | function_item | tests | [581](../../src-tauri/src/proxy/response_lifecycle.rs#L581) |
+| assert_eq | macro invocation (unexpanded) | tests::response_guard_releases_on_complete | [584](../../src-tauri/src/proxy/response_lifecycle.rs#L584) |
+| assert_eq | macro invocation (unexpanded) | tests::response_guard_releases_on_complete | [585](../../src-tauri/src/proxy/response_lifecycle.rs#L585) |
+| wait_for_drop | function_item | tests | [588](../../src-tauri/src/proxy/response_lifecycle.rs#L588) |
+| assert_eq | macro invocation (unexpanded) | tests::wait_for_drop | [596](../../src-tauri/src/proxy/response_lifecycle.rs#L596) |
+| tcp_disconnect_before_response_headers_drops_waiting_handler | function_item | tests | [600](../../src-tauri/src/proxy/response_lifecycle.rs#L600) |
+| tcp_disconnect_after_headers_drops_stream_guard | function_item | tests | [642](../../src-tauri/src/proxy/response_lifecycle.rs#L642) |
+| assert | macro invocation (unexpanded) | tests::tcp_disconnect_after_headers_drops_stream_guard | [681](../../src-tauri/src/proxy/response_lifecycle.rs#L681) |

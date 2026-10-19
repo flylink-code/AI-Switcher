@@ -4,45 +4,45 @@
 
 [Module](web-stores.md) · [Source](../../src/stores/pagePreferencesStore.ts) · page 2/2
 
-Source SHA-256: 563ffdb01d0e2564349255c0ca4826158cb9452d81a7f3e8f57722033d923012
+Source SHA-256: be3891a44c22497995207154adc6694bfdc78e2d5bc570ddb8240b965558b344
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| reverseTab | VariableDeclaration | initialState | [283](../../src/stores/pagePreferencesStore.ts#L283) |
-| workspaceTab | VariableDeclaration | initialState | [289](../../src/stores/pagePreferencesStore.ts#L289) |
-| gatewayTab | VariableDeclaration | initialState | [292](../../src/stores/pagePreferencesStore.ts#L292) |
-| gatewayReverseTab | VariableDeclaration | initialState | [293](../../src/stores/pagePreferencesStore.ts#L293) |
-| gatewaySection | VariableDeclaration | initialState | [294](../../src/stores/pagePreferencesStore.ts#L294) |
-| gatewaySnippetVisible | VariableDeclaration | initialState | [295](../../src/stores/pagePreferencesStore.ts#L295) |
-| gatewayProfileId | VariableDeclaration | initialState | [298](../../src/stores/pagePreferencesStore.ts#L298) |
-| persistSlice | FunctionDeclaration |  | [326](../../src/stores/pagePreferencesStore.ts#L326) |
-| usePagePreferencesStore | VariableDeclaration |  | [373](../../src/stores/pagePreferencesStore.ts#L373) |
-| setVisibleAgents | PropertyAssignment | usePagePreferencesStore | [376](../../src/stores/pagePreferencesStore.ts#L376) |
-| nextVisible | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [377](../../src/stores/pagePreferencesStore.ts#L377) |
-| current | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [379](../../src/stores/pagePreferencesStore.ts#L379) |
-| workspaceTarget | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [380](../../src/stores/pagePreferencesStore.ts#L380) |
-| providersTarget | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [381](../../src/stores/pagePreferencesStore.ts#L381) |
-| proxyTarget | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [382](../../src/stores/pagePreferencesStore.ts#L382) |
-| sessionsProvider | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [383](../../src/stores/pagePreferencesStore.ts#L383) |
-| setWorkspaceTarget | PropertyAssignment | usePagePreferencesStore | [398](../../src/stores/pagePreferencesStore.ts#L398) |
-| visible | VariableDeclaration | usePagePreferencesStore.setWorkspaceTarget | [399](../../src/stores/pagePreferencesStore.ts#L399) |
-| setProvidersTarget | PropertyAssignment | usePagePreferencesStore | [403](../../src/stores/pagePreferencesStore.ts#L403) |
-| visible | VariableDeclaration | usePagePreferencesStore.setProvidersTarget | [404](../../src/stores/pagePreferencesStore.ts#L404) |
-| setProxyTarget | PropertyAssignment | usePagePreferencesStore | [408](../../src/stores/pagePreferencesStore.ts#L408) |
-| visible | VariableDeclaration | usePagePreferencesStore.setProxyTarget | [409](../../src/stores/pagePreferencesStore.ts#L409) |
-| setProvidersTab | PropertyAssignment | usePagePreferencesStore | [413](../../src/stores/pagePreferencesStore.ts#L413) |
-| setReverseTab | PropertyAssignment | usePagePreferencesStore | [420](../../src/stores/pagePreferencesStore.ts#L420) |
-| setWorkspaceTab | PropertyAssignment | usePagePreferencesStore | [427](../../src/stores/pagePreferencesStore.ts#L427) |
-| setGatewayTab | PropertyAssignment | usePagePreferencesStore | [431](../../src/stores/pagePreferencesStore.ts#L431) |
-| setGatewayReverseTab | PropertyAssignment | usePagePreferencesStore | [438](../../src/stores/pagePreferencesStore.ts#L438) |
-| setGatewaySection | PropertyAssignment | usePagePreferencesStore | [445](../../src/stores/pagePreferencesStore.ts#L445) |
-| setGatewayProfileId | PropertyAssignment | usePagePreferencesStore | [449](../../src/stores/pagePreferencesStore.ts#L449) |
-| setGatewaySnippetVisible | PropertyAssignment | usePagePreferencesStore | [453](../../src/stores/pagePreferencesStore.ts#L453) |
-| setUsagePeriod | PropertyAssignment | usePagePreferencesStore | [457](../../src/stores/pagePreferencesStore.ts#L457) |
-| setHeatmapPeriod | PropertyAssignment | usePagePreferencesStore | [461](../../src/stores/pagePreferencesStore.ts#L461) |
-| setUsageLogPage | PropertyAssignment | usePagePreferencesStore | [465](../../src/stores/pagePreferencesStore.ts#L465) |
-| setUsageLogTarget | PropertyAssignment | usePagePreferencesStore | [466](../../src/stores/pagePreferencesStore.ts#L466) |
-| setHeatmapSource | PropertyAssignment | usePagePreferencesStore | [470](../../src/stores/pagePreferencesStore.ts#L470) |
-| setSessionsProvider | PropertyAssignment | usePagePreferencesStore | [474](../../src/stores/pagePreferencesStore.ts#L474) |
-| setWorkbenchView | PropertyAssignment | usePagePreferencesStore | [478](../../src/stores/pagePreferencesStore.ts#L478) |
-| setAgQuotaViewMode | PropertyAssignment | usePagePreferencesStore | [482](../../src/stores/pagePreferencesStore.ts#L482) |
+| reverseTab | VariableDeclaration | initialState | [294](../../src/stores/pagePreferencesStore.ts#L294) |
+| workspaceTab | VariableDeclaration | initialState | [300](../../src/stores/pagePreferencesStore.ts#L300) |
+| gatewayTab | VariableDeclaration | initialState | [303](../../src/stores/pagePreferencesStore.ts#L303) |
+| gatewayReverseTab | VariableDeclaration | initialState | [304](../../src/stores/pagePreferencesStore.ts#L304) |
+| gatewaySection | VariableDeclaration | initialState | [305](../../src/stores/pagePreferencesStore.ts#L305) |
+| gatewaySnippetVisible | VariableDeclaration | initialState | [306](../../src/stores/pagePreferencesStore.ts#L306) |
+| gatewayProfileId | VariableDeclaration | initialState | [309](../../src/stores/pagePreferencesStore.ts#L309) |
+| persistSlice | FunctionDeclaration |  | [337](../../src/stores/pagePreferencesStore.ts#L337) |
+| usePagePreferencesStore | VariableDeclaration |  | [384](../../src/stores/pagePreferencesStore.ts#L384) |
+| setVisibleAgents | PropertyAssignment | usePagePreferencesStore | [387](../../src/stores/pagePreferencesStore.ts#L387) |
+| nextVisible | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [388](../../src/stores/pagePreferencesStore.ts#L388) |
+| current | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [390](../../src/stores/pagePreferencesStore.ts#L390) |
+| workspaceTarget | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [391](../../src/stores/pagePreferencesStore.ts#L391) |
+| providersTarget | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [392](../../src/stores/pagePreferencesStore.ts#L392) |
+| proxyTarget | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [393](../../src/stores/pagePreferencesStore.ts#L393) |
+| sessionsProvider | VariableDeclaration | usePagePreferencesStore.setVisibleAgents | [394](../../src/stores/pagePreferencesStore.ts#L394) |
+| setWorkspaceTarget | PropertyAssignment | usePagePreferencesStore | [409](../../src/stores/pagePreferencesStore.ts#L409) |
+| visible | VariableDeclaration | usePagePreferencesStore.setWorkspaceTarget | [410](../../src/stores/pagePreferencesStore.ts#L410) |
+| setProvidersTarget | PropertyAssignment | usePagePreferencesStore | [414](../../src/stores/pagePreferencesStore.ts#L414) |
+| visible | VariableDeclaration | usePagePreferencesStore.setProvidersTarget | [415](../../src/stores/pagePreferencesStore.ts#L415) |
+| setProxyTarget | PropertyAssignment | usePagePreferencesStore | [419](../../src/stores/pagePreferencesStore.ts#L419) |
+| visible | VariableDeclaration | usePagePreferencesStore.setProxyTarget | [420](../../src/stores/pagePreferencesStore.ts#L420) |
+| setProvidersTab | PropertyAssignment | usePagePreferencesStore | [424](../../src/stores/pagePreferencesStore.ts#L424) |
+| setReverseTab | PropertyAssignment | usePagePreferencesStore | [431](../../src/stores/pagePreferencesStore.ts#L431) |
+| setWorkspaceTab | PropertyAssignment | usePagePreferencesStore | [438](../../src/stores/pagePreferencesStore.ts#L438) |
+| setGatewayTab | PropertyAssignment | usePagePreferencesStore | [442](../../src/stores/pagePreferencesStore.ts#L442) |
+| setGatewayReverseTab | PropertyAssignment | usePagePreferencesStore | [449](../../src/stores/pagePreferencesStore.ts#L449) |
+| setGatewaySection | PropertyAssignment | usePagePreferencesStore | [456](../../src/stores/pagePreferencesStore.ts#L456) |
+| setGatewayProfileId | PropertyAssignment | usePagePreferencesStore | [460](../../src/stores/pagePreferencesStore.ts#L460) |
+| setGatewaySnippetVisible | PropertyAssignment | usePagePreferencesStore | [464](../../src/stores/pagePreferencesStore.ts#L464) |
+| setUsagePeriod | PropertyAssignment | usePagePreferencesStore | [468](../../src/stores/pagePreferencesStore.ts#L468) |
+| setHeatmapPeriod | PropertyAssignment | usePagePreferencesStore | [472](../../src/stores/pagePreferencesStore.ts#L472) |
+| setUsageLogPage | PropertyAssignment | usePagePreferencesStore | [476](../../src/stores/pagePreferencesStore.ts#L476) |
+| setUsageLogTarget | PropertyAssignment | usePagePreferencesStore | [477](../../src/stores/pagePreferencesStore.ts#L477) |
+| setHeatmapSource | PropertyAssignment | usePagePreferencesStore | [481](../../src/stores/pagePreferencesStore.ts#L481) |
+| setSessionsProvider | PropertyAssignment | usePagePreferencesStore | [485](../../src/stores/pagePreferencesStore.ts#L485) |
+| setWorkbenchView | PropertyAssignment | usePagePreferencesStore | [489](../../src/stores/pagePreferencesStore.ts#L489) |
+| setAgQuotaViewMode | PropertyAssignment | usePagePreferencesStore | [493](../../src/stores/pagePreferencesStore.ts#L493) |

@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/gateway/mod.rs) · page 1/1
 
-Source SHA-256: cc0cc7bd5ee6cbf0d57d2a89d67bdb39d172746f134c532ad6dfc2ee25af2986
+Source SHA-256: bd314318622721d97730138bc04b73b942e5a7270b6ddee29134851a87a142c4
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -54,13 +54,13 @@ Source SHA-256: cc0cc7bd5ee6cbf0d57d2a89d67bdb39d172746f134c532ad6dfc2ee25af2986
 | start_gateway | function_item |  | [221](../../src-tauri/src/kiro/gateway/mod.rs#L221) |
 | log::warn | macro invocation (unexpanded) | start_gateway | [232](../../src-tauri/src/kiro/gateway/mod.rs#L232) |
 | format | macro invocation (unexpanded) | start_gateway | [285](../../src-tauri/src/kiro/gateway/mod.rs#L285) |
-| log::error | macro invocation (unexpanded) | start_gateway | [312](../../src-tauri/src/kiro/gateway/mod.rs#L312) |
-| stop_gateway | function_item |  | [330](../../src-tauri/src/kiro/gateway/mod.rs#L330) |
-| stop_gateway_keep_flag | function_item |  | [341](../../src-tauri/src/kiro/gateway/mod.rs#L341) |
-| configured_port | function_item |  | [358](../../src-tauri/src/kiro/gateway/mod.rs#L358) |
-| enabled_flag | function_item |  | [365](../../src-tauri/src/kiro/gateway/mod.rs#L365) |
-| set_enabled_flag | function_item |  | [379](../../src-tauri/src/kiro/gateway/mod.rs#L379) |
-| restore_gateway_if_enabled | function_item |  | [387](../../src-tauri/src/kiro/gateway/mod.rs#L387) |
-| log::warn | macro invocation (unexpanded) | restore_gateway_if_enabled | [390](../../src-tauri/src/kiro/gateway/mod.rs#L390) |
-| watch_system_proxy | function_item |  | [395](../../src-tauri/src/kiro/gateway/mod.rs#L395) |
-| saved_port | function_item |  | [418](../../src-tauri/src/kiro/gateway/mod.rs#L418) |
+| log::error | macro invocation (unexpanded) | start_gateway | [327](../../src-tauri/src/kiro/gateway/mod.rs#L327) |
+| stop_gateway | function_item |  | [345](../../src-tauri/src/kiro/gateway/mod.rs#L345) |
+| stop_gateway_keep_flag | function_item |  | [356](../../src-tauri/src/kiro/gateway/mod.rs#L356) |
+| configured_port | function_item |  | [373](../../src-tauri/src/kiro/gateway/mod.rs#L373) |
+| enabled_flag | function_item |  | [380](../../src-tauri/src/kiro/gateway/mod.rs#L380) |
+| set_enabled_flag | function_item |  | [394](../../src-tauri/src/kiro/gateway/mod.rs#L394) |
+| restore_gateway_if_enabled | function_item |  | [402](../../src-tauri/src/kiro/gateway/mod.rs#L402) |
+| log::warn | macro invocation (unexpanded) | restore_gateway_if_enabled | [405](../../src-tauri/src/kiro/gateway/mod.rs#L405) |
+| watch_system_proxy | function_item |  | [410](../../src-tauri/src/kiro/gateway/mod.rs#L410) |
+| saved_port | function_item |  | [433](../../src-tauri/src/kiro/gateway/mod.rs#L433) |

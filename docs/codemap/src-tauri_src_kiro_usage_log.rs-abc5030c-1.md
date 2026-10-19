@@ -4,11 +4,11 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/usage_log.rs) · page 1/1
 
-Source SHA-256: 0161ea94d06a7ef7f28ede4c777fbba78f25c3f0cb269885a211b8ef0b881ac6
+Source SHA-256: a8b754d55ab29fe2c26bac2fb9a9f1c8761fff3c537055c3b227eb6f55467ecc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | PROVIDER_NAME | const_item |  | [16](../../src-tauri/src/kiro/usage_log.rs#L16) |
 | insert_request | function_item |  | [18](../../src-tauri/src/kiro/usage_log.rs#L18) |
-| log::error | macro invocation (unexpanded) | insert_request | [69](../../src-tauri/src/kiro/usage_log.rs#L69) |
-| write_usage | function_item |  | [75](../../src-tauri/src/kiro/usage_log.rs#L75) |
+| log::error | macro invocation (unexpanded) | insert_request | [70](../../src-tauri/src/kiro/usage_log.rs#L70) |
+| write_usage | function_item |  | [76](../../src-tauri/src/kiro/usage_log.rs#L76) |

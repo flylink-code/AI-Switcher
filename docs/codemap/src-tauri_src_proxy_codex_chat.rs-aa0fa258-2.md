@@ -4,86 +4,103 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex_chat.rs) · page 2/2
 
-Source SHA-256: d791008c706dd45b5d8a3339ee4fa6595ef21b95d706c3a597dd09a0c9395ab4
+Source SHA-256: bb1853dbcb733bfec3c45eb62121402b6a93d7b8bbe0b289296d97998b31a5b4
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| content_is_empty | function_item |  | [866](../../src-tauri/src/proxy/codex_chat.rs#L866) |
-| output_text | function_item |  | [875](../../src-tauri/src/proxy/codex_chat.rs#L875) |
-| responses_tool_to_chat | function_item |  | [890](../../src-tauri/src/proxy/codex_chat.rs#L890) |
-| json | macro invocation (unexpanded) | responses_tool_to_chat | [899](../../src-tauri/src/proxy/codex_chat.rs#L899) |
-| json | macro invocation (unexpanded) | responses_tool_to_chat | [906](../../src-tauri/src/proxy/codex_chat.rs#L906) |
-| json | macro invocation (unexpanded) | responses_tool_to_chat | [910](../../src-tauri/src/proxy/codex_chat.rs#L910) |
-| copy_if_present | function_item |  | [916](../../src-tauri/src/proxy/codex_chat.rs#L916) |
-| tests | mod_item |  | [923](../../src-tauri/src/proxy/codex_chat.rs#L923) |
-| responses_array_input_becomes_chat_messages | function_item | tests | [927](../../src-tauri/src/proxy/codex_chat.rs#L927) |
-| json | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [928](../../src-tauri/src/proxy/codex_chat.rs#L928) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [936](../../src-tauri/src/proxy/codex_chat.rs#L936) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [937](../../src-tauri/src/proxy/codex_chat.rs#L937) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [938](../../src-tauri/src/proxy/codex_chat.rs#L938) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [939](../../src-tauri/src/proxy/codex_chat.rs#L939) |
-| unsupported_content_type_detects_relay_error | function_item | tests | [943](../../src-tauri/src/proxy/codex_chat.rs#L943) |
-| assert | macro invocation (unexpanded) | tests::unsupported_content_type_detects_relay_error | [944](../../src-tauri/src/proxy/codex_chat.rs#L944) |
-| assert | macro invocation (unexpanded) | tests::unsupported_content_type_detects_relay_error | [947](../../src-tauri/src/proxy/codex_chat.rs#L947) |
-| responses_assistant_text_and_function_call_merged_in_same_turn | function_item | tests | [952](../../src-tauri/src/proxy/codex_chat.rs#L952) |
-| json | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [953](../../src-tauri/src/proxy/codex_chat.rs#L953) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [965](../../src-tauri/src/proxy/codex_chat.rs#L965) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [966](../../src-tauri/src/proxy/codex_chat.rs#L966) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [967](../../src-tauri/src/proxy/codex_chat.rs#L967) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [969](../../src-tauri/src/proxy/codex_chat.rs#L969) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [970](../../src-tauri/src/proxy/codex_chat.rs#L970) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [972](../../src-tauri/src/proxy/codex_chat.rs#L972) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [973](../../src-tauri/src/proxy/codex_chat.rs#L973) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [974](../../src-tauri/src/proxy/codex_chat.rs#L974) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [975](../../src-tauri/src/proxy/codex_chat.rs#L975) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [980](../../src-tauri/src/proxy/codex_chat.rs#L980) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [981](../../src-tauri/src/proxy/codex_chat.rs#L981) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [982](../../src-tauri/src/proxy/codex_chat.rs#L982) |
-| responses_function_call_before_assistant_text_merged_in_same_turn | function_item | tests | [986](../../src-tauri/src/proxy/codex_chat.rs#L986) |
-| json | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [987](../../src-tauri/src/proxy/codex_chat.rs#L987) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [998](../../src-tauri/src/proxy/codex_chat.rs#L998) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [999](../../src-tauri/src/proxy/codex_chat.rs#L999) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1000](../../src-tauri/src/proxy/codex_chat.rs#L1000) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1001](../../src-tauri/src/proxy/codex_chat.rs#L1001) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1002](../../src-tauri/src/proxy/codex_chat.rs#L1002) |
-| responses_does_not_merge_across_role_boundaries | function_item | tests | [1006](../../src-tauri/src/proxy/codex_chat.rs#L1006) |
-| json | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1007](../../src-tauri/src/proxy/codex_chat.rs#L1007) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1019](../../src-tauri/src/proxy/codex_chat.rs#L1019) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1020](../../src-tauri/src/proxy/codex_chat.rs#L1020) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1021](../../src-tauri/src/proxy/codex_chat.rs#L1021) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1023](../../src-tauri/src/proxy/codex_chat.rs#L1023) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1024](../../src-tauri/src/proxy/codex_chat.rs#L1024) |
-| assert | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1025](../../src-tauri/src/proxy/codex_chat.rs#L1025) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1027](../../src-tauri/src/proxy/codex_chat.rs#L1027) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1028](../../src-tauri/src/proxy/codex_chat.rs#L1028) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1030](../../src-tauri/src/proxy/codex_chat.rs#L1030) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1031](../../src-tauri/src/proxy/codex_chat.rs#L1031) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1032](../../src-tauri/src/proxy/codex_chat.rs#L1032) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1034](../../src-tauri/src/proxy/codex_chat.rs#L1034) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1035](../../src-tauri/src/proxy/codex_chat.rs#L1035) |
-| responses_adjacent_assistant_messages_remain_distinct_turns | function_item | tests | [1039](../../src-tauri/src/proxy/codex_chat.rs#L1039) |
-| json | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1040](../../src-tauri/src/proxy/codex_chat.rs#L1040) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1050](../../src-tauri/src/proxy/codex_chat.rs#L1050) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1051](../../src-tauri/src/proxy/codex_chat.rs#L1051) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1052](../../src-tauri/src/proxy/codex_chat.rs#L1052) |
-| responses_second_tool_batch_does_not_extend_completed_assistant | function_item | tests | [1056](../../src-tauri/src/proxy/codex_chat.rs#L1056) |
-| vec | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1057](../../src-tauri/src/proxy/codex_chat.rs#L1057) |
-| vec | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1061](../../src-tauri/src/proxy/codex_chat.rs#L1061) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1065](../../src-tauri/src/proxy/codex_chat.rs#L1065) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1066](../../src-tauri/src/proxy/codex_chat.rs#L1066) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1067](../../src-tauri/src/proxy/codex_chat.rs#L1067) |
-| assert | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1068](../../src-tauri/src/proxy/codex_chat.rs#L1068) |
-| responses_system_and_tool_output_boundaries_stay_separate | function_item | tests | [1072](../../src-tauri/src/proxy/codex_chat.rs#L1072) |
-| json | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1074](../../src-tauri/src/proxy/codex_chat.rs#L1074) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1082](../../src-tauri/src/proxy/codex_chat.rs#L1082) |
-| assert | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1083](../../src-tauri/src/proxy/codex_chat.rs#L1083) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1084](../../src-tauri/src/proxy/codex_chat.rs#L1084) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1085](../../src-tauri/src/proxy/codex_chat.rs#L1085) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1086](../../src-tauri/src/proxy/codex_chat.rs#L1086) |
-| assert | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1087](../../src-tauri/src/proxy/codex_chat.rs#L1087) |
-| responses_trailing_tool_calls_merged_with_assistant_text | function_item | tests | [1092](../../src-tauri/src/proxy/codex_chat.rs#L1092) |
-| json | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1093](../../src-tauri/src/proxy/codex_chat.rs#L1093) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1103](../../src-tauri/src/proxy/codex_chat.rs#L1103) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1104](../../src-tauri/src/proxy/codex_chat.rs#L1104) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1105](../../src-tauri/src/proxy/codex_chat.rs#L1105) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1106](../../src-tauri/src/proxy/codex_chat.rs#L1106) |
+| vec | macro invocation (unexpanded) | responses_input_to_chat_messages | [934](../../src-tauri/src/proxy/codex_chat.rs#L934) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [947](../../src-tauri/src/proxy/codex_chat.rs#L947) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [958](../../src-tauri/src/proxy/codex_chat.rs#L958) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [983](../../src-tauri/src/proxy/codex_chat.rs#L983) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [991](../../src-tauri/src/proxy/codex_chat.rs#L991) |
+| append_assistant_message | function_item |  | [1004](../../src-tauri/src/proxy/codex_chat.rs#L1004) |
+| json | macro invocation (unexpanded) | append_assistant_message | [1025](../../src-tauri/src/proxy/codex_chat.rs#L1025) |
+| flush_pending_tool_calls | function_item |  | [1035](../../src-tauri/src/proxy/codex_chat.rs#L1035) |
+| merge_assistant_content | function_item |  | [1041](../../src-tauri/src/proxy/codex_chat.rs#L1041) |
+| format | macro invocation (unexpanded) | merge_assistant_content | [1050](../../src-tauri/src/proxy/codex_chat.rs#L1050) |
+| vec | macro invocation (unexpanded) | merge_assistant_content | [1054](../../src-tauri/src/proxy/codex_chat.rs#L1054) |
+| json | macro invocation (unexpanded) | merge_assistant_content | [1058](../../src-tauri/src/proxy/codex_chat.rs#L1058) |
+| convert_responses_content | function_item |  | [1066](../../src-tauri/src/proxy/codex_chat.rs#L1066) |
+| json | macro invocation (unexpanded) | convert_responses_content | [1068](../../src-tauri/src/proxy/codex_chat.rs#L1068) |
+| json | macro invocation (unexpanded) | convert_responses_content | [1076](../../src-tauri/src/proxy/codex_chat.rs#L1076) |
+| json | macro invocation (unexpanded) | convert_responses_content | [1081](../../src-tauri/src/proxy/codex_chat.rs#L1081) |
+| json | macro invocation (unexpanded) | convert_responses_content | [1084](../../src-tauri/src/proxy/codex_chat.rs#L1084) |
+| content_is_empty | function_item |  | [1103](../../src-tauri/src/proxy/codex_chat.rs#L1103) |
+| output_text | function_item |  | [1112](../../src-tauri/src/proxy/codex_chat.rs#L1112) |
+| responses_tool_to_chat | function_item |  | [1127](../../src-tauri/src/proxy/codex_chat.rs#L1127) |
+| json | macro invocation (unexpanded) | responses_tool_to_chat | [1136](../../src-tauri/src/proxy/codex_chat.rs#L1136) |
+| json | macro invocation (unexpanded) | responses_tool_to_chat | [1143](../../src-tauri/src/proxy/codex_chat.rs#L1143) |
+| json | macro invocation (unexpanded) | responses_tool_to_chat | [1147](../../src-tauri/src/proxy/codex_chat.rs#L1147) |
+| copy_if_present | function_item |  | [1153](../../src-tauri/src/proxy/codex_chat.rs#L1153) |
+| tests | mod_item |  | [1160](../../src-tauri/src/proxy/codex_chat.rs#L1160) |
+| responses_array_input_becomes_chat_messages | function_item | tests | [1164](../../src-tauri/src/proxy/codex_chat.rs#L1164) |
+| json | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [1165](../../src-tauri/src/proxy/codex_chat.rs#L1165) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [1173](../../src-tauri/src/proxy/codex_chat.rs#L1173) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [1174](../../src-tauri/src/proxy/codex_chat.rs#L1174) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [1175](../../src-tauri/src/proxy/codex_chat.rs#L1175) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_array_input_becomes_chat_messages | [1176](../../src-tauri/src/proxy/codex_chat.rs#L1176) |
+| unsupported_content_type_detects_relay_error | function_item | tests | [1180](../../src-tauri/src/proxy/codex_chat.rs#L1180) |
+| assert | macro invocation (unexpanded) | tests::unsupported_content_type_detects_relay_error | [1181](../../src-tauri/src/proxy/codex_chat.rs#L1181) |
+| assert | macro invocation (unexpanded) | tests::unsupported_content_type_detects_relay_error | [1184](../../src-tauri/src/proxy/codex_chat.rs#L1184) |
+| responses_assistant_text_and_function_call_merged_in_same_turn | function_item | tests | [1189](../../src-tauri/src/proxy/codex_chat.rs#L1189) |
+| json | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1190](../../src-tauri/src/proxy/codex_chat.rs#L1190) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1202](../../src-tauri/src/proxy/codex_chat.rs#L1202) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1203](../../src-tauri/src/proxy/codex_chat.rs#L1203) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1204](../../src-tauri/src/proxy/codex_chat.rs#L1204) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1206](../../src-tauri/src/proxy/codex_chat.rs#L1206) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1207](../../src-tauri/src/proxy/codex_chat.rs#L1207) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1209](../../src-tauri/src/proxy/codex_chat.rs#L1209) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1210](../../src-tauri/src/proxy/codex_chat.rs#L1210) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1211](../../src-tauri/src/proxy/codex_chat.rs#L1211) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1212](../../src-tauri/src/proxy/codex_chat.rs#L1212) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1217](../../src-tauri/src/proxy/codex_chat.rs#L1217) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1218](../../src-tauri/src/proxy/codex_chat.rs#L1218) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_function_call_merged_in_same_turn | [1219](../../src-tauri/src/proxy/codex_chat.rs#L1219) |
+| responses_function_call_before_assistant_text_merged_in_same_turn | function_item | tests | [1223](../../src-tauri/src/proxy/codex_chat.rs#L1223) |
+| json | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1224](../../src-tauri/src/proxy/codex_chat.rs#L1224) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1235](../../src-tauri/src/proxy/codex_chat.rs#L1235) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1236](../../src-tauri/src/proxy/codex_chat.rs#L1236) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1237](../../src-tauri/src/proxy/codex_chat.rs#L1237) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1238](../../src-tauri/src/proxy/codex_chat.rs#L1238) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_function_call_before_assistant_text_merged_in_same_turn | [1239](../../src-tauri/src/proxy/codex_chat.rs#L1239) |
+| responses_does_not_merge_across_role_boundaries | function_item | tests | [1243](../../src-tauri/src/proxy/codex_chat.rs#L1243) |
+| json | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1244](../../src-tauri/src/proxy/codex_chat.rs#L1244) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1256](../../src-tauri/src/proxy/codex_chat.rs#L1256) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1257](../../src-tauri/src/proxy/codex_chat.rs#L1257) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1258](../../src-tauri/src/proxy/codex_chat.rs#L1258) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1260](../../src-tauri/src/proxy/codex_chat.rs#L1260) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1261](../../src-tauri/src/proxy/codex_chat.rs#L1261) |
+| assert | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1262](../../src-tauri/src/proxy/codex_chat.rs#L1262) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1264](../../src-tauri/src/proxy/codex_chat.rs#L1264) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1265](../../src-tauri/src/proxy/codex_chat.rs#L1265) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1267](../../src-tauri/src/proxy/codex_chat.rs#L1267) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1268](../../src-tauri/src/proxy/codex_chat.rs#L1268) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1269](../../src-tauri/src/proxy/codex_chat.rs#L1269) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1271](../../src-tauri/src/proxy/codex_chat.rs#L1271) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_does_not_merge_across_role_boundaries | [1272](../../src-tauri/src/proxy/codex_chat.rs#L1272) |
+| responses_adjacent_assistant_messages_remain_distinct_turns | function_item | tests | [1276](../../src-tauri/src/proxy/codex_chat.rs#L1276) |
+| json | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1277](../../src-tauri/src/proxy/codex_chat.rs#L1277) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1287](../../src-tauri/src/proxy/codex_chat.rs#L1287) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1288](../../src-tauri/src/proxy/codex_chat.rs#L1288) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_adjacent_assistant_messages_remain_distinct_turns | [1289](../../src-tauri/src/proxy/codex_chat.rs#L1289) |
+| responses_second_tool_batch_does_not_extend_completed_assistant | function_item | tests | [1293](../../src-tauri/src/proxy/codex_chat.rs#L1293) |
+| vec | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1294](../../src-tauri/src/proxy/codex_chat.rs#L1294) |
+| vec | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1298](../../src-tauri/src/proxy/codex_chat.rs#L1298) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1302](../../src-tauri/src/proxy/codex_chat.rs#L1302) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1303](../../src-tauri/src/proxy/codex_chat.rs#L1303) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1304](../../src-tauri/src/proxy/codex_chat.rs#L1304) |
+| assert | macro invocation (unexpanded) | tests::responses_second_tool_batch_does_not_extend_completed_assistant | [1305](../../src-tauri/src/proxy/codex_chat.rs#L1305) |
+| responses_system_and_tool_output_boundaries_stay_separate | function_item | tests | [1309](../../src-tauri/src/proxy/codex_chat.rs#L1309) |
+| json | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1311](../../src-tauri/src/proxy/codex_chat.rs#L1311) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1319](../../src-tauri/src/proxy/codex_chat.rs#L1319) |
+| assert | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1320](../../src-tauri/src/proxy/codex_chat.rs#L1320) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1321](../../src-tauri/src/proxy/codex_chat.rs#L1321) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1322](../../src-tauri/src/proxy/codex_chat.rs#L1322) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1323](../../src-tauri/src/proxy/codex_chat.rs#L1323) |
+| assert | macro invocation (unexpanded) | tests::responses_system_and_tool_output_boundaries_stay_separate | [1324](../../src-tauri/src/proxy/codex_chat.rs#L1324) |
+| responses_trailing_tool_calls_merged_with_assistant_text | function_item | tests | [1329](../../src-tauri/src/proxy/codex_chat.rs#L1329) |
+| json | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1330](../../src-tauri/src/proxy/codex_chat.rs#L1330) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1340](../../src-tauri/src/proxy/codex_chat.rs#L1340) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1341](../../src-tauri/src/proxy/codex_chat.rs#L1341) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1342](../../src-tauri/src/proxy/codex_chat.rs#L1342) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_trailing_tool_calls_merged_with_assistant_text | [1343](../../src-tauri/src/proxy/codex_chat.rs#L1343) |

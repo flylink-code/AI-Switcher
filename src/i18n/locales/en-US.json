@@ -2118,6 +2118,12 @@
     "changelogTitle": "What’s new",
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
+      "1_6_3": [
+        "Enhanced cross-protocol request and tool-call compatibility: added stop_sequences passthrough, automatic \"{}\" fallback and delta events for parameterless tool calls, instructions/system fallback when input is empty, multimedia/document/web-search extraction in tool outputs, and unique converted Responses IDs.",
+        "Improved Antigravity and Kiro reverse-proxy gateways: added /v1/models/:id model lookup and Kiro /v1/responses/compact endpoints; stripped fixed Claude Agent SDK identity lines that triggered RESOURCE_EXHAUSTED on Gemini upstreams; restricted explicit numeric thinkingBudget to Flash models while preserving Argon/Pro tier suffixes; added thinking budget padding in count_tokens and fast local responses for Claude Code model validation probes.",
+        "Fixed multi-hop streaming logs and usage analytics: tracked renamed log IDs across envelope deduplication with idempotent MAX token merging so stream outcomes, durations, and diagnostics are preserved; added a dedicated Kiro filter option and semantic heatmap color tokens on the Usage page.",
+        "Fixed GitHub Actions installer packaging and CI workflows: tracked Cargo.lock and pinned compatible version ranges for zip and tauri-plugin-deep-link so upstream breaking crate releases no longer break Windows and Linux installer builds."
+      ],
       "1_6_2": [
         "Fixed VS Code Copilot view and ask_user tool failures with Google Gemini and other gateway models: normalize Windows drive paths and file:// URIs, coerce view_range bounds, auto-infer missing property types in ask_user schemas, and inject binary/20KB-truncation hints to prevent retry loops.",
         "Improved Claude Code / Claude Desktop streaming over OpenAI Responses API upstreams (such as sub2api GPT models): emit immediate message_start handshake with 5s keep-alive pings, request reasoning.summary: auto, and open thinking blocks as soon as reasoning begins to eliminate slow-response warnings.",

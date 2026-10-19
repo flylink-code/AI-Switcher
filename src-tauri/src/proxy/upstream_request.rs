@@ -309,6 +309,49 @@ async fn proxy_handler_inner(
             }
         }
     }
+    if is_claude_code_model_validation_probe(state.target, uri.path(), &incoming, incoming_stream) {
+        let probe_model = if client_model.trim().is_empty() {
+            requested_model.clone()
+        } else {
+            client_model.trim().to_string()
+        };
+        log::info!(
+            "Claude Code/SDK 模型验证探活快速响应: client_model={probe_model} upstream_model={requested_model}"
+        );
+        let probe_response = serde_json::json!({
+            "id": format!("msg_probe_{}", uuid::Uuid::new_v4().simple()),
+            "type": "message",
+            "role": "assistant",
+            "model": probe_model,
+            "content": [
+                {
+                    "type": "text",
+                    "text": "."
+                }
+            ],
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 1
+            }
+        });
+        let mut probe_provider = provider.clone();
+        if !requested_model.is_empty() {
+            probe_provider.model = requested_model.clone();
+        }
+        log_request_with_diagnostic(
+            &state,
+            &probe_provider,
+            Some(200),
+            started.elapsed().as_millis() as i64,
+            uri.path(),
+            false,
+            None,
+            Some("本地探活（未请求上游）"),
+        );
+        return axum::Json(probe_response).into_response();
+    }
     let prepared = match prepare_upstream_request(&state, &mut provider, &method, &headers, &incoming, &body_bytes, incoming_stream, &client_model) {
         Ok(request) => request,
         Err(error) => {
@@ -1058,7 +1101,16 @@ async fn proxy_handler_inner(
             }
         };
         let response_bytes = if let Ok(mut json) = serde_json::from_slice::<Value>(&response_bytes) {
-            if web_tools::materialize_web_tool_uses(&mut json) {
+            let mut changed = web_tools::materialize_web_tool_uses(&mut json);
+            let trimmed_client_model = client_model.trim();
+            if !trimmed_client_model.is_empty()
+                && json.get("type").and_then(Value::as_str) == Some("message")
+                && json.get("model").and_then(Value::as_str) != Some(trimmed_client_model)
+            {
+                json["model"] = Value::String(trimmed_client_model.to_string());
+                changed = true;
+            }
+            if changed {
                 Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| response_bytes.to_vec()))
             } else {
                 response_bytes
@@ -1495,6 +1547,69 @@ fn is_claude_desktop_inference_probe(
     text_chars > 0 && text_chars <= PROBE_MAX_TEXT_CHARS
 }
 
+fn is_claude_code_model_validation_probe(
+    target: ProviderTarget,
+    uri_path: &str,
+    incoming: &Value,
+    incoming_stream: bool,
+) -> bool {
+    if target != ProviderTarget::ClaudeCode
+        || incoming_stream
+        || !uri_path.ends_with("/v1/messages") && !uri_path.ends_with("/messages")
+    {
+        return false;
+    }
+    if incoming.get("max_tokens").and_then(Value::as_i64) != Some(1) {
+        return false;
+    }
+    if incoming
+        .get("tools")
+        .and_then(Value::as_array)
+        .is_some_and(|tools| !tools.is_empty())
+        || incoming
+            .get("thinking")
+            .is_some_and(|thinking| !thinking.is_null())
+    {
+        return false;
+    }
+    let Some(messages) = incoming.get("messages").and_then(Value::as_array) else {
+        return false;
+    };
+    if messages.len() != 1 {
+        return false;
+    }
+    let Some(first_msg) = messages.first() else {
+        return false;
+    };
+    if first_msg.get("role").and_then(Value::as_str) != Some("user") {
+        return false;
+    }
+    let text = match first_msg.get("content") {
+        Some(Value::String(s)) => s.trim().to_string(),
+        Some(Value::Array(blocks)) if blocks.len() == 1 => {
+            let block = &blocks[0];
+            let is_text = block
+                .get("type")
+                .and_then(Value::as_str)
+                .is_none_or(|kind| kind == "text");
+            if !is_text {
+                return false;
+            }
+            block
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string()
+        }
+        _ => return false,
+    };
+    matches!(
+        text.to_ascii_lowercase().as_str(),
+        "hi" | "." | "test" | "quota"
+    )
+}
+
 const PROBE_MAX_TEXT_CHARS: usize = 256;
 
 #[cfg(test)]
@@ -1610,6 +1725,41 @@ mod probe_tests {
             ProviderTarget::ClaudeDesktop,
             "/v1/messages",
             &with_image,
+            false
+        ));
+    }
+
+    #[test]
+    fn detects_claude_code_model_validation_probe() {
+        let sdk_probe = serde_json::json!({
+            "model": "claude.gemini-4-argon-medium",
+            "max_tokens": 1,
+            "system": [{ "type": "text", "text": "You are Claude Code." }],
+            "messages": [{
+                "role": "user",
+                "content": [{
+                    "type": "text",
+                    "text": "Hi",
+                    "cache_control": { "type": "ephemeral" }
+                }]
+            }]
+        });
+        assert!(is_claude_code_model_validation_probe(
+            ProviderTarget::ClaudeCode,
+            "/v1/messages",
+            &sdk_probe,
+            false
+        ));
+        assert!(!is_claude_code_model_validation_probe(
+            ProviderTarget::ClaudeCode,
+            "/v1/messages",
+            &sdk_probe,
+            true
+        ));
+        assert!(!is_claude_code_model_validation_probe(
+            ProviderTarget::ClaudeCode,
+            "/v1/messages/count_tokens",
+            &sdk_probe,
             false
         ));
     }

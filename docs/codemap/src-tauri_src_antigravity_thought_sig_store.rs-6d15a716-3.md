@@ -4,11 +4,22 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/thought_sig_store.rs) · page 3/3
 
-Source SHA-256: 33f8b75ea6c6cfa45671753f0debb654b6f4a26e7765466e30f943fda1f7b35e
+Source SHA-256: c32608b9a57f6f7f6da3f331b978fd7766ff177f1c231285f2361bcec8af71b7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| test_independent_store_lifecycle_and_shutdown | function_item | tests | [1798](../../src-tauri/src/antigravity/thought_sig_store.rs#L1798) |
-| assert_eq | macro invocation (unexpanded) | tests::test_independent_store_lifecycle_and_shutdown | [1805](../../src-tauri/src/antigravity/thought_sig_store.rs#L1805) |
-| assert_eq | macro invocation (unexpanded) | tests::test_independent_store_lifecycle_and_shutdown | [1809](../../src-tauri/src/antigravity/thought_sig_store.rs#L1809) |
-| assert_eq | macro invocation (unexpanded) | tests::test_independent_store_lifecycle_and_shutdown | [1812](../../src-tauri/src/antigravity/thought_sig_store.rs#L1812) |
+| assert | macro invocation (unexpanded) | tests::test_busy_database_is_not_quarantined | [1816](../../src-tauri/src/antigravity/thought_sig_store.rs#L1816) |
+| assert | macro invocation (unexpanded) | tests::test_busy_database_is_not_quarantined | [1817](../../src-tauri/src/antigravity/thought_sig_store.rs#L1817) |
+| assert_eq | macro invocation (unexpanded) | tests::test_busy_database_is_not_quarantined | [1818](../../src-tauri/src/antigravity/thought_sig_store.rs#L1818) |
+| test_l2_capacity_and_expired_rows_are_pruned | function_item | tests | [1830](../../src-tauri/src/antigravity/thought_sig_store.rs#L1830) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_l2_capacity_and_expired_rows_are_pruned | [1839](../../src-tauri/src/antigravity/thought_sig_store.rs#L1839) |
+| assert_eq | macro invocation (unexpanded) | tests::test_l2_capacity_and_expired_rows_are_pruned | [1849](../../src-tauri/src/antigravity/thought_sig_store.rs#L1849) |
+| test_touch_does_not_extend_replaced_signature | function_item | tests | [1853](../../src-tauri/src/antigravity/thought_sig_store.rs#L1853) |
+| assert | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1866](../../src-tauri/src/antigravity/thought_sig_store.rs#L1866) |
+| rusqlite::params | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1871](../../src-tauri/src/antigravity/thought_sig_store.rs#L1871) |
+| assert_eq | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1886](../../src-tauri/src/antigravity/thought_sig_store.rs#L1886) |
+| assert_eq | macro invocation (unexpanded) | tests::test_touch_does_not_extend_replaced_signature | [1887](../../src-tauri/src/antigravity/thought_sig_store.rs#L1887) |
+| test_independent_store_lifecycle_and_shutdown | function_item | tests | [1891](../../src-tauri/src/antigravity/thought_sig_store.rs#L1891) |
+| assert_eq | macro invocation (unexpanded) | tests::test_independent_store_lifecycle_and_shutdown | [1898](../../src-tauri/src/antigravity/thought_sig_store.rs#L1898) |
+| assert_eq | macro invocation (unexpanded) | tests::test_independent_store_lifecycle_and_shutdown | [1902](../../src-tauri/src/antigravity/thought_sig_store.rs#L1902) |
+| assert_eq | macro invocation (unexpanded) | tests::test_independent_store_lifecycle_and_shutdown | [1905](../../src-tauri/src/antigravity/thought_sig_store.rs#L1905) |

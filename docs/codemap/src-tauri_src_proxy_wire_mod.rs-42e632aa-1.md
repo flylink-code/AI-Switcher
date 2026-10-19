@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/wire/mod.rs) · page 1/3
 
-Source SHA-256: fc363b2d59769211fb11da936ec45a06811c84e849ab4bcb7095562256e7dad6
+Source SHA-256: f7ad9969379624702d019b3f2b1d7979c52e8c5658e9fe427c9c793143ed4c20
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -54,57 +54,57 @@ Source SHA-256: fc363b2d59769211fb11da936ec45a06811c84e849ab4bcb7095562256e7dad6
 | max_tokens | field_declaration | Request | [78](../../src-tauri/src/proxy/wire/mod.rs#L78) |
 | temperature | field_declaration | Request | [79](../../src-tauri/src/proxy/wire/mod.rs#L79) |
 | top_p | field_declaration | Request | [80](../../src-tauri/src/proxy/wire/mod.rs#L80) |
-| stream | field_declaration | Request | [81](../../src-tauri/src/proxy/wire/mod.rs#L81) |
-| tools | field_declaration | Request | [82](../../src-tauri/src/proxy/wire/mod.rs#L82) |
-| tool_choice | field_declaration | Request | [83](../../src-tauri/src/proxy/wire/mod.rs#L83) |
-| Response | struct_item |  | [87](../../src-tauri/src/proxy/wire/mod.rs#L87) |
-| id | field_declaration | Response | [88](../../src-tauri/src/proxy/wire/mod.rs#L88) |
-| model | field_declaration | Response | [89](../../src-tauri/src/proxy/wire/mod.rs#L89) |
-| parts | field_declaration | Response | [90](../../src-tauri/src/proxy/wire/mod.rs#L90) |
-| stop | field_declaration | Response | [91](../../src-tauri/src/proxy/wire/mod.rs#L91) |
-| usage | field_declaration | Response | [92](../../src-tauri/src/proxy/wire/mod.rs#L92) |
-| transcode_request | function_item |  | [95](../../src-tauri/src/proxy/wire/mod.rs#L95) |
-| json | macro invocation (unexpanded) | transcode_request | [100](../../src-tauri/src/proxy/wire/mod.rs#L100) |
-| json | macro invocation (unexpanded) | transcode_request | [102](../../src-tauri/src/proxy/wire/mod.rs#L102) |
-| client_anthropic_message | function_item |  | [114](../../src-tauri/src/proxy/wire/mod.rs#L114) |
-| json | macro invocation (unexpanded) | client_anthropic_message | [127](../../src-tauri/src/proxy/wire/mod.rs#L127) |
-| json | macro invocation (unexpanded) | client_anthropic_message | [135](../../src-tauri/src/proxy/wire/mod.rs#L135) |
-| parse_request | function_item |  | [147](../../src-tauri/src/proxy/wire/mod.rs#L147) |
-| build_request | function_item |  | [155](../../src-tauri/src/proxy/wire/mod.rs#L155) |
-| parse_anthropic | function_item |  | [163](../../src-tauri/src/proxy/wire/mod.rs#L163) |
-| build_anthropic | function_item |  | [197](../../src-tauri/src/proxy/wire/mod.rs#L197) |
-| json | macro invocation (unexpanded) | build_anthropic | [204](../../src-tauri/src/proxy/wire/mod.rs#L204) |
-| json | macro invocation (unexpanded) | build_anthropic | [209](../../src-tauri/src/proxy/wire/mod.rs#L209) |
-| json | macro invocation (unexpanded) | build_anthropic | [215](../../src-tauri/src/proxy/wire/mod.rs#L215) |
-| json | macro invocation (unexpanded) | build_anthropic | [218](../../src-tauri/src/proxy/wire/mod.rs#L218) |
-| parse_chat | function_item |  | [231](../../src-tauri/src/proxy/wire/mod.rs#L231) |
-| vec | macro invocation (unexpanded) | parse_chat | [255](../../src-tauri/src/proxy/wire/mod.rs#L255) |
-| json | macro invocation (unexpanded) | parse_chat | [281](../../src-tauri/src/proxy/wire/mod.rs#L281) |
-| build_chat | function_item |  | [325](../../src-tauri/src/proxy/wire/mod.rs#L325) |
-| json | macro invocation (unexpanded) | build_chat | [328](../../src-tauri/src/proxy/wire/mod.rs#L328) |
-| json | macro invocation (unexpanded) | build_chat | [337](../../src-tauri/src/proxy/wire/mod.rs#L337) |
-| json | macro invocation (unexpanded) | build_chat | [343](../../src-tauri/src/proxy/wire/mod.rs#L343) |
-| json | macro invocation (unexpanded) | build_chat | [355](../../src-tauri/src/proxy/wire/mod.rs#L355) |
-| json | macro invocation (unexpanded) | build_chat | [360](../../src-tauri/src/proxy/wire/mod.rs#L360) |
-| json | macro invocation (unexpanded) | build_chat | [371](../../src-tauri/src/proxy/wire/mod.rs#L371) |
-| json | macro invocation (unexpanded) | build_chat | [382](../../src-tauri/src/proxy/wire/mod.rs#L382) |
-| json | macro invocation (unexpanded) | build_chat | [390](../../src-tauri/src/proxy/wire/mod.rs#L390) |
-| json | macro invocation (unexpanded) | build_chat | [399](../../src-tauri/src/proxy/wire/mod.rs#L399) |
-| json | macro invocation (unexpanded) | build_chat | [405](../../src-tauri/src/proxy/wire/mod.rs#L405) |
-| json | macro invocation (unexpanded) | build_chat | [408](../../src-tauri/src/proxy/wire/mod.rs#L408) |
-| parse_responses | function_item |  | [421](../../src-tauri/src/proxy/wire/mod.rs#L421) |
-| vec | macro invocation (unexpanded) | parse_responses | [432](../../src-tauri/src/proxy/wire/mod.rs#L432) |
-| vec | macro invocation (unexpanded) | parse_responses | [453](../../src-tauri/src/proxy/wire/mod.rs#L453) |
-| vec | macro invocation (unexpanded) | parse_responses | [467](../../src-tauri/src/proxy/wire/mod.rs#L467) |
-| build_responses | function_item |  | [510](../../src-tauri/src/proxy/wire/mod.rs#L510) |
-| json | macro invocation (unexpanded) | build_responses | [524](../../src-tauri/src/proxy/wire/mod.rs#L524) |
-| json | macro invocation (unexpanded) | build_responses | [532](../../src-tauri/src/proxy/wire/mod.rs#L532) |
-| json | macro invocation (unexpanded) | build_responses | [538](../../src-tauri/src/proxy/wire/mod.rs#L538) |
-| json | macro invocation (unexpanded) | build_responses | [543](../../src-tauri/src/proxy/wire/mod.rs#L543) |
-| json | macro invocation (unexpanded) | build_responses | [554](../../src-tauri/src/proxy/wire/mod.rs#L554) |
-| json | macro invocation (unexpanded) | build_responses | [563](../../src-tauri/src/proxy/wire/mod.rs#L563) |
-| json | macro invocation (unexpanded) | build_responses | [573](../../src-tauri/src/proxy/wire/mod.rs#L573) |
-| json | macro invocation (unexpanded) | build_responses | [579](../../src-tauri/src/proxy/wire/mod.rs#L579) |
-| json | macro invocation (unexpanded) | build_responses | [582](../../src-tauri/src/proxy/wire/mod.rs#L582) |
-| parse_response | function_item |  | [595](../../src-tauri/src/proxy/wire/mod.rs#L595) |
-| parse_chat_response | function_item |  | [603](../../src-tauri/src/proxy/wire/mod.rs#L603) |
+| stop_sequences | field_declaration | Request | [81](../../src-tauri/src/proxy/wire/mod.rs#L81) |
+| stream | field_declaration | Request | [82](../../src-tauri/src/proxy/wire/mod.rs#L82) |
+| tools | field_declaration | Request | [83](../../src-tauri/src/proxy/wire/mod.rs#L83) |
+| tool_choice | field_declaration | Request | [84](../../src-tauri/src/proxy/wire/mod.rs#L84) |
+| Response | struct_item |  | [88](../../src-tauri/src/proxy/wire/mod.rs#L88) |
+| id | field_declaration | Response | [89](../../src-tauri/src/proxy/wire/mod.rs#L89) |
+| model | field_declaration | Response | [90](../../src-tauri/src/proxy/wire/mod.rs#L90) |
+| parts | field_declaration | Response | [91](../../src-tauri/src/proxy/wire/mod.rs#L91) |
+| stop | field_declaration | Response | [92](../../src-tauri/src/proxy/wire/mod.rs#L92) |
+| usage | field_declaration | Response | [93](../../src-tauri/src/proxy/wire/mod.rs#L93) |
+| transcode_request | function_item |  | [96](../../src-tauri/src/proxy/wire/mod.rs#L96) |
+| json | macro invocation (unexpanded) | transcode_request | [101](../../src-tauri/src/proxy/wire/mod.rs#L101) |
+| json | macro invocation (unexpanded) | transcode_request | [103](../../src-tauri/src/proxy/wire/mod.rs#L103) |
+| client_anthropic_message | function_item |  | [115](../../src-tauri/src/proxy/wire/mod.rs#L115) |
+| json | macro invocation (unexpanded) | client_anthropic_message | [128](../../src-tauri/src/proxy/wire/mod.rs#L128) |
+| json | macro invocation (unexpanded) | client_anthropic_message | [136](../../src-tauri/src/proxy/wire/mod.rs#L136) |
+| parse_request | function_item |  | [148](../../src-tauri/src/proxy/wire/mod.rs#L148) |
+| build_request | function_item |  | [156](../../src-tauri/src/proxy/wire/mod.rs#L156) |
+| parse_anthropic | function_item |  | [164](../../src-tauri/src/proxy/wire/mod.rs#L164) |
+| vec | macro invocation (unexpanded) | parse_anthropic | [189](../../src-tauri/src/proxy/wire/mod.rs#L189) |
+| build_anthropic | function_item |  | [217](../../src-tauri/src/proxy/wire/mod.rs#L217) |
+| json | macro invocation (unexpanded) | build_anthropic | [224](../../src-tauri/src/proxy/wire/mod.rs#L224) |
+| json | macro invocation (unexpanded) | build_anthropic | [229](../../src-tauri/src/proxy/wire/mod.rs#L229) |
+| json | macro invocation (unexpanded) | build_anthropic | [235](../../src-tauri/src/proxy/wire/mod.rs#L235) |
+| json | macro invocation (unexpanded) | build_anthropic | [238](../../src-tauri/src/proxy/wire/mod.rs#L238) |
+| json | macro invocation (unexpanded) | build_anthropic | [243](../../src-tauri/src/proxy/wire/mod.rs#L243) |
+| parse_chat | function_item |  | [254](../../src-tauri/src/proxy/wire/mod.rs#L254) |
+| vec | macro invocation (unexpanded) | parse_chat | [278](../../src-tauri/src/proxy/wire/mod.rs#L278) |
+| json | macro invocation (unexpanded) | parse_chat | [304](../../src-tauri/src/proxy/wire/mod.rs#L304) |
+| vec | macro invocation (unexpanded) | parse_chat | [338](../../src-tauri/src/proxy/wire/mod.rs#L338) |
+| vec | macro invocation (unexpanded) | parse_chat | [352](../../src-tauri/src/proxy/wire/mod.rs#L352) |
+| build_chat | function_item |  | [367](../../src-tauri/src/proxy/wire/mod.rs#L367) |
+| json | macro invocation (unexpanded) | build_chat | [370](../../src-tauri/src/proxy/wire/mod.rs#L370) |
+| json | macro invocation (unexpanded) | build_chat | [379](../../src-tauri/src/proxy/wire/mod.rs#L379) |
+| json | macro invocation (unexpanded) | build_chat | [385](../../src-tauri/src/proxy/wire/mod.rs#L385) |
+| json | macro invocation (unexpanded) | build_chat | [397](../../src-tauri/src/proxy/wire/mod.rs#L397) |
+| json | macro invocation (unexpanded) | build_chat | [402](../../src-tauri/src/proxy/wire/mod.rs#L402) |
+| json | macro invocation (unexpanded) | build_chat | [417](../../src-tauri/src/proxy/wire/mod.rs#L417) |
+| json | macro invocation (unexpanded) | build_chat | [428](../../src-tauri/src/proxy/wire/mod.rs#L428) |
+| json | macro invocation (unexpanded) | build_chat | [436](../../src-tauri/src/proxy/wire/mod.rs#L436) |
+| json | macro invocation (unexpanded) | build_chat | [448](../../src-tauri/src/proxy/wire/mod.rs#L448) |
+| json | macro invocation (unexpanded) | build_chat | [454](../../src-tauri/src/proxy/wire/mod.rs#L454) |
+| json | macro invocation (unexpanded) | build_chat | [457](../../src-tauri/src/proxy/wire/mod.rs#L457) |
+| json | macro invocation (unexpanded) | build_chat | [462](../../src-tauri/src/proxy/wire/mod.rs#L462) |
+| parse_responses | function_item |  | [473](../../src-tauri/src/proxy/wire/mod.rs#L473) |
+| vec | macro invocation (unexpanded) | parse_responses | [479](../../src-tauri/src/proxy/wire/mod.rs#L479) |
+| vec | macro invocation (unexpanded) | parse_responses | [492](../../src-tauri/src/proxy/wire/mod.rs#L492) |
+| vec | macro invocation (unexpanded) | parse_responses | [513](../../src-tauri/src/proxy/wire/mod.rs#L513) |
+| vec | macro invocation (unexpanded) | parse_responses | [527](../../src-tauri/src/proxy/wire/mod.rs#L527) |
+| vec | macro invocation (unexpanded) | parse_responses | [558](../../src-tauri/src/proxy/wire/mod.rs#L558) |
+| build_responses | function_item |  | [578](../../src-tauri/src/proxy/wire/mod.rs#L578) |
+| json | macro invocation (unexpanded) | build_responses | [592](../../src-tauri/src/proxy/wire/mod.rs#L592) |
+| json | macro invocation (unexpanded) | build_responses | [600](../../src-tauri/src/proxy/wire/mod.rs#L600) |
+| json | macro invocation (unexpanded) | build_responses | [606](../../src-tauri/src/proxy/wire/mod.rs#L606) |

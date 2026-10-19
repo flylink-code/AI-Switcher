@@ -956,10 +956,15 @@ pub fn anthropic_sse(client_model: &str, reply: &CollectedReply) -> String {
             "content_block_start",
             &json!({"type":"content_block_start","index": index, "content_block": {"type":"tool_use","id": tool.id, "name": tool.name, "input": {}}}),
         );
+        let partial_json = if tool.input.trim().is_empty() {
+            "{}"
+        } else {
+            tool.input.as_str()
+        };
         push_sse(
             &mut out,
             "content_block_delta",
-            &json!({"type":"content_block_delta","index": index, "delta": {"type":"input_json_delta","partial_json": tool.input}}),
+            &json!({"type":"content_block_delta","index": index, "delta": {"type":"input_json_delta","partial_json": partial_json}}),
         );
         push_sse(
             &mut out,
@@ -996,10 +1001,15 @@ pub fn openai_chat_json(client_model: &str, reply: &CollectedReply) -> Value {
                 .tools
                 .iter()
                 .map(|tool| {
+                    let arguments = if tool.input.trim().is_empty() {
+                        "{}"
+                    } else {
+                        tool.input.as_str()
+                    };
                     json!({
                         "id": tool.id,
                         "type": "function",
-                        "function": {"name": tool.name, "arguments": tool.input}
+                        "function": {"name": tool.name, "arguments": arguments}
                     })
                 })
                 .collect(),
@@ -1038,11 +1048,16 @@ pub fn openai_chat_sse(client_model: &str, reply: &CollectedReply) -> String {
             .iter()
             .enumerate()
             .map(|(idx, tool)| {
+                let arguments = if tool.input.trim().is_empty() {
+                    "{}"
+                } else {
+                    tool.input.as_str()
+                };
                 json!({
                     "index": idx,
                     "id": tool.id,
                     "type": "function",
-                    "function": {"name": tool.name, "arguments": tool.input}
+                    "function": {"name": tool.name, "arguments": arguments}
                 })
             })
             .collect();
@@ -1481,6 +1496,11 @@ impl KiroSseStreamer {
                 for tool in &self.collected.tools {
                     let idx = self.next_index;
                     self.next_index += 1;
+                    let partial_json = if tool.input.trim().is_empty() {
+                        "{}"
+                    } else {
+                        tool.input.as_str()
+                    };
                     push_sse(
                         &mut out,
                         "content_block_start",
@@ -1489,7 +1509,7 @@ impl KiroSseStreamer {
                     push_sse(
                         &mut out,
                         "content_block_delta",
-                        &json!({"type":"content_block_delta","index": idx, "delta": {"type":"input_json_delta","partial_json": tool.input}}),
+                        &json!({"type":"content_block_delta","index": idx, "delta": {"type":"input_json_delta","partial_json": partial_json}}),
                     );
                     push_sse(
                         &mut out,
@@ -1522,11 +1542,16 @@ impl KiroSseStreamer {
                         .iter()
                         .enumerate()
                         .map(|(idx, tool)| {
+                            let arguments = if tool.input.trim().is_empty() {
+                                "{}"
+                            } else {
+                                tool.input.as_str()
+                            };
                             json!({
                                 "index": idx,
                                 "id": tool.id,
                                 "type": "function",
-                                "function": {"name": tool.name, "arguments": tool.input}
+                                "function": {"name": tool.name, "arguments": arguments}
                             })
                         })
                         .collect();

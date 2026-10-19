@@ -4,33 +4,89 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/map.rs) · page 3/3
 
-Source SHA-256: 41de0e42f814fe5c0f7c55b914c3dfed18fb4cb22dd4d9106e69ea9f5758ae6d
+Source SHA-256: e73ebb118ec0dbbe7528543a4f05837062ca3547c4203b72e83278133591976f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| system_prompt_and_orphaned_tools_are_sanitized_for_kiro | function_item | tests | [1594](../../src-tauri/src/kiro/map.rs#L1594) |
-| json | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1595](../../src-tauri/src/kiro/map.rs#L1595) |
-| assert_eq | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1625](../../src-tauri/src/kiro/map.rs#L1625) |
-| assert_eq | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1626](../../src-tauri/src/kiro/map.rs#L1626) |
-| assert | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1631](../../src-tauri/src/kiro/map.rs#L1631) |
-| assert | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1640](../../src-tauri/src/kiro/map.rs#L1640) |
-| assert | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1644](../../src-tauri/src/kiro/map.rs#L1644) |
-| reply_from_payload | function_item | tests | [1647](../../src-tauri/src/kiro/map.rs#L1647) |
-| metadata_token_usage_accepts_floats_and_total_only | function_item | tests | [1661](../../src-tauri/src/kiro/map.rs#L1661) |
-| json | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1664](../../src-tauri/src/kiro/map.rs#L1664) |
-| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1672](../../src-tauri/src/kiro/map.rs#L1672) |
-| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1673](../../src-tauri/src/kiro/map.rs#L1673) |
-| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1674](../../src-tauri/src/kiro/map.rs#L1674) |
-| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1675](../../src-tauri/src/kiro/map.rs#L1675) |
-| json | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1679](../../src-tauri/src/kiro/map.rs#L1679) |
-| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1682](../../src-tauri/src/kiro/map.rs#L1682) |
-| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1683](../../src-tauri/src/kiro/map.rs#L1683) |
-| context_usage_percentage_fills_tokens_when_metadata_is_absent | function_item | tests | [1687](../../src-tauri/src/kiro/map.rs#L1687) |
-| assert_eq | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1705](../../src-tauri/src/kiro/map.rs#L1705) |
-| assert_eq | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1706](../../src-tauri/src/kiro/map.rs#L1706) |
-| assert | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1708](../../src-tauri/src/kiro/map.rs#L1708) |
-| assert | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1709](../../src-tauri/src/kiro/map.rs#L1709) |
-| local_estimate_is_used_when_kiro_sends_no_usage_event | function_item | tests | [1713](../../src-tauri/src/kiro/map.rs#L1713) |
-| json | macro invocation (unexpanded) | tests::local_estimate_is_used_when_kiro_sends_no_usage_event | [1716](../../src-tauri/src/kiro/map.rs#L1716) |
-| assert_eq | macro invocation (unexpanded) | tests::local_estimate_is_used_when_kiro_sends_no_usage_event | [1719](../../src-tauri/src/kiro/map.rs#L1719) |
-| assert_eq | macro invocation (unexpanded) | tests::local_estimate_is_used_when_kiro_sends_no_usage_event | [1720](../../src-tauri/src/kiro/map.rs#L1720) |
+| json | macro invocation (unexpanded) | tests::tool_result_only_turn_keeps_nonempty_content | [1738](../../src-tauri/src/kiro/map.rs#L1738) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_result_only_turn_keeps_nonempty_content | [1752](../../src-tauri/src/kiro/map.rs#L1752) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_result_only_turn_keeps_nonempty_content | [1753](../../src-tauri/src/kiro/map.rs#L1753) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_result_only_turn_keeps_nonempty_content | [1757](../../src-tauri/src/kiro/map.rs#L1757) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_result_only_turn_keeps_nonempty_content | [1764](../../src-tauri/src/kiro/map.rs#L1764) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_result_only_turn_keeps_nonempty_content | [1765](../../src-tauri/src/kiro/map.rs#L1765) |
+| unsupported_models_omit_additional_model_request_fields | function_item | tests | [1772](../../src-tauri/src/kiro/map.rs#L1772) |
+| json | macro invocation (unexpanded) | tests::unsupported_models_omit_additional_model_request_fields | [1779](../../src-tauri/src/kiro/map.rs#L1779) |
+| assert | macro invocation (unexpanded) | tests::unsupported_models_omit_additional_model_request_fields | [1785](../../src-tauri/src/kiro/map.rs#L1785) |
+| opus_4_6_effort_requires_adaptive_thinking | function_item | tests | [1793](../../src-tauri/src/kiro/map.rs#L1793) |
+| json | macro invocation (unexpanded) | tests::opus_4_6_effort_requires_adaptive_thinking | [1794](../../src-tauri/src/kiro/map.rs#L1794) |
+| assert | macro invocation (unexpanded) | tests::opus_4_6_effort_requires_adaptive_thinking | [1800](../../src-tauri/src/kiro/map.rs#L1800) |
+| json | macro invocation (unexpanded) | tests::opus_4_6_effort_requires_adaptive_thinking | [1802](../../src-tauri/src/kiro/map.rs#L1802) |
+| assert_eq | macro invocation (unexpanded) | tests::opus_4_6_effort_requires_adaptive_thinking | [1808](../../src-tauri/src/kiro/map.rs#L1808) |
+| response_model_is_the_client_catalog_id | function_item | tests | [1815](../../src-tauri/src/kiro/map.rs#L1815) |
+| assert_eq | macro invocation (unexpanded) | tests::response_model_is_the_client_catalog_id | [1821](../../src-tauri/src/kiro/map.rs#L1821) |
+| count_tokens_is_not_usage | function_item | tests | [1825](../../src-tauri/src/kiro/map.rs#L1825) |
+| assert | macro invocation (unexpanded) | tests::count_tokens_is_not_usage | [1826](../../src-tauri/src/kiro/map.rs#L1826) |
+| assert | macro invocation (unexpanded) | tests::count_tokens_is_not_usage | [1827](../../src-tauri/src/kiro/map.rs#L1827) |
+| system_prompt_and_orphaned_tools_are_sanitized_for_kiro | function_item | tests | [1831](../../src-tauri/src/kiro/map.rs#L1831) |
+| json | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1832](../../src-tauri/src/kiro/map.rs#L1832) |
+| assert_eq | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1862](../../src-tauri/src/kiro/map.rs#L1862) |
+| assert_eq | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1863](../../src-tauri/src/kiro/map.rs#L1863) |
+| assert | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1868](../../src-tauri/src/kiro/map.rs#L1868) |
+| assert | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1877](../../src-tauri/src/kiro/map.rs#L1877) |
+| assert | macro invocation (unexpanded) | tests::system_prompt_and_orphaned_tools_are_sanitized_for_kiro | [1881](../../src-tauri/src/kiro/map.rs#L1881) |
+| reply_from_payload | function_item | tests | [1884](../../src-tauri/src/kiro/map.rs#L1884) |
+| metadata_token_usage_accepts_floats_and_total_only | function_item | tests | [1898](../../src-tauri/src/kiro/map.rs#L1898) |
+| json | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1901](../../src-tauri/src/kiro/map.rs#L1901) |
+| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1909](../../src-tauri/src/kiro/map.rs#L1909) |
+| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1910](../../src-tauri/src/kiro/map.rs#L1910) |
+| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1911](../../src-tauri/src/kiro/map.rs#L1911) |
+| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1912](../../src-tauri/src/kiro/map.rs#L1912) |
+| json | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1916](../../src-tauri/src/kiro/map.rs#L1916) |
+| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1919](../../src-tauri/src/kiro/map.rs#L1919) |
+| assert_eq | macro invocation (unexpanded) | tests::metadata_token_usage_accepts_floats_and_total_only | [1920](../../src-tauri/src/kiro/map.rs#L1920) |
+| context_usage_percentage_fills_tokens_when_metadata_is_absent | function_item | tests | [1924](../../src-tauri/src/kiro/map.rs#L1924) |
+| assert_eq | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1942](../../src-tauri/src/kiro/map.rs#L1942) |
+| assert_eq | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1943](../../src-tauri/src/kiro/map.rs#L1943) |
+| assert | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1945](../../src-tauri/src/kiro/map.rs#L1945) |
+| assert | macro invocation (unexpanded) | tests::context_usage_percentage_fills_tokens_when_metadata_is_absent | [1946](../../src-tauri/src/kiro/map.rs#L1946) |
+| local_estimate_is_used_when_kiro_sends_no_usage_event | function_item | tests | [1950](../../src-tauri/src/kiro/map.rs#L1950) |
+| json | macro invocation (unexpanded) | tests::local_estimate_is_used_when_kiro_sends_no_usage_event | [1953](../../src-tauri/src/kiro/map.rs#L1953) |
+| assert_eq | macro invocation (unexpanded) | tests::local_estimate_is_used_when_kiro_sends_no_usage_event | [1956](../../src-tauri/src/kiro/map.rs#L1956) |
+| assert_eq | macro invocation (unexpanded) | tests::local_estimate_is_used_when_kiro_sends_no_usage_event | [1957](../../src-tauri/src/kiro/map.rs#L1957) |
+| anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | function_item | tests | [1961](../../src-tauri/src/kiro/map.rs#L1961) |
+| json | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1962](../../src-tauri/src/kiro/map.rs#L1962) |
+| assert | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1968](../../src-tauri/src/kiro/map.rs#L1968) |
+| vec | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1972](../../src-tauri/src/kiro/map.rs#L1972) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1981](../../src-tauri/src/kiro/map.rs#L1981) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1982](../../src-tauri/src/kiro/map.rs#L1982) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1983](../../src-tauri/src/kiro/map.rs#L1983) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_request_defaults_stream_to_false_and_responses_json_maps_tools | [1984](../../src-tauri/src/kiro/map.rs#L1984) |
+| openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | function_item | tests | [1988](../../src-tauri/src/kiro/map.rs#L1988) |
+| json | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [1989](../../src-tauri/src/kiro/map.rs#L1989) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2029](../../src-tauri/src/kiro/map.rs#L2029) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2033](../../src-tauri/src/kiro/map.rs#L2033) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2037](../../src-tauri/src/kiro/map.rs#L2037) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2043](../../src-tauri/src/kiro/map.rs#L2043) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2044](../../src-tauri/src/kiro/map.rs#L2044) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2048](../../src-tauri/src/kiro/map.rs#L2048) |
+| json | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2053](../../src-tauri/src/kiro/map.rs#L2053) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2084](../../src-tauri/src/kiro/map.rs#L2084) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2085](../../src-tauri/src/kiro/map.rs#L2085) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_chat_and_responses_preserve_tools_system_and_tool_results_for_kiro | [2089](../../src-tauri/src/kiro/map.rs#L2089) |
+| kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | function_item | tests | [2096](../../src-tauri/src/kiro/map.rs#L2096) |
+| json | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2103](../../src-tauri/src/kiro/map.rs#L2103) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2106](../../src-tauri/src/kiro/map.rs#L2106) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2107](../../src-tauri/src/kiro/map.rs#L2107) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2108](../../src-tauri/src/kiro/map.rs#L2108) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2116](../../src-tauri/src/kiro/map.rs#L2116) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2117](../../src-tauri/src/kiro/map.rs#L2117) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2118](../../src-tauri/src/kiro/map.rs#L2118) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2119](../../src-tauri/src/kiro/map.rs#L2119) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2120](../../src-tauri/src/kiro/map.rs#L2120) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2121](../../src-tauri/src/kiro/map.rs#L2121) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2122](../../src-tauri/src/kiro/map.rs#L2122) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2125](../../src-tauri/src/kiro/map.rs#L2125) |
+| assert | macro invocation (unexpanded) | tests::kiro_sse_streamer_emits_full_openai_responses_lifecycle_and_tool_calls | [2126](../../src-tauri/src/kiro/map.rs#L2126) |
+| finalize_usage_falls_back_to_char_estimate_when_tiny_context_percent_rounds_to_zero | function_item | tests | [2130](../../src-tauri/src/kiro/map.rs#L2130) |
+| assert | macro invocation (unexpanded) | tests::finalize_usage_falls_back_to_char_estimate_when_tiny_context_percent_rounds_to_zero | [2137](../../src-tauri/src/kiro/map.rs#L2137) |
+| assert | macro invocation (unexpanded) | tests::finalize_usage_falls_back_to_char_estimate_when_tiny_context_percent_rounds_to_zero | [2138](../../src-tauri/src/kiro/map.rs#L2138) |

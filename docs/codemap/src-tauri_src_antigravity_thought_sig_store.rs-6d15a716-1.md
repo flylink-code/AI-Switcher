@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/thought_sig_store.rs) · page 1/3
 
-Source SHA-256: 33f8b75ea6c6cfa45671753f0debb654b6f4a26e7765466e30f943fda1f7b35e
+Source SHA-256: c32608b9a57f6f7f6da3f331b978fd7766ff177f1c231285f2361bcec8af71b7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -59,52 +59,52 @@ Source SHA-256: 33f8b75ea6c6cfa45671753f0debb654b6f4a26e7765466e30f943fda1f7b35e
 | insert_session | function_item | L1Cache | [214](../../src-tauri/src/antigravity/thought_sig_store.rs#L214) |
 | get_session_index | function_item | L1Cache | [259](../../src-tauri/src/antigravity/thought_sig_store.rs#L259) |
 | insert_session_index | function_item | L1Cache | [287](../../src-tauri/src/antigravity/thought_sig_store.rs#L287) |
-| usable | function_item |  | [327](../../src-tauri/src/antigravity/thought_sig_store.rs#L327) |
-| WriteOp | enum_item |  | [332](../../src-tauri/src/antigravity/thought_sig_store.rs#L332) |
-| Upsert | enum_variant | WriteOp | [333](../../src-tauri/src/antigravity/thought_sig_store.rs#L333) |
-| key | field_declaration | WriteOp::Upsert | [334](../../src-tauri/src/antigravity/thought_sig_store.rs#L334) |
-| signature | field_declaration | WriteOp::Upsert | [335](../../src-tauri/src/antigravity/thought_sig_store.rs#L335) |
-| updated_at | field_declaration | WriteOp::Upsert | [336](../../src-tauri/src/antigravity/thought_sig_store.rs#L336) |
-| Touch | enum_variant | WriteOp | [338](../../src-tauri/src/antigravity/thought_sig_store.rs#L338) |
-| key | field_declaration | WriteOp::Touch | [339](../../src-tauri/src/antigravity/thought_sig_store.rs#L339) |
-| signature | field_declaration | WriteOp::Touch | [340](../../src-tauri/src/antigravity/thought_sig_store.rs#L340) |
-| updated_at | field_declaration | WriteOp::Touch | [341](../../src-tauri/src/antigravity/thought_sig_store.rs#L341) |
-| Flush | enum_variant | WriteOp | [343](../../src-tauri/src/antigravity/thought_sig_store.rs#L343) |
-| is_corruption_error | function_item |  | [346](../../src-tauri/src/antigravity/thought_sig_store.rs#L346) |
-| cleanup_old_quarantine_files | function_item |  | [367](../../src-tauri/src/antigravity/thought_sig_store.rs#L367) |
-| isolate_corrupt_files | function_item |  | [396](../../src-tauri/src/antigravity/thought_sig_store.rs#L396) |
-| format | macro invocation (unexpanded) | isolate_corrupt_files | [403](../../src-tauri/src/antigravity/thought_sig_store.rs#L403) |
-| format | macro invocation (unexpanded) | isolate_corrupt_files | [404](../../src-tauri/src/antigravity/thought_sig_store.rs#L404) |
-| format | macro invocation (unexpanded) | isolate_corrupt_files | [406](../../src-tauri/src/antigravity/thought_sig_store.rs#L406) |
-| format | macro invocation (unexpanded) | isolate_corrupt_files | [407](../../src-tauri/src/antigravity/thought_sig_store.rs#L407) |
-| format | macro invocation (unexpanded) | isolate_corrupt_files | [408](../../src-tauri/src/antigravity/thought_sig_store.rs#L408) |
-| log::warn | macro invocation (unexpanded) | isolate_corrupt_files | [412](../../src-tauri/src/antigravity/thought_sig_store.rs#L412) |
-| log::warn | macro invocation (unexpanded) | isolate_corrupt_files | [417](../../src-tauri/src/antigravity/thought_sig_store.rs#L417) |
-| log::warn | macro invocation (unexpanded) | isolate_corrupt_files | [420](../../src-tauri/src/antigravity/thought_sig_store.rs#L420) |
-| log::info | macro invocation (unexpanded) | isolate_corrupt_files | [427](../../src-tauri/src/antigravity/thought_sig_store.rs#L427) |
-| check_and_recover_db | function_item |  | [431](../../src-tauri/src/antigravity/thought_sig_store.rs#L431) |
-| log::warn | macro invocation (unexpanded) | check_and_recover_db | [470](../../src-tauri/src/antigravity/thought_sig_store.rs#L470) |
-| log::warn | macro invocation (unexpanded) | check_and_recover_db | [475](../../src-tauri/src/antigravity/thought_sig_store.rs#L475) |
-| open_connection | function_item |  | [483](../../src-tauri/src/antigravity/thought_sig_store.rs#L483) |
-| ensure_schema | function_item |  | [496](../../src-tauri/src/antigravity/thought_sig_store.rs#L496) |
-| bounded_prewarm_l1 | function_item |  | [511](../../src-tauri/src/antigravity/thought_sig_store.rs#L511) |
-| rusqlite::params | macro invocation (unexpanded) | bounded_prewarm_l1 | [525](../../src-tauri/src/antigravity/thought_sig_store.rs#L525) |
-| rusqlite::params | macro invocation (unexpanded) | bounded_prewarm_l1 | [563](../../src-tauri/src/antigravity/thought_sig_store.rs#L563) |
-| rusqlite::params | macro invocation (unexpanded) | bounded_prewarm_l1 | [602](../../src-tauri/src/antigravity/thought_sig_store.rs#L602) |
-| execute_write_batch | function_item |  | [638](../../src-tauri/src/antigravity/thought_sig_store.rs#L638) |
-| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [683](../../src-tauri/src/antigravity/thought_sig_store.rs#L683) |
-| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [687](../../src-tauri/src/antigravity/thought_sig_store.rs#L687) |
-| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [701](../../src-tauri/src/antigravity/thought_sig_store.rs#L701) |
-| perform_maintenance | function_item |  | [714](../../src-tauri/src/antigravity/thought_sig_store.rs#L714) |
-| rusqlite::params | macro invocation (unexpanded) | perform_maintenance | [732](../../src-tauri/src/antigravity/thought_sig_store.rs#L732) |
-| rusqlite::params | macro invocation (unexpanded) | perform_maintenance | [745](../../src-tauri/src/antigravity/thought_sig_store.rs#L745) |
-| worker_loop | function_item |  | [752](../../src-tauri/src/antigravity/thought_sig_store.rs#L752) |
-| log::warn | macro invocation (unexpanded) | worker_loop | [792](../../src-tauri/src/antigravity/thought_sig_store.rs#L792) |
-| log::warn | macro invocation (unexpanded) | worker_loop | [796](../../src-tauri/src/antigravity/thought_sig_store.rs#L796) |
-| log::warn | macro invocation (unexpanded) | worker_loop | [804](../../src-tauri/src/antigravity/thought_sig_store.rs#L804) |
-| log::debug | macro invocation (unexpanded) | worker_loop | [808](../../src-tauri/src/antigravity/thought_sig_store.rs#L808) |
-| ThoughtSigStore | struct_item |  | [838](../../src-tauri/src/antigravity/thought_sig_store.rs#L838) |
-| config | field_declaration | ThoughtSigStore | [839](../../src-tauri/src/antigravity/thought_sig_store.rs#L839) |
-| l1 | field_declaration | ThoughtSigStore | [840](../../src-tauri/src/antigravity/thought_sig_store.rs#L840) |
-| writer_tx | field_declaration | ThoughtSigStore | [841](../../src-tauri/src/antigravity/thought_sig_store.rs#L841) |
-| writer_handle | field_declaration | ThoughtSigStore | [842](../../src-tauri/src/antigravity/thought_sig_store.rs#L842) |
+| remove_tool | function_item | L1Cache | [326](../../src-tauri/src/antigravity/thought_sig_store.rs#L326) |
+| remove_session | function_item | L1Cache | [330](../../src-tauri/src/antigravity/thought_sig_store.rs#L330) |
+| usable | function_item |  | [336](../../src-tauri/src/antigravity/thought_sig_store.rs#L336) |
+| WriteOp | enum_item |  | [341](../../src-tauri/src/antigravity/thought_sig_store.rs#L341) |
+| Upsert | enum_variant | WriteOp | [342](../../src-tauri/src/antigravity/thought_sig_store.rs#L342) |
+| key | field_declaration | WriteOp::Upsert | [343](../../src-tauri/src/antigravity/thought_sig_store.rs#L343) |
+| signature | field_declaration | WriteOp::Upsert | [344](../../src-tauri/src/antigravity/thought_sig_store.rs#L344) |
+| updated_at | field_declaration | WriteOp::Upsert | [345](../../src-tauri/src/antigravity/thought_sig_store.rs#L345) |
+| Touch | enum_variant | WriteOp | [347](../../src-tauri/src/antigravity/thought_sig_store.rs#L347) |
+| key | field_declaration | WriteOp::Touch | [348](../../src-tauri/src/antigravity/thought_sig_store.rs#L348) |
+| signature | field_declaration | WriteOp::Touch | [349](../../src-tauri/src/antigravity/thought_sig_store.rs#L349) |
+| updated_at | field_declaration | WriteOp::Touch | [350](../../src-tauri/src/antigravity/thought_sig_store.rs#L350) |
+| DeleteTool | enum_variant | WriteOp | [352](../../src-tauri/src/antigravity/thought_sig_store.rs#L352) |
+| id | field_declaration | WriteOp::DeleteTool | [353](../../src-tauri/src/antigravity/thought_sig_store.rs#L353) |
+| DeleteSession | enum_variant | WriteOp | [355](../../src-tauri/src/antigravity/thought_sig_store.rs#L355) |
+| session | field_declaration | WriteOp::DeleteSession | [356](../../src-tauri/src/antigravity/thought_sig_store.rs#L356) |
+| Flush | enum_variant | WriteOp | [358](../../src-tauri/src/antigravity/thought_sig_store.rs#L358) |
+| is_corruption_error | function_item |  | [361](../../src-tauri/src/antigravity/thought_sig_store.rs#L361) |
+| cleanup_old_quarantine_files | function_item |  | [382](../../src-tauri/src/antigravity/thought_sig_store.rs#L382) |
+| isolate_corrupt_files | function_item |  | [411](../../src-tauri/src/antigravity/thought_sig_store.rs#L411) |
+| format | macro invocation (unexpanded) | isolate_corrupt_files | [418](../../src-tauri/src/antigravity/thought_sig_store.rs#L418) |
+| format | macro invocation (unexpanded) | isolate_corrupt_files | [419](../../src-tauri/src/antigravity/thought_sig_store.rs#L419) |
+| format | macro invocation (unexpanded) | isolate_corrupt_files | [421](../../src-tauri/src/antigravity/thought_sig_store.rs#L421) |
+| format | macro invocation (unexpanded) | isolate_corrupt_files | [422](../../src-tauri/src/antigravity/thought_sig_store.rs#L422) |
+| format | macro invocation (unexpanded) | isolate_corrupt_files | [423](../../src-tauri/src/antigravity/thought_sig_store.rs#L423) |
+| log::warn | macro invocation (unexpanded) | isolate_corrupt_files | [427](../../src-tauri/src/antigravity/thought_sig_store.rs#L427) |
+| log::warn | macro invocation (unexpanded) | isolate_corrupt_files | [432](../../src-tauri/src/antigravity/thought_sig_store.rs#L432) |
+| log::warn | macro invocation (unexpanded) | isolate_corrupt_files | [435](../../src-tauri/src/antigravity/thought_sig_store.rs#L435) |
+| log::info | macro invocation (unexpanded) | isolate_corrupt_files | [442](../../src-tauri/src/antigravity/thought_sig_store.rs#L442) |
+| check_and_recover_db | function_item |  | [446](../../src-tauri/src/antigravity/thought_sig_store.rs#L446) |
+| log::warn | macro invocation (unexpanded) | check_and_recover_db | [485](../../src-tauri/src/antigravity/thought_sig_store.rs#L485) |
+| log::warn | macro invocation (unexpanded) | check_and_recover_db | [490](../../src-tauri/src/antigravity/thought_sig_store.rs#L490) |
+| open_connection | function_item |  | [498](../../src-tauri/src/antigravity/thought_sig_store.rs#L498) |
+| ensure_schema | function_item |  | [511](../../src-tauri/src/antigravity/thought_sig_store.rs#L511) |
+| bounded_prewarm_l1 | function_item |  | [526](../../src-tauri/src/antigravity/thought_sig_store.rs#L526) |
+| rusqlite::params | macro invocation (unexpanded) | bounded_prewarm_l1 | [540](../../src-tauri/src/antigravity/thought_sig_store.rs#L540) |
+| rusqlite::params | macro invocation (unexpanded) | bounded_prewarm_l1 | [578](../../src-tauri/src/antigravity/thought_sig_store.rs#L578) |
+| rusqlite::params | macro invocation (unexpanded) | bounded_prewarm_l1 | [617](../../src-tauri/src/antigravity/thought_sig_store.rs#L617) |
+| execute_write_batch | function_item |  | [653](../../src-tauri/src/antigravity/thought_sig_store.rs#L653) |
+| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [706](../../src-tauri/src/antigravity/thought_sig_store.rs#L706) |
+| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [710](../../src-tauri/src/antigravity/thought_sig_store.rs#L710) |
+| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [724](../../src-tauri/src/antigravity/thought_sig_store.rs#L724) |
+| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [729](../../src-tauri/src/antigravity/thought_sig_store.rs#L729) |
+| rusqlite::params | macro invocation (unexpanded) | execute_write_batch | [732](../../src-tauri/src/antigravity/thought_sig_store.rs#L732) |
+| perform_maintenance | function_item |  | [743](../../src-tauri/src/antigravity/thought_sig_store.rs#L743) |
+| rusqlite::params | macro invocation (unexpanded) | perform_maintenance | [761](../../src-tauri/src/antigravity/thought_sig_store.rs#L761) |
+| rusqlite::params | macro invocation (unexpanded) | perform_maintenance | [774](../../src-tauri/src/antigravity/thought_sig_store.rs#L774) |
+| worker_loop | function_item |  | [781](../../src-tauri/src/antigravity/thought_sig_store.rs#L781) |
+| log::warn | macro invocation (unexpanded) | worker_loop | [821](../../src-tauri/src/antigravity/thought_sig_store.rs#L821) |

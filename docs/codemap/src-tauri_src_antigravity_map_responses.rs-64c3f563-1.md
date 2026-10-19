@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/map/responses.rs) · page 1/2
 
-Source SHA-256: 3680c8673ad0a884bd2bd4f1155d26daca4a6533c7a3b4b5475f37cad6179c02
+Source SHA-256: 744c622bfb8efe5b70dc4e92b0ff3c7dd1edc88a1ac4a28da233cea16de08f49
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | responses_to_gemini_request | function_item |  | [12](../../src-tauri/src/antigravity/map/responses.rs#L12) |
 | responses_to_chat_completions_body | function_item |  | [22](../../src-tauri/src/antigravity/map/responses.rs#L22) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [34](../../src-tauri/src/antigravity/map/responses.rs#L34) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [46](../../src-tauri/src/antigravity/map/responses.rs#L46) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [66](../../src-tauri/src/antigravity/map/responses.rs#L66) |
-| extract_responses_effort | function_item |  | [82](../../src-tauri/src/antigravity/map/responses.rs#L82) |
-| instructions_text | function_item |  | [94](../../src-tauri/src/antigravity/map/responses.rs#L94) |
-| responses_input_to_chat_messages | function_item |  | [110](../../src-tauri/src/antigravity/map/responses.rs#L110) |
-| vec | macro invocation (unexpanded) | responses_input_to_chat_messages | [113](../../src-tauri/src/antigravity/map/responses.rs#L113) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [140](../../src-tauri/src/antigravity/map/responses.rs#L140) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [143](../../src-tauri/src/antigravity/map/responses.rs#L143) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [169](../../src-tauri/src/antigravity/map/responses.rs#L169) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [185](../../src-tauri/src/antigravity/map/responses.rs#L185) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [209](../../src-tauri/src/antigravity/map/responses.rs#L209) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [224](../../src-tauri/src/antigravity/map/responses.rs#L224) |
-| rewrite_trailing_assistant_prefill | function_item |  | [238](../../src-tauri/src/antigravity/map/responses.rs#L238) |
-| json | macro invocation (unexpanded) | rewrite_trailing_assistant_prefill | [253](../../src-tauri/src/antigravity/map/responses.rs#L253) |
-| convert_responses_content | function_item |  | [259](../../src-tauri/src/antigravity/map/responses.rs#L259) |
-| json | macro invocation (unexpanded) | convert_responses_content | [261](../../src-tauri/src/antigravity/map/responses.rs#L261) |
-| json | macro invocation (unexpanded) | convert_responses_content | [269](../../src-tauri/src/antigravity/map/responses.rs#L269) |
-| json | macro invocation (unexpanded) | convert_responses_content | [287](../../src-tauri/src/antigravity/map/responses.rs#L287) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [36](../../src-tauri/src/antigravity/map/responses.rs#L36) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [47](../../src-tauri/src/antigravity/map/responses.rs#L47) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [55](../../src-tauri/src/antigravity/map/responses.rs#L55) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [75](../../src-tauri/src/antigravity/map/responses.rs#L75) |
+| extract_responses_effort | function_item |  | [91](../../src-tauri/src/antigravity/map/responses.rs#L91) |
+| instructions_text | function_item |  | [103](../../src-tauri/src/antigravity/map/responses.rs#L103) |
+| responses_input_to_chat_messages | function_item |  | [119](../../src-tauri/src/antigravity/map/responses.rs#L119) |
+| vec | macro invocation (unexpanded) | responses_input_to_chat_messages | [122](../../src-tauri/src/antigravity/map/responses.rs#L122) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [149](../../src-tauri/src/antigravity/map/responses.rs#L149) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [152](../../src-tauri/src/antigravity/map/responses.rs#L152) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [178](../../src-tauri/src/antigravity/map/responses.rs#L178) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [194](../../src-tauri/src/antigravity/map/responses.rs#L194) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [218](../../src-tauri/src/antigravity/map/responses.rs#L218) |
+| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [233](../../src-tauri/src/antigravity/map/responses.rs#L233) |
+| rewrite_trailing_assistant_prefill | function_item |  | [247](../../src-tauri/src/antigravity/map/responses.rs#L247) |
+| json | macro invocation (unexpanded) | rewrite_trailing_assistant_prefill | [262](../../src-tauri/src/antigravity/map/responses.rs#L262) |
+| convert_responses_content | function_item |  | [268](../../src-tauri/src/antigravity/map/responses.rs#L268) |
+| json | macro invocation (unexpanded) | convert_responses_content | [270](../../src-tauri/src/antigravity/map/responses.rs#L270) |
+| json | macro invocation (unexpanded) | convert_responses_content | [278](../../src-tauri/src/antigravity/map/responses.rs#L278) |
 | json | macro invocation (unexpanded) | convert_responses_content | [296](../../src-tauri/src/antigravity/map/responses.rs#L296) |
-| content_is_empty | function_item |  | [313](../../src-tauri/src/antigravity/map/responses.rs#L313) |
-| output_text | function_item |  | [322](../../src-tauri/src/antigravity/map/responses.rs#L322) |
-| responses_tool_to_chat | function_item |  | [338](../../src-tauri/src/antigravity/map/responses.rs#L338) |
-| json | macro invocation (unexpanded) | responses_tool_to_chat | [352](../../src-tauri/src/antigravity/map/responses.rs#L352) |
-| json | macro invocation (unexpanded) | responses_tool_to_chat | [357](../../src-tauri/src/antigravity/map/responses.rs#L357) |
-| json | macro invocation (unexpanded) | responses_tool_to_chat | [358](../../src-tauri/src/antigravity/map/responses.rs#L358) |
-| gemini_to_responses_response | function_item |  | [369](../../src-tauri/src/antigravity/map/responses.rs#L369) |
-| json | macro invocation (unexpanded) | gemini_to_responses_response | [379](../../src-tauri/src/antigravity/map/responses.rs#L379) |
+| json | macro invocation (unexpanded) | convert_responses_content | [305](../../src-tauri/src/antigravity/map/responses.rs#L305) |
+| content_is_empty | function_item |  | [322](../../src-tauri/src/antigravity/map/responses.rs#L322) |
+| output_text | function_item |  | [331](../../src-tauri/src/antigravity/map/responses.rs#L331) |
+| responses_tool_to_chat | function_item |  | [347](../../src-tauri/src/antigravity/map/responses.rs#L347) |
+| json | macro invocation (unexpanded) | responses_tool_to_chat | [361](../../src-tauri/src/antigravity/map/responses.rs#L361) |
+| json | macro invocation (unexpanded) | responses_tool_to_chat | [366](../../src-tauri/src/antigravity/map/responses.rs#L366) |
+| json | macro invocation (unexpanded) | responses_tool_to_chat | [367](../../src-tauri/src/antigravity/map/responses.rs#L367) |
+| gemini_to_responses_response | function_item |  | [378](../../src-tauri/src/antigravity/map/responses.rs#L378) |
 | json | macro invocation (unexpanded) | gemini_to_responses_response | [388](../../src-tauri/src/antigravity/map/responses.rs#L388) |
-| json | macro invocation (unexpanded) | gemini_to_responses_response | [403](../../src-tauri/src/antigravity/map/responses.rs#L403) |
-| json | macro invocation (unexpanded) | gemini_to_responses_response | [413](../../src-tauri/src/antigravity/map/responses.rs#L413) |
-| ResponsesStreamEncoder | struct_item |  | [419](../../src-tauri/src/antigravity/map/responses.rs#L419) |
-| model | field_declaration | ResponsesStreamEncoder | [420](../../src-tauri/src/antigravity/map/responses.rs#L420) |
-| response_id | field_declaration | ResponsesStreamEncoder | [421](../../src-tauri/src/antigravity/map/responses.rs#L421) |
-| message_id | field_declaration | ResponsesStreamEncoder | [422](../../src-tauri/src/antigravity/map/responses.rs#L422) |
-| started | field_declaration | ResponsesStreamEncoder | [423](../../src-tauri/src/antigravity/map/responses.rs#L423) |
-| text_started | field_declaration | ResponsesStreamEncoder | [424](../../src-tauri/src/antigravity/map/responses.rs#L424) |
-| completed | field_declaration | ResponsesStreamEncoder | [425](../../src-tauri/src/antigravity/map/responses.rs#L425) |
-| output_index | field_declaration | ResponsesStreamEncoder | [426](../../src-tauri/src/antigravity/map/responses.rs#L426) |
-| status | field_declaration | ResponsesStreamEncoder | [427](../../src-tauri/src/antigravity/map/responses.rs#L427) |
-| usage | field_declaration | ResponsesStreamEncoder | [428](../../src-tauri/src/antigravity/map/responses.rs#L428) |
-| full_text | field_declaration | ResponsesStreamEncoder | [429](../../src-tauri/src/antigravity/map/responses.rs#L429) |
-| sequence | field_declaration | ResponsesStreamEncoder | [430](../../src-tauri/src/antigravity/map/responses.rs#L430) |
-| function_outputs | field_declaration | ResponsesStreamEncoder | [432](../../src-tauri/src/antigravity/map/responses.rs#L432) |
-| tool_params | field_declaration | ResponsesStreamEncoder | [434](../../src-tauri/src/antigravity/map/responses.rs#L434) |
-| session_key | field_declaration | ResponsesStreamEncoder | [435](../../src-tauri/src/antigravity/map/responses.rs#L435) |
-| ResponsesStreamEncoder | impl |  | [438](../../src-tauri/src/antigravity/map/responses.rs#L438) |
-| new | function_item | ResponsesStreamEncoder | [439](../../src-tauri/src/antigravity/map/responses.rs#L439) |
-| format | macro invocation (unexpanded) | ResponsesStreamEncoder::new | [440](../../src-tauri/src/antigravity/map/responses.rs#L440) |
-| format | macro invocation (unexpanded) | ResponsesStreamEncoder::new | [443](../../src-tauri/src/antigravity/map/responses.rs#L443) |
-| next_seq | function_item | ResponsesStreamEncoder | [459](../../src-tauri/src/antigravity/map/responses.rs#L459) |
-| encode_gemini_chunk | function_item | ResponsesStreamEncoder | [465](../../src-tauri/src/antigravity/map/responses.rs#L465) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [484](../../src-tauri/src/antigravity/map/responses.rs#L484) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [520](../../src-tauri/src/antigravity/map/responses.rs#L520) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [539](../../src-tauri/src/antigravity/map/responses.rs#L539) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [551](../../src-tauri/src/antigravity/map/responses.rs#L551) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [558](../../src-tauri/src/antigravity/map/responses.rs#L558) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [570](../../src-tauri/src/antigravity/map/responses.rs#L570) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [577](../../src-tauri/src/antigravity/map/responses.rs#L577) |
-| finish | function_item | ResponsesStreamEncoder | [589](../../src-tauri/src/antigravity/map/responses.rs#L589) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [605](../../src-tauri/src/antigravity/map/responses.rs#L605) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [618](../../src-tauri/src/antigravity/map/responses.rs#L618) |
+| json | macro invocation (unexpanded) | gemini_to_responses_response | [397](../../src-tauri/src/antigravity/map/responses.rs#L397) |
+| json | macro invocation (unexpanded) | gemini_to_responses_response | [412](../../src-tauri/src/antigravity/map/responses.rs#L412) |
+| json | macro invocation (unexpanded) | gemini_to_responses_response | [422](../../src-tauri/src/antigravity/map/responses.rs#L422) |
+| ResponsesStreamEncoder | struct_item |  | [428](../../src-tauri/src/antigravity/map/responses.rs#L428) |
+| model | field_declaration | ResponsesStreamEncoder | [429](../../src-tauri/src/antigravity/map/responses.rs#L429) |
+| response_id | field_declaration | ResponsesStreamEncoder | [430](../../src-tauri/src/antigravity/map/responses.rs#L430) |
+| message_id | field_declaration | ResponsesStreamEncoder | [431](../../src-tauri/src/antigravity/map/responses.rs#L431) |
+| started | field_declaration | ResponsesStreamEncoder | [432](../../src-tauri/src/antigravity/map/responses.rs#L432) |
+| text_started | field_declaration | ResponsesStreamEncoder | [433](../../src-tauri/src/antigravity/map/responses.rs#L433) |
+| completed | field_declaration | ResponsesStreamEncoder | [434](../../src-tauri/src/antigravity/map/responses.rs#L434) |
+| output_index | field_declaration | ResponsesStreamEncoder | [435](../../src-tauri/src/antigravity/map/responses.rs#L435) |
+| status | field_declaration | ResponsesStreamEncoder | [436](../../src-tauri/src/antigravity/map/responses.rs#L436) |
+| usage | field_declaration | ResponsesStreamEncoder | [437](../../src-tauri/src/antigravity/map/responses.rs#L437) |
+| full_text | field_declaration | ResponsesStreamEncoder | [438](../../src-tauri/src/antigravity/map/responses.rs#L438) |
+| sequence | field_declaration | ResponsesStreamEncoder | [439](../../src-tauri/src/antigravity/map/responses.rs#L439) |
+| function_outputs | field_declaration | ResponsesStreamEncoder | [441](../../src-tauri/src/antigravity/map/responses.rs#L441) |
+| tool_params | field_declaration | ResponsesStreamEncoder | [443](../../src-tauri/src/antigravity/map/responses.rs#L443) |
+| session_key | field_declaration | ResponsesStreamEncoder | [444](../../src-tauri/src/antigravity/map/responses.rs#L444) |
+| ResponsesStreamEncoder | impl |  | [447](../../src-tauri/src/antigravity/map/responses.rs#L447) |
+| new | function_item | ResponsesStreamEncoder | [448](../../src-tauri/src/antigravity/map/responses.rs#L448) |
+| format | macro invocation (unexpanded) | ResponsesStreamEncoder::new | [449](../../src-tauri/src/antigravity/map/responses.rs#L449) |
+| format | macro invocation (unexpanded) | ResponsesStreamEncoder::new | [452](../../src-tauri/src/antigravity/map/responses.rs#L452) |
+| next_seq | function_item | ResponsesStreamEncoder | [468](../../src-tauri/src/antigravity/map/responses.rs#L468) |
+| encode_gemini_chunk | function_item | ResponsesStreamEncoder | [474](../../src-tauri/src/antigravity/map/responses.rs#L474) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [493](../../src-tauri/src/antigravity/map/responses.rs#L493) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [529](../../src-tauri/src/antigravity/map/responses.rs#L529) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [548](../../src-tauri/src/antigravity/map/responses.rs#L548) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [560](../../src-tauri/src/antigravity/map/responses.rs#L560) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [567](../../src-tauri/src/antigravity/map/responses.rs#L567) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [579](../../src-tauri/src/antigravity/map/responses.rs#L579) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::encode_gemini_chunk | [586](../../src-tauri/src/antigravity/map/responses.rs#L586) |
+| finish | function_item | ResponsesStreamEncoder | [598](../../src-tauri/src/antigravity/map/responses.rs#L598) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [614](../../src-tauri/src/antigravity/map/responses.rs#L614) |
 | json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [627](../../src-tauri/src/antigravity/map/responses.rs#L627) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [638](../../src-tauri/src/antigravity/map/responses.rs#L638) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [645](../../src-tauri/src/antigravity/map/responses.rs#L645) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [660](../../src-tauri/src/antigravity/map/responses.rs#L660) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [671](../../src-tauri/src/antigravity/map/responses.rs#L671) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [677](../../src-tauri/src/antigravity/map/responses.rs#L677) |
-| start_handshake | function_item | ResponsesStreamEncoder | [687](../../src-tauri/src/antigravity/map/responses.rs#L687) |
-| ensure_started | function_item | ResponsesStreamEncoder | [696](../../src-tauri/src/antigravity/map/responses.rs#L696) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::ensure_started | [700](../../src-tauri/src/antigravity/map/responses.rs#L700) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::ensure_started | [712](../../src-tauri/src/antigravity/map/responses.rs#L712) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::ensure_started | [718](../../src-tauri/src/antigravity/map/responses.rs#L718) |
-| emit_text_start | function_item | ResponsesStreamEncoder | [723](../../src-tauri/src/antigravity/map/responses.rs#L723) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::emit_text_start | [731](../../src-tauri/src/antigravity/map/responses.rs#L731) |
-| json | macro invocation (unexpanded) | ResponsesStreamEncoder::emit_text_start | [748](../../src-tauri/src/antigravity/map/responses.rs#L748) |
-| note_usage | function_item | ResponsesStreamEncoder | [761](../../src-tauri/src/antigravity/map/responses.rs#L761) |
-| push_event | function_item |  | [766](../../src-tauri/src/antigravity/map/responses.rs#L766) |
-| responses_compact_stub | function_item |  | [776](../../src-tauri/src/antigravity/map/responses.rs#L776) |
-| json | macro invocation (unexpanded) | responses_compact_stub | [783](../../src-tauri/src/antigravity/map/responses.rs#L783) |
-| summarize_input | function_item |  | [799](../../src-tauri/src/antigravity/map/responses.rs#L799) |
-| tests | mod_item |  | [828](../../src-tauri/src/antigravity/map/responses.rs#L828) |
-| responses_assistant_text_and_tool_call_not_split_in_gemini_request | function_item | tests | [832](../../src-tauri/src/antigravity/map/responses.rs#L832) |
-| json | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [833](../../src-tauri/src/antigravity/map/responses.rs#L833) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [848](../../src-tauri/src/antigravity/map/responses.rs#L848) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [849](../../src-tauri/src/antigravity/map/responses.rs#L849) |
-| assert | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [857](../../src-tauri/src/antigravity/map/responses.rs#L857) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [860](../../src-tauri/src/antigravity/map/responses.rs#L860) |
-| assert | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [868](../../src-tauri/src/antigravity/map/responses.rs#L868) |
-| assert | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [869](../../src-tauri/src/antigravity/map/responses.rs#L869) |
-| responses_role_boundary_not_merged_in_gemini_request | function_item | tests | [875](../../src-tauri/src/antigravity/map/responses.rs#L875) |
-| json | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [876](../../src-tauri/src/antigravity/map/responses.rs#L876) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [882](../../src-tauri/src/antigravity/map/responses.rs#L882) |
-| assert | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [883](../../src-tauri/src/antigravity/map/responses.rs#L883) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [884](../../src-tauri/src/antigravity/map/responses.rs#L884) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [885](../../src-tauri/src/antigravity/map/responses.rs#L885) |
-| responses_prefill_behavior_preserved | function_item | tests | [889](../../src-tauri/src/antigravity/map/responses.rs#L889) |
-| json | macro invocation (unexpanded) | tests::responses_prefill_behavior_preserved | [890](../../src-tauri/src/antigravity/map/responses.rs#L890) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [636](../../src-tauri/src/antigravity/map/responses.rs#L636) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [647](../../src-tauri/src/antigravity/map/responses.rs#L647) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [654](../../src-tauri/src/antigravity/map/responses.rs#L654) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [669](../../src-tauri/src/antigravity/map/responses.rs#L669) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [680](../../src-tauri/src/antigravity/map/responses.rs#L680) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::finish | [686](../../src-tauri/src/antigravity/map/responses.rs#L686) |
+| start_handshake | function_item | ResponsesStreamEncoder | [696](../../src-tauri/src/antigravity/map/responses.rs#L696) |
+| ensure_started | function_item | ResponsesStreamEncoder | [705](../../src-tauri/src/antigravity/map/responses.rs#L705) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::ensure_started | [709](../../src-tauri/src/antigravity/map/responses.rs#L709) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::ensure_started | [721](../../src-tauri/src/antigravity/map/responses.rs#L721) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::ensure_started | [727](../../src-tauri/src/antigravity/map/responses.rs#L727) |
+| emit_text_start | function_item | ResponsesStreamEncoder | [732](../../src-tauri/src/antigravity/map/responses.rs#L732) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::emit_text_start | [740](../../src-tauri/src/antigravity/map/responses.rs#L740) |
+| json | macro invocation (unexpanded) | ResponsesStreamEncoder::emit_text_start | [757](../../src-tauri/src/antigravity/map/responses.rs#L757) |
+| note_usage | function_item | ResponsesStreamEncoder | [770](../../src-tauri/src/antigravity/map/responses.rs#L770) |
+| push_event | function_item |  | [775](../../src-tauri/src/antigravity/map/responses.rs#L775) |
+| responses_compact_stub | function_item |  | [785](../../src-tauri/src/antigravity/map/responses.rs#L785) |
+| json | macro invocation (unexpanded) | responses_compact_stub | [792](../../src-tauri/src/antigravity/map/responses.rs#L792) |
+| summarize_input | function_item |  | [808](../../src-tauri/src/antigravity/map/responses.rs#L808) |
+| tests | mod_item |  | [837](../../src-tauri/src/antigravity/map/responses.rs#L837) |
+| responses_assistant_text_and_tool_call_not_split_in_gemini_request | function_item | tests | [841](../../src-tauri/src/antigravity/map/responses.rs#L841) |
+| json | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [842](../../src-tauri/src/antigravity/map/responses.rs#L842) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [857](../../src-tauri/src/antigravity/map/responses.rs#L857) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [858](../../src-tauri/src/antigravity/map/responses.rs#L858) |
+| assert | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [866](../../src-tauri/src/antigravity/map/responses.rs#L866) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [869](../../src-tauri/src/antigravity/map/responses.rs#L869) |
+| assert | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [877](../../src-tauri/src/antigravity/map/responses.rs#L877) |
+| assert | macro invocation (unexpanded) | tests::responses_assistant_text_and_tool_call_not_split_in_gemini_request | [878](../../src-tauri/src/antigravity/map/responses.rs#L878) |
+| responses_role_boundary_not_merged_in_gemini_request | function_item | tests | [884](../../src-tauri/src/antigravity/map/responses.rs#L884) |
+| json | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [885](../../src-tauri/src/antigravity/map/responses.rs#L885) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [891](../../src-tauri/src/antigravity/map/responses.rs#L891) |
+| assert | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [892](../../src-tauri/src/antigravity/map/responses.rs#L892) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [893](../../src-tauri/src/antigravity/map/responses.rs#L893) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_role_boundary_not_merged_in_gemini_request | [894](../../src-tauri/src/antigravity/map/responses.rs#L894) |
+| responses_prefill_behavior_preserved | function_item | tests | [898](../../src-tauri/src/antigravity/map/responses.rs#L898) |

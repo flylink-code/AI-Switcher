@@ -4,107 +4,107 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/wire/mod.rs) · page 2/3
 
-Source SHA-256: fc363b2d59769211fb11da936ec45a06811c84e849ab4bcb7095562256e7dad6
+Source SHA-256: f7ad9969379624702d019b3f2b1d7979c52e8c5658e9fe427c9c793143ed4c20
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| json | macro invocation (unexpanded) | parse_chat_response | [611](../../src-tauri/src/proxy/wire/mod.rs#L611) |
-| json | macro invocation (unexpanded) | parse_chat_response | [630](../../src-tauri/src/proxy/wire/mod.rs#L630) |
-| matches | macro invocation (unexpanded) | parse_chat_response | [661](../../src-tauri/src/proxy/wire/mod.rs#L661) |
-| parse_responses_response | function_item |  | [674](../../src-tauri/src/proxy/wire/mod.rs#L674) |
-| matches | macro invocation (unexpanded) | parse_responses_response | [719](../../src-tauri/src/proxy/wire/mod.rs#L719) |
-| parse_anthropic_response | function_item |  | [736](../../src-tauri/src/proxy/wire/mod.rs#L736) |
-| build_anthropic_response | function_item |  | [763](../../src-tauri/src/proxy/wire/mod.rs#L763) |
-| json | macro invocation (unexpanded) | build_anthropic_response | [770](../../src-tauri/src/proxy/wire/mod.rs#L770) |
-| parts_from_anthropic_content | function_item |  | [791](../../src-tauri/src/proxy/wire/mod.rs#L791) |
-| vec | macro invocation (unexpanded) | parts_from_anthropic_content | [793](../../src-tauri/src/proxy/wire/mod.rs#L793) |
-| anthropic_block | function_item |  | [799](../../src-tauri/src/proxy/wire/mod.rs#L799) |
-| json | macro invocation (unexpanded) | anthropic_block | [823](../../src-tauri/src/proxy/wire/mod.rs#L823) |
-| image_from_anthropic | function_item |  | [839](../../src-tauri/src/proxy/wire/mod.rs#L839) |
-| parts_from_chat_content | function_item |  | [867](../../src-tauri/src/proxy/wire/mod.rs#L867) |
-| vec | macro invocation (unexpanded) | parts_from_chat_content | [869](../../src-tauri/src/proxy/wire/mod.rs#L869) |
-| chat_block | function_item |  | [875](../../src-tauri/src/proxy/wire/mod.rs#L875) |
-| parts_from_responses_content | function_item |  | [905](../../src-tauri/src/proxy/wire/mod.rs#L905) |
-| vec | macro invocation (unexpanded) | parts_from_responses_content | [907](../../src-tauri/src/proxy/wire/mod.rs#L907) |
-| image_from_url | function_item |  | [942](../../src-tauri/src/proxy/wire/mod.rs#L942) |
-| anthropic_blocks | function_item |  | [958](../../src-tauri/src/proxy/wire/mod.rs#L958) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [960](../../src-tauri/src/proxy/wire/mod.rs#L960) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [961](../../src-tauri/src/proxy/wire/mod.rs#L961) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [964](../../src-tauri/src/proxy/wire/mod.rs#L964) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [966](../../src-tauri/src/proxy/wire/mod.rs#L966) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [972](../../src-tauri/src/proxy/wire/mod.rs#L972) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [973](../../src-tauri/src/proxy/wire/mod.rs#L973) |
-| json | macro invocation (unexpanded) | anthropic_blocks | [975](../../src-tauri/src/proxy/wire/mod.rs#L975) |
-| anthropic_tools | function_item |  | [979](../../src-tauri/src/proxy/wire/mod.rs#L979) |
-| json | macro invocation (unexpanded) | anthropic_tools | [996](../../src-tauri/src/proxy/wire/mod.rs#L996) |
-| chat_tools | function_item |  | [1002](../../src-tauri/src/proxy/wire/mod.rs#L1002) |
-| json | macro invocation (unexpanded) | chat_tools | [1023](../../src-tauri/src/proxy/wire/mod.rs#L1023) |
-| responses_tools | function_item |  | [1029](../../src-tauri/src/proxy/wire/mod.rs#L1029) |
-| tool_name | function_item |  | [1033](../../src-tauri/src/proxy/wire/mod.rs#L1033) |
-| anthropic_tool_json | function_item |  | [1047](../../src-tauri/src/proxy/wire/mod.rs#L1047) |
-| json | macro invocation (unexpanded) | anthropic_tool_json | [1048](../../src-tauri/src/proxy/wire/mod.rs#L1048) |
-| chat_tool_json | function_item |  | [1055](../../src-tauri/src/proxy/wire/mod.rs#L1055) |
-| json | macro invocation (unexpanded) | chat_tool_json | [1056](../../src-tauri/src/proxy/wire/mod.rs#L1056) |
-| responses_tool_json | function_item |  | [1066](../../src-tauri/src/proxy/wire/mod.rs#L1066) |
-| json | macro invocation (unexpanded) | responses_tool_json | [1067](../../src-tauri/src/proxy/wire/mod.rs#L1067) |
-| anthropic_tool_choice | function_item |  | [1075](../../src-tauri/src/proxy/wire/mod.rs#L1075) |
-| chat_tool_choice | function_item |  | [1090](../../src-tauri/src/proxy/wire/mod.rs#L1090) |
-| responses_tool_choice | function_item |  | [1106](../../src-tauri/src/proxy/wire/mod.rs#L1106) |
-| anthropic_choice_json | function_item |  | [1121](../../src-tauri/src/proxy/wire/mod.rs#L1121) |
-| json | macro invocation (unexpanded) | anthropic_choice_json | [1123](../../src-tauri/src/proxy/wire/mod.rs#L1123) |
-| json | macro invocation (unexpanded) | anthropic_choice_json | [1124](../../src-tauri/src/proxy/wire/mod.rs#L1124) |
-| json | macro invocation (unexpanded) | anthropic_choice_json | [1125](../../src-tauri/src/proxy/wire/mod.rs#L1125) |
-| json | macro invocation (unexpanded) | anthropic_choice_json | [1126](../../src-tauri/src/proxy/wire/mod.rs#L1126) |
-| chat_choice_json | function_item |  | [1130](../../src-tauri/src/proxy/wire/mod.rs#L1130) |
-| json | macro invocation (unexpanded) | chat_choice_json | [1132](../../src-tauri/src/proxy/wire/mod.rs#L1132) |
-| json | macro invocation (unexpanded) | chat_choice_json | [1133](../../src-tauri/src/proxy/wire/mod.rs#L1133) |
-| json | macro invocation (unexpanded) | chat_choice_json | [1134](../../src-tauri/src/proxy/wire/mod.rs#L1134) |
-| json | macro invocation (unexpanded) | chat_choice_json | [1135](../../src-tauri/src/proxy/wire/mod.rs#L1135) |
-| responses_choice_json | function_item |  | [1139](../../src-tauri/src/proxy/wire/mod.rs#L1139) |
-| json | macro invocation (unexpanded) | responses_choice_json | [1141](../../src-tauri/src/proxy/wire/mod.rs#L1141) |
-| json | macro invocation (unexpanded) | responses_choice_json | [1142](../../src-tauri/src/proxy/wire/mod.rs#L1142) |
-| json | macro invocation (unexpanded) | responses_choice_json | [1143](../../src-tauri/src/proxy/wire/mod.rs#L1143) |
-| json | macro invocation (unexpanded) | responses_choice_json | [1144](../../src-tauri/src/proxy/wire/mod.rs#L1144) |
-| chat_usage | function_item |  | [1148](../../src-tauri/src/proxy/wire/mod.rs#L1148) |
-| responses_usage | function_item |  | [1168](../../src-tauri/src/proxy/wire/mod.rs#L1168) |
-| reasoning_text | function_item |  | [1188](../../src-tauri/src/proxy/wire/mod.rs#L1188) |
-| chat_image_url | function_item |  | [1196](../../src-tauri/src/proxy/wire/mod.rs#L1196) |
-| format | macro invocation (unexpanded) | chat_image_url | [1203](../../src-tauri/src/proxy/wire/mod.rs#L1203) |
-| split_data_url | function_item |  | [1209](../../src-tauri/src/proxy/wire/mod.rs#L1209) |
-| content_text | function_item |  | [1219](../../src-tauri/src/proxy/wire/mod.rs#L1219) |
-| string_field | function_item |  | [1236](../../src-tauri/src/proxy/wire/mod.rs#L1236) |
-| copy_option | function_item |  | [1244](../../src-tauri/src/proxy/wire/mod.rs#L1244) |
-| tests | mod_item |  | [1251](../../src-tauri/src/proxy/wire/mod.rs#L1251) |
-| sample_anthropic | function_item | tests | [1257](../../src-tauri/src/proxy/wire/mod.rs#L1257) |
-| json | macro invocation (unexpanded) | tests::sample_anthropic | [1258](../../src-tauri/src/proxy/wire/mod.rs#L1258) |
-| assert_roundtrip | function_item | tests | [1282](../../src-tauri/src/proxy/wire/mod.rs#L1282) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1283](../../src-tauri/src/proxy/wire/mod.rs#L1283) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1284](../../src-tauri/src/proxy/wire/mod.rs#L1284) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1285](../../src-tauri/src/proxy/wire/mod.rs#L1285) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1287](../../src-tauri/src/proxy/wire/mod.rs#L1287) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1288](../../src-tauri/src/proxy/wire/mod.rs#L1288) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1296](../../src-tauri/src/proxy/wire/mod.rs#L1296) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1305](../../src-tauri/src/proxy/wire/mod.rs#L1305) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1306](../../src-tauri/src/proxy/wire/mod.rs#L1306) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1307](../../src-tauri/src/proxy/wire/mod.rs#L1307) |
-| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1315](../../src-tauri/src/proxy/wire/mod.rs#L1315) |
-| anthropic_chat_and_responses_roundtrip_text_image_and_tool | function_item | tests | [1325](../../src-tauri/src/proxy/wire/mod.rs#L1325) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1331](../../src-tauri/src/proxy/wire/mod.rs#L1331) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1335](../../src-tauri/src/proxy/wire/mod.rs#L1335) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1339](../../src-tauri/src/proxy/wire/mod.rs#L1339) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1344](../../src-tauri/src/proxy/wire/mod.rs#L1344) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1345](../../src-tauri/src/proxy/wire/mod.rs#L1345) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1350](../../src-tauri/src/proxy/wire/mod.rs#L1350) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1351](../../src-tauri/src/proxy/wire/mod.rs#L1351) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1355](../../src-tauri/src/proxy/wire/mod.rs#L1355) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1356](../../src-tauri/src/proxy/wire/mod.rs#L1356) |
-| response_usage_stop_and_tool_survive_chat_and_responses | function_item | tests | [1360](../../src-tauri/src/proxy/wire/mod.rs#L1360) |
-| json | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1361](../../src-tauri/src/proxy/wire/mod.rs#L1361) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1376](../../src-tauri/src/proxy/wire/mod.rs#L1376) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1377](../../src-tauri/src/proxy/wire/mod.rs#L1377) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1378](../../src-tauri/src/proxy/wire/mod.rs#L1378) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1379](../../src-tauri/src/proxy/wire/mod.rs#L1379) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1380](../../src-tauri/src/proxy/wire/mod.rs#L1380) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1381](../../src-tauri/src/proxy/wire/mod.rs#L1381) |
-| assert_eq | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1382](../../src-tauri/src/proxy/wire/mod.rs#L1382) |
-| json | macro invocation (unexpanded) | tests::response_usage_stop_and_tool_survive_chat_and_responses | [1384](../../src-tauri/src/proxy/wire/mod.rs#L1384) |
+| json | macro invocation (unexpanded) | build_responses | [611](../../src-tauri/src/proxy/wire/mod.rs#L611) |
+| json | macro invocation (unexpanded) | build_responses | [622](../../src-tauri/src/proxy/wire/mod.rs#L622) |
+| json | macro invocation (unexpanded) | build_responses | [633](../../src-tauri/src/proxy/wire/mod.rs#L633) |
+| json | macro invocation (unexpanded) | build_responses | [643](../../src-tauri/src/proxy/wire/mod.rs#L643) |
+| json | macro invocation (unexpanded) | build_responses | [649](../../src-tauri/src/proxy/wire/mod.rs#L649) |
+| json | macro invocation (unexpanded) | build_responses | [652](../../src-tauri/src/proxy/wire/mod.rs#L652) |
+| parse_response | function_item |  | [665](../../src-tauri/src/proxy/wire/mod.rs#L665) |
+| parse_chat_response | function_item |  | [673](../../src-tauri/src/proxy/wire/mod.rs#L673) |
+| json | macro invocation (unexpanded) | parse_chat_response | [681](../../src-tauri/src/proxy/wire/mod.rs#L681) |
+| json | macro invocation (unexpanded) | parse_chat_response | [700](../../src-tauri/src/proxy/wire/mod.rs#L700) |
+| matches | macro invocation (unexpanded) | parse_chat_response | [731](../../src-tauri/src/proxy/wire/mod.rs#L731) |
+| parse_responses_response | function_item |  | [744](../../src-tauri/src/proxy/wire/mod.rs#L744) |
+| matches | macro invocation (unexpanded) | parse_responses_response | [789](../../src-tauri/src/proxy/wire/mod.rs#L789) |
+| parse_anthropic_response | function_item |  | [806](../../src-tauri/src/proxy/wire/mod.rs#L806) |
+| build_anthropic_response | function_item |  | [833](../../src-tauri/src/proxy/wire/mod.rs#L833) |
+| json | macro invocation (unexpanded) | build_anthropic_response | [840](../../src-tauri/src/proxy/wire/mod.rs#L840) |
+| parts_from_anthropic_content | function_item |  | [861](../../src-tauri/src/proxy/wire/mod.rs#L861) |
+| vec | macro invocation (unexpanded) | parts_from_anthropic_content | [863](../../src-tauri/src/proxy/wire/mod.rs#L863) |
+| matches | macro invocation (unexpanded) | parts_from_anthropic_content | [867](../../src-tauri/src/proxy/wire/mod.rs#L867) |
+| anthropic_block | function_item |  | [901](../../src-tauri/src/proxy/wire/mod.rs#L901) |
+| json | macro invocation (unexpanded) | anthropic_block | [931](../../src-tauri/src/proxy/wire/mod.rs#L931) |
+| image_from_anthropic | function_item |  | [947](../../src-tauri/src/proxy/wire/mod.rs#L947) |
+| parts_from_chat_content | function_item |  | [975](../../src-tauri/src/proxy/wire/mod.rs#L975) |
+| vec | macro invocation (unexpanded) | parts_from_chat_content | [977](../../src-tauri/src/proxy/wire/mod.rs#L977) |
+| chat_block | function_item |  | [983](../../src-tauri/src/proxy/wire/mod.rs#L983) |
+| parts_from_responses_content | function_item |  | [1013](../../src-tauri/src/proxy/wire/mod.rs#L1013) |
+| vec | macro invocation (unexpanded) | parts_from_responses_content | [1015](../../src-tauri/src/proxy/wire/mod.rs#L1015) |
+| image_from_url | function_item |  | [1050](../../src-tauri/src/proxy/wire/mod.rs#L1050) |
+| anthropic_blocks | function_item |  | [1066](../../src-tauri/src/proxy/wire/mod.rs#L1066) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1068](../../src-tauri/src/proxy/wire/mod.rs#L1068) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1069](../../src-tauri/src/proxy/wire/mod.rs#L1069) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1072](../../src-tauri/src/proxy/wire/mod.rs#L1072) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1074](../../src-tauri/src/proxy/wire/mod.rs#L1074) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1083](../../src-tauri/src/proxy/wire/mod.rs#L1083) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1084](../../src-tauri/src/proxy/wire/mod.rs#L1084) |
+| json | macro invocation (unexpanded) | anthropic_blocks | [1086](../../src-tauri/src/proxy/wire/mod.rs#L1086) |
+| anthropic_tools | function_item |  | [1090](../../src-tauri/src/proxy/wire/mod.rs#L1090) |
+| json | macro invocation (unexpanded) | anthropic_tools | [1107](../../src-tauri/src/proxy/wire/mod.rs#L1107) |
+| chat_tools | function_item |  | [1113](../../src-tauri/src/proxy/wire/mod.rs#L1113) |
+| json | macro invocation (unexpanded) | chat_tools | [1134](../../src-tauri/src/proxy/wire/mod.rs#L1134) |
+| responses_tools | function_item |  | [1140](../../src-tauri/src/proxy/wire/mod.rs#L1140) |
+| tool_name | function_item |  | [1144](../../src-tauri/src/proxy/wire/mod.rs#L1144) |
+| anthropic_tool_json | function_item |  | [1158](../../src-tauri/src/proxy/wire/mod.rs#L1158) |
+| json | macro invocation (unexpanded) | anthropic_tool_json | [1159](../../src-tauri/src/proxy/wire/mod.rs#L1159) |
+| chat_tool_json | function_item |  | [1166](../../src-tauri/src/proxy/wire/mod.rs#L1166) |
+| json | macro invocation (unexpanded) | chat_tool_json | [1167](../../src-tauri/src/proxy/wire/mod.rs#L1167) |
+| responses_tool_json | function_item |  | [1177](../../src-tauri/src/proxy/wire/mod.rs#L1177) |
+| json | macro invocation (unexpanded) | responses_tool_json | [1178](../../src-tauri/src/proxy/wire/mod.rs#L1178) |
+| anthropic_tool_choice | function_item |  | [1186](../../src-tauri/src/proxy/wire/mod.rs#L1186) |
+| chat_tool_choice | function_item |  | [1201](../../src-tauri/src/proxy/wire/mod.rs#L1201) |
+| responses_tool_choice | function_item |  | [1217](../../src-tauri/src/proxy/wire/mod.rs#L1217) |
+| anthropic_choice_json | function_item |  | [1232](../../src-tauri/src/proxy/wire/mod.rs#L1232) |
+| json | macro invocation (unexpanded) | anthropic_choice_json | [1234](../../src-tauri/src/proxy/wire/mod.rs#L1234) |
+| json | macro invocation (unexpanded) | anthropic_choice_json | [1235](../../src-tauri/src/proxy/wire/mod.rs#L1235) |
+| json | macro invocation (unexpanded) | anthropic_choice_json | [1236](../../src-tauri/src/proxy/wire/mod.rs#L1236) |
+| json | macro invocation (unexpanded) | anthropic_choice_json | [1237](../../src-tauri/src/proxy/wire/mod.rs#L1237) |
+| chat_choice_json | function_item |  | [1241](../../src-tauri/src/proxy/wire/mod.rs#L1241) |
+| json | macro invocation (unexpanded) | chat_choice_json | [1243](../../src-tauri/src/proxy/wire/mod.rs#L1243) |
+| json | macro invocation (unexpanded) | chat_choice_json | [1244](../../src-tauri/src/proxy/wire/mod.rs#L1244) |
+| json | macro invocation (unexpanded) | chat_choice_json | [1245](../../src-tauri/src/proxy/wire/mod.rs#L1245) |
+| json | macro invocation (unexpanded) | chat_choice_json | [1246](../../src-tauri/src/proxy/wire/mod.rs#L1246) |
+| responses_choice_json | function_item |  | [1250](../../src-tauri/src/proxy/wire/mod.rs#L1250) |
+| json | macro invocation (unexpanded) | responses_choice_json | [1252](../../src-tauri/src/proxy/wire/mod.rs#L1252) |
+| json | macro invocation (unexpanded) | responses_choice_json | [1253](../../src-tauri/src/proxy/wire/mod.rs#L1253) |
+| json | macro invocation (unexpanded) | responses_choice_json | [1254](../../src-tauri/src/proxy/wire/mod.rs#L1254) |
+| json | macro invocation (unexpanded) | responses_choice_json | [1255](../../src-tauri/src/proxy/wire/mod.rs#L1255) |
+| chat_usage | function_item |  | [1259](../../src-tauri/src/proxy/wire/mod.rs#L1259) |
+| responses_usage | function_item |  | [1279](../../src-tauri/src/proxy/wire/mod.rs#L1279) |
+| reasoning_text | function_item |  | [1299](../../src-tauri/src/proxy/wire/mod.rs#L1299) |
+| chat_image_url | function_item |  | [1307](../../src-tauri/src/proxy/wire/mod.rs#L1307) |
+| format | macro invocation (unexpanded) | chat_image_url | [1314](../../src-tauri/src/proxy/wire/mod.rs#L1314) |
+| split_data_url | function_item |  | [1320](../../src-tauri/src/proxy/wire/mod.rs#L1320) |
+| content_text | function_item |  | [1330](../../src-tauri/src/proxy/wire/mod.rs#L1330) |
+| string_field | function_item |  | [1361](../../src-tauri/src/proxy/wire/mod.rs#L1361) |
+| copy_option | function_item |  | [1369](../../src-tauri/src/proxy/wire/mod.rs#L1369) |
+| tests | mod_item |  | [1376](../../src-tauri/src/proxy/wire/mod.rs#L1376) |
+| sample_anthropic | function_item | tests | [1382](../../src-tauri/src/proxy/wire/mod.rs#L1382) |
+| json | macro invocation (unexpanded) | tests::sample_anthropic | [1383](../../src-tauri/src/proxy/wire/mod.rs#L1383) |
+| assert_roundtrip | function_item | tests | [1407](../../src-tauri/src/proxy/wire/mod.rs#L1407) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1408](../../src-tauri/src/proxy/wire/mod.rs#L1408) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1409](../../src-tauri/src/proxy/wire/mod.rs#L1409) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1410](../../src-tauri/src/proxy/wire/mod.rs#L1410) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1412](../../src-tauri/src/proxy/wire/mod.rs#L1412) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1413](../../src-tauri/src/proxy/wire/mod.rs#L1413) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1421](../../src-tauri/src/proxy/wire/mod.rs#L1421) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1430](../../src-tauri/src/proxy/wire/mod.rs#L1430) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1431](../../src-tauri/src/proxy/wire/mod.rs#L1431) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1432](../../src-tauri/src/proxy/wire/mod.rs#L1432) |
+| assert_eq | macro invocation (unexpanded) | tests::assert_roundtrip | [1440](../../src-tauri/src/proxy/wire/mod.rs#L1440) |
+| anthropic_chat_and_responses_roundtrip_text_image_and_tool | function_item | tests | [1450](../../src-tauri/src/proxy/wire/mod.rs#L1450) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1456](../../src-tauri/src/proxy/wire/mod.rs#L1456) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1460](../../src-tauri/src/proxy/wire/mod.rs#L1460) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1464](../../src-tauri/src/proxy/wire/mod.rs#L1464) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1469](../../src-tauri/src/proxy/wire/mod.rs#L1469) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1470](../../src-tauri/src/proxy/wire/mod.rs#L1470) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1475](../../src-tauri/src/proxy/wire/mod.rs#L1475) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1476](../../src-tauri/src/proxy/wire/mod.rs#L1476) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1480](../../src-tauri/src/proxy/wire/mod.rs#L1480) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_chat_and_responses_roundtrip_text_image_and_tool | [1481](../../src-tauri/src/proxy/wire/mod.rs#L1481) |
+| response_usage_stop_and_tool_survive_chat_and_responses | function_item | tests | [1485](../../src-tauri/src/proxy/wire/mod.rs#L1485) |

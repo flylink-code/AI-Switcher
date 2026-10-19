@@ -4,107 +4,107 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/catalog.rs) · page 3/4
 
-Source SHA-256: b87491ff16bf5207bc748857a3048155b96f3a9ecf8ede2e7467ad8703b61260
+Source SHA-256: d999a674b691b2668916b837f6d071e6f2a341d5e7e8b2314207ac575af4ade1
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| collect_provider_slugs_omits_hidden_but_keeps_default | function_item | tests | [1578](../../src-tauri/src/catalog.rs#L1578) |
-| vec | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1580](../../src-tauri/src/catalog.rs#L1580) |
-| vec | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1581](../../src-tauri/src/catalog.rs#L1581) |
-| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1583](../../src-tauri/src/catalog.rs#L1583) |
-| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1584](../../src-tauri/src/catalog.rs#L1584) |
-| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1585](../../src-tauri/src/catalog.rs#L1585) |
-| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1586](../../src-tauri/src/catalog.rs#L1586) |
-| strict_resolver_takes_the_first_provider_for_a_shared_raw_model | function_item | tests | [1590](../../src-tauri/src/catalog.rs#L1590) |
-| vec | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1593](../../src-tauri/src/catalog.rs#L1593) |
-| vec | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1594](../../src-tauri/src/catalog.rs#L1594) |
-| vec | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1594](../../src-tauri/src/catalog.rs#L1594) |
-| assert_eq | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1596](../../src-tauri/src/catalog.rs#L1596) |
-| strict_resolver_rejects_unknown_gateway_ids | function_item | tests | [1603](../../src-tauri/src/catalog.rs#L1603) |
-| vec | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1605](../../src-tauri/src/catalog.rs#L1605) |
-| vec | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1606](../../src-tauri/src/catalog.rs#L1606) |
-| assert | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1608](../../src-tauri/src/catalog.rs#L1608) |
-| assert | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1612](../../src-tauri/src/catalog.rs#L1612) |
-| catalog_revision_is_stable_and_changes_with_published_metadata | function_item | tests | [1619](../../src-tauri/src/catalog.rs#L1619) |
-| vec | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1621](../../src-tauri/src/catalog.rs#L1621) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1623](../../src-tauri/src/catalog.rs#L1623) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1624](../../src-tauri/src/catalog.rs#L1624) |
-| assert_ne | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1628](../../src-tauri/src/catalog.rs#L1628) |
-| rewrite_json_model_replaces_slug | function_item | tests | [1632](../../src-tauri/src/catalog.rs#L1632) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_json_model_replaces_slug | [1636](../../src-tauri/src/catalog.rs#L1636) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_json_model_replaces_slug | [1637](../../src-tauri/src/catalog.rs#L1637) |
-| hide_official_keeps_explicit_default_and_drops_suggested_slugs | function_item | tests | [1641](../../src-tauri/src/catalog.rs#L1641) |
-| vec | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1643](../../src-tauri/src/catalog.rs#L1643) |
-| vec | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1644](../../src-tauri/src/catalog.rs#L1644) |
-| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1650](../../src-tauri/src/catalog.rs#L1650) |
-| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1651](../../src-tauri/src/catalog.rs#L1651) |
-| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1652](../../src-tauri/src/catalog.rs#L1652) |
-| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1654](../../src-tauri/src/catalog.rs#L1654) |
-| hide_official_drops_gpt6_astra_suggestions | function_item | tests | [1658](../../src-tauri/src/catalog.rs#L1658) |
-| vec | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1660](../../src-tauri/src/catalog.rs#L1660) |
-| assert | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1662](../../src-tauri/src/catalog.rs#L1662) |
-| assert | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1663](../../src-tauri/src/catalog.rs#L1663) |
-| assert | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1665](../../src-tauri/src/catalog.rs#L1665) |
-| hide_official_keeps_user_selected_cached_models | function_item | tests | [1669](../../src-tauri/src/catalog.rs#L1669) |
-| vec | macro invocation (unexpanded) | tests::hide_official_keeps_user_selected_cached_models | [1671](../../src-tauri/src/catalog.rs#L1671) |
-| vec | macro invocation (unexpanded) | tests::hide_official_keeps_user_selected_cached_models | [1672](../../src-tauri/src/catalog.rs#L1672) |
-| assert_eq | macro invocation (unexpanded) | tests::hide_official_keeps_user_selected_cached_models | [1680](../../src-tauri/src/catalog.rs#L1680) |
-| normalize_rewrites_official_slug_to_catalog_subagent | function_item | tests | [1691](../../src-tauri/src/catalog.rs#L1691) |
-| vec | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1695](../../src-tauri/src/catalog.rs#L1695) |
-| vec | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1697](../../src-tauri/src/catalog.rs#L1697) |
-| vec | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1697](../../src-tauri/src/catalog.rs#L1697) |
-| assert_eq | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1698](../../src-tauri/src/catalog.rs#L1698) |
-| assert_eq | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1712](../../src-tauri/src/catalog.rs#L1712) |
-| assert_eq | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1726](../../src-tauri/src/catalog.rs#L1726) |
-| catalog_subagent_without_setting_follows_current_default | function_item | tests | [1743](../../src-tauri/src/catalog.rs#L1743) |
-| vec | macro invocation (unexpanded) | tests::catalog_subagent_without_setting_follows_current_default | [1748](../../src-tauri/src/catalog.rs#L1748) |
-| assert | macro invocation (unexpanded) | tests::catalog_subagent_without_setting_follows_current_default | [1760](../../src-tauri/src/catalog.rs#L1760) |
-| hide_official_maps_claude_role_ids_to_subagent | function_item | tests | [1767](../../src-tauri/src/catalog.rs#L1767) |
-| vec | macro invocation (unexpanded) | tests::hide_official_maps_claude_role_ids_to_subagent | [1769](../../src-tauri/src/catalog.rs#L1769) |
-| vec | macro invocation (unexpanded) | tests::hide_official_maps_claude_role_ids_to_subagent | [1770](../../src-tauri/src/catalog.rs#L1770) |
-| assert_eq | macro invocation (unexpanded) | tests::hide_official_maps_claude_role_ids_to_subagent | [1771](../../src-tauri/src/catalog.rs#L1771) |
-| catalog_haiku_uses_subagent_when_official_models_are_visible | function_item | tests | [1788](../../src-tauri/src/catalog.rs#L1788) |
-| vec | macro invocation (unexpanded) | tests::catalog_haiku_uses_subagent_when_official_models_are_visible | [1791](../../src-tauri/src/catalog.rs#L1791) |
-| vec | macro invocation (unexpanded) | tests::catalog_haiku_uses_subagent_when_official_models_are_visible | [1796](../../src-tauri/src/catalog.rs#L1796) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_haiku_uses_subagent_when_official_models_are_visible | [1813](../../src-tauri/src/catalog.rs#L1813) |
-| force_subagent_keeps_mode_chosen_upstream | function_item | tests | [1820](../../src-tauri/src/catalog.rs#L1820) |
-| vec | macro invocation (unexpanded) | tests::force_subagent_keeps_mode_chosen_upstream | [1824](../../src-tauri/src/catalog.rs#L1824) |
-| vec | macro invocation (unexpanded) | tests::force_subagent_keeps_mode_chosen_upstream | [1829](../../src-tauri/src/catalog.rs#L1829) |
-| assert_eq | macro invocation (unexpanded) | tests::force_subagent_keeps_mode_chosen_upstream | [1846](../../src-tauri/src/catalog.rs#L1846) |
-| catalog_failover_uses_takeover_default_not_gemini | function_item | tests | [1853](../../src-tauri/src/catalog.rs#L1853) |
-| vec | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1858](../../src-tauri/src/catalog.rs#L1858) |
-| vec | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1858](../../src-tauri/src/catalog.rs#L1858) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1860](../../src-tauri/src/catalog.rs#L1860) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1864](../../src-tauri/src/catalog.rs#L1864) |
-| leftover_opusplan_slots_do_not_remap_role_ids | function_item | tests | [1871](../../src-tauri/src/catalog.rs#L1871) |
-| vec | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1875](../../src-tauri/src/catalog.rs#L1875) |
-| vec | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1879](../../src-tauri/src/catalog.rs#L1879) |
-| vec | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1880](../../src-tauri/src/catalog.rs#L1880) |
-| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1885](../../src-tauri/src/catalog.rs#L1885) |
-| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1899](../../src-tauri/src/catalog.rs#L1899) |
-| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1913](../../src-tauri/src/catalog.rs#L1913) |
-| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1927](../../src-tauri/src/catalog.rs#L1927) |
-| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1941](../../src-tauri/src/catalog.rs#L1941) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream | [1640](../../src-tauri/src/catalog.rs#L1640) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream | [1641](../../src-tauri/src/catalog.rs#L1641) |
+| collect_provider_slugs_omits_hidden_but_keeps_default | function_item | tests | [1648](../../src-tauri/src/catalog.rs#L1648) |
+| vec | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1650](../../src-tauri/src/catalog.rs#L1650) |
+| vec | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1651](../../src-tauri/src/catalog.rs#L1651) |
+| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1653](../../src-tauri/src/catalog.rs#L1653) |
+| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1654](../../src-tauri/src/catalog.rs#L1654) |
+| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1655](../../src-tauri/src/catalog.rs#L1655) |
+| assert | macro invocation (unexpanded) | tests::collect_provider_slugs_omits_hidden_but_keeps_default | [1656](../../src-tauri/src/catalog.rs#L1656) |
+| strict_resolver_takes_the_first_provider_for_a_shared_raw_model | function_item | tests | [1660](../../src-tauri/src/catalog.rs#L1660) |
+| vec | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1663](../../src-tauri/src/catalog.rs#L1663) |
+| vec | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1664](../../src-tauri/src/catalog.rs#L1664) |
+| vec | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1664](../../src-tauri/src/catalog.rs#L1664) |
+| assert_eq | macro invocation (unexpanded) | tests::strict_resolver_takes_the_first_provider_for_a_shared_raw_model | [1666](../../src-tauri/src/catalog.rs#L1666) |
+| strict_resolver_rejects_unknown_gateway_ids | function_item | tests | [1673](../../src-tauri/src/catalog.rs#L1673) |
+| vec | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1675](../../src-tauri/src/catalog.rs#L1675) |
+| vec | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1676](../../src-tauri/src/catalog.rs#L1676) |
+| assert | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1678](../../src-tauri/src/catalog.rs#L1678) |
+| assert | macro invocation (unexpanded) | tests::strict_resolver_rejects_unknown_gateway_ids | [1682](../../src-tauri/src/catalog.rs#L1682) |
+| catalog_revision_is_stable_and_changes_with_published_metadata | function_item | tests | [1689](../../src-tauri/src/catalog.rs#L1689) |
+| vec | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1691](../../src-tauri/src/catalog.rs#L1691) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1693](../../src-tauri/src/catalog.rs#L1693) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1694](../../src-tauri/src/catalog.rs#L1694) |
+| assert_ne | macro invocation (unexpanded) | tests::catalog_revision_is_stable_and_changes_with_published_metadata | [1698](../../src-tauri/src/catalog.rs#L1698) |
+| rewrite_json_model_replaces_slug | function_item | tests | [1702](../../src-tauri/src/catalog.rs#L1702) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_json_model_replaces_slug | [1706](../../src-tauri/src/catalog.rs#L1706) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_json_model_replaces_slug | [1707](../../src-tauri/src/catalog.rs#L1707) |
+| hide_official_keeps_explicit_default_and_drops_suggested_slugs | function_item | tests | [1711](../../src-tauri/src/catalog.rs#L1711) |
+| vec | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1713](../../src-tauri/src/catalog.rs#L1713) |
+| vec | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1714](../../src-tauri/src/catalog.rs#L1714) |
+| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1720](../../src-tauri/src/catalog.rs#L1720) |
+| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1721](../../src-tauri/src/catalog.rs#L1721) |
+| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1722](../../src-tauri/src/catalog.rs#L1722) |
+| assert | macro invocation (unexpanded) | tests::hide_official_keeps_explicit_default_and_drops_suggested_slugs | [1724](../../src-tauri/src/catalog.rs#L1724) |
+| hide_official_drops_gpt6_astra_suggestions | function_item | tests | [1728](../../src-tauri/src/catalog.rs#L1728) |
+| vec | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1730](../../src-tauri/src/catalog.rs#L1730) |
+| assert | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1732](../../src-tauri/src/catalog.rs#L1732) |
+| assert | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1733](../../src-tauri/src/catalog.rs#L1733) |
+| assert | macro invocation (unexpanded) | tests::hide_official_drops_gpt6_astra_suggestions | [1735](../../src-tauri/src/catalog.rs#L1735) |
+| hide_official_keeps_user_selected_cached_models | function_item | tests | [1739](../../src-tauri/src/catalog.rs#L1739) |
+| vec | macro invocation (unexpanded) | tests::hide_official_keeps_user_selected_cached_models | [1741](../../src-tauri/src/catalog.rs#L1741) |
+| vec | macro invocation (unexpanded) | tests::hide_official_keeps_user_selected_cached_models | [1742](../../src-tauri/src/catalog.rs#L1742) |
+| assert_eq | macro invocation (unexpanded) | tests::hide_official_keeps_user_selected_cached_models | [1750](../../src-tauri/src/catalog.rs#L1750) |
+| normalize_rewrites_official_slug_to_catalog_subagent | function_item | tests | [1761](../../src-tauri/src/catalog.rs#L1761) |
+| vec | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1765](../../src-tauri/src/catalog.rs#L1765) |
+| vec | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1767](../../src-tauri/src/catalog.rs#L1767) |
+| vec | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1767](../../src-tauri/src/catalog.rs#L1767) |
+| assert_eq | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1768](../../src-tauri/src/catalog.rs#L1768) |
+| assert_eq | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1782](../../src-tauri/src/catalog.rs#L1782) |
+| assert_eq | macro invocation (unexpanded) | tests::normalize_rewrites_official_slug_to_catalog_subagent | [1796](../../src-tauri/src/catalog.rs#L1796) |
+| catalog_subagent_without_setting_follows_current_default | function_item | tests | [1813](../../src-tauri/src/catalog.rs#L1813) |
+| vec | macro invocation (unexpanded) | tests::catalog_subagent_without_setting_follows_current_default | [1818](../../src-tauri/src/catalog.rs#L1818) |
+| assert | macro invocation (unexpanded) | tests::catalog_subagent_without_setting_follows_current_default | [1830](../../src-tauri/src/catalog.rs#L1830) |
+| hide_official_maps_claude_role_ids_to_subagent | function_item | tests | [1837](../../src-tauri/src/catalog.rs#L1837) |
+| vec | macro invocation (unexpanded) | tests::hide_official_maps_claude_role_ids_to_subagent | [1839](../../src-tauri/src/catalog.rs#L1839) |
+| vec | macro invocation (unexpanded) | tests::hide_official_maps_claude_role_ids_to_subagent | [1840](../../src-tauri/src/catalog.rs#L1840) |
+| assert_eq | macro invocation (unexpanded) | tests::hide_official_maps_claude_role_ids_to_subagent | [1841](../../src-tauri/src/catalog.rs#L1841) |
+| catalog_haiku_uses_subagent_when_official_models_are_visible | function_item | tests | [1858](../../src-tauri/src/catalog.rs#L1858) |
+| vec | macro invocation (unexpanded) | tests::catalog_haiku_uses_subagent_when_official_models_are_visible | [1861](../../src-tauri/src/catalog.rs#L1861) |
+| vec | macro invocation (unexpanded) | tests::catalog_haiku_uses_subagent_when_official_models_are_visible | [1866](../../src-tauri/src/catalog.rs#L1866) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_haiku_uses_subagent_when_official_models_are_visible | [1883](../../src-tauri/src/catalog.rs#L1883) |
+| force_subagent_keeps_mode_chosen_upstream | function_item | tests | [1890](../../src-tauri/src/catalog.rs#L1890) |
+| vec | macro invocation (unexpanded) | tests::force_subagent_keeps_mode_chosen_upstream | [1894](../../src-tauri/src/catalog.rs#L1894) |
+| vec | macro invocation (unexpanded) | tests::force_subagent_keeps_mode_chosen_upstream | [1899](../../src-tauri/src/catalog.rs#L1899) |
+| assert_eq | macro invocation (unexpanded) | tests::force_subagent_keeps_mode_chosen_upstream | [1916](../../src-tauri/src/catalog.rs#L1916) |
+| catalog_failover_uses_takeover_default_not_gemini | function_item | tests | [1923](../../src-tauri/src/catalog.rs#L1923) |
+| vec | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1928](../../src-tauri/src/catalog.rs#L1928) |
+| vec | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1928](../../src-tauri/src/catalog.rs#L1928) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1930](../../src-tauri/src/catalog.rs#L1930) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_failover_uses_takeover_default_not_gemini | [1934](../../src-tauri/src/catalog.rs#L1934) |
+| leftover_opusplan_slots_do_not_remap_role_ids | function_item | tests | [1941](../../src-tauri/src/catalog.rs#L1941) |
+| vec | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1945](../../src-tauri/src/catalog.rs#L1945) |
+| vec | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1949](../../src-tauri/src/catalog.rs#L1949) |
+| vec | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1950](../../src-tauri/src/catalog.rs#L1950) |
 | assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1955](../../src-tauri/src/catalog.rs#L1955) |
-| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1970](../../src-tauri/src/catalog.rs#L1970) |
-| assert | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1986](../../src-tauri/src/catalog.rs#L1986) |
-| assert | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1987](../../src-tauri/src/catalog.rs#L1987) |
-| assert | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1988](../../src-tauri/src/catalog.rs#L1988) |
-| auto_ids_are_recognised_but_never_listed | function_item | tests | [1996](../../src-tauri/src/catalog.rs#L1996) |
-| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [1997](../../src-tauri/src/catalog.rs#L1997) |
-| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [1998](../../src-tauri/src/catalog.rs#L1998) |
-| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [1999](../../src-tauri/src/catalog.rs#L1999) |
-| vec | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2002](../../src-tauri/src/catalog.rs#L2002) |
-| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2003](../../src-tauri/src/catalog.rs#L2003) |
-| assert_eq | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2013](../../src-tauri/src/catalog.rs#L2013) |
-| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2014](../../src-tauri/src/catalog.rs#L2014) |
-| assert_eq | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2016](../../src-tauri/src/catalog.rs#L2016) |
-| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2017](../../src-tauri/src/catalog.rs#L2017) |
-| assert_eq | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2018](../../src-tauri/src/catalog.rs#L2018) |
-| injected_claude_roles_are_not_explicit_passthrough | function_item | tests | [2022](../../src-tauri/src/catalog.rs#L2022) |
-| vec | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2024](../../src-tauri/src/catalog.rs#L2024) |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2025](../../src-tauri/src/catalog.rs#L2025) |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2029](../../src-tauri/src/catalog.rs#L2029) |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2033](../../src-tauri/src/catalog.rs#L2033) |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2034](../../src-tauri/src/catalog.rs#L2034) |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2035](../../src-tauri/src/catalog.rs#L2035) |
+| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1969](../../src-tauri/src/catalog.rs#L1969) |
+| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1983](../../src-tauri/src/catalog.rs#L1983) |
+| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [1997](../../src-tauri/src/catalog.rs#L1997) |
+| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [2011](../../src-tauri/src/catalog.rs#L2011) |
+| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [2025](../../src-tauri/src/catalog.rs#L2025) |
+| assert_eq | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [2040](../../src-tauri/src/catalog.rs#L2040) |
+| assert | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [2056](../../src-tauri/src/catalog.rs#L2056) |
+| assert | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [2057](../../src-tauri/src/catalog.rs#L2057) |
+| assert | macro invocation (unexpanded) | tests::leftover_opusplan_slots_do_not_remap_role_ids | [2058](../../src-tauri/src/catalog.rs#L2058) |
+| auto_ids_are_recognised_but_never_listed | function_item | tests | [2066](../../src-tauri/src/catalog.rs#L2066) |
+| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2067](../../src-tauri/src/catalog.rs#L2067) |
+| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2068](../../src-tauri/src/catalog.rs#L2068) |
+| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2069](../../src-tauri/src/catalog.rs#L2069) |
+| vec | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2072](../../src-tauri/src/catalog.rs#L2072) |
+| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2073](../../src-tauri/src/catalog.rs#L2073) |
+| assert_eq | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2083](../../src-tauri/src/catalog.rs#L2083) |
+| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2084](../../src-tauri/src/catalog.rs#L2084) |
+| assert_eq | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2086](../../src-tauri/src/catalog.rs#L2086) |
+| assert | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2087](../../src-tauri/src/catalog.rs#L2087) |
+| assert_eq | macro invocation (unexpanded) | tests::auto_ids_are_recognised_but_never_listed | [2088](../../src-tauri/src/catalog.rs#L2088) |
+| injected_claude_roles_are_not_explicit_passthrough | function_item | tests | [2092](../../src-tauri/src/catalog.rs#L2092) |
+| vec | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2094](../../src-tauri/src/catalog.rs#L2094) |
+| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2095](../../src-tauri/src/catalog.rs#L2095) |
+| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2099](../../src-tauri/src/catalog.rs#L2099) |
+| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2103](../../src-tauri/src/catalog.rs#L2103) |

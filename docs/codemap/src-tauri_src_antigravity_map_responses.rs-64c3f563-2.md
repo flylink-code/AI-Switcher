@@ -4,48 +4,49 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/map/responses.rs) · page 2/2
 
-Source SHA-256: 3680c8673ad0a884bd2bd4f1155d26daca4a6533c7a3b4b5475f37cad6179c02
+Source SHA-256: 744c622bfb8efe5b70dc4e92b0ff3c7dd1edc88a1ac4a28da233cea16de08f49
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::responses_prefill_behavior_preserved | [895](../../src-tauri/src/antigravity/map/responses.rs#L895) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_prefill_behavior_preserved | [896](../../src-tauri/src/antigravity/map/responses.rs#L896) |
-| responses_isolated_output_behavior_preserved | function_item | tests | [900](../../src-tauri/src/antigravity/map/responses.rs#L900) |
-| json | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [901](../../src-tauri/src/antigravity/map/responses.rs#L901) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [905](../../src-tauri/src/antigravity/map/responses.rs#L905) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [906](../../src-tauri/src/antigravity/map/responses.rs#L906) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [907](../../src-tauri/src/antigravity/map/responses.rs#L907) |
-| responses_input_maps_to_gemini | function_item | tests | [911](../../src-tauri/src/antigravity/map/responses.rs#L911) |
-| json | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [912](../../src-tauri/src/antigravity/map/responses.rs#L912) |
-| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [922](../../src-tauri/src/antigravity/map/responses.rs#L922) |
-| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [923](../../src-tauri/src/antigravity/map/responses.rs#L923) |
-| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [928](../../src-tauri/src/antigravity/map/responses.rs#L928) |
-| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [929](../../src-tauri/src/antigravity/map/responses.rs#L929) |
-| responses_reasoning_effort_controls_gemini_38_flash_tier | function_item | tests | [933](../../src-tauri/src/antigravity/map/responses.rs#L933) |
-| json | macro invocation (unexpanded) | tests::responses_reasoning_effort_controls_gemini_38_flash_tier | [939](../../src-tauri/src/antigravity/map/responses.rs#L939) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_reasoning_effort_controls_gemini_38_flash_tier | [945](../../src-tauri/src/antigravity/map/responses.rs#L945) |
-| function_call_roundtrip_shapes | function_item | tests | [950](../../src-tauri/src/antigravity/map/responses.rs#L950) |
-| json | macro invocation (unexpanded) | tests::function_call_roundtrip_shapes | [951](../../src-tauri/src/antigravity/map/responses.rs#L951) |
-| assert | macro invocation (unexpanded) | tests::function_call_roundtrip_shapes | [975](../../src-tauri/src/antigravity/map/responses.rs#L975) |
-| assert | macro invocation (unexpanded) | tests::function_call_roundtrip_shapes | [977](../../src-tauri/src/antigravity/map/responses.rs#L977) |
-| stream_encoder_emits_created_and_completed | function_item | tests | [987](../../src-tauri/src/antigravity/map/responses.rs#L987) |
-| json | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [990](../../src-tauri/src/antigravity/map/responses.rs#L990) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [998](../../src-tauri/src/antigravity/map/responses.rs#L998) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [999](../../src-tauri/src/antigravity/map/responses.rs#L999) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1000](../../src-tauri/src/antigravity/map/responses.rs#L1000) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1002](../../src-tauri/src/antigravity/map/responses.rs#L1002) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1003](../../src-tauri/src/antigravity/map/responses.rs#L1003) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1004](../../src-tauri/src/antigravity/map/responses.rs#L1004) |
+| json | macro invocation (unexpanded) | tests::responses_prefill_behavior_preserved | [899](../../src-tauri/src/antigravity/map/responses.rs#L899) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_prefill_behavior_preserved | [904](../../src-tauri/src/antigravity/map/responses.rs#L904) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_prefill_behavior_preserved | [905](../../src-tauri/src/antigravity/map/responses.rs#L905) |
+| responses_isolated_output_behavior_preserved | function_item | tests | [909](../../src-tauri/src/antigravity/map/responses.rs#L909) |
+| json | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [910](../../src-tauri/src/antigravity/map/responses.rs#L910) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [914](../../src-tauri/src/antigravity/map/responses.rs#L914) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [915](../../src-tauri/src/antigravity/map/responses.rs#L915) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_isolated_output_behavior_preserved | [916](../../src-tauri/src/antigravity/map/responses.rs#L916) |
+| responses_input_maps_to_gemini | function_item | tests | [920](../../src-tauri/src/antigravity/map/responses.rs#L920) |
+| json | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [921](../../src-tauri/src/antigravity/map/responses.rs#L921) |
+| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [931](../../src-tauri/src/antigravity/map/responses.rs#L931) |
+| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [932](../../src-tauri/src/antigravity/map/responses.rs#L932) |
+| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [937](../../src-tauri/src/antigravity/map/responses.rs#L937) |
+| assert | macro invocation (unexpanded) | tests::responses_input_maps_to_gemini | [938](../../src-tauri/src/antigravity/map/responses.rs#L938) |
+| responses_reasoning_effort_controls_gemini_38_flash_tier | function_item | tests | [942](../../src-tauri/src/antigravity/map/responses.rs#L942) |
+| json | macro invocation (unexpanded) | tests::responses_reasoning_effort_controls_gemini_38_flash_tier | [948](../../src-tauri/src/antigravity/map/responses.rs#L948) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_reasoning_effort_controls_gemini_38_flash_tier | [954](../../src-tauri/src/antigravity/map/responses.rs#L954) |
+| function_call_roundtrip_shapes | function_item | tests | [959](../../src-tauri/src/antigravity/map/responses.rs#L959) |
+| json | macro invocation (unexpanded) | tests::function_call_roundtrip_shapes | [960](../../src-tauri/src/antigravity/map/responses.rs#L960) |
+| assert | macro invocation (unexpanded) | tests::function_call_roundtrip_shapes | [984](../../src-tauri/src/antigravity/map/responses.rs#L984) |
+| assert | macro invocation (unexpanded) | tests::function_call_roundtrip_shapes | [986](../../src-tauri/src/antigravity/map/responses.rs#L986) |
+| stream_encoder_emits_created_and_completed | function_item | tests | [996](../../src-tauri/src/antigravity/map/responses.rs#L996) |
+| json | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [999](../../src-tauri/src/antigravity/map/responses.rs#L999) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1007](../../src-tauri/src/antigravity/map/responses.rs#L1007) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1008](../../src-tauri/src/antigravity/map/responses.rs#L1008) |
 | assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1009](../../src-tauri/src/antigravity/map/responses.rs#L1009) |
-| stream_encoder_counts_thoughts_in_output_and_reasoning_details | function_item | tests | [1016](../../src-tauri/src/antigravity/map/responses.rs#L1016) |
-| json | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1019](../../src-tauri/src/antigravity/map/responses.rs#L1019) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1032](../../src-tauri/src/antigravity/map/responses.rs#L1032) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1036](../../src-tauri/src/antigravity/map/responses.rs#L1036) |
-| assert | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1040](../../src-tauri/src/antigravity/map/responses.rs#L1040) |
-| compact_stub_returns_compaction_object | function_item | tests | [1047](../../src-tauri/src/antigravity/map/responses.rs#L1047) |
-| json | macro invocation (unexpanded) | tests::compact_stub_returns_compaction_object | [1048](../../src-tauri/src/antigravity/map/responses.rs#L1048) |
-| assert_eq | macro invocation (unexpanded) | tests::compact_stub_returns_compaction_object | [1053](../../src-tauri/src/antigravity/map/responses.rs#L1053) |
-| assert_eq | macro invocation (unexpanded) | tests::compact_stub_returns_compaction_object | [1054](../../src-tauri/src/antigravity/map/responses.rs#L1054) |
-| historical_function_calls_get_thought_signature | function_item | tests | [1058](../../src-tauri/src/antigravity/map/responses.rs#L1058) |
-| json | macro invocation (unexpanded) | tests::historical_function_calls_get_thought_signature | [1059](../../src-tauri/src/antigravity/map/responses.rs#L1059) |
-| assert_eq | macro invocation (unexpanded) | tests::historical_function_calls_get_thought_signature | [1083](../../src-tauri/src/antigravity/map/responses.rs#L1083) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1011](../../src-tauri/src/antigravity/map/responses.rs#L1011) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1012](../../src-tauri/src/antigravity/map/responses.rs#L1012) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1013](../../src-tauri/src/antigravity/map/responses.rs#L1013) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_emits_created_and_completed | [1018](../../src-tauri/src/antigravity/map/responses.rs#L1018) |
+| stream_encoder_counts_thoughts_in_output_and_reasoning_details | function_item | tests | [1025](../../src-tauri/src/antigravity/map/responses.rs#L1025) |
+| json | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1028](../../src-tauri/src/antigravity/map/responses.rs#L1028) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1041](../../src-tauri/src/antigravity/map/responses.rs#L1041) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1045](../../src-tauri/src/antigravity/map/responses.rs#L1045) |
+| assert | macro invocation (unexpanded) | tests::stream_encoder_counts_thoughts_in_output_and_reasoning_details | [1049](../../src-tauri/src/antigravity/map/responses.rs#L1049) |
+| compact_stub_returns_compaction_object | function_item | tests | [1056](../../src-tauri/src/antigravity/map/responses.rs#L1056) |
+| json | macro invocation (unexpanded) | tests::compact_stub_returns_compaction_object | [1057](../../src-tauri/src/antigravity/map/responses.rs#L1057) |
+| assert_eq | macro invocation (unexpanded) | tests::compact_stub_returns_compaction_object | [1062](../../src-tauri/src/antigravity/map/responses.rs#L1062) |
+| assert_eq | macro invocation (unexpanded) | tests::compact_stub_returns_compaction_object | [1063](../../src-tauri/src/antigravity/map/responses.rs#L1063) |
+| historical_function_calls_get_thought_signature | function_item | tests | [1067](../../src-tauri/src/antigravity/map/responses.rs#L1067) |
+| json | macro invocation (unexpanded) | tests::historical_function_calls_get_thought_signature | [1068](../../src-tauri/src/antigravity/map/responses.rs#L1068) |
+| assert_eq | macro invocation (unexpanded) | tests::historical_function_calls_get_thought_signature | [1092](../../src-tauri/src/antigravity/map/responses.rs#L1092) |

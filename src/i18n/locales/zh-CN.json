@@ -2118,6 +2118,12 @@
     "changelogTitle": "本版本更新",
     "changelogEmpty": "当前构建没有对应的更新说明。",
     "changelog": {
+      "1_6_3": [
+        "增强跨协议请求与工具调用兼容性：支持 stop_sequences 透传、无参工具调用自动补齐 \"{}\" 参数与流式增量事件、空 input 自动回退 instructions/system 提示词、工具输出多媒体与文档/联网搜索结果提取，并确保转换后的 Responses ID 全局唯一。",
+        "优化 Antigravity 与 Kiro 反代网关：新增 /v1/models/:id 单模型元数据查询与 Kiro /v1/responses/compact 端点；自动剥离 Gemini 上游触发 RESOURCE_EXHAUSTED 的 Claude Agent SDK 固定身份提示词；仅对 Flash 模型下发显式 thinkingBudget（保留 Argon / Pro 后缀推理档位）；支持 count_tokens 深度思考预算加成与 Claude Code 模型验证探活本地快速响应。",
+        "修复多跳流式日志与用量统计：引入重命名日志 ID 映射表与幂等最大值合并，解决流式信封 ID 归一后终态、耗时与诊断信息无法写回的问题；用量页新增「Kiro」独立来源筛选与语义化热力图配色。",
+        "修复 GitHub Actions 自动打包与 CI 工作流：将 Cargo.lock 纳入版本控制并约束 zip 与 tauri-plugin-deep-link 兼容版本范围，解决上游依赖破坏性更新导致 Windows / Linux 安装包无法构建的问题。"
+      ],
       "1_6_2": [
         "修复 VS Code Copilot 使用 Google Gemini 等模型时调用 view / ask_user 工具参数校验失败的问题：自动归一 Windows 盘符路径与 file:// URI、纠偏 view_range 行号范围、补齐 ask_user 表单字段缺失的 type 声明，并注入大文件截断与二进制文件读取提示以防止死循环重试。",
         "优化 Claude Code / Claude Desktop 通过 OpenAI Responses API（如 sub2api GPT 模型）流式对话体验：建连即推送 message_start 握手与 5 秒保活 ping，补齐 reasoning.summary: auto 并在进入推理阶段时立即开启 thinking 状态块，消除长思考期间的卡顿等待提示。",

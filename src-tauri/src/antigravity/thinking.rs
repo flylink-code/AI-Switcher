@@ -130,6 +130,10 @@ pub fn rectify_generate_request(request: &mut Value) {
     }
 }
 
+pub fn supports_explicit_thinking_budget(model: &str) -> bool {
+    is_flash_model(model)
+}
+
 fn is_flash_model(model: &str) -> bool {
     let lower = model.to_ascii_lowercase();
     lower.contains("flash") && !lower.contains("image")

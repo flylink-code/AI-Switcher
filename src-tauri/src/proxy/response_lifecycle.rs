@@ -184,16 +184,12 @@ impl StreamLogGuard {
         runtime.spawn_blocking(move || {
             let result = db.with_conn(|conn| {
                 // 协议转换器已记录的错误/完成优先；取消不能覆盖已有终态。
-                Ok(conn.execute(
-                    "UPDATE proxy_request_logs SET stream_outcome = ?1
-                     WHERE id = ?2 AND stream_outcome IS NULL",
-                    rusqlite::params![outcome, id],
-                )?)
+                crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                    conn, &id, outcome, None, None, None,
+                )
             });
-            match result {
-                Ok(changed) if changed > 0 => crate::usage_events::notify_log_recorded(),
-                Err(error) => log::warn!("记录响应体终态失败: {error}"),
-                _ => {}
+            if let Err(error) = result {
+                log::warn!("记录响应体终态失败: {error}");
             }
         });
     }

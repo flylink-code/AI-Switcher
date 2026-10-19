@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/thought_sig.rs) · page 1/1
 
-Source SHA-256: a43930a40b5a441f41f5b946a9b9a5c279e7112690f7d30ac950933067b35085
+Source SHA-256: c5866c02c3c6800e8902a89147d66ec6aa028f5dc8d8b9e49b26e9c8accfa5dc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -25,28 +25,35 @@ Source SHA-256: a43930a40b5a441f41f5b946a9b9a5c279e7112690f7d30ac950933067b35085
 | cache_session_index_signature | function_item |  | [118](../../src-tauri/src/antigravity/thought_sig.rs#L118) |
 | get_session_index_signature | function_item |  | [124](../../src-tauri/src/antigravity/thought_sig.rs#L124) |
 | resolve_function_call_signature | function_item |  | [128](../../src-tauri/src/antigravity/thought_sig.rs#L128) |
-| tests | mod_item |  | [139](../../src-tauri/src/antigravity/thought_sig.rs#L139) |
-| normalizes_only_supported_call_ids | function_item | tests | [143](../../src-tauri/src/antigravity/thought_sig.rs#L143) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [144](../../src-tauri/src/antigravity/thought_sig.rs#L144) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [145](../../src-tauri/src/antigravity/thought_sig.rs#L145) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [146](../../src-tauri/src/antigravity/thought_sig.rs#L146) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [147](../../src-tauri/src/antigravity/thought_sig.rs#L147) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [148](../../src-tauri/src/antigravity/thought_sig.rs#L148) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [149](../../src-tauri/src/antigravity/thought_sig.rs#L149) |
-| tool_id_variants_share_a_signature | function_item | tests | [153](../../src-tauri/src/antigravity/thought_sig.rs#L153) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_id_variants_share_a_signature | [155](../../src-tauri/src/antigravity/thought_sig.rs#L155) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_id_variants_share_a_signature | [159](../../src-tauri/src/antigravity/thought_sig.rs#L159) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_id_variants_share_a_signature | [164](../../src-tauri/src/antigravity/thought_sig.rs#L164) |
-| tool_and_session_cache_roundtrip | function_item | tests | [171](../../src-tauri/src/antigravity/thought_sig.rs#L171) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [172](../../src-tauri/src/antigravity/thought_sig.rs#L172) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [174](../../src-tauri/src/antigravity/thought_sig.rs#L174) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [179](../../src-tauri/src/antigravity/thought_sig.rs#L179) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [182](../../src-tauri/src/antigravity/thought_sig.rs#L182) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [188](../../src-tauri/src/antigravity/thought_sig.rs#L188) |
-| sentinel_and_empty_are_not_cached | function_item | tests | [195](../../src-tauri/src/antigravity/thought_sig.rs#L195) |
-| assert_eq | macro invocation (unexpanded) | tests::sentinel_and_empty_are_not_cached | [199](../../src-tauri/src/antigravity/thought_sig.rs#L199) |
-| assert_eq | macro invocation (unexpanded) | tests::sentinel_and_empty_are_not_cached | [200](../../src-tauri/src/antigravity/thought_sig.rs#L200) |
-| session_index_roundtrip_is_independent_of_latest | function_item | tests | [204](../../src-tauri/src/antigravity/thought_sig.rs#L204) |
-| assert_eq | macro invocation (unexpanded) | tests::session_index_roundtrip_is_independent_of_latest | [207](../../src-tauri/src/antigravity/thought_sig.rs#L207) |
-| assert_eq | macro invocation (unexpanded) | tests::session_index_roundtrip_is_independent_of_latest | [211](../../src-tauri/src/antigravity/thought_sig.rs#L211) |
-| assert_eq | macro invocation (unexpanded) | tests::session_index_roundtrip_is_independent_of_latest | [215](../../src-tauri/src/antigravity/thought_sig.rs#L215) |
+| evict_tool_signature | function_item |  | [138](../../src-tauri/src/antigravity/thought_sig.rs#L138) |
+| evict_session_signatures | function_item |  | [144](../../src-tauri/src/antigravity/thought_sig.rs#L144) |
+| evict_request_signatures | function_item |  | [151](../../src-tauri/src/antigravity/thought_sig.rs#L151) |
+| tests | mod_item |  | [177](../../src-tauri/src/antigravity/thought_sig.rs#L177) |
+| normalizes_only_supported_call_ids | function_item | tests | [181](../../src-tauri/src/antigravity/thought_sig.rs#L181) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [182](../../src-tauri/src/antigravity/thought_sig.rs#L182) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [183](../../src-tauri/src/antigravity/thought_sig.rs#L183) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [184](../../src-tauri/src/antigravity/thought_sig.rs#L184) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [185](../../src-tauri/src/antigravity/thought_sig.rs#L185) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [186](../../src-tauri/src/antigravity/thought_sig.rs#L186) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_only_supported_call_ids | [187](../../src-tauri/src/antigravity/thought_sig.rs#L187) |
+| tool_id_variants_share_a_signature | function_item | tests | [191](../../src-tauri/src/antigravity/thought_sig.rs#L191) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_id_variants_share_a_signature | [193](../../src-tauri/src/antigravity/thought_sig.rs#L193) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_id_variants_share_a_signature | [197](../../src-tauri/src/antigravity/thought_sig.rs#L197) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_id_variants_share_a_signature | [202](../../src-tauri/src/antigravity/thought_sig.rs#L202) |
+| tool_and_session_cache_roundtrip | function_item | tests | [209](../../src-tauri/src/antigravity/thought_sig.rs#L209) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [210](../../src-tauri/src/antigravity/thought_sig.rs#L210) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [212](../../src-tauri/src/antigravity/thought_sig.rs#L212) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [217](../../src-tauri/src/antigravity/thought_sig.rs#L217) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [220](../../src-tauri/src/antigravity/thought_sig.rs#L220) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [226](../../src-tauri/src/antigravity/thought_sig.rs#L226) |
+| serde_json::json | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [235](../../src-tauri/src/antigravity/thought_sig.rs#L235) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [242](../../src-tauri/src/antigravity/thought_sig.rs#L242) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [243](../../src-tauri/src/antigravity/thought_sig.rs#L243) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_and_session_cache_roundtrip | [244](../../src-tauri/src/antigravity/thought_sig.rs#L244) |
+| sentinel_and_empty_are_not_cached | function_item | tests | [248](../../src-tauri/src/antigravity/thought_sig.rs#L248) |
+| assert_eq | macro invocation (unexpanded) | tests::sentinel_and_empty_are_not_cached | [252](../../src-tauri/src/antigravity/thought_sig.rs#L252) |
+| assert_eq | macro invocation (unexpanded) | tests::sentinel_and_empty_are_not_cached | [253](../../src-tauri/src/antigravity/thought_sig.rs#L253) |
+| session_index_roundtrip_is_independent_of_latest | function_item | tests | [257](../../src-tauri/src/antigravity/thought_sig.rs#L257) |
+| assert_eq | macro invocation (unexpanded) | tests::session_index_roundtrip_is_independent_of_latest | [260](../../src-tauri/src/antigravity/thought_sig.rs#L260) |
+| assert_eq | macro invocation (unexpanded) | tests::session_index_roundtrip_is_independent_of_latest | [264](../../src-tauri/src/antigravity/thought_sig.rs#L264) |
+| assert_eq | macro invocation (unexpanded) | tests::session_index_roundtrip_is_independent_of_latest | [268](../../src-tauri/src/antigravity/thought_sig.rs#L268) |

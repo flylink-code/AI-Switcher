@@ -114,6 +114,7 @@ fn patch_completed_fallback_log(
     success: bool,
 ) {
     let Some(id) = id else { return; };
+    let resolved_id = crate::database::dao::proxy_logs::resolve_proxy_log_id(id);
     let attempts_json = serde_json::to_string(attempts).unwrap_or_else(|_| "[]".into());
     let result = state.db.with_conn(|conn| {
         conn.execute(
@@ -123,7 +124,7 @@ fn patch_completed_fallback_log(
             rusqlite::params![provider.id, provider.name, provider.model, provider.protocol_type.as_str(),
                 status, duration_ms, attempt_index, attempts_json,
                 if success { None } else { Some("upstream_envelope") },
-                if success { "Responses 信封失败后备用接管成功" } else { "Responses 信封失败，未获得有效备用响应" }, id],
+                if success { "Responses 信封失败后备用接管成功" } else { "Responses 信封失败，未获得有效备用响应" }, resolved_id],
         )?;
         Ok(())
     });
@@ -413,10 +414,19 @@ pub(crate) fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
 fn usage_from_value(value: &Value) -> Option<UsageCounts> {
     let usage = value
         .get("usage")
-        .or_else(|| value.pointer("/response/usage"))?;
+        .or_else(|| value.pointer("/response/usage"))
+        .or_else(|| value.pointer("/message/usage"))?;
     let input_tokens_field = usage.get("input_tokens").and_then(Value::as_i64);
     let prompt_tokens = usage.get("prompt_tokens").and_then(Value::as_i64);
-    let reported_input = input_tokens_field.or(prompt_tokens)?;
+    let output_tokens_field = usage
+        .get("output_tokens")
+        .or_else(|| usage.get("completion_tokens"))
+        .and_then(Value::as_i64);
+    let reported_input = match input_tokens_field.or(prompt_tokens) {
+        Some(v) => v,
+        None if output_tokens_field.is_some() => 0,
+        None => return None,
+    };
     // Anthropic exposes fresh input via `input_tokens` + separate `cache_read_input_tokens`.
     // OpenAI Chat / Responses expose total input and put cache under `*_tokens_details`.
     let anthropic_style_cache = usage.get("cache_read_input_tokens").and_then(Value::as_i64);

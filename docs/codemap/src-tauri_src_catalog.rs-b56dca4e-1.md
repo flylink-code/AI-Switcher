@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/catalog.rs) · page 1/4
 
-Source SHA-256: b87491ff16bf5207bc748857a3048155b96f3a9ecf8ede2e7467ad8703b61260
+Source SHA-256: d999a674b691b2668916b837f6d071e6f2a341d5e7e8b2314207ac575af4ade1
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -68,43 +68,43 @@ Source SHA-256: b87491ff16bf5207bc748857a3048155b96f3a9ecf8ede2e7467ad8703b61260
 | matches | macro invocation (unexpanded) | is_sticky_remap_role_id | [404](../../src-tauri/src/catalog.rs#L404) |
 | strip_client_model_prefix | function_item |  | [419](../../src-tauri/src/catalog.rs#L419) |
 | is_copilot_auxiliary_model | function_item |  | [442](../../src-tauri/src/catalog.rs#L442) |
-| follow_conversation_model | function_item |  | [458](../../src-tauri/src/catalog.rs#L458) |
-| follow_copilot_conversation_model | function_item |  | [490](../../src-tauri/src/catalog.rs#L490) |
-| is_configured_model_pin | function_item |  | [516](../../src-tauri/src/catalog.rs#L516) |
-| pin_matches | function_item |  | [524](../../src-tauri/src/catalog.rs#L524) |
-| follow_model_pin | function_item |  | [545](../../src-tauri/src/catalog.rs#L545) |
-| is_haiku_or_subagent_slug | function_item |  | [559](../../src-tauri/src/catalog.rs#L559) |
-| is_explicit_catalog_passthrough | function_item |  | [565](../../src-tauri/src/catalog.rs#L565) |
-| CatalogRequestError | enum_item |  | [581](../../src-tauri/src/catalog.rs#L581) |
-| StalePublicId | enum_variant | CatalogRequestError | [583](../../src-tauri/src/catalog.rs#L583) |
-| UnknownPublicId | enum_variant | CatalogRequestError | [585](../../src-tauri/src/catalog.rs#L585) |
-| CatalogRequestError | impl |  | [588](../../src-tauri/src/catalog.rs#L588) |
-| requested | function_item | CatalogRequestError | [590](../../src-tauri/src/catalog.rs#L590) |
-| is_model_not_found | function_item | CatalogRequestError | [597](../../src-tauri/src/catalog.rs#L597) |
-| fmt::Display for CatalogRequestError | impl |  | [602](../../src-tauri/src/catalog.rs#L602) |
-| fmt | function_item | fmt::Display for CatalogRequestError | [603](../../src-tauri/src/catalog.rs#L603) |
-| write | macro invocation (unexpanded) | fmt::Display for CatalogRequestError::fmt | [606](../../src-tauri/src/catalog.rs#L606) |
-| write | macro invocation (unexpanded) | fmt::Display for CatalogRequestError::fmt | [612](../../src-tauri/src/catalog.rs#L612) |
-| resolve_request_strict | function_item |  | [623](../../src-tauri/src/catalog.rs#L623) |
-| canonical_public_id | function_item |  | [730](../../src-tauri/src/catalog.rs#L730) |
-| resolve_request | function_item |  | [754](../../src-tauri/src/catalog.rs#L754) |
-| catalog_revision | function_item |  | [765](../../src-tauri/src/catalog.rs#L765) |
-| format | macro invocation (unexpanded) | catalog_revision | [804](../../src-tauri/src/catalog.rs#L804) |
-| claude_discovery_model | function_item |  | [811](../../src-tauri/src/catalog.rs#L811) |
-| json | macro invocation (unexpanded) | claude_discovery_model | [818](../../src-tauri/src/catalog.rs#L818) |
-| claude_discovery_payload | function_item |  | [830](../../src-tauri/src/catalog.rs#L830) |
-| json | macro invocation (unexpanded) | claude_discovery_payload | [839](../../src-tauri/src/catalog.rs#L839) |
-| find_catalog_entry | function_item |  | [848](../../src-tauri/src/catalog.rs#L848) |
-| advertised_context_window | function_item |  | [867](../../src-tauri/src/catalog.rs#L867) |
-| openai_discovery_model | function_item |  | [883](../../src-tauri/src/catalog.rs#L883) |
-| json | macro invocation (unexpanded) | openai_discovery_model | [901](../../src-tauri/src/catalog.rs#L901) |
-| openai_models_payload | function_item |  | [925](../../src-tauri/src/catalog.rs#L925) |
-| json | macro invocation (unexpanded) | openai_models_payload | [926](../../src-tauri/src/catalog.rs#L926) |
-| rewrite_json_model | function_item |  | [932](../../src-tauri/src/catalog.rs#L932) |
-| is_injected_official_model_slug | function_item |  | [943](../../src-tauri/src/catalog.rs#L943) |
-| catalog_in_entries | function_item |  | [947](../../src-tauri/src/catalog.rs#L947) |
-| catalog_fallback_id | function_item |  | [958](../../src-tauri/src/catalog.rs#L958) |
-| catalog_subagent_target | function_item |  | [984](../../src-tauri/src/catalog.rs#L984) |
-| normalize_client_request | function_item |  | [993](../../src-tauri/src/catalog.rs#L993) |
-| normalize_client_request_with | function_item |  | [1018](../../src-tauri/src/catalog.rs#L1018) |
-| failover_upstream_for_provider | function_item |  | [1072](../../src-tauri/src/catalog.rs#L1072) |
+| strip_gateway_style_prefix | function_item |  | [456](../../src-tauri/src/catalog.rs#L456) |
+| entry_matches_requested | function_item |  | [467](../../src-tauri/src/catalog.rs#L467) |
+| follow_conversation_model | function_item |  | [503](../../src-tauri/src/catalog.rs#L503) |
+| follow_copilot_conversation_model | function_item |  | [539](../../src-tauri/src/catalog.rs#L539) |
+| is_configured_model_pin | function_item |  | [565](../../src-tauri/src/catalog.rs#L565) |
+| pin_matches | function_item |  | [573](../../src-tauri/src/catalog.rs#L573) |
+| follow_model_pin | function_item |  | [594](../../src-tauri/src/catalog.rs#L594) |
+| is_haiku_or_subagent_slug | function_item |  | [608](../../src-tauri/src/catalog.rs#L608) |
+| is_explicit_catalog_passthrough | function_item |  | [614](../../src-tauri/src/catalog.rs#L614) |
+| CatalogRequestError | enum_item |  | [628](../../src-tauri/src/catalog.rs#L628) |
+| StalePublicId | enum_variant | CatalogRequestError | [630](../../src-tauri/src/catalog.rs#L630) |
+| UnknownPublicId | enum_variant | CatalogRequestError | [632](../../src-tauri/src/catalog.rs#L632) |
+| CatalogRequestError | impl |  | [635](../../src-tauri/src/catalog.rs#L635) |
+| requested | function_item | CatalogRequestError | [637](../../src-tauri/src/catalog.rs#L637) |
+| is_model_not_found | function_item | CatalogRequestError | [644](../../src-tauri/src/catalog.rs#L644) |
+| fmt::Display for CatalogRequestError | impl |  | [649](../../src-tauri/src/catalog.rs#L649) |
+| fmt | function_item | fmt::Display for CatalogRequestError | [650](../../src-tauri/src/catalog.rs#L650) |
+| write | macro invocation (unexpanded) | fmt::Display for CatalogRequestError::fmt | [653](../../src-tauri/src/catalog.rs#L653) |
+| write | macro invocation (unexpanded) | fmt::Display for CatalogRequestError::fmt | [659](../../src-tauri/src/catalog.rs#L659) |
+| resolve_request_strict | function_item |  | [670](../../src-tauri/src/catalog.rs#L670) |
+| canonical_public_id | function_item |  | [805](../../src-tauri/src/catalog.rs#L805) |
+| resolve_request | function_item |  | [829](../../src-tauri/src/catalog.rs#L829) |
+| catalog_revision | function_item |  | [840](../../src-tauri/src/catalog.rs#L840) |
+| format | macro invocation (unexpanded) | catalog_revision | [879](../../src-tauri/src/catalog.rs#L879) |
+| claude_discovery_model | function_item |  | [886](../../src-tauri/src/catalog.rs#L886) |
+| json | macro invocation (unexpanded) | claude_discovery_model | [893](../../src-tauri/src/catalog.rs#L893) |
+| claude_discovery_payload | function_item |  | [905](../../src-tauri/src/catalog.rs#L905) |
+| json | macro invocation (unexpanded) | claude_discovery_payload | [914](../../src-tauri/src/catalog.rs#L914) |
+| find_catalog_entry | function_item |  | [923](../../src-tauri/src/catalog.rs#L923) |
+| advertised_context_window | function_item |  | [942](../../src-tauri/src/catalog.rs#L942) |
+| openai_discovery_model | function_item |  | [958](../../src-tauri/src/catalog.rs#L958) |
+| json | macro invocation (unexpanded) | openai_discovery_model | [976](../../src-tauri/src/catalog.rs#L976) |
+| openai_models_payload | function_item |  | [1000](../../src-tauri/src/catalog.rs#L1000) |
+| json | macro invocation (unexpanded) | openai_models_payload | [1001](../../src-tauri/src/catalog.rs#L1001) |
+| rewrite_json_model | function_item |  | [1007](../../src-tauri/src/catalog.rs#L1007) |
+| is_injected_official_model_slug | function_item |  | [1018](../../src-tauri/src/catalog.rs#L1018) |
+| catalog_in_entries | function_item |  | [1022](../../src-tauri/src/catalog.rs#L1022) |
+| catalog_fallback_id | function_item |  | [1028](../../src-tauri/src/catalog.rs#L1028) |
+| catalog_subagent_target | function_item |  | [1054](../../src-tauri/src/catalog.rs#L1054) |
+| normalize_client_request | function_item |  | [1063](../../src-tauri/src/catalog.rs#L1063) |

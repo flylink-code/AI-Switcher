@@ -4,31 +4,31 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/logging.rs) · page 3/3
 
-Source SHA-256: e84c49675b566df0f2940b73bae3985b5b5ee606c72ebd25215890b2bcd3a24e
+Source SHA-256: 59634134e09d9df52a4661a2b6853c41c7cfe576a0b15b80fc3d8bcc25fc4252
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| usage_parser_preserves_anthropic_input_and_supports_openai_usage | function_item | tests | [1439](../../src-tauri/src/proxy/logging.rs#L1439) |
-| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1440](../../src-tauri/src/proxy/logging.rs#L1440) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1449](../../src-tauri/src/proxy/logging.rs#L1449) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1450](../../src-tauri/src/proxy/logging.rs#L1450) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1451](../../src-tauri/src/proxy/logging.rs#L1451) |
-| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1453](../../src-tauri/src/proxy/logging.rs#L1453) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1461](../../src-tauri/src/proxy/logging.rs#L1461) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1462](../../src-tauri/src/proxy/logging.rs#L1462) |
+| usage_parser_preserves_anthropic_input_and_supports_openai_usage | function_item | tests | [1453](../../src-tauri/src/proxy/logging.rs#L1453) |
+| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1454](../../src-tauri/src/proxy/logging.rs#L1454) |
 | assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1463](../../src-tauri/src/proxy/logging.rs#L1463) |
-| usage_parser_treats_responses_input_tokens_as_total_with_cache_details | function_item | tests | [1467](../../src-tauri/src/proxy/logging.rs#L1467) |
-| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1470](../../src-tauri/src/proxy/logging.rs#L1470) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1478](../../src-tauri/src/proxy/logging.rs#L1478) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1479](../../src-tauri/src/proxy/logging.rs#L1479) |
-| assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1480](../../src-tauri/src/proxy/logging.rs#L1480) |
-| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1482](../../src-tauri/src/proxy/logging.rs#L1482) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1464](../../src-tauri/src/proxy/logging.rs#L1464) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1465](../../src-tauri/src/proxy/logging.rs#L1465) |
+| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1467](../../src-tauri/src/proxy/logging.rs#L1467) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1475](../../src-tauri/src/proxy/logging.rs#L1475) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1476](../../src-tauri/src/proxy/logging.rs#L1476) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_preserves_anthropic_input_and_supports_openai_usage | [1477](../../src-tauri/src/proxy/logging.rs#L1477) |
+| usage_parser_treats_responses_input_tokens_as_total_with_cache_details | function_item | tests | [1481](../../src-tauri/src/proxy/logging.rs#L1481) |
+| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1484](../../src-tauri/src/proxy/logging.rs#L1484) |
 | assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1492](../../src-tauri/src/proxy/logging.rs#L1492) |
 | assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1493](../../src-tauri/src/proxy/logging.rs#L1493) |
 | assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1494](../../src-tauri/src/proxy/logging.rs#L1494) |
-| kimi_anthropic_usage_and_final_stream_frame_are_preserved | function_item | tests | [1498](../../src-tauri/src/proxy/logging.rs#L1498) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1502](../../src-tauri/src/proxy/logging.rs#L1502) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1503](../../src-tauri/src/proxy/logging.rs#L1503) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1504](../../src-tauri/src/proxy/logging.rs#L1504) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1513](../../src-tauri/src/proxy/logging.rs#L1513) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1514](../../src-tauri/src/proxy/logging.rs#L1514) |
+| serde_json::json | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1496](../../src-tauri/src/proxy/logging.rs#L1496) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1506](../../src-tauri/src/proxy/logging.rs#L1506) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1507](../../src-tauri/src/proxy/logging.rs#L1507) |
+| assert_eq | macro invocation (unexpanded) | tests::usage_parser_treats_responses_input_tokens_as_total_with_cache_details | [1508](../../src-tauri/src/proxy/logging.rs#L1508) |
+| kimi_anthropic_usage_and_final_stream_frame_are_preserved | function_item | tests | [1512](../../src-tauri/src/proxy/logging.rs#L1512) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1516](../../src-tauri/src/proxy/logging.rs#L1516) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1517](../../src-tauri/src/proxy/logging.rs#L1517) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1518](../../src-tauri/src/proxy/logging.rs#L1518) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1527](../../src-tauri/src/proxy/logging.rs#L1527) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_anthropic_usage_and_final_stream_frame_are_preserved | [1528](../../src-tauri/src/proxy/logging.rs#L1528) |

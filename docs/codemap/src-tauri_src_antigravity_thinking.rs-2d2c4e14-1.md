@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/thinking.rs) · page 1/1
 
-Source SHA-256: b0d92945aa80a08fae210306c955c1b1952498a95c31718494cf270de1703cf5
+Source SHA-256: de43b5f5c20b1f39f1fdedf9b863cb18985a4a0f7c4a4f0338fe9dc6556106e1
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,23 +20,35 @@ Source SHA-256: b0d92945aa80a08fae210306c955c1b1952498a95c31718494cf270de1703cf5
 | json | macro invocation (unexpanded) | apply_thinking_budget | [52](../../src-tauri/src/antigravity/thinking.rs#L52) |
 | json | macro invocation (unexpanded) | apply_thinking_budget | [59](../../src-tauri/src/antigravity/thinking.rs#L59) |
 | is_budget_constraint_error | function_item |  | [64](../../src-tauri/src/antigravity/thinking.rs#L64) |
-| rectify_generate_request | function_item |  | [77](../../src-tauri/src/antigravity/thinking.rs#L77) |
-| json | macro invocation (unexpanded) | rectify_generate_request | [86](../../src-tauri/src/antigravity/thinking.rs#L86) |
-| json | macro invocation (unexpanded) | rectify_generate_request | [98](../../src-tauri/src/antigravity/thinking.rs#L98) |
-| is_flash_model | function_item |  | [102](../../src-tauri/src/antigravity/thinking.rs#L102) |
-| json_u32 | function_item |  | [107](../../src-tauri/src/antigravity/thinking.rs#L107) |
-| tests | mod_item |  | [115](../../src-tauri/src/antigravity/thinking.rs#L115) |
-| adaptive_defaults_to_high_budget | function_item | tests | [119](../../src-tauri/src/antigravity/thinking.rs#L119) |
-| json | macro invocation (unexpanded) | tests::adaptive_defaults_to_high_budget | [120](../../src-tauri/src/antigravity/thinking.rs#L120) |
-| assert_eq | macro invocation (unexpanded) | tests::adaptive_defaults_to_high_budget | [121](../../src-tauri/src/antigravity/thinking.rs#L121) |
-| pads_max_tokens_above_budget | function_item | tests | [128](../../src-tauri/src/antigravity/thinking.rs#L128) |
-| assert_eq | macro invocation (unexpanded) | tests::pads_max_tokens_above_budget | [129](../../src-tauri/src/antigravity/thinking.rs#L129) |
-| assert_eq | macro invocation (unexpanded) | tests::pads_max_tokens_above_budget | [130](../../src-tauri/src/antigravity/thinking.rs#L130) |
-| detects_budget_constraint_copy | function_item | tests | [134](../../src-tauri/src/antigravity/thinking.rs#L134) |
-| assert | macro invocation (unexpanded) | tests::detects_budget_constraint_copy | [135](../../src-tauri/src/antigravity/thinking.rs#L135) |
-| assert | macro invocation (unexpanded) | tests::detects_budget_constraint_copy | [138](../../src-tauri/src/antigravity/thinking.rs#L138) |
-| apply_thinking_budget_strips_thinking_level | function_item | tests | [142](../../src-tauri/src/antigravity/thinking.rs#L142) |
-| json | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [143](../../src-tauri/src/antigravity/thinking.rs#L143) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [147](../../src-tauri/src/antigravity/thinking.rs#L147) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [151](../../src-tauri/src/antigravity/thinking.rs#L151) |
-| assert | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [152](../../src-tauri/src/antigravity/thinking.rs#L152) |
+| is_thought_signature_error | function_item |  | [77](../../src-tauri/src/antigravity/thinking.rs#L77) |
+| rectify_thought_signatures | function_item |  | [84](../../src-tauri/src/antigravity/thinking.rs#L84) |
+| json | macro invocation (unexpanded) | rectify_thought_signatures | [85](../../src-tauri/src/antigravity/thinking.rs#L85) |
+| rectify_generate_request | function_item |  | [108](../../src-tauri/src/antigravity/thinking.rs#L108) |
+| json | macro invocation (unexpanded) | rectify_generate_request | [117](../../src-tauri/src/antigravity/thinking.rs#L117) |
+| json | macro invocation (unexpanded) | rectify_generate_request | [129](../../src-tauri/src/antigravity/thinking.rs#L129) |
+| supports_explicit_thinking_budget | function_item |  | [133](../../src-tauri/src/antigravity/thinking.rs#L133) |
+| is_flash_model | function_item |  | [137](../../src-tauri/src/antigravity/thinking.rs#L137) |
+| json_u32 | function_item |  | [142](../../src-tauri/src/antigravity/thinking.rs#L142) |
+| tests | mod_item |  | [150](../../src-tauri/src/antigravity/thinking.rs#L150) |
+| adaptive_defaults_to_high_budget | function_item | tests | [154](../../src-tauri/src/antigravity/thinking.rs#L154) |
+| json | macro invocation (unexpanded) | tests::adaptive_defaults_to_high_budget | [155](../../src-tauri/src/antigravity/thinking.rs#L155) |
+| assert_eq | macro invocation (unexpanded) | tests::adaptive_defaults_to_high_budget | [156](../../src-tauri/src/antigravity/thinking.rs#L156) |
+| pads_max_tokens_above_budget | function_item | tests | [163](../../src-tauri/src/antigravity/thinking.rs#L163) |
+| assert_eq | macro invocation (unexpanded) | tests::pads_max_tokens_above_budget | [164](../../src-tauri/src/antigravity/thinking.rs#L164) |
+| assert_eq | macro invocation (unexpanded) | tests::pads_max_tokens_above_budget | [165](../../src-tauri/src/antigravity/thinking.rs#L165) |
+| detects_budget_constraint_copy | function_item | tests | [169](../../src-tauri/src/antigravity/thinking.rs#L169) |
+| assert | macro invocation (unexpanded) | tests::detects_budget_constraint_copy | [170](../../src-tauri/src/antigravity/thinking.rs#L170) |
+| assert | macro invocation (unexpanded) | tests::detects_budget_constraint_copy | [173](../../src-tauri/src/antigravity/thinking.rs#L173) |
+| detects_and_rectifies_thought_signature_errors | function_item | tests | [177](../../src-tauri/src/antigravity/thinking.rs#L177) |
+| assert | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [178](../../src-tauri/src/antigravity/thinking.rs#L178) |
+| assert | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [181](../../src-tauri/src/antigravity/thinking.rs#L181) |
+| assert | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [182](../../src-tauri/src/antigravity/thinking.rs#L182) |
+| json | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [184](../../src-tauri/src/antigravity/thinking.rs#L184) |
+| assert | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [195](../../src-tauri/src/antigravity/thinking.rs#L195) |
+| assert_eq | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [198](../../src-tauri/src/antigravity/thinking.rs#L198) |
+| assert_eq | macro invocation (unexpanded) | tests::detects_and_rectifies_thought_signature_errors | [202](../../src-tauri/src/antigravity/thinking.rs#L202) |
+| apply_thinking_budget_strips_thinking_level | function_item | tests | [209](../../src-tauri/src/antigravity/thinking.rs#L209) |
+| json | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [210](../../src-tauri/src/antigravity/thinking.rs#L210) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [214](../../src-tauri/src/antigravity/thinking.rs#L214) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [218](../../src-tauri/src/antigravity/thinking.rs#L218) |
+| assert | macro invocation (unexpanded) | tests::apply_thinking_budget_strips_thinking_level | [219](../../src-tauri/src/antigravity/thinking.rs#L219) |

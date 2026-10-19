@@ -4,66 +4,74 @@
 
 [Module](web-components.md) · [Source](../../src/components/UsageSourceIcons.tsx) · page 1/1
 
-Source SHA-256: fef2981b30a232b4843a160da50cf827971ec77c2ba5c5cb201ffa78cd3a1516
+Source SHA-256: d0615822e701ec61977807fceb4becce289e1cb08f368b2668e0d4ede4ff2a93
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | UsageSourceFilter | TypeAliasDeclaration |  | [5](../../src/components/UsageSourceIcons.tsx#L5) |
-| CLAUDE_ORANGE | VariableDeclaration |  | [8](../../src/components/UsageSourceIcons.tsx#L8) |
-| ANTIGRAVITY_PURPLE | VariableDeclaration |  | [9](../../src/components/UsageSourceIcons.tsx#L9) |
-| IconProps | TypeAliasDeclaration |  | [11](../../src/components/UsageSourceIcons.tsx#L11) |
-| size | PropertySignature | IconProps | [12](../../src/components/UsageSourceIcons.tsx#L12) |
-| style | PropertySignature | IconProps | [13](../../src/components/UsageSourceIcons.tsx#L13) |
-| className | PropertySignature | IconProps | [14](../../src/components/UsageSourceIcons.tsx#L14) |
-| SvgShell | FunctionDeclaration |  | [17](../../src/components/UsageSourceIcons.tsx#L17) |
-| size | BindingElement | SvgShell | [18](../../src/components/UsageSourceIcons.tsx#L18) |
-| style | BindingElement | SvgShell | [19](../../src/components/UsageSourceIcons.tsx#L19) |
-| className | BindingElement | SvgShell | [20](../../src/components/UsageSourceIcons.tsx#L20) |
-| children | BindingElement | SvgShell | [21](../../src/components/UsageSourceIcons.tsx#L21) |
-| viewBox | BindingElement | SvgShell | [22](../../src/components/UsageSourceIcons.tsx#L22) |
-| children | PropertySignature | SvgShell | [23](../../src/components/UsageSourceIcons.tsx#L23) |
-| viewBox | PropertySignature | SvgShell | [23](../../src/components/UsageSourceIcons.tsx#L23) |
-| UsageSourceAllIcon | FunctionDeclaration |  | [42](../../src/components/UsageSourceIcons.tsx#L42) |
-| ClaudeStarburstIcon | FunctionDeclaration |  | [57](../../src/components/UsageSourceIcons.tsx#L57) |
-| size | BindingElement | ClaudeStarburstIcon | [57](../../src/components/UsageSourceIcons.tsx#L57) |
-| style | BindingElement | ClaudeStarburstIcon | [57](../../src/components/UsageSourceIcons.tsx#L57) |
-| className | BindingElement | ClaudeStarburstIcon | [57](../../src/components/UsageSourceIcons.tsx#L57) |
-| ClaudeDesktopIcon | FunctionDeclaration |  | [69](../../src/components/UsageSourceIcons.tsx#L69) |
-| size | BindingElement | ClaudeDesktopIcon | [69](../../src/components/UsageSourceIcons.tsx#L69) |
-| style | BindingElement | ClaudeDesktopIcon | [69](../../src/components/UsageSourceIcons.tsx#L69) |
-| className | BindingElement | ClaudeDesktopIcon | [69](../../src/components/UsageSourceIcons.tsx#L69) |
-| OpenAiBlossomIcon | FunctionDeclaration |  | [80](../../src/components/UsageSourceIcons.tsx#L80) |
-| OpenCodeTerminalIcon | FunctionDeclaration |  | [89](../../src/components/UsageSourceIcons.tsx#L89) |
-| size | BindingElement | OpenCodeTerminalIcon | [89](../../src/components/UsageSourceIcons.tsx#L89) |
-| style | BindingElement | OpenCodeTerminalIcon | [89](../../src/components/UsageSourceIcons.tsx#L89) |
-| className | BindingElement | OpenCodeTerminalIcon | [89](../../src/components/UsageSourceIcons.tsx#L89) |
-| PiIcon | FunctionDeclaration |  | [99](../../src/components/UsageSourceIcons.tsx#L99) |
-| size | BindingElement | PiIcon | [99](../../src/components/UsageSourceIcons.tsx#L99) |
-| style | BindingElement | PiIcon | [99](../../src/components/UsageSourceIcons.tsx#L99) |
-| className | BindingElement | PiIcon | [99](../../src/components/UsageSourceIcons.tsx#L99) |
-| AntigravityOrbitIcon | FunctionDeclaration |  | [111](../../src/components/UsageSourceIcons.tsx#L111) |
-| size | BindingElement | AntigravityOrbitIcon | [111](../../src/components/UsageSourceIcons.tsx#L111) |
-| style | BindingElement | AntigravityOrbitIcon | [111](../../src/components/UsageSourceIcons.tsx#L111) |
-| className | BindingElement | AntigravityOrbitIcon | [111](../../src/components/UsageSourceIcons.tsx#L111) |
-| ClineIcon | FunctionDeclaration |  | [125](../../src/components/UsageSourceIcons.tsx#L125) |
-| size | BindingElement | ClineIcon | [125](../../src/components/UsageSourceIcons.tsx#L125) |
-| style | BindingElement | ClineIcon | [125](../../src/components/UsageSourceIcons.tsx#L125) |
-| className | BindingElement | ClineIcon | [125](../../src/components/UsageSourceIcons.tsx#L125) |
-| DshIcon | FunctionDeclaration |  | [146](../../src/components/UsageSourceIcons.tsx#L146) |
-| size | BindingElement | DshIcon | [146](../../src/components/UsageSourceIcons.tsx#L146) |
-| style | BindingElement | DshIcon | [146](../../src/components/UsageSourceIcons.tsx#L146) |
-| className | BindingElement | DshIcon | [146](../../src/components/UsageSourceIcons.tsx#L146) |
-| VscodeCopilotIcon | FunctionDeclaration |  | [155](../../src/components/UsageSourceIcons.tsx#L155) |
-| size | BindingElement | VscodeCopilotIcon | [155](../../src/components/UsageSourceIcons.tsx#L155) |
-| style | BindingElement | VscodeCopilotIcon | [155](../../src/components/UsageSourceIcons.tsx#L155) |
-| className | BindingElement | VscodeCopilotIcon | [155](../../src/components/UsageSourceIcons.tsx#L155) |
-| usageSourceIcon | FunctionDeclaration |  | [163](../../src/components/UsageSourceIcons.tsx#L163) |
-| _exhaustive | VariableDeclaration | usageSourceIcon | [186](../../src/components/UsageSourceIcons.tsx#L186) |
-| usageSourceSegmentLabel | FunctionDeclaration |  | [193](../../src/components/UsageSourceIcons.tsx#L193) |
-| isVisibleUsageSource | FunctionDeclaration |  | [213](../../src/components/UsageSourceIcons.tsx#L213) |
-| ALL_USAGE_SOURCE_FILTER_OPTIONS | VariableDeclaration |  | [220](../../src/components/UsageSourceIcons.tsx#L220) |
-| value | PropertySignature | ALL_USAGE_SOURCE_FILTER_OPTIONS | [221](../../src/components/UsageSourceIcons.tsx#L221) |
-| labelKey | PropertySignature | ALL_USAGE_SOURCE_FILTER_OPTIONS | [222](../../src/components/UsageSourceIcons.tsx#L222) |
-| USAGE_SOURCE_FILTER_OPTIONS | VariableDeclaration |  | [236](../../src/components/UsageSourceIcons.tsx#L236) |
-| isUsageSourceFilter | FunctionDeclaration |  | [240](../../src/components/UsageSourceIcons.tsx#L240) |
-| usageSourceLabelKey | FunctionDeclaration |  | [244](../../src/components/UsageSourceIcons.tsx#L244) |
+| UsageSourceGroup | TypeAliasDeclaration |  | [6](../../src/components/UsageSourceIcons.tsx#L6) |
+| CLAUDE_ORANGE | VariableDeclaration |  | [9](../../src/components/UsageSourceIcons.tsx#L9) |
+| ANTIGRAVITY_PURPLE | VariableDeclaration |  | [10](../../src/components/UsageSourceIcons.tsx#L10) |
+| KIRO_AMBER | VariableDeclaration |  | [11](../../src/components/UsageSourceIcons.tsx#L11) |
+| IconProps | TypeAliasDeclaration |  | [13](../../src/components/UsageSourceIcons.tsx#L13) |
+| size | PropertySignature | IconProps | [14](../../src/components/UsageSourceIcons.tsx#L14) |
+| style | PropertySignature | IconProps | [15](../../src/components/UsageSourceIcons.tsx#L15) |
+| className | PropertySignature | IconProps | [16](../../src/components/UsageSourceIcons.tsx#L16) |
+| SvgShell | FunctionDeclaration |  | [19](../../src/components/UsageSourceIcons.tsx#L19) |
+| size | BindingElement | SvgShell | [20](../../src/components/UsageSourceIcons.tsx#L20) |
+| style | BindingElement | SvgShell | [21](../../src/components/UsageSourceIcons.tsx#L21) |
+| className | BindingElement | SvgShell | [22](../../src/components/UsageSourceIcons.tsx#L22) |
+| children | BindingElement | SvgShell | [23](../../src/components/UsageSourceIcons.tsx#L23) |
+| viewBox | BindingElement | SvgShell | [24](../../src/components/UsageSourceIcons.tsx#L24) |
+| children | PropertySignature | SvgShell | [25](../../src/components/UsageSourceIcons.tsx#L25) |
+| viewBox | PropertySignature | SvgShell | [25](../../src/components/UsageSourceIcons.tsx#L25) |
+| UsageSourceAllIcon | FunctionDeclaration |  | [44](../../src/components/UsageSourceIcons.tsx#L44) |
+| ClaudeStarburstIcon | FunctionDeclaration |  | [59](../../src/components/UsageSourceIcons.tsx#L59) |
+| size | BindingElement | ClaudeStarburstIcon | [59](../../src/components/UsageSourceIcons.tsx#L59) |
+| style | BindingElement | ClaudeStarburstIcon | [59](../../src/components/UsageSourceIcons.tsx#L59) |
+| className | BindingElement | ClaudeStarburstIcon | [59](../../src/components/UsageSourceIcons.tsx#L59) |
+| ClaudeDesktopIcon | FunctionDeclaration |  | [71](../../src/components/UsageSourceIcons.tsx#L71) |
+| size | BindingElement | ClaudeDesktopIcon | [71](../../src/components/UsageSourceIcons.tsx#L71) |
+| style | BindingElement | ClaudeDesktopIcon | [71](../../src/components/UsageSourceIcons.tsx#L71) |
+| className | BindingElement | ClaudeDesktopIcon | [71](../../src/components/UsageSourceIcons.tsx#L71) |
+| OpenAiBlossomIcon | FunctionDeclaration |  | [82](../../src/components/UsageSourceIcons.tsx#L82) |
+| OpenCodeTerminalIcon | FunctionDeclaration |  | [91](../../src/components/UsageSourceIcons.tsx#L91) |
+| size | BindingElement | OpenCodeTerminalIcon | [91](../../src/components/UsageSourceIcons.tsx#L91) |
+| style | BindingElement | OpenCodeTerminalIcon | [91](../../src/components/UsageSourceIcons.tsx#L91) |
+| className | BindingElement | OpenCodeTerminalIcon | [91](../../src/components/UsageSourceIcons.tsx#L91) |
+| PiIcon | FunctionDeclaration |  | [101](../../src/components/UsageSourceIcons.tsx#L101) |
+| size | BindingElement | PiIcon | [101](../../src/components/UsageSourceIcons.tsx#L101) |
+| style | BindingElement | PiIcon | [101](../../src/components/UsageSourceIcons.tsx#L101) |
+| className | BindingElement | PiIcon | [101](../../src/components/UsageSourceIcons.tsx#L101) |
+| AntigravityOrbitIcon | FunctionDeclaration |  | [113](../../src/components/UsageSourceIcons.tsx#L113) |
+| size | BindingElement | AntigravityOrbitIcon | [113](../../src/components/UsageSourceIcons.tsx#L113) |
+| style | BindingElement | AntigravityOrbitIcon | [113](../../src/components/UsageSourceIcons.tsx#L113) |
+| className | BindingElement | AntigravityOrbitIcon | [113](../../src/components/UsageSourceIcons.tsx#L113) |
+| KiroIcon | FunctionDeclaration |  | [129](../../src/components/UsageSourceIcons.tsx#L129) |
+| size | BindingElement | KiroIcon | [129](../../src/components/UsageSourceIcons.tsx#L129) |
+| style | BindingElement | KiroIcon | [129](../../src/components/UsageSourceIcons.tsx#L129) |
+| className | BindingElement | KiroIcon | [129](../../src/components/UsageSourceIcons.tsx#L129) |
+| ClineIcon | FunctionDeclaration |  | [138](../../src/components/UsageSourceIcons.tsx#L138) |
+| size | BindingElement | ClineIcon | [138](../../src/components/UsageSourceIcons.tsx#L138) |
+| style | BindingElement | ClineIcon | [138](../../src/components/UsageSourceIcons.tsx#L138) |
+| className | BindingElement | ClineIcon | [138](../../src/components/UsageSourceIcons.tsx#L138) |
+| DshIcon | FunctionDeclaration |  | [159](../../src/components/UsageSourceIcons.tsx#L159) |
+| size | BindingElement | DshIcon | [159](../../src/components/UsageSourceIcons.tsx#L159) |
+| style | BindingElement | DshIcon | [159](../../src/components/UsageSourceIcons.tsx#L159) |
+| className | BindingElement | DshIcon | [159](../../src/components/UsageSourceIcons.tsx#L159) |
+| VscodeCopilotIcon | FunctionDeclaration |  | [168](../../src/components/UsageSourceIcons.tsx#L168) |
+| size | BindingElement | VscodeCopilotIcon | [168](../../src/components/UsageSourceIcons.tsx#L168) |
+| style | BindingElement | VscodeCopilotIcon | [168](../../src/components/UsageSourceIcons.tsx#L168) |
+| className | BindingElement | VscodeCopilotIcon | [168](../../src/components/UsageSourceIcons.tsx#L168) |
+| usageSourceIcon | FunctionDeclaration |  | [176](../../src/components/UsageSourceIcons.tsx#L176) |
+| _exhaustive | VariableDeclaration | usageSourceIcon | [201](../../src/components/UsageSourceIcons.tsx#L201) |
+| usageSourceSegmentLabel | FunctionDeclaration |  | [208](../../src/components/UsageSourceIcons.tsx#L208) |
+| isVisibleUsageSource | FunctionDeclaration |  | [229](../../src/components/UsageSourceIcons.tsx#L229) |
+| UsageSourceFilterOption | InterfaceDeclaration |  | [236](../../src/components/UsageSourceIcons.tsx#L236) |
+| value | PropertySignature | UsageSourceFilterOption | [237](../../src/components/UsageSourceIcons.tsx#L237) |
+| labelKey | PropertySignature | UsageSourceFilterOption | [238](../../src/components/UsageSourceIcons.tsx#L238) |
+| group | PropertySignature | UsageSourceFilterOption | [239](../../src/components/UsageSourceIcons.tsx#L239) |
+| ALL_USAGE_SOURCE_FILTER_OPTIONS | VariableDeclaration |  | [242](../../src/components/UsageSourceIcons.tsx#L242) |
+| USAGE_SOURCE_FILTER_OPTIONS | VariableDeclaration |  | [256](../../src/components/UsageSourceIcons.tsx#L256) |
+| isUsageSourceFilter | FunctionDeclaration |  | [260](../../src/components/UsageSourceIcons.tsx#L260) |
+| usageSourceLabelKey | FunctionDeclaration |  | [264](../../src/components/UsageSourceIcons.tsx#L264) |

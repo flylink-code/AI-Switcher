@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/live_sync.rs) · page 2/2
 
-Source SHA-256: 3ffe9ef7140e3941975cff3338314962da2461dccc084d78958162190aba8ef8
+Source SHA-256: ca42dfaa165d33a3edc8bb9f9315018557949fe9f44e44429abf98d9f48d06a9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

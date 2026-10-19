@@ -4,7 +4,7 @@
 
 [Module](web-components.md) · [Source](../../src/components/UsageSourceFilterSelect.tsx) · page 1/1
 
-Source SHA-256: da34e89b3ddc86b61330a41f62a0379fe9259814c938678e5f9e030e97e52a5a
+Source SHA-256: f19d5b42b9f47708e633415102c5295fbe77010610d717b48177c69bec85637b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,3 +20,6 @@ Source SHA-256: da34e89b3ddc86b61330a41f62a0379fe9259814c938678e5f9e030e97e52a5a
 | size | BindingElement | UsageSourceFilterSelect | [22](../../src/components/UsageSourceFilterSelect.tsx#L22) |
 | visibleAgents | VariableDeclaration | UsageSourceFilterSelect | [23](../../src/components/UsageSourceFilterSelect.tsx#L23) |
 | availableOptions | VariableDeclaration | UsageSourceFilterSelect | [25](../../src/components/UsageSourceFilterSelect.tsx#L25) |
+| allOption | VariableDeclaration | UsageSourceFilterSelect | [37](../../src/components/UsageSourceFilterSelect.tsx#L37) |
+| agentOptions | VariableDeclaration | UsageSourceFilterSelect | [38](../../src/components/UsageSourceFilterSelect.tsx#L38) |
+| gatewayOptions | VariableDeclaration | UsageSourceFilterSelect | [39](../../src/components/UsageSourceFilterSelect.tsx#L39) |

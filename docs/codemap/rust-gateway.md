@@ -9,10 +9,10 @@
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
 | [src-tauri/src/gateway/correlation.rs](../../src-tauri/src/gateway/correlation.rs) | 14 | [1](src-tauri_src_gateway_correlation.rs-db7634ff-1.md) |
-| [src-tauri/src/gateway/count_tokens.rs](../../src-tauri/src/gateway/count_tokens.rs) | 6 | [1](src-tauri_src_gateway_count_tokens.rs-2841f939-1.md) |
+| [src-tauri/src/gateway/count_tokens.rs](../../src-tauri/src/gateway/count_tokens.rs) | 9 | [1](src-tauri_src_gateway_count_tokens.rs-2841f939-1.md) |
 | [src-tauri/src/gateway/health.rs](../../src-tauri/src/gateway/health.rs) | 100 | [1](src-tauri_src_gateway_health.rs-9c1e5d76-1.md) |
-| [src-tauri/src/gateway/health/classifier.rs](../../src-tauri/src/gateway/health/classifier.rs) | 20 | [1](src-tauri_src_gateway_health_classifier.rs-6209173a-1.md) |
-| [src-tauri/src/gateway/health/tests.rs](../../src-tauri/src/gateway/health/tests.rs) | 128 | [1](src-tauri_src_gateway_health_tests.rs-5245d770-1.md) [2](src-tauri_src_gateway_health_tests.rs-5245d770-2.md) |
+| [src-tauri/src/gateway/health/classifier.rs](../../src-tauri/src/gateway/health/classifier.rs) | 21 | [1](src-tauri_src_gateway_health_classifier.rs-6209173a-1.md) |
+| [src-tauri/src/gateway/health/tests.rs](../../src-tauri/src/gateway/health/tests.rs) | 131 | [1](src-tauri_src_gateway_health_tests.rs-5245d770-1.md) [2](src-tauri_src_gateway_health_tests.rs-5245d770-2.md) |
 | [src-tauri/src/gateway/inbound.rs](../../src-tauri/src/gateway/inbound.rs) | 63 | [1](src-tauri_src_gateway_inbound.rs-717d1523-1.md) |
 | [src-tauri/src/gateway/metadata.rs](../../src-tauri/src/gateway/metadata.rs) | 32 | [1](src-tauri_src_gateway_metadata.rs-0a51c471-1.md) |
 | [src-tauri/src/gateway/mod.rs](../../src-tauri/src/gateway/mod.rs) | 126 | [1](src-tauri_src_gateway_mod.rs-2218b7ad-1.md) [2](src-tauri_src_gateway_mod.rs-2218b7ad-2.md) |

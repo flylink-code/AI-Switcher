@@ -342,6 +342,38 @@ pub fn sanitize_codex_responses_body(value: &mut Value) {
     if has_prev_resp {
         return;
     }
+    let input_empty = match object.get("input") {
+        None | Some(Value::Null) => true,
+        Some(Value::String(s)) => s.trim().is_empty(),
+        Some(Value::Array(arr)) => arr.is_empty(),
+        _ => false,
+    };
+    if input_empty {
+        let instr = object
+            .get("instructions")
+            .or_else(|| object.get("system"))
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.trim().to_string()),
+                Value::Array(items) => {
+                    let joined = items
+                        .iter()
+                        .filter_map(|item| {
+                            item.as_str().or_else(|| item.get("text").and_then(Value::as_str))
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    Some(joined.trim().to_string())
+                }
+                _ => None,
+            })
+            .filter(|s| !s.is_empty());
+        if let Some(instr) = instr {
+            object.insert(
+                "input".to_string(),
+                json!([{ "role": "user", "content": instr }]),
+            );
+        }
+    }
     let Some(items) = object.get_mut("input").and_then(Value::as_array_mut) else {
         return;
     };

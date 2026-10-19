@@ -102,8 +102,8 @@ pub async fn health() -> impl IntoResponse {
     Json(json!({"ok": true}))
 }
 
-pub async fn list_models() -> impl IntoResponse {
-    let data: Vec<Value> = crate::kiro::models::model_list()
+fn build_public_models() -> Vec<Value> {
+    crate::kiro::models::model_list()
         .models
         .into_iter()
         .map(|model| {
@@ -128,8 +128,28 @@ pub async fn list_models() -> impl IntoResponse {
                 "max_tokens": max_output,
             })
         })
-        .collect();
-    Json(json!({"object": "list", "data": data}))
+        .collect()
+}
+
+pub async fn list_models() -> impl IntoResponse {
+    Json(json!({"object": "list", "data": build_public_models()}))
+}
+
+pub async fn get_model(axum::extract::Path(id): axum::extract::Path<String>) -> Response {
+    let trimmed = id.trim();
+    if let Some(found) = build_public_models().into_iter().find(|entry| {
+        entry
+            .get("id")
+            .and_then(Value::as_str)
+            .is_some_and(|model_id| model_id == trimmed)
+    }) {
+        return Json(found).into_response();
+    }
+    error_response(
+        WireProtocol::OpenAiResponses,
+        StatusCode::NOT_FOUND,
+        &format!("Model '{trimmed}' not found"),
+    )
 }
 
 pub async fn count_tokens(
@@ -166,6 +186,57 @@ pub async fn openai_responses(
     body: Bytes,
 ) -> impl IntoResponse {
     handle(state, headers, body, WireProtocol::OpenAiResponses).await
+}
+
+pub async fn openai_responses_compact(
+    State(state): State<GatewayState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(response) = authorize(&state, &headers) {
+        return response;
+    }
+    let payload: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => {
+            return error_response(
+                WireProtocol::OpenAiResponses,
+                StatusCode::BAD_REQUEST,
+                &format!("invalid json: {error}"),
+            )
+        }
+    };
+    if payload
+        .get("stream")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return error_response(
+            WireProtocol::OpenAiResponses,
+            StatusCode::BAD_REQUEST,
+            "Codex /responses/compact 不支持显式 stream=true",
+        );
+    }
+    let model = payload
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or(DEFAULT_MODEL)
+        .to_string();
+    let compact = crate::antigravity::map::responses::responses_compact_stub(&payload);
+    let _ = crate::kiro::usage_log::insert_request(
+        &state.db,
+        None,
+        &model,
+        Some(StatusCode::OK.as_u16() as i64),
+        Instant::now(),
+        WireProtocol::OpenAiResponses,
+        false,
+        None,
+        Some("compact=stub"),
+        Some(&headers),
+    );
+    Json(compact).into_response()
 }
 
 async fn handle(

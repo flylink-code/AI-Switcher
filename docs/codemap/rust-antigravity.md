@@ -11,18 +11,18 @@
 | [src-tauri/src/antigravity/account.rs](../../src-tauri/src/antigravity/account.rs) | 164 | [1](src-tauri_src_antigravity_account.rs-500cfc26-1.md) [2](src-tauri_src_antigravity_account.rs-500cfc26-2.md) |
 | [src-tauri/src/antigravity/account_test.rs](../../src-tauri/src/antigravity/account_test.rs) | 50 | [1](src-tauri_src_antigravity_account_test.rs-9a7615ab-1.md) |
 | [src-tauri/src/antigravity/exit_hop.rs](../../src-tauri/src/antigravity/exit_hop.rs) | 194 | [1](src-tauri_src_antigravity_exit_hop.rs-0c8d86c2-1.md) [2](src-tauri_src_antigravity_exit_hop.rs-0c8d86c2-2.md) |
-| [src-tauri/src/antigravity/fast_path.rs](../../src-tauri/src/antigravity/fast_path.rs) | 74 | [1](src-tauri_src_antigravity_fast_path.rs-15636c28-1.md) |
-| [src-tauri/src/antigravity/gateway/handlers.rs](../../src-tauri/src/antigravity/gateway/handlers.rs) | 283 | [1](src-tauri_src_antigravity_gateway_handlers.rs-4da76b46-1.md) [2](src-tauri_src_antigravity_gateway_handlers.rs-4da76b46-2.md) [3](src-tauri_src_antigravity_gateway_handlers.rs-4da76b46-3.md) |
+| [src-tauri/src/antigravity/fast_path.rs](../../src-tauri/src/antigravity/fast_path.rs) | 75 | [1](src-tauri_src_antigravity_fast_path.rs-15636c28-1.md) |
+| [src-tauri/src/antigravity/gateway/handlers.rs](../../src-tauri/src/antigravity/gateway/handlers.rs) | 292 | [1](src-tauri_src_antigravity_gateway_handlers.rs-4da76b46-1.md) [2](src-tauri_src_antigravity_gateway_handlers.rs-4da76b46-2.md) [3](src-tauri_src_antigravity_gateway_handlers.rs-4da76b46-3.md) |
 | [src-tauri/src/antigravity/gateway/mod.rs](../../src-tauri/src/antigravity/gateway/mod.rs) | 99 | [1](src-tauri_src_antigravity_gateway_mod.rs-5f541446-1.md) |
 | [src-tauri/src/antigravity/limiter.rs](../../src-tauri/src/antigravity/limiter.rs) | 107 | [1](src-tauri_src_antigravity_limiter.rs-29a1cfed-1.md) [2](src-tauri_src_antigravity_limiter.rs-29a1cfed-2.md) |
-| [src-tauri/src/antigravity/map/anthropic.rs](../../src-tauri/src/antigravity/map/anthropic.rs) | 335 | [1](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-1.md) [2](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-2.md) [3](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-3.md) [4](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-4.md) |
+| [src-tauri/src/antigravity/map/anthropic.rs](../../src-tauri/src/antigravity/map/anthropic.rs) | 388 | [1](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-1.md) [2](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-2.md) [3](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-3.md) [4](src-tauri_src_antigravity_map_anthropic.rs-b4ddd654-4.md) |
 | [src-tauri/src/antigravity/map/args_fix.rs](../../src-tauri/src/antigravity/map/args_fix.rs) | 65 | [1](src-tauri_src_antigravity_map_args_fix.rs-ae858044-1.md) |
 | [src-tauri/src/antigravity/map/history_media.rs](../../src-tauri/src/antigravity/map/history_media.rs) | 33 | [1](src-tauri_src_antigravity_map_history_media.rs-6f930198-1.md) |
 | [src-tauri/src/antigravity/map/latex.rs](../../src-tauri/src/antigravity/map/latex.rs) | 124 | [1](src-tauri_src_antigravity_map_latex.rs-15d3d30d-1.md) [2](src-tauri_src_antigravity_map_latex.rs-15d3d30d-2.md) |
 | [src-tauri/src/antigravity/map/mod.rs](../../src-tauri/src/antigravity/map/mod.rs) | 43 | [1](src-tauri_src_antigravity_map_mod.rs-482a5901-1.md) |
 | [src-tauri/src/antigravity/map/models.rs](../../src-tauri/src/antigravity/map/models.rs) | 41 | [1](src-tauri_src_antigravity_map_models.rs-60e79d6e-1.md) |
-| [src-tauri/src/antigravity/map/openai.rs](../../src-tauri/src/antigravity/map/openai.rs) | 144 | [1](src-tauri_src_antigravity_map_openai.rs-0eec48e4-1.md) [2](src-tauri_src_antigravity_map_openai.rs-0eec48e4-2.md) |
-| [src-tauri/src/antigravity/map/responses.rs](../../src-tauri/src/antigravity/map/responses.rs) | 141 | [1](src-tauri_src_antigravity_map_responses.rs-64c3f563-1.md) [2](src-tauri_src_antigravity_map_responses.rs-64c3f563-2.md) |
+| [src-tauri/src/antigravity/map/openai.rs](../../src-tauri/src/antigravity/map/openai.rs) | 162 | [1](src-tauri_src_antigravity_map_openai.rs-0eec48e4-1.md) [2](src-tauri_src_antigravity_map_openai.rs-0eec48e4-2.md) |
+| [src-tauri/src/antigravity/map/responses.rs](../../src-tauri/src/antigravity/map/responses.rs) | 142 | [1](src-tauri_src_antigravity_map_responses.rs-64c3f563-1.md) [2](src-tauri_src_antigravity_map_responses.rs-64c3f563-2.md) |
 | [src-tauri/src/antigravity/mod.rs](../../src-tauri/src/antigravity/mod.rs) | 21 | [1](src-tauri_src_antigravity_mod.rs-73b53867-1.md) |
 | [src-tauri/src/antigravity/model_catalog.rs](../../src-tauri/src/antigravity/model_catalog.rs) | 190 | [1](src-tauri_src_antigravity_model_catalog.rs-d78a54c7-1.md) [2](src-tauri_src_antigravity_model_catalog.rs-d78a54c7-2.md) |
 | [src-tauri/src/antigravity/oauth.rs](../../src-tauri/src/antigravity/oauth.rs) | 38 | [1](src-tauri_src_antigravity_oauth.rs-022ae01c-1.md) |
@@ -33,8 +33,8 @@
 | [src-tauri/src/antigravity/request_shape.rs](../../src-tauri/src/antigravity/request_shape.rs) | 17 | [1](src-tauri_src_antigravity_request_shape.rs-3864946d-1.md) |
 | [src-tauri/src/antigravity/retry_info.rs](../../src-tauri/src/antigravity/retry_info.rs) | 17 | [1](src-tauri_src_antigravity_retry_info.rs-3f1197f9-1.md) |
 | [src-tauri/src/antigravity/session_effort.rs](../../src-tauri/src/antigravity/session_effort.rs) | 12 | [1](src-tauri_src_antigravity_session_effort.rs-8df139d3-1.md) |
-| [src-tauri/src/antigravity/thinking.rs](../../src-tauri/src/antigravity/thinking.rs) | 32 | [1](src-tauri_src_antigravity_thinking.rs-2d2c4e14-1.md) |
-| [src-tauri/src/antigravity/thought_sig.rs](../../src-tauri/src/antigravity/thought_sig.rs) | 42 | [1](src-tauri_src_antigravity_thought_sig.rs-9d3ace10-1.md) |
-| [src-tauri/src/antigravity/thought_sig_store.rs](../../src-tauri/src/antigravity/thought_sig_store.rs) | 204 | [1](src-tauri_src_antigravity_thought_sig_store.rs-6d15a716-1.md) [2](src-tauri_src_antigravity_thought_sig_store.rs-6d15a716-2.md) [3](src-tauri_src_antigravity_thought_sig_store.rs-6d15a716-3.md) |
+| [src-tauri/src/antigravity/thinking.rs](../../src-tauri/src/antigravity/thinking.rs) | 44 | [1](src-tauri_src_antigravity_thinking.rs-2d2c4e14-1.md) |
+| [src-tauri/src/antigravity/thought_sig.rs](../../src-tauri/src/antigravity/thought_sig.rs) | 49 | [1](src-tauri_src_antigravity_thought_sig.rs-9d3ace10-1.md) |
+| [src-tauri/src/antigravity/thought_sig_store.rs](../../src-tauri/src/antigravity/thought_sig_store.rs) | 215 | [1](src-tauri_src_antigravity_thought_sig_store.rs-6d15a716-1.md) [2](src-tauri_src_antigravity_thought_sig_store.rs-6d15a716-2.md) [3](src-tauri_src_antigravity_thought_sig_store.rs-6d15a716-3.md) |
 | [src-tauri/src/antigravity/upstream.rs](../../src-tauri/src/antigravity/upstream.rs) | 105 | [1](src-tauri_src_antigravity_upstream.rs-f73472ac-1.md) [2](src-tauri_src_antigravity_upstream.rs-f73472ac-2.md) |
 | [src-tauri/src/antigravity/usage_log.rs](../../src-tauri/src/antigravity/usage_log.rs) | 49 | [1](src-tauri_src_antigravity_usage_log.rs-d73cef15-1.md) |

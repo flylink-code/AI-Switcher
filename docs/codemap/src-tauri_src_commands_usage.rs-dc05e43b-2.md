@@ -4,107 +4,107 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/usage.rs) · page 2/3
 
-Source SHA-256: 4d7d5a4f90b8837834676808385e9c4c3d0df7dd50983a9665d46291a7b744ba
+Source SHA-256: 8243e89fac6b54bf3d9a92f03fb4e382749b8fb694cbf4e39769d7ff7e463868
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| LocalCodexAggregation | struct_item |  | [556](../../src-tauri/src/commands/usage.rs#L556) |
-| status | field_declaration | LocalCodexAggregation | [557](../../src-tauri/src/commands/usage.rs#L557) |
-| summary | field_declaration | LocalCodexAggregation | [558](../../src-tauri/src/commands/usage.rs#L558) |
-| by_model | field_declaration | LocalCodexAggregation | [559](../../src-tauri/src/commands/usage.rs#L559) |
-| trend | field_declaration | LocalCodexAggregation | [560](../../src-tauri/src/commands/usage.rs#L560) |
-| TokenTotals | struct_item |  | [564](../../src-tauri/src/commands/usage.rs#L564) |
-| input | field_declaration | TokenTotals | [565](../../src-tauri/src/commands/usage.rs#L565) |
-| cached | field_declaration | TokenTotals | [566](../../src-tauri/src/commands/usage.rs#L566) |
-| output | field_declaration | TokenTotals | [567](../../src-tauri/src/commands/usage.rs#L567) |
-| collect_codex_local_usage_from_root | function_item |  | [570](../../src-tauri/src/commands/usage.rs#L570) |
-| collect_codex_local_usage_from_roots | function_item |  | [574](../../src-tauri/src/commands/usage.rs#L574) |
-| collect_codex_jsonl_files | function_item |  | [610](../../src-tauri/src/commands/usage.rs#L610) |
-| collect_codex_file_usage | function_item |  | [636](../../src-tauri/src/commands/usage.rs#L636) |
-| compute_codex_token_delta | function_item |  | [699](../../src-tauri/src/commands/usage.rs#L699) |
-| extract_model_name | function_item |  | [717](../../src-tauri/src/commands/usage.rs#L717) |
-| normalize_model_name | function_item |  | [725](../../src-tauri/src/commands/usage.rs#L725) |
-| parse_event_timestamp | function_item |  | [733](../../src-tauri/src/commands/usage.rs#L733) |
-| read_token_totals | function_item |  | [743](../../src-tauri/src/commands/usage.rs#L743) |
-| token_number | function_item |  | [751](../../src-tauri/src/commands/usage.rs#L751) |
-| empty_summary | function_item |  | [757](../../src-tauri/src/commands/usage.rs#L757) |
-| local_codex_not_selected | function_item |  | [770](../../src-tauri/src/commands/usage.rs#L770) |
-| empty_breakdown | function_item |  | [778](../../src-tauri/src/commands/usage.rs#L778) |
-| empty_trend | function_item |  | [790](../../src-tauri/src/commands/usage.rs#L790) |
-| add_breakdown | function_item |  | [802](../../src-tauri/src/commands/usage.rs#L802) |
-| add_trend | function_item |  | [808](../../src-tauri/src/commands/usage.rs#L808) |
-| estimate_token_cost | function_item |  | [815](../../src-tauri/src/commands/usage.rs#L815) |
-| pricing_currency | function_item |  | [828](../../src-tauri/src/commands/usage.rs#L828) |
-| apply_fuzzy_pricing_to_breakdowns | function_item |  | [837](../../src-tauri/src/commands/usage.rs#L837) |
-| fold_provider_breakdowns | function_item |  | [860](../../src-tauri/src/commands/usage.rs#L860) |
-| Acc | struct_item | fold_provider_breakdowns | [864](../../src-tauri/src/commands/usage.rs#L864) |
-| request_count | field_declaration | fold_provider_breakdowns::Acc | [865](../../src-tauri/src/commands/usage.rs#L865) |
-| input_tokens | field_declaration | fold_provider_breakdowns::Acc | [866](../../src-tauri/src/commands/usage.rs#L866) |
-| cache_read_input_tokens | field_declaration | fold_provider_breakdowns::Acc | [867](../../src-tauri/src/commands/usage.rs#L867) |
-| cache_creation_input_tokens | field_declaration | fold_provider_breakdowns::Acc | [868](../../src-tauri/src/commands/usage.rs#L868) |
-| output_tokens | field_declaration | fold_provider_breakdowns::Acc | [869](../../src-tauri/src/commands/usage.rs#L869) |
-| costs | field_declaration | fold_provider_breakdowns::Acc | [870](../../src-tauri/src/commands/usage.rs#L870) |
-| rebuild_summary_costs_from_models | function_item |  | [935](../../src-tauri/src/commands/usage.rs#L935) |
-| convert_breakdown_to_usd | function_item |  | [959](../../src-tauri/src/commands/usage.rs#L959) |
-| apply_codex_estimated_cost | function_item |  | [971](../../src-tauri/src/commands/usage.rs#L971) |
-| pick_summary_currency | function_item |  | [1025](../../src-tauri/src/commands/usage.rs#L1025) |
-| list_model_pricing | function_item |  | [1034](../../src-tauri/src/commands/usage.rs#L1034) |
-| save_model_pricing | function_item |  | [1039](../../src-tauri/src/commands/usage.rs#L1039) |
-| export_model_pricing_xlsx | function_item |  | [1048](../../src-tauri/src/commands/usage.rs#L1048) |
-| format | macro invocation (unexpanded) | export_model_pricing_xlsx | [1067](../../src-tauri/src/commands/usage.rs#L1067) |
-| format | macro invocation (unexpanded) | export_model_pricing_xlsx | [1105](../../src-tauri/src/commands/usage.rs#L1105) |
-| excel_write_error | function_item |  | [1109](../../src-tauri/src/commands/usage.rs#L1109) |
-| format | macro invocation (unexpanded) | excel_write_error | [1110](../../src-tauri/src/commands/usage.rs#L1110) |
-| preview_model_pricing_xlsx | function_item |  | [1114](../../src-tauri/src/commands/usage.rs#L1114) |
-| import_model_pricing_xlsx | function_item |  | [1123](../../src-tauri/src/commands/usage.rs#L1123) |
-| format | macro invocation (unexpanded) | import_model_pricing_xlsx | [1129](../../src-tauri/src/commands/usage.rs#L1129) |
-| ParsedPricingImport | struct_item |  | [1146](../../src-tauri/src/commands/usage.rs#L1146) |
-| rows | field_declaration | ParsedPricingImport | [1147](../../src-tauri/src/commands/usage.rs#L1147) |
-| errors | field_declaration | ParsedPricingImport | [1148](../../src-tauri/src/commands/usage.rs#L1148) |
-| preview_pricing_rows | function_item |  | [1151](../../src-tauri/src/commands/usage.rs#L1151) |
-| parse_pricing_xlsx | function_item |  | [1177](../../src-tauri/src/commands/usage.rs#L1177) |
-| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1187](../../src-tauri/src/commands/usage.rs#L1187) |
-| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1191](../../src-tauri/src/commands/usage.rs#L1191) |
-| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1201](../../src-tauri/src/commands/usage.rs#L1201) |
-| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1224](../../src-tauri/src/commands/usage.rs#L1224) |
-| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1225](../../src-tauri/src/commands/usage.rs#L1225) |
-| spreadsheet_row_to_pricing | function_item |  | [1231](../../src-tauri/src/commands/usage.rs#L1231) |
-| format | macro invocation (unexpanded) | spreadsheet_row_to_pricing | [1239](../../src-tauri/src/commands/usage.rs#L1239) |
-| format | macro invocation (unexpanded) | spreadsheet_row_to_pricing | [1241](../../src-tauri/src/commands/usage.rs#L1241) |
-| normalize_pricing_input | function_item |  | [1258](../../src-tauri/src/commands/usage.rs#L1258) |
-| delete_model_pricing | function_item |  | [1297](../../src-tauri/src/commands/usage.rs#L1297) |
-| get_log_maintenance_policy | function_item |  | [1302](../../src-tauri/src/commands/usage.rs#L1302) |
-| save_log_maintenance_policy | function_item |  | [1309](../../src-tauri/src/commands/usage.rs#L1309) |
-| preview_proxy_log_maintenance | function_item |  | [1335](../../src-tauri/src/commands/usage.rs#L1335) |
-| maintain_proxy_logs | function_item |  | [1349](../../src-tauri/src/commands/usage.rs#L1349) |
-| format | macro invocation (unexpanded) | maintain_proxy_logs | [1366](../../src-tauri/src/commands/usage.rs#L1366) |
-| load_log_maintenance_policy | function_item |  | [1369](../../src-tauri/src/commands/usage.rs#L1369) |
-| normalize_log_maintenance_policy | function_item |  | [1383](../../src-tauri/src/commands/usage.rs#L1383) |
-| tests | mod_item |  | [1390](../../src-tauri/src/commands/usage.rs#L1390) |
-| parse_cline_source | function_item | tests | [1394](../../src-tauri/src/commands/usage.rs#L1394) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1395](../../src-tauri/src/commands/usage.rs#L1395) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1399](../../src-tauri/src/commands/usage.rs#L1399) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1403](../../src-tauri/src/commands/usage.rs#L1403) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1407](../../src-tauri/src/commands/usage.rs#L1407) |
-| write_session | function_item | tests | [1415](../../src-tauri/src/commands/usage.rs#L1415) |
-| codex_local_usage_diffs_consecutive_totals | function_item | tests | [1422](../../src-tauri/src/commands/usage.rs#L1422) |
-| concat | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1427](../../src-tauri/src/commands/usage.rs#L1427) |
-| assert | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1435](../../src-tauri/src/commands/usage.rs#L1435) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1436](../../src-tauri/src/commands/usage.rs#L1436) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1437](../../src-tauri/src/commands/usage.rs#L1437) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1438](../../src-tauri/src/commands/usage.rs#L1438) |
+| format | macro invocation (unexpanded) | rebuild_dsh_session_usage_cmd | [555](../../src-tauri/src/commands/usage.rs#L555) |
+| LocalCodexAggregation | struct_item |  | [559](../../src-tauri/src/commands/usage.rs#L559) |
+| status | field_declaration | LocalCodexAggregation | [560](../../src-tauri/src/commands/usage.rs#L560) |
+| summary | field_declaration | LocalCodexAggregation | [561](../../src-tauri/src/commands/usage.rs#L561) |
+| by_model | field_declaration | LocalCodexAggregation | [562](../../src-tauri/src/commands/usage.rs#L562) |
+| trend | field_declaration | LocalCodexAggregation | [563](../../src-tauri/src/commands/usage.rs#L563) |
+| TokenTotals | struct_item |  | [567](../../src-tauri/src/commands/usage.rs#L567) |
+| input | field_declaration | TokenTotals | [568](../../src-tauri/src/commands/usage.rs#L568) |
+| cached | field_declaration | TokenTotals | [569](../../src-tauri/src/commands/usage.rs#L569) |
+| output | field_declaration | TokenTotals | [570](../../src-tauri/src/commands/usage.rs#L570) |
+| collect_codex_local_usage_from_root | function_item |  | [573](../../src-tauri/src/commands/usage.rs#L573) |
+| collect_codex_local_usage_from_roots | function_item |  | [577](../../src-tauri/src/commands/usage.rs#L577) |
+| collect_codex_jsonl_files | function_item |  | [613](../../src-tauri/src/commands/usage.rs#L613) |
+| collect_codex_file_usage | function_item |  | [639](../../src-tauri/src/commands/usage.rs#L639) |
+| compute_codex_token_delta | function_item |  | [702](../../src-tauri/src/commands/usage.rs#L702) |
+| extract_model_name | function_item |  | [720](../../src-tauri/src/commands/usage.rs#L720) |
+| normalize_model_name | function_item |  | [728](../../src-tauri/src/commands/usage.rs#L728) |
+| parse_event_timestamp | function_item |  | [736](../../src-tauri/src/commands/usage.rs#L736) |
+| read_token_totals | function_item |  | [746](../../src-tauri/src/commands/usage.rs#L746) |
+| token_number | function_item |  | [754](../../src-tauri/src/commands/usage.rs#L754) |
+| empty_summary | function_item |  | [760](../../src-tauri/src/commands/usage.rs#L760) |
+| local_codex_not_selected | function_item |  | [773](../../src-tauri/src/commands/usage.rs#L773) |
+| empty_breakdown | function_item |  | [781](../../src-tauri/src/commands/usage.rs#L781) |
+| empty_trend | function_item |  | [793](../../src-tauri/src/commands/usage.rs#L793) |
+| add_breakdown | function_item |  | [805](../../src-tauri/src/commands/usage.rs#L805) |
+| add_trend | function_item |  | [811](../../src-tauri/src/commands/usage.rs#L811) |
+| estimate_token_cost | function_item |  | [818](../../src-tauri/src/commands/usage.rs#L818) |
+| pricing_currency | function_item |  | [831](../../src-tauri/src/commands/usage.rs#L831) |
+| apply_fuzzy_pricing_to_breakdowns | function_item |  | [840](../../src-tauri/src/commands/usage.rs#L840) |
+| fold_provider_breakdowns | function_item |  | [863](../../src-tauri/src/commands/usage.rs#L863) |
+| Acc | struct_item | fold_provider_breakdowns | [867](../../src-tauri/src/commands/usage.rs#L867) |
+| request_count | field_declaration | fold_provider_breakdowns::Acc | [868](../../src-tauri/src/commands/usage.rs#L868) |
+| input_tokens | field_declaration | fold_provider_breakdowns::Acc | [869](../../src-tauri/src/commands/usage.rs#L869) |
+| cache_read_input_tokens | field_declaration | fold_provider_breakdowns::Acc | [870](../../src-tauri/src/commands/usage.rs#L870) |
+| cache_creation_input_tokens | field_declaration | fold_provider_breakdowns::Acc | [871](../../src-tauri/src/commands/usage.rs#L871) |
+| output_tokens | field_declaration | fold_provider_breakdowns::Acc | [872](../../src-tauri/src/commands/usage.rs#L872) |
+| costs | field_declaration | fold_provider_breakdowns::Acc | [873](../../src-tauri/src/commands/usage.rs#L873) |
+| rebuild_summary_costs_from_models | function_item |  | [938](../../src-tauri/src/commands/usage.rs#L938) |
+| convert_breakdown_to_usd | function_item |  | [962](../../src-tauri/src/commands/usage.rs#L962) |
+| apply_codex_estimated_cost | function_item |  | [974](../../src-tauri/src/commands/usage.rs#L974) |
+| pick_summary_currency | function_item |  | [1028](../../src-tauri/src/commands/usage.rs#L1028) |
+| list_model_pricing | function_item |  | [1037](../../src-tauri/src/commands/usage.rs#L1037) |
+| save_model_pricing | function_item |  | [1042](../../src-tauri/src/commands/usage.rs#L1042) |
+| export_model_pricing_xlsx | function_item |  | [1051](../../src-tauri/src/commands/usage.rs#L1051) |
+| format | macro invocation (unexpanded) | export_model_pricing_xlsx | [1070](../../src-tauri/src/commands/usage.rs#L1070) |
+| format | macro invocation (unexpanded) | export_model_pricing_xlsx | [1108](../../src-tauri/src/commands/usage.rs#L1108) |
+| excel_write_error | function_item |  | [1112](../../src-tauri/src/commands/usage.rs#L1112) |
+| format | macro invocation (unexpanded) | excel_write_error | [1113](../../src-tauri/src/commands/usage.rs#L1113) |
+| preview_model_pricing_xlsx | function_item |  | [1117](../../src-tauri/src/commands/usage.rs#L1117) |
+| import_model_pricing_xlsx | function_item |  | [1126](../../src-tauri/src/commands/usage.rs#L1126) |
+| format | macro invocation (unexpanded) | import_model_pricing_xlsx | [1132](../../src-tauri/src/commands/usage.rs#L1132) |
+| ParsedPricingImport | struct_item |  | [1149](../../src-tauri/src/commands/usage.rs#L1149) |
+| rows | field_declaration | ParsedPricingImport | [1150](../../src-tauri/src/commands/usage.rs#L1150) |
+| errors | field_declaration | ParsedPricingImport | [1151](../../src-tauri/src/commands/usage.rs#L1151) |
+| preview_pricing_rows | function_item |  | [1154](../../src-tauri/src/commands/usage.rs#L1154) |
+| parse_pricing_xlsx | function_item |  | [1180](../../src-tauri/src/commands/usage.rs#L1180) |
+| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1190](../../src-tauri/src/commands/usage.rs#L1190) |
+| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1194](../../src-tauri/src/commands/usage.rs#L1194) |
+| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1204](../../src-tauri/src/commands/usage.rs#L1204) |
+| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1227](../../src-tauri/src/commands/usage.rs#L1227) |
+| format | macro invocation (unexpanded) | parse_pricing_xlsx | [1228](../../src-tauri/src/commands/usage.rs#L1228) |
+| spreadsheet_row_to_pricing | function_item |  | [1234](../../src-tauri/src/commands/usage.rs#L1234) |
+| format | macro invocation (unexpanded) | spreadsheet_row_to_pricing | [1242](../../src-tauri/src/commands/usage.rs#L1242) |
+| format | macro invocation (unexpanded) | spreadsheet_row_to_pricing | [1244](../../src-tauri/src/commands/usage.rs#L1244) |
+| normalize_pricing_input | function_item |  | [1261](../../src-tauri/src/commands/usage.rs#L1261) |
+| delete_model_pricing | function_item |  | [1300](../../src-tauri/src/commands/usage.rs#L1300) |
+| get_log_maintenance_policy | function_item |  | [1305](../../src-tauri/src/commands/usage.rs#L1305) |
+| save_log_maintenance_policy | function_item |  | [1312](../../src-tauri/src/commands/usage.rs#L1312) |
+| preview_proxy_log_maintenance | function_item |  | [1338](../../src-tauri/src/commands/usage.rs#L1338) |
+| maintain_proxy_logs | function_item |  | [1352](../../src-tauri/src/commands/usage.rs#L1352) |
+| format | macro invocation (unexpanded) | maintain_proxy_logs | [1369](../../src-tauri/src/commands/usage.rs#L1369) |
+| load_log_maintenance_policy | function_item |  | [1372](../../src-tauri/src/commands/usage.rs#L1372) |
+| normalize_log_maintenance_policy | function_item |  | [1386](../../src-tauri/src/commands/usage.rs#L1386) |
+| tests | mod_item |  | [1393](../../src-tauri/src/commands/usage.rs#L1393) |
+| parse_cline_source | function_item | tests | [1397](../../src-tauri/src/commands/usage.rs#L1397) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1398](../../src-tauri/src/commands/usage.rs#L1398) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1402](../../src-tauri/src/commands/usage.rs#L1402) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1406](../../src-tauri/src/commands/usage.rs#L1406) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_cline_source | [1410](../../src-tauri/src/commands/usage.rs#L1410) |
+| write_session | function_item | tests | [1418](../../src-tauri/src/commands/usage.rs#L1418) |
+| codex_local_usage_diffs_consecutive_totals | function_item | tests | [1425](../../src-tauri/src/commands/usage.rs#L1425) |
+| concat | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1430](../../src-tauri/src/commands/usage.rs#L1430) |
+| assert | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1438](../../src-tauri/src/commands/usage.rs#L1438) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1439](../../src-tauri/src/commands/usage.rs#L1439) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1440](../../src-tauri/src/commands/usage.rs#L1440) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1441](../../src-tauri/src/commands/usage.rs#L1441) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1442](../../src-tauri/src/commands/usage.rs#L1442) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1443](../../src-tauri/src/commands/usage.rs#L1443) |
-| codex_local_usage_adds_last_token_usage_directly | function_item | tests | [1447](../../src-tauri/src/commands/usage.rs#L1447) |
-| concat | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1452](../../src-tauri/src/commands/usage.rs#L1452) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1460](../../src-tauri/src/commands/usage.rs#L1460) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1461](../../src-tauri/src/commands/usage.rs#L1461) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1462](../../src-tauri/src/commands/usage.rs#L1462) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1444](../../src-tauri/src/commands/usage.rs#L1444) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1445](../../src-tauri/src/commands/usage.rs#L1445) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_diffs_consecutive_totals | [1446](../../src-tauri/src/commands/usage.rs#L1446) |
+| codex_local_usage_adds_last_token_usage_directly | function_item | tests | [1450](../../src-tauri/src/commands/usage.rs#L1450) |
+| concat | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1455](../../src-tauri/src/commands/usage.rs#L1455) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1463](../../src-tauri/src/commands/usage.rs#L1463) |
-| codex_local_usage_total_then_last_do_not_pollute_each_other | function_item | tests | [1467](../../src-tauri/src/commands/usage.rs#L1467) |
-| concat | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1472](../../src-tauri/src/commands/usage.rs#L1472) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1483](../../src-tauri/src/commands/usage.rs#L1483) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1464](../../src-tauri/src/commands/usage.rs#L1464) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1465](../../src-tauri/src/commands/usage.rs#L1465) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_adds_last_token_usage_directly | [1466](../../src-tauri/src/commands/usage.rs#L1466) |
+| codex_local_usage_total_then_last_do_not_pollute_each_other | function_item | tests | [1470](../../src-tauri/src/commands/usage.rs#L1470) |
+| concat | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1475](../../src-tauri/src/commands/usage.rs#L1475) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1486](../../src-tauri/src/commands/usage.rs#L1486) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1487](../../src-tauri/src/commands/usage.rs#L1487) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1489](../../src-tauri/src/commands/usage.rs#L1489) |

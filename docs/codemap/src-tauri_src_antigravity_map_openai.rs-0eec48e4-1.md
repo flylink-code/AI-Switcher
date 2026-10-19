@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/map/openai.rs) · page 1/2
 
-Source SHA-256: 2d42995828dbbfb904c7c6a06e208091ed25c65c67f898a154742392ee23d384
+Source SHA-256: f11f9d255f3efe9d249b4039397f40ca769e1c1de1d2c94f45ae25c88905c8f1
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -14,97 +14,97 @@ Source SHA-256: 2d42995828dbbfb904c7c6a06e208091ed25c65c67f898a154742392ee23d384
 | stream | field_declaration | GeminiRequestParts | [15](../../src-tauri/src/antigravity/map/openai.rs#L15) |
 | tool_params | field_declaration | GeminiRequestParts | [17](../../src-tauri/src/antigravity/map/openai.rs#L17) |
 | openai_to_gemini_request | function_item |  | [20](../../src-tauri/src/antigravity/map/openai.rs#L20) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [123](../../src-tauri/src/antigravity/map/openai.rs#L123) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [124](../../src-tauri/src/antigravity/map/openai.rs#L124) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [127](../../src-tauri/src/antigravity/map/openai.rs#L127) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [132](../../src-tauri/src/antigravity/map/openai.rs#L132) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [140](../../src-tauri/src/antigravity/map/openai.rs#L140) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [147](../../src-tauri/src/antigravity/map/openai.rs#L147) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [179](../../src-tauri/src/antigravity/map/openai.rs#L179) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [184](../../src-tauri/src/antigravity/map/openai.rs#L184) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [188](../../src-tauri/src/antigravity/map/openai.rs#L188) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [197](../../src-tauri/src/antigravity/map/openai.rs#L197) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [208](../../src-tauri/src/antigravity/map/openai.rs#L208) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [210](../../src-tauri/src/antigravity/map/openai.rs#L210) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [216](../../src-tauri/src/antigravity/map/openai.rs#L216) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [222](../../src-tauri/src/antigravity/map/openai.rs#L222) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [228](../../src-tauri/src/antigravity/map/openai.rs#L228) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [125](../../src-tauri/src/antigravity/map/openai.rs#L125) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [126](../../src-tauri/src/antigravity/map/openai.rs#L126) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [129](../../src-tauri/src/antigravity/map/openai.rs#L129) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [134](../../src-tauri/src/antigravity/map/openai.rs#L134) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [142](../../src-tauri/src/antigravity/map/openai.rs#L142) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [149](../../src-tauri/src/antigravity/map/openai.rs#L149) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [181](../../src-tauri/src/antigravity/map/openai.rs#L181) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [186](../../src-tauri/src/antigravity/map/openai.rs#L186) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [190](../../src-tauri/src/antigravity/map/openai.rs#L190) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [199](../../src-tauri/src/antigravity/map/openai.rs#L199) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [212](../../src-tauri/src/antigravity/map/openai.rs#L212) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [219](../../src-tauri/src/antigravity/map/openai.rs#L219) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [229](../../src-tauri/src/antigravity/map/openai.rs#L229) |
 | json | macro invocation (unexpanded) | openai_to_gemini_request | [231](../../src-tauri/src/antigravity/map/openai.rs#L231) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [235](../../src-tauri/src/antigravity/map/openai.rs#L235) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [240](../../src-tauri/src/antigravity/map/openai.rs#L240) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [248](../../src-tauri/src/antigravity/map/openai.rs#L248) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [267](../../src-tauri/src/antigravity/map/openai.rs#L267) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [285](../../src-tauri/src/antigravity/map/openai.rs#L285) |
-| json | macro invocation (unexpanded) | openai_to_gemini_request | [288](../../src-tauri/src/antigravity/map/openai.rs#L288) |
-| push_text_content | function_item |  | [304](../../src-tauri/src/antigravity/map/openai.rs#L304) |
-| json | macro invocation (unexpanded) | push_text_content | [306](../../src-tauri/src/antigravity/map/openai.rs#L306) |
-| json | macro invocation (unexpanded) | push_text_content | [311](../../src-tauri/src/antigravity/map/openai.rs#L311) |
-| json | macro invocation (unexpanded) | push_text_content | [316](../../src-tauri/src/antigravity/map/openai.rs#L316) |
-| content_to_parts | function_item |  | [326](../../src-tauri/src/antigravity/map/openai.rs#L326) |
-| vec | macro invocation (unexpanded) | content_to_parts | [332](../../src-tauri/src/antigravity/map/openai.rs#L332) |
-| json | macro invocation (unexpanded) | content_to_parts | [342](../../src-tauri/src/antigravity/map/openai.rs#L342) |
-| json | macro invocation (unexpanded) | content_to_parts | [353](../../src-tauri/src/antigravity/map/openai.rs#L353) |
-| json | macro invocation (unexpanded) | content_to_parts | [362](../../src-tauri/src/antigravity/map/openai.rs#L362) |
-| parse_data_url | function_item |  | [374](../../src-tauri/src/antigravity/map/openai.rs#L374) |
-| gemini_to_openai_response | function_item |  | [381](../../src-tauri/src/antigravity/map/openai.rs#L381) |
-| json | macro invocation (unexpanded) | gemini_to_openai_response | [389](../../src-tauri/src/antigravity/map/openai.rs#L389) |
-| json | macro invocation (unexpanded) | gemini_to_openai_response | [394](../../src-tauri/src/antigravity/map/openai.rs#L394) |
-| json | macro invocation (unexpanded) | gemini_to_openai_response | [397](../../src-tauri/src/antigravity/map/openai.rs#L397) |
-| json | macro invocation (unexpanded) | gemini_to_openai_response | [401](../../src-tauri/src/antigravity/map/openai.rs#L401) |
-| gemini_to_openai_sse_chunk | function_item |  | [415](../../src-tauri/src/antigravity/map/openai.rs#L415) |
-| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk | [423](../../src-tauri/src/antigravity/map/openai.rs#L423) |
-| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk | [425](../../src-tauri/src/antigravity/map/openai.rs#L425) |
-| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk | [428](../../src-tauri/src/antigravity/map/openai.rs#L428) |
-| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk | [431](../../src-tauri/src/antigravity/map/openai.rs#L431) |
-| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk | [433](../../src-tauri/src/antigravity/map/openai.rs#L433) |
-| openai_usage_sse_chunk | function_item |  | [452](../../src-tauri/src/antigravity/map/openai.rs#L452) |
-| json | macro invocation (unexpanded) | openai_usage_sse_chunk | [458](../../src-tauri/src/antigravity/map/openai.rs#L458) |
-| extract_assistant | function_item |  | [472](../../src-tauri/src/antigravity/map/openai.rs#L472) |
-| format | macro invocation (unexpanded) | extract_assistant | [518](../../src-tauri/src/antigravity/map/openai.rs#L518) |
-| json | macro invocation (unexpanded) | extract_assistant | [525](../../src-tauri/src/antigravity/map/openai.rs#L525) |
-| json | macro invocation (unexpanded) | extract_assistant | [528](../../src-tauri/src/antigravity/map/openai.rs#L528) |
-| json | macro invocation (unexpanded) | extract_assistant | [531](../../src-tauri/src/antigravity/map/openai.rs#L531) |
-| tests | mod_item |  | [567](../../src-tauri/src/antigravity/map/openai.rs#L567) |
-| converts_openai_chat | function_item | tests | [571](../../src-tauri/src/antigravity/map/openai.rs#L571) |
-| json | macro invocation (unexpanded) | tests::converts_openai_chat | [572](../../src-tauri/src/antigravity/map/openai.rs#L572) |
-| assert_eq | macro invocation (unexpanded) | tests::converts_openai_chat | [580](../../src-tauri/src/antigravity/map/openai.rs#L580) |
-| assert | macro invocation (unexpanded) | tests::converts_openai_chat | [581](../../src-tauri/src/antigravity/map/openai.rs#L581) |
-| keeps_leading_system_and_demotes_mid_session_directives | function_item | tests | [585](../../src-tauri/src/antigravity/map/openai.rs#L585) |
-| json | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [586](../../src-tauri/src/antigravity/map/openai.rs#L586) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [601](../../src-tauri/src/antigravity/map/openai.rs#L601) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [602](../../src-tauri/src/antigravity/map/openai.rs#L602) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [603](../../src-tauri/src/antigravity/map/openai.rs#L603) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [606](../../src-tauri/src/antigravity/map/openai.rs#L606) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [607](../../src-tauri/src/antigravity/map/openai.rs#L607) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [608](../../src-tauri/src/antigravity/map/openai.rs#L608) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [609](../../src-tauri/src/antigravity/map/openai.rs#L609) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [613](../../src-tauri/src/antigravity/map/openai.rs#L613) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [614](../../src-tauri/src/antigravity/map/openai.rs#L614) |
-| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [615](../../src-tauri/src/antigravity/map/openai.rs#L615) |
-| empty_mid_session_directive_does_not_add_a_turn | function_item | tests | [622](../../src-tauri/src/antigravity/map/openai.rs#L622) |
-| json | macro invocation (unexpanded) | tests::empty_mid_session_directive_does_not_add_a_turn | [623](../../src-tauri/src/antigravity/map/openai.rs#L623) |
-| assert_eq | macro invocation (unexpanded) | tests::empty_mid_session_directive_does_not_add_a_turn | [632](../../src-tauri/src/antigravity/map/openai.rs#L632) |
-| assert | macro invocation (unexpanded) | tests::empty_mid_session_directive_does_not_add_a_turn | [633](../../src-tauri/src/antigravity/map/openai.rs#L633) |
-| tool_message_keeps_call_id_and_real_name | function_item | tests | [637](../../src-tauri/src/antigravity/map/openai.rs#L637) |
-| json | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [638](../../src-tauri/src/antigravity/map/openai.rs#L638) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [657](../../src-tauri/src/antigravity/map/openai.rs#L657) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [658](../../src-tauri/src/antigravity/map/openai.rs#L658) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [659](../../src-tauri/src/antigravity/map/openai.rs#L659) |
-| assert | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [661](../../src-tauri/src/antigravity/map/openai.rs#L661) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [662](../../src-tauri/src/antigravity/map/openai.rs#L662) |
-| parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | function_item | tests | [669](../../src-tauri/src/antigravity/map/openai.rs#L669) |
-| json | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [670](../../src-tauri/src/antigravity/map/openai.rs#L670) |
-| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [683](../../src-tauri/src/antigravity/map/openai.rs#L683) |
-| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [684](../../src-tauri/src/antigravity/map/openai.rs#L684) |
-| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [685](../../src-tauri/src/antigravity/map/openai.rs#L685) |
-| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [687](../../src-tauri/src/antigravity/map/openai.rs#L687) |
-| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [688](../../src-tauri/src/antigravity/map/openai.rs#L688) |
-| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [692](../../src-tauri/src/antigravity/map/openai.rs#L692) |
-| reasoning_effort_maps_gemini_suffix_and_claude_thinking_level | function_item | tests | [699](../../src-tauri/src/antigravity/map/openai.rs#L699) |
-| json | macro invocation (unexpanded) | tests::reasoning_effort_maps_gemini_suffix_and_claude_thinking_level | [706](../../src-tauri/src/antigravity/map/openai.rs#L706) |
-| assert_eq | macro invocation (unexpanded) | tests::reasoning_effort_maps_gemini_suffix_and_claude_thinking_level | [714](../../src-tauri/src/antigravity/map/openai.rs#L714) |
-| assert | macro invocation (unexpanded) | tests::reasoning_effort_maps_gemini_suffix_and_claude_thinking_level | [715](../../src-tauri/src/antigravity/map/openai.rs#L715) |
-| json | macro invocation (unexpanded) | tests::reasoning_effort_maps_gemini_suffix_and_claude_thinking_level | [719](../../src-tauri/src/antigravity/map/openai.rs#L719) |
-| assert_eq | macro invocation (unexpanded) | tests::reasoning_effort_maps_gemini_suffix_and_claude_thinking_level | [727](../../src-tauri/src/antigravity/map/openai.rs#L727) |
-| claude_55_explicit_suffix_beats_reasoning_effort | function_item | tests | [734](../../src-tauri/src/antigravity/map/openai.rs#L734) |
-| json | macro invocation (unexpanded) | tests::claude_55_explicit_suffix_beats_reasoning_effort | [736](../../src-tauri/src/antigravity/map/openai.rs#L736) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [237](../../src-tauri/src/antigravity/map/openai.rs#L237) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [243](../../src-tauri/src/antigravity/map/openai.rs#L243) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [249](../../src-tauri/src/antigravity/map/openai.rs#L249) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [252](../../src-tauri/src/antigravity/map/openai.rs#L252) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [256](../../src-tauri/src/antigravity/map/openai.rs#L256) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [265](../../src-tauri/src/antigravity/map/openai.rs#L265) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [272](../../src-tauri/src/antigravity/map/openai.rs#L272) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [277](../../src-tauri/src/antigravity/map/openai.rs#L277) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [287](../../src-tauri/src/antigravity/map/openai.rs#L287) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [307](../../src-tauri/src/antigravity/map/openai.rs#L307) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [325](../../src-tauri/src/antigravity/map/openai.rs#L325) |
+| json | macro invocation (unexpanded) | openai_to_gemini_request | [328](../../src-tauri/src/antigravity/map/openai.rs#L328) |
+| push_text_content | function_item |  | [344](../../src-tauri/src/antigravity/map/openai.rs#L344) |
+| json | macro invocation (unexpanded) | push_text_content | [346](../../src-tauri/src/antigravity/map/openai.rs#L346) |
+| json | macro invocation (unexpanded) | push_text_content | [351](../../src-tauri/src/antigravity/map/openai.rs#L351) |
+| json | macro invocation (unexpanded) | push_text_content | [356](../../src-tauri/src/antigravity/map/openai.rs#L356) |
+| content_to_parts | function_item |  | [366](../../src-tauri/src/antigravity/map/openai.rs#L366) |
+| vec | macro invocation (unexpanded) | content_to_parts | [372](../../src-tauri/src/antigravity/map/openai.rs#L372) |
+| json | macro invocation (unexpanded) | content_to_parts | [382](../../src-tauri/src/antigravity/map/openai.rs#L382) |
+| json | macro invocation (unexpanded) | content_to_parts | [393](../../src-tauri/src/antigravity/map/openai.rs#L393) |
+| json | macro invocation (unexpanded) | content_to_parts | [402](../../src-tauri/src/antigravity/map/openai.rs#L402) |
+| parse_data_url | function_item |  | [414](../../src-tauri/src/antigravity/map/openai.rs#L414) |
+| gemini_to_openai_response | function_item |  | [421](../../src-tauri/src/antigravity/map/openai.rs#L421) |
+| json | macro invocation (unexpanded) | gemini_to_openai_response | [429](../../src-tauri/src/antigravity/map/openai.rs#L429) |
+| json | macro invocation (unexpanded) | gemini_to_openai_response | [434](../../src-tauri/src/antigravity/map/openai.rs#L434) |
+| json | macro invocation (unexpanded) | gemini_to_openai_response | [437](../../src-tauri/src/antigravity/map/openai.rs#L437) |
+| json | macro invocation (unexpanded) | gemini_to_openai_response | [441](../../src-tauri/src/antigravity/map/openai.rs#L441) |
+| OpenAiChatStreamState | struct_item |  | [460](../../src-tauri/src/antigravity/map/openai.rs#L460) |
+| next_tool_index | field_declaration | OpenAiChatStreamState | [461](../../src-tauri/src/antigravity/map/openai.rs#L461) |
+| saw_tool_calls | field_declaration | OpenAiChatStreamState | [462](../../src-tauri/src/antigravity/map/openai.rs#L462) |
+| gemini_to_openai_sse_chunk | function_item |  | [465](../../src-tauri/src/antigravity/map/openai.rs#L465) |
+| gemini_to_openai_sse_chunk_stateful | function_item |  | [475](../../src-tauri/src/antigravity/map/openai.rs#L475) |
+| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk_stateful | [495](../../src-tauri/src/antigravity/map/openai.rs#L495) |
+| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk_stateful | [497](../../src-tauri/src/antigravity/map/openai.rs#L497) |
+| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk_stateful | [500](../../src-tauri/src/antigravity/map/openai.rs#L500) |
+| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk_stateful | [503](../../src-tauri/src/antigravity/map/openai.rs#L503) |
+| json | macro invocation (unexpanded) | gemini_to_openai_sse_chunk_stateful | [505](../../src-tauri/src/antigravity/map/openai.rs#L505) |
+| openai_usage_sse_chunk | function_item |  | [524](../../src-tauri/src/antigravity/map/openai.rs#L524) |
+| openai_usage_sse_chunk_with_reason | function_item |  | [528](../../src-tauri/src/antigravity/map/openai.rs#L528) |
+| json | macro invocation (unexpanded) | openai_usage_sse_chunk_with_reason | [539](../../src-tauri/src/antigravity/map/openai.rs#L539) |
+| extract_assistant | function_item |  | [553](../../src-tauri/src/antigravity/map/openai.rs#L553) |
+| extract_assistant_with_tool_offset | function_item |  | [562](../../src-tauri/src/antigravity/map/openai.rs#L562) |
+| format | macro invocation (unexpanded) | extract_assistant_with_tool_offset | [611](../../src-tauri/src/antigravity/map/openai.rs#L611) |
+| json | macro invocation (unexpanded) | extract_assistant_with_tool_offset | [618](../../src-tauri/src/antigravity/map/openai.rs#L618) |
+| json | macro invocation (unexpanded) | extract_assistant_with_tool_offset | [621](../../src-tauri/src/antigravity/map/openai.rs#L621) |
+| json | macro invocation (unexpanded) | extract_assistant_with_tool_offset | [624](../../src-tauri/src/antigravity/map/openai.rs#L624) |
+| tests | mod_item |  | [660](../../src-tauri/src/antigravity/map/openai.rs#L660) |
+| converts_openai_chat | function_item | tests | [664](../../src-tauri/src/antigravity/map/openai.rs#L664) |
+| json | macro invocation (unexpanded) | tests::converts_openai_chat | [665](../../src-tauri/src/antigravity/map/openai.rs#L665) |
+| assert_eq | macro invocation (unexpanded) | tests::converts_openai_chat | [673](../../src-tauri/src/antigravity/map/openai.rs#L673) |
+| assert | macro invocation (unexpanded) | tests::converts_openai_chat | [674](../../src-tauri/src/antigravity/map/openai.rs#L674) |
+| keeps_leading_system_and_demotes_mid_session_directives | function_item | tests | [678](../../src-tauri/src/antigravity/map/openai.rs#L678) |
+| json | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [679](../../src-tauri/src/antigravity/map/openai.rs#L679) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [694](../../src-tauri/src/antigravity/map/openai.rs#L694) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [695](../../src-tauri/src/antigravity/map/openai.rs#L695) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [696](../../src-tauri/src/antigravity/map/openai.rs#L696) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [699](../../src-tauri/src/antigravity/map/openai.rs#L699) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [700](../../src-tauri/src/antigravity/map/openai.rs#L700) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [701](../../src-tauri/src/antigravity/map/openai.rs#L701) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [702](../../src-tauri/src/antigravity/map/openai.rs#L702) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [706](../../src-tauri/src/antigravity/map/openai.rs#L706) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [707](../../src-tauri/src/antigravity/map/openai.rs#L707) |
+| assert_eq | macro invocation (unexpanded) | tests::keeps_leading_system_and_demotes_mid_session_directives | [708](../../src-tauri/src/antigravity/map/openai.rs#L708) |
+| empty_mid_session_directive_does_not_add_a_turn | function_item | tests | [715](../../src-tauri/src/antigravity/map/openai.rs#L715) |
+| json | macro invocation (unexpanded) | tests::empty_mid_session_directive_does_not_add_a_turn | [716](../../src-tauri/src/antigravity/map/openai.rs#L716) |
+| assert_eq | macro invocation (unexpanded) | tests::empty_mid_session_directive_does_not_add_a_turn | [725](../../src-tauri/src/antigravity/map/openai.rs#L725) |
+| assert | macro invocation (unexpanded) | tests::empty_mid_session_directive_does_not_add_a_turn | [726](../../src-tauri/src/antigravity/map/openai.rs#L726) |
+| tool_message_keeps_call_id_and_real_name | function_item | tests | [730](../../src-tauri/src/antigravity/map/openai.rs#L730) |
+| json | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [731](../../src-tauri/src/antigravity/map/openai.rs#L731) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [750](../../src-tauri/src/antigravity/map/openai.rs#L750) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [751](../../src-tauri/src/antigravity/map/openai.rs#L751) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [752](../../src-tauri/src/antigravity/map/openai.rs#L752) |
+| assert | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [754](../../src-tauri/src/antigravity/map/openai.rs#L754) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_message_keeps_call_id_and_real_name | [755](../../src-tauri/src/antigravity/map/openai.rs#L755) |
+| parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | function_item | tests | [762](../../src-tauri/src/antigravity/map/openai.rs#L762) |
+| json | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [763](../../src-tauri/src/antigravity/map/openai.rs#L763) |
+| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [776](../../src-tauri/src/antigravity/map/openai.rs#L776) |
+| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [777](../../src-tauri/src/antigravity/map/openai.rs#L777) |
+| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [778](../../src-tauri/src/antigravity/map/openai.rs#L778) |
+| assert_eq | macro invocation (unexpanded) | tests::parallel_tool_messages_and_missing_outputs_merge_into_single_user_turn | [780](../../src-tauri/src/antigravity/map/openai.rs#L780) |

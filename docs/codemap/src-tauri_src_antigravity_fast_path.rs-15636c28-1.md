@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/fast_path.rs) · page 1/1
 
-Source SHA-256: 883c5dc999bd2d0c6ce23ee741db21c8d5efd205d14a5296e5529a5b019e1a72
+Source SHA-256: e5376ce9be83c449056eb177b7c99bc40d830e10c06b6950253fd81f4c3b4153
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -47,38 +47,39 @@ Source SHA-256: 883c5dc999bd2d0c6ce23ee741db21c8d5efd205d14a5296e5529a5b019e1a72
 | sse_event | function_item |  | [217](../../src-tauri/src/antigravity/fast_path.rs#L217) |
 | format | macro invocation (unexpanded) | sse_event | [222](../../src-tauri/src/antigravity/fast_path.rs#L222) |
 | is_quota_check | function_item |  | [225](../../src-tauri/src/antigravity/fast_path.rs#L225) |
-| is_title_generation | function_item |  | [235](../../src-tauri/src/antigravity/fast_path.rs#L235) |
-| is_suggestion_mode | function_item |  | [253](../../src-tauri/src/antigravity/fast_path.rs#L253) |
-| prefix_command | function_item |  | [257](../../src-tauri/src/antigravity/fast_path.rs#L257) |
-| filepath_extract | function_item |  | [266](../../src-tauri/src/antigravity/fast_path.rs#L266) |
-| extract_command_prefix | function_item |  | [298](../../src-tauri/src/antigravity/fast_path.rs#L298) |
-| TWO_WORD | const_item | extract_command_prefix | [312](../../src-tauri/src/antigravity/fast_path.rs#L312) |
-| format | macro invocation (unexpanded) | extract_command_prefix | [318](../../src-tauri/src/antigravity/fast_path.rs#L318) |
-| extract_filepaths | function_item |  | [325](../../src-tauri/src/antigravity/fast_path.rs#L325) |
-| LISTING | const_item | extract_filepaths | [335](../../src-tauri/src/antigravity/fast_path.rs#L335) |
-| READING | const_item | extract_filepaths | [338](../../src-tauri/src/antigravity/fast_path.rs#L338) |
-| format | macro invocation (unexpanded) | extract_filepaths | [352](../../src-tauri/src/antigravity/fast_path.rs#L352) |
-| shell_words | function_item |  | [357](../../src-tauri/src/antigravity/fast_path.rs#L357) |
-| single_user_text | function_item |  | [365](../../src-tauri/src/antigravity/fast_path.rs#L365) |
-| last_user_text | function_item |  | [380](../../src-tauri/src/antigravity/fast_path.rs#L380) |
-| user_texts | function_item |  | [395](../../src-tauri/src/antigravity/fast_path.rs#L395) |
-| system_text | function_item |  | [404](../../src-tauri/src/antigravity/fast_path.rs#L404) |
-| content_text | function_item |  | [425](../../src-tauri/src/antigravity/fast_path.rs#L425) |
-| TITLE_KEYWORDS | const_item |  | [444](../../src-tauri/src/antigravity/fast_path.rs#L444) |
-| SUMMARY_KEYWORDS | const_item |  | [455](../../src-tauri/src/antigravity/fast_path.rs#L455) |
-| SUGGESTION_KEYWORDS | const_item |  | [465](../../src-tauri/src/antigravity/fast_path.rs#L465) |
-| PROBE_KEYWORDS | const_item |  | [471](../../src-tauri/src/antigravity/fast_path.rs#L471) |
-| tests | mod_item |  | [479](../../src-tauri/src/antigravity/fast_path.rs#L479) |
-| quota_probe_is_short_circuited | function_item | tests | [483](../../src-tauri/src/antigravity/fast_path.rs#L483) |
-| json | macro invocation (unexpanded) | tests::quota_probe_is_short_circuited | [484](../../src-tauri/src/antigravity/fast_path.rs#L484) |
-| assert | macro invocation (unexpanded) | tests::quota_probe_is_short_circuited | [490](../../src-tauri/src/antigravity/fast_path.rs#L490) |
-| title_generation_skips_upstream | function_item | tests | [494](../../src-tauri/src/antigravity/fast_path.rs#L494) |
-| json | macro invocation (unexpanded) | tests::title_generation_skips_upstream | [495](../../src-tauri/src/antigravity/fast_path.rs#L495) |
-| assert_eq | macro invocation (unexpanded) | tests::title_generation_skips_upstream | [501](../../src-tauri/src/antigravity/fast_path.rs#L501) |
-| prefix_detection_extracts_git_commit | function_item | tests | [505](../../src-tauri/src/antigravity/fast_path.rs#L505) |
-| json | macro invocation (unexpanded) | tests::prefix_detection_extracts_git_commit | [506](../../src-tauri/src/antigravity/fast_path.rs#L506) |
-| assert_eq | macro invocation (unexpanded) | tests::prefix_detection_extracts_git_commit | [513](../../src-tauri/src/antigravity/fast_path.rs#L513) |
-| real_chat_is_not_short_circuited | function_item | tests | [517](../../src-tauri/src/antigravity/fast_path.rs#L517) |
-| json | macro invocation (unexpanded) | tests::real_chat_is_not_short_circuited | [518](../../src-tauri/src/antigravity/fast_path.rs#L518) |
-| assert | macro invocation (unexpanded) | tests::real_chat_is_not_short_circuited | [523](../../src-tauri/src/antigravity/fast_path.rs#L523) |
-| assert | macro invocation (unexpanded) | tests::real_chat_is_not_short_circuited | [524](../../src-tauri/src/antigravity/fast_path.rs#L524) |
+| matches | macro invocation (unexpanded) | is_quota_check | [241](../../src-tauri/src/antigravity/fast_path.rs#L241) |
+| is_title_generation | function_item |  | [244](../../src-tauri/src/antigravity/fast_path.rs#L244) |
+| is_suggestion_mode | function_item |  | [262](../../src-tauri/src/antigravity/fast_path.rs#L262) |
+| prefix_command | function_item |  | [266](../../src-tauri/src/antigravity/fast_path.rs#L266) |
+| filepath_extract | function_item |  | [275](../../src-tauri/src/antigravity/fast_path.rs#L275) |
+| extract_command_prefix | function_item |  | [307](../../src-tauri/src/antigravity/fast_path.rs#L307) |
+| TWO_WORD | const_item | extract_command_prefix | [321](../../src-tauri/src/antigravity/fast_path.rs#L321) |
+| format | macro invocation (unexpanded) | extract_command_prefix | [327](../../src-tauri/src/antigravity/fast_path.rs#L327) |
+| extract_filepaths | function_item |  | [334](../../src-tauri/src/antigravity/fast_path.rs#L334) |
+| LISTING | const_item | extract_filepaths | [344](../../src-tauri/src/antigravity/fast_path.rs#L344) |
+| READING | const_item | extract_filepaths | [347](../../src-tauri/src/antigravity/fast_path.rs#L347) |
+| format | macro invocation (unexpanded) | extract_filepaths | [361](../../src-tauri/src/antigravity/fast_path.rs#L361) |
+| shell_words | function_item |  | [366](../../src-tauri/src/antigravity/fast_path.rs#L366) |
+| single_user_text | function_item |  | [374](../../src-tauri/src/antigravity/fast_path.rs#L374) |
+| last_user_text | function_item |  | [389](../../src-tauri/src/antigravity/fast_path.rs#L389) |
+| user_texts | function_item |  | [404](../../src-tauri/src/antigravity/fast_path.rs#L404) |
+| system_text | function_item |  | [413](../../src-tauri/src/antigravity/fast_path.rs#L413) |
+| content_text | function_item |  | [434](../../src-tauri/src/antigravity/fast_path.rs#L434) |
+| TITLE_KEYWORDS | const_item |  | [453](../../src-tauri/src/antigravity/fast_path.rs#L453) |
+| SUMMARY_KEYWORDS | const_item |  | [464](../../src-tauri/src/antigravity/fast_path.rs#L464) |
+| SUGGESTION_KEYWORDS | const_item |  | [474](../../src-tauri/src/antigravity/fast_path.rs#L474) |
+| PROBE_KEYWORDS | const_item |  | [480](../../src-tauri/src/antigravity/fast_path.rs#L480) |
+| tests | mod_item |  | [488](../../src-tauri/src/antigravity/fast_path.rs#L488) |
+| quota_probe_is_short_circuited | function_item | tests | [492](../../src-tauri/src/antigravity/fast_path.rs#L492) |
+| json | macro invocation (unexpanded) | tests::quota_probe_is_short_circuited | [493](../../src-tauri/src/antigravity/fast_path.rs#L493) |
+| assert | macro invocation (unexpanded) | tests::quota_probe_is_short_circuited | [499](../../src-tauri/src/antigravity/fast_path.rs#L499) |
+| title_generation_skips_upstream | function_item | tests | [503](../../src-tauri/src/antigravity/fast_path.rs#L503) |
+| json | macro invocation (unexpanded) | tests::title_generation_skips_upstream | [504](../../src-tauri/src/antigravity/fast_path.rs#L504) |
+| assert_eq | macro invocation (unexpanded) | tests::title_generation_skips_upstream | [510](../../src-tauri/src/antigravity/fast_path.rs#L510) |
+| prefix_detection_extracts_git_commit | function_item | tests | [514](../../src-tauri/src/antigravity/fast_path.rs#L514) |
+| json | macro invocation (unexpanded) | tests::prefix_detection_extracts_git_commit | [515](../../src-tauri/src/antigravity/fast_path.rs#L515) |
+| assert_eq | macro invocation (unexpanded) | tests::prefix_detection_extracts_git_commit | [522](../../src-tauri/src/antigravity/fast_path.rs#L522) |
+| real_chat_is_not_short_circuited | function_item | tests | [526](../../src-tauri/src/antigravity/fast_path.rs#L526) |
+| json | macro invocation (unexpanded) | tests::real_chat_is_not_short_circuited | [527](../../src-tauri/src/antigravity/fast_path.rs#L527) |
+| assert | macro invocation (unexpanded) | tests::real_chat_is_not_short_circuited | [532](../../src-tauri/src/antigravity/fast_path.rs#L532) |
+| assert | macro invocation (unexpanded) | tests::real_chat_is_not_short_circuited | [533](../../src-tauri/src/antigravity/fast_path.rs#L533) |

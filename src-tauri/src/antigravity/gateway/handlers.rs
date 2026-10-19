@@ -78,6 +78,32 @@ pub async fn list_models(State(state): State<GatewayState>, headers: HeaderMap) 
     .into_response()
 }
 
+pub async fn get_model(
+    State(state): State<GatewayState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Response {
+    if let Err(response) = authorize(&state, &headers) {
+        return response;
+    }
+    let trimmed = id.trim();
+    if let Some(found) = list_public_models()
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|entry| {
+            entry
+                .get("id")
+                .and_then(Value::as_str)
+                .is_some_and(|model_id| model_id == trimmed)
+        })
+        .cloned()
+    {
+        return Json(found).into_response();
+    }
+    error_json(StatusCode::NOT_FOUND, &format!("Model '{trimmed}' not found"))
+}
+
 pub async fn count_tokens(
     State(state): State<GatewayState>,
     headers: HeaderMap,
@@ -555,7 +581,12 @@ async fn dispatch_generation(
                     last_error = message;
                     last_fail_status = mapped;
                 } else {
-                    last_error = format!("{last_error}；{message}");
+                    // Preserve the concrete upstream error from earlier hops; only
+                    // append the pool rotation detail when it adds new information
+                    // rather than falsely claiming no account supports the model.
+                    if !message.contains("没有账号支持当前模型") {
+                        last_error = format!("{last_error}；{message}");
+                    }
                     if last_fail_status == 0 {
                         last_fail_status = mapped;
                     }
@@ -1301,6 +1332,7 @@ async fn stream_response(
             openai_chat: OpenAiChatStreamState::default(),
             initial_flushed: false,
             finished: false,
+            saw_finish: false,
             db,
             log_id,
             account_id,
@@ -1395,7 +1427,7 @@ async fn stream_response(
 
 impl Drop for StreamState {
     fn drop(&mut self) {
-        if !self.finished {
+        if !self.finished && !self.saw_finish {
             log::info!(
                 "Antigravity client disconnected; cancelling upstream stream model={}",
                 self.model
@@ -1452,6 +1484,7 @@ struct StreamState {
     protocol: WireProtocol,
     initial_flushed: bool,
     finished: bool,
+    saw_finish: bool,
     /// Anthropic 协议的跨 chunk 块状态（thinking/text 块开闭、message 生命周期）。
     anthropic: Option<AnthropicStreamState>,
     /// OpenAI `/v1/chat/completions` 流式跨 chunk 状态（并行工具调用 index 递增与 finish_reason）。
@@ -1563,6 +1596,13 @@ impl StreamState {
             };
             let gemini = unwrap_v1internal(&value);
             self.note_usage(&gemini);
+            if gemini
+                .pointer("/candidates/0/finishReason")
+                .and_then(Value::as_str)
+                .is_some_and(|r| !r.is_empty())
+            {
+                self.saw_finish = true;
+            }
             let mapped = match self.protocol {
                 WireProtocol::Anthropic => {
                     let model = self.model.clone();
@@ -1576,7 +1616,12 @@ impl StreamState {
                         self.thoughts_allowed,
                         &self.tool_params,
                     );
+                    let closed = anthropic.is_closed();
                     self.anthropic = Some(anthropic);
+                    if closed {
+                        self.saw_finish = true;
+                        self.flush_usage();
+                    }
                     let mut out = Vec::new();
                     for event in events {
                         out.extend_from_slice(&anthropic_sse(&event));
@@ -2444,6 +2489,7 @@ mod tests {
             protocol: WireProtocol::Anthropic,
             initial_flushed: false,
             finished: false,
+            saw_finish: false,
             anthropic: None,
             db: db.clone(),
             log_id: Some(log_id.clone()),

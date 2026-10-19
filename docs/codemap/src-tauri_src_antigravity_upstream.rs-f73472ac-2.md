@@ -4,12 +4,12 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/upstream.rs) · page 2/2
 
-Source SHA-256: 7886a7dac3ced8c4f74f42ae21cd4fb7cb880da374a53cd089f034365bfb452e
+Source SHA-256: 02092d01963f4a71a10310cbbdfb1d439de59914ed3ca8f11fe45c9e63261fe7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| network_error_mentions_kind_and_host_count | function_item | tests | [570](../../src-tauri/src/antigravity/upstream.rs#L570) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [572](../../src-tauri/src/antigravity/upstream.rs#L572) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [573](../../src-tauri/src/antigravity/upstream.rs#L573) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [574](../../src-tauri/src/antigravity/upstream.rs#L574) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [578](../../src-tauri/src/antigravity/upstream.rs#L578) |
+| network_error_mentions_kind_and_host_count | function_item | tests | [567](../../src-tauri/src/antigravity/upstream.rs#L567) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [569](../../src-tauri/src/antigravity/upstream.rs#L569) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [570](../../src-tauri/src/antigravity/upstream.rs#L570) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [571](../../src-tauri/src/antigravity/upstream.rs#L571) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [575](../../src-tauri/src/antigravity/upstream.rs#L575) |

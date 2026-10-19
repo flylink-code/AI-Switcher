@@ -54,5 +54,5 @@
 | [src-tauri/src/commands/sync.rs](../../src-tauri/src/commands/sync.rs) | 101 | [1](src-tauri_src_commands_sync.rs-3ef95800-1.md) [2](src-tauri_src_commands_sync.rs-3ef95800-2.md) |
 | [src-tauri/src/commands/system.rs](../../src-tauri/src/commands/system.rs) | 134 | [1](src-tauri_src_commands_system.rs-a493aece-1.md) [2](src-tauri_src_commands_system.rs-a493aece-2.md) |
 | [src-tauri/src/commands/tools.rs](../../src-tauri/src/commands/tools.rs) | 395 | [1](src-tauri_src_commands_tools.rs-5fe0ba91-1.md) [2](src-tauri_src_commands_tools.rs-5fe0ba91-2.md) [3](src-tauri_src_commands_tools.rs-5fe0ba91-3.md) [4](src-tauri_src_commands_tools.rs-5fe0ba91-4.md) |
-| [src-tauri/src/commands/usage.rs](../../src-tauri/src/commands/usage.rs) | 277 | [1](src-tauri_src_commands_usage.rs-dc05e43b-1.md) [2](src-tauri_src_commands_usage.rs-dc05e43b-2.md) [3](src-tauri_src_commands_usage.rs-dc05e43b-3.md) |
+| [src-tauri/src/commands/usage.rs](../../src-tauri/src/commands/usage.rs) | 278 | [1](src-tauri_src_commands_usage.rs-dc05e43b-1.md) [2](src-tauri_src_commands_usage.rs-dc05e43b-2.md) [3](src-tauri_src_commands_usage.rs-dc05e43b-3.md) |
 | [src-tauri/src/commands/vscode_copilot.rs](../../src-tauri/src/commands/vscode_copilot.rs) | 62 | [1](src-tauri_src_commands_vscode_copilot.rs-6ed8aa31-1.md) |

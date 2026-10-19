@@ -4,107 +4,107 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex_chat.rs) · page 1/2
 
-Source SHA-256: d791008c706dd45b5d8a3339ee4fa6595ef21b95d706c3a597dd09a0c9395ab4
+Source SHA-256: bb1853dbcb733bfec3c45eb62121402b6a93d7b8bbe0b289296d97998b31a5b4
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | responses_to_chat_completions_body | function_item |  | [9](../../src-tauri/src/proxy/codex_chat.rs#L9) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [21](../../src-tauri/src/proxy/codex_chat.rs#L21) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [33](../../src-tauri/src/proxy/codex_chat.rs#L33) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [51](../../src-tauri/src/proxy/codex_chat.rs#L51) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [54](../../src-tauri/src/proxy/codex_chat.rs#L54) |
-| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [56](../../src-tauri/src/proxy/codex_chat.rs#L56) |
-| chat_response_to_responses | function_item |  | [72](../../src-tauri/src/proxy/codex_chat.rs#L72) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [76](../../src-tauri/src/proxy/codex_chat.rs#L76) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [84](../../src-tauri/src/proxy/codex_chat.rs#L84) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [93](../../src-tauri/src/proxy/codex_chat.rs#L93) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [103](../../src-tauri/src/proxy/codex_chat.rs#L103) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [110](../../src-tauri/src/proxy/codex_chat.rs#L110) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [123](../../src-tauri/src/proxy/codex_chat.rs#L123) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [142](../../src-tauri/src/proxy/codex_chat.rs#L142) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [150](../../src-tauri/src/proxy/codex_chat.rs#L150) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [161](../../src-tauri/src/proxy/codex_chat.rs#L161) |
-| json | macro invocation (unexpanded) | chat_response_to_responses | [170](../../src-tauri/src/proxy/codex_chat.rs#L170) |
-| is_unsupported_content_type_error | function_item |  | [179](../../src-tauri/src/proxy/codex_chat.rs#L179) |
-| PendingChatToolCall | struct_item |  | [184](../../src-tauri/src/proxy/codex_chat.rs#L184) |
-| output_index | field_declaration | PendingChatToolCall | [185](../../src-tauri/src/proxy/codex_chat.rs#L185) |
-| item_id | field_declaration | PendingChatToolCall | [186](../../src-tauri/src/proxy/codex_chat.rs#L186) |
-| call_id | field_declaration | PendingChatToolCall | [187](../../src-tauri/src/proxy/codex_chat.rs#L187) |
-| name | field_declaration | PendingChatToolCall | [188](../../src-tauri/src/proxy/codex_chat.rs#L188) |
-| arguments | field_declaration | PendingChatToolCall | [189](../../src-tauri/src/proxy/codex_chat.rs#L189) |
-| ChatSseToResponsesConverter | struct_item |  | [193](../../src-tauri/src/proxy/codex_chat.rs#L193) |
-| model | field_declaration | ChatSseToResponsesConverter | [194](../../src-tauri/src/proxy/codex_chat.rs#L194) |
-| response_id | field_declaration | ChatSseToResponsesConverter | [195](../../src-tauri/src/proxy/codex_chat.rs#L195) |
-| started | field_declaration | ChatSseToResponsesConverter | [196](../../src-tauri/src/proxy/codex_chat.rs#L196) |
-| completed | field_declaration | ChatSseToResponsesConverter | [197](../../src-tauri/src/proxy/codex_chat.rs#L197) |
-| next_output_index | field_declaration | ChatSseToResponsesConverter | [198](../../src-tauri/src/proxy/codex_chat.rs#L198) |
-| reasoning_started | field_declaration | ChatSseToResponsesConverter | [199](../../src-tauri/src/proxy/codex_chat.rs#L199) |
-| reasoning_output_index | field_declaration | ChatSseToResponsesConverter | [200](../../src-tauri/src/proxy/codex_chat.rs#L200) |
-| reasoning_item_id | field_declaration | ChatSseToResponsesConverter | [201](../../src-tauri/src/proxy/codex_chat.rs#L201) |
-| reasoning | field_declaration | ChatSseToResponsesConverter | [202](../../src-tauri/src/proxy/codex_chat.rs#L202) |
-| text_started | field_declaration | ChatSseToResponsesConverter | [203](../../src-tauri/src/proxy/codex_chat.rs#L203) |
-| text_output_index | field_declaration | ChatSseToResponsesConverter | [204](../../src-tauri/src/proxy/codex_chat.rs#L204) |
-| text_item_id | field_declaration | ChatSseToResponsesConverter | [205](../../src-tauri/src/proxy/codex_chat.rs#L205) |
-| text | field_declaration | ChatSseToResponsesConverter | [206](../../src-tauri/src/proxy/codex_chat.rs#L206) |
-| tools | field_declaration | ChatSseToResponsesConverter | [207](../../src-tauri/src/proxy/codex_chat.rs#L207) |
-| tool_indices | field_declaration | ChatSseToResponsesConverter | [208](../../src-tauri/src/proxy/codex_chat.rs#L208) |
-| last_usage | field_declaration | ChatSseToResponsesConverter | [209](../../src-tauri/src/proxy/codex_chat.rs#L209) |
-| ChatSseToResponsesConverter | impl |  | [212](../../src-tauri/src/proxy/codex_chat.rs#L212) |
-| new | function_item | ChatSseToResponsesConverter | [213](../../src-tauri/src/proxy/codex_chat.rs#L213) |
-| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::new | [216](../../src-tauri/src/proxy/codex_chat.rs#L216) |
-| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::new | [222](../../src-tauri/src/proxy/codex_chat.rs#L222) |
-| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::new | [226](../../src-tauri/src/proxy/codex_chat.rs#L226) |
-| push_chat_chunk | function_item | ChatSseToResponsesConverter | [234](../../src-tauri/src/proxy/codex_chat.rs#L234) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [267](../../src-tauri/src/proxy/codex_chat.rs#L267) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [286](../../src-tauri/src/proxy/codex_chat.rs#L286) |
-| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [319](../../src-tauri/src/proxy/codex_chat.rs#L319) |
-| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [320](../../src-tauri/src/proxy/codex_chat.rs#L320) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [334](../../src-tauri/src/proxy/codex_chat.rs#L334) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [361](../../src-tauri/src/proxy/codex_chat.rs#L361) |
-| finish_done | function_item | ChatSseToResponsesConverter | [383](../../src-tauri/src/proxy/codex_chat.rs#L383) |
-| start_handshake | function_item | ChatSseToResponsesConverter | [394](../../src-tauri/src/proxy/codex_chat.rs#L394) |
-| ensure_started | function_item | ChatSseToResponsesConverter | [401](../../src-tauri/src/proxy/codex_chat.rs#L401) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::ensure_started | [406](../../src-tauri/src/proxy/codex_chat.rs#L406) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::ensure_started | [416](../../src-tauri/src/proxy/codex_chat.rs#L416) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::ensure_started | [424](../../src-tauri/src/proxy/codex_chat.rs#L424) |
-| emit_reasoning_start | function_item | ChatSseToResponsesConverter | [431](../../src-tauri/src/proxy/codex_chat.rs#L431) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_reasoning_start | [441](../../src-tauri/src/proxy/codex_chat.rs#L441) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_reasoning_start | [454](../../src-tauri/src/proxy/codex_chat.rs#L454) |
-| emit_text_start | function_item | ChatSseToResponsesConverter | [464](../../src-tauri/src/proxy/codex_chat.rs#L464) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_text_start | [474](../../src-tauri/src/proxy/codex_chat.rs#L474) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_text_start | [489](../../src-tauri/src/proxy/codex_chat.rs#L489) |
-| finish | function_item | ChatSseToResponsesConverter | [499](../../src-tauri/src/proxy/codex_chat.rs#L499) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [513](../../src-tauri/src/proxy/codex_chat.rs#L513) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [521](../../src-tauri/src/proxy/codex_chat.rs#L521) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [532](../../src-tauri/src/proxy/codex_chat.rs#L532) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [543](../../src-tauri/src/proxy/codex_chat.rs#L543) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [552](../../src-tauri/src/proxy/codex_chat.rs#L552) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [562](../../src-tauri/src/proxy/codex_chat.rs#L562) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [573](../../src-tauri/src/proxy/codex_chat.rs#L573) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [584](../../src-tauri/src/proxy/codex_chat.rs#L584) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [593](../../src-tauri/src/proxy/codex_chat.rs#L593) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [604](../../src-tauri/src/proxy/codex_chat.rs#L604) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [616](../../src-tauri/src/proxy/codex_chat.rs#L616) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [626](../../src-tauri/src/proxy/codex_chat.rs#L626) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [650](../../src-tauri/src/proxy/codex_chat.rs#L650) |
-| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [658](../../src-tauri/src/proxy/codex_chat.rs#L658) |
-| extract_responses_effort | function_item |  | [666](../../src-tauri/src/proxy/codex_chat.rs#L666) |
-| instructions_text | function_item |  | [678](../../src-tauri/src/proxy/codex_chat.rs#L678) |
-| responses_input_to_chat_messages | function_item |  | [694](../../src-tauri/src/proxy/codex_chat.rs#L694) |
-| vec | macro invocation (unexpanded) | responses_input_to_chat_messages | [697](../../src-tauri/src/proxy/codex_chat.rs#L697) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [710](../../src-tauri/src/proxy/codex_chat.rs#L710) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [721](../../src-tauri/src/proxy/codex_chat.rs#L721) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [746](../../src-tauri/src/proxy/codex_chat.rs#L746) |
-| json | macro invocation (unexpanded) | responses_input_to_chat_messages | [754](../../src-tauri/src/proxy/codex_chat.rs#L754) |
-| append_assistant_message | function_item |  | [767](../../src-tauri/src/proxy/codex_chat.rs#L767) |
-| json | macro invocation (unexpanded) | append_assistant_message | [788](../../src-tauri/src/proxy/codex_chat.rs#L788) |
-| flush_pending_tool_calls | function_item |  | [798](../../src-tauri/src/proxy/codex_chat.rs#L798) |
-| merge_assistant_content | function_item |  | [804](../../src-tauri/src/proxy/codex_chat.rs#L804) |
-| format | macro invocation (unexpanded) | merge_assistant_content | [813](../../src-tauri/src/proxy/codex_chat.rs#L813) |
-| vec | macro invocation (unexpanded) | merge_assistant_content | [817](../../src-tauri/src/proxy/codex_chat.rs#L817) |
-| json | macro invocation (unexpanded) | merge_assistant_content | [821](../../src-tauri/src/proxy/codex_chat.rs#L821) |
-| convert_responses_content | function_item |  | [829](../../src-tauri/src/proxy/codex_chat.rs#L829) |
-| json | macro invocation (unexpanded) | convert_responses_content | [831](../../src-tauri/src/proxy/codex_chat.rs#L831) |
-| json | macro invocation (unexpanded) | convert_responses_content | [839](../../src-tauri/src/proxy/codex_chat.rs#L839) |
-| json | macro invocation (unexpanded) | convert_responses_content | [844](../../src-tauri/src/proxy/codex_chat.rs#L844) |
-| json | macro invocation (unexpanded) | convert_responses_content | [847](../../src-tauri/src/proxy/codex_chat.rs#L847) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [23](../../src-tauri/src/proxy/codex_chat.rs#L23) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [34](../../src-tauri/src/proxy/codex_chat.rs#L34) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [43](../../src-tauri/src/proxy/codex_chat.rs#L43) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [61](../../src-tauri/src/proxy/codex_chat.rs#L61) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [64](../../src-tauri/src/proxy/codex_chat.rs#L64) |
+| json | macro invocation (unexpanded) | responses_to_chat_completions_body | [66](../../src-tauri/src/proxy/codex_chat.rs#L66) |
+| chat_completions_to_responses_body | function_item |  | [83](../../src-tauri/src/proxy/codex_chat.rs#L83) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [108](../../src-tauri/src/proxy/codex_chat.rs#L108) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [121](../../src-tauri/src/proxy/codex_chat.rs#L121) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [130](../../src-tauri/src/proxy/codex_chat.rs#L130) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [140](../../src-tauri/src/proxy/codex_chat.rs#L140) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [153](../../src-tauri/src/proxy/codex_chat.rs#L153) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [168](../../src-tauri/src/proxy/codex_chat.rs#L168) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [175](../../src-tauri/src/proxy/codex_chat.rs#L175) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [201](../../src-tauri/src/proxy/codex_chat.rs#L201) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [218](../../src-tauri/src/proxy/codex_chat.rs#L218) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [232](../../src-tauri/src/proxy/codex_chat.rs#L232) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [250](../../src-tauri/src/proxy/codex_chat.rs#L250) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [257](../../src-tauri/src/proxy/codex_chat.rs#L257) |
+| json | macro invocation (unexpanded) | chat_completions_to_responses_body | [277](../../src-tauri/src/proxy/codex_chat.rs#L277) |
+| chat_response_to_responses | function_item |  | [285](../../src-tauri/src/proxy/codex_chat.rs#L285) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [289](../../src-tauri/src/proxy/codex_chat.rs#L289) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [297](../../src-tauri/src/proxy/codex_chat.rs#L297) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [306](../../src-tauri/src/proxy/codex_chat.rs#L306) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [316](../../src-tauri/src/proxy/codex_chat.rs#L316) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [323](../../src-tauri/src/proxy/codex_chat.rs#L323) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [336](../../src-tauri/src/proxy/codex_chat.rs#L336) |
+| format | macro invocation (unexpanded) | chat_response_to_responses | [360](../../src-tauri/src/proxy/codex_chat.rs#L360) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [361](../../src-tauri/src/proxy/codex_chat.rs#L361) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [369](../../src-tauri/src/proxy/codex_chat.rs#L369) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [380](../../src-tauri/src/proxy/codex_chat.rs#L380) |
+| json | macro invocation (unexpanded) | chat_response_to_responses | [389](../../src-tauri/src/proxy/codex_chat.rs#L389) |
+| is_unsupported_content_type_error | function_item |  | [398](../../src-tauri/src/proxy/codex_chat.rs#L398) |
+| PendingChatToolCall | struct_item |  | [403](../../src-tauri/src/proxy/codex_chat.rs#L403) |
+| output_index | field_declaration | PendingChatToolCall | [404](../../src-tauri/src/proxy/codex_chat.rs#L404) |
+| item_id | field_declaration | PendingChatToolCall | [405](../../src-tauri/src/proxy/codex_chat.rs#L405) |
+| call_id | field_declaration | PendingChatToolCall | [406](../../src-tauri/src/proxy/codex_chat.rs#L406) |
+| name | field_declaration | PendingChatToolCall | [407](../../src-tauri/src/proxy/codex_chat.rs#L407) |
+| arguments | field_declaration | PendingChatToolCall | [408](../../src-tauri/src/proxy/codex_chat.rs#L408) |
+| ChatSseToResponsesConverter | struct_item |  | [412](../../src-tauri/src/proxy/codex_chat.rs#L412) |
+| model | field_declaration | ChatSseToResponsesConverter | [413](../../src-tauri/src/proxy/codex_chat.rs#L413) |
+| response_id | field_declaration | ChatSseToResponsesConverter | [414](../../src-tauri/src/proxy/codex_chat.rs#L414) |
+| started | field_declaration | ChatSseToResponsesConverter | [415](../../src-tauri/src/proxy/codex_chat.rs#L415) |
+| completed | field_declaration | ChatSseToResponsesConverter | [416](../../src-tauri/src/proxy/codex_chat.rs#L416) |
+| next_output_index | field_declaration | ChatSseToResponsesConverter | [417](../../src-tauri/src/proxy/codex_chat.rs#L417) |
+| reasoning_started | field_declaration | ChatSseToResponsesConverter | [418](../../src-tauri/src/proxy/codex_chat.rs#L418) |
+| reasoning_output_index | field_declaration | ChatSseToResponsesConverter | [419](../../src-tauri/src/proxy/codex_chat.rs#L419) |
+| reasoning_item_id | field_declaration | ChatSseToResponsesConverter | [420](../../src-tauri/src/proxy/codex_chat.rs#L420) |
+| reasoning | field_declaration | ChatSseToResponsesConverter | [421](../../src-tauri/src/proxy/codex_chat.rs#L421) |
+| text_started | field_declaration | ChatSseToResponsesConverter | [422](../../src-tauri/src/proxy/codex_chat.rs#L422) |
+| text_output_index | field_declaration | ChatSseToResponsesConverter | [423](../../src-tauri/src/proxy/codex_chat.rs#L423) |
+| text_item_id | field_declaration | ChatSseToResponsesConverter | [424](../../src-tauri/src/proxy/codex_chat.rs#L424) |
+| text | field_declaration | ChatSseToResponsesConverter | [425](../../src-tauri/src/proxy/codex_chat.rs#L425) |
+| tools | field_declaration | ChatSseToResponsesConverter | [426](../../src-tauri/src/proxy/codex_chat.rs#L426) |
+| tool_indices | field_declaration | ChatSseToResponsesConverter | [427](../../src-tauri/src/proxy/codex_chat.rs#L427) |
+| last_usage | field_declaration | ChatSseToResponsesConverter | [428](../../src-tauri/src/proxy/codex_chat.rs#L428) |
+| ChatSseToResponsesConverter | impl |  | [431](../../src-tauri/src/proxy/codex_chat.rs#L431) |
+| new | function_item | ChatSseToResponsesConverter | [432](../../src-tauri/src/proxy/codex_chat.rs#L432) |
+| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::new | [435](../../src-tauri/src/proxy/codex_chat.rs#L435) |
+| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::new | [441](../../src-tauri/src/proxy/codex_chat.rs#L441) |
+| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::new | [445](../../src-tauri/src/proxy/codex_chat.rs#L445) |
+| push_chat_chunk | function_item | ChatSseToResponsesConverter | [453](../../src-tauri/src/proxy/codex_chat.rs#L453) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [486](../../src-tauri/src/proxy/codex_chat.rs#L486) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [505](../../src-tauri/src/proxy/codex_chat.rs#L505) |
+| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [538](../../src-tauri/src/proxy/codex_chat.rs#L538) |
+| format | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [539](../../src-tauri/src/proxy/codex_chat.rs#L539) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [553](../../src-tauri/src/proxy/codex_chat.rs#L553) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::push_chat_chunk | [580](../../src-tauri/src/proxy/codex_chat.rs#L580) |
+| finish_done | function_item | ChatSseToResponsesConverter | [602](../../src-tauri/src/proxy/codex_chat.rs#L602) |
+| start_handshake | function_item | ChatSseToResponsesConverter | [613](../../src-tauri/src/proxy/codex_chat.rs#L613) |
+| ensure_started | function_item | ChatSseToResponsesConverter | [620](../../src-tauri/src/proxy/codex_chat.rs#L620) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::ensure_started | [625](../../src-tauri/src/proxy/codex_chat.rs#L625) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::ensure_started | [635](../../src-tauri/src/proxy/codex_chat.rs#L635) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::ensure_started | [643](../../src-tauri/src/proxy/codex_chat.rs#L643) |
+| emit_reasoning_start | function_item | ChatSseToResponsesConverter | [650](../../src-tauri/src/proxy/codex_chat.rs#L650) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_reasoning_start | [660](../../src-tauri/src/proxy/codex_chat.rs#L660) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_reasoning_start | [673](../../src-tauri/src/proxy/codex_chat.rs#L673) |
+| emit_text_start | function_item | ChatSseToResponsesConverter | [683](../../src-tauri/src/proxy/codex_chat.rs#L683) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_text_start | [693](../../src-tauri/src/proxy/codex_chat.rs#L693) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::emit_text_start | [708](../../src-tauri/src/proxy/codex_chat.rs#L708) |
+| finish | function_item | ChatSseToResponsesConverter | [718](../../src-tauri/src/proxy/codex_chat.rs#L718) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [732](../../src-tauri/src/proxy/codex_chat.rs#L732) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [740](../../src-tauri/src/proxy/codex_chat.rs#L740) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [751](../../src-tauri/src/proxy/codex_chat.rs#L751) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [762](../../src-tauri/src/proxy/codex_chat.rs#L762) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [771](../../src-tauri/src/proxy/codex_chat.rs#L771) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [781](../../src-tauri/src/proxy/codex_chat.rs#L781) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [792](../../src-tauri/src/proxy/codex_chat.rs#L792) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [803](../../src-tauri/src/proxy/codex_chat.rs#L803) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [817](../../src-tauri/src/proxy/codex_chat.rs#L817) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [829](../../src-tauri/src/proxy/codex_chat.rs#L829) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [841](../../src-tauri/src/proxy/codex_chat.rs#L841) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [853](../../src-tauri/src/proxy/codex_chat.rs#L853) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [863](../../src-tauri/src/proxy/codex_chat.rs#L863) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [887](../../src-tauri/src/proxy/codex_chat.rs#L887) |
+| json | macro invocation (unexpanded) | ChatSseToResponsesConverter::finish | [895](../../src-tauri/src/proxy/codex_chat.rs#L895) |
+| extract_responses_effort | function_item |  | [903](../../src-tauri/src/proxy/codex_chat.rs#L903) |
+| instructions_text | function_item |  | [915](../../src-tauri/src/proxy/codex_chat.rs#L915) |
+| responses_input_to_chat_messages | function_item |  | [931](../../src-tauri/src/proxy/codex_chat.rs#L931) |

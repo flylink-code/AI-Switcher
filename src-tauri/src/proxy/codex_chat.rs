@@ -15,17 +15,26 @@ pub fn responses_to_chat_completions_body(body: &Value) -> Result<Value, String>
     let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
     let mut messages = Vec::new();
 
+    let mut system_text = String::new();
     if let Some(instructions) = body.get("instructions").or_else(|| body.get("system")) {
         let text = instructions_text(instructions);
         if !text.is_empty() {
+            system_text = text.clone();
             messages.push(json!({ "role": "system", "content": text }));
         }
     }
 
-    let input = body
-        .get("input")
-        .ok_or_else(|| "Responses 请求缺少 input 字段".to_string())?;
-    messages.extend(responses_input_to_chat_messages(input)?);
+    let input_messages = match body.get("input") {
+        Some(Value::Null) | None => Vec::new(),
+        Some(Value::String(s)) if s.trim().is_empty() => Vec::new(),
+        Some(Value::Array(arr)) if arr.is_empty() => Vec::new(),
+        Some(input) => responses_input_to_chat_messages(input)?,
+    };
+    if input_messages.is_empty() && !system_text.trim().is_empty() {
+        messages.push(json!({ "role": "user", "content": system_text }));
+    } else {
+        messages.extend(input_messages);
+    }
     super::convert::sanitize_openai_chat_messages(&mut messages);
     if messages.is_empty() {
         return Err("Responses 请求未包含可转换的消息".into());
@@ -800,14 +809,32 @@ impl ChatSseToResponsesConverter {
             indexed_output.push((self.text_output_index, item));
         }
         for tool in &self.tools {
+            let arguments = if tool.arguments.trim().is_empty() {
+                "{}".to_string()
+            } else {
+                tool.arguments.clone()
+            };
             let item = json!({
                 "id": tool.item_id,
                 "type": "function_call",
                 "call_id": tool.call_id,
                 "name": tool.name,
-                "arguments": tool.arguments,
+                "arguments": arguments,
                 "status": "completed",
             });
+            if tool.arguments.trim().is_empty() {
+                push_responses_event(
+                    out,
+                    "response.function_call_arguments.delta",
+                    json!({
+                        "type": "response.function_call_arguments.delta",
+                        "item_id": tool.item_id,
+                        "output_index": tool.output_index,
+                        "call_id": tool.call_id,
+                        "delta": "{}",
+                    }),
+                );
+            }
             push_responses_event(
                 out,
                 "response.function_call_arguments.done",
@@ -817,7 +844,7 @@ impl ChatSseToResponsesConverter {
                     "output_index": tool.output_index,
                     "call_id": tool.call_id,
                     "name": tool.name,
-                    "arguments": tool.arguments,
+                    "arguments": arguments,
                 }),
             );
             push_responses_event(

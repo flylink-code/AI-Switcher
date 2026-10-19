@@ -4,7 +4,7 @@
 
 [Module](web-stores.md) · [Source](../../src/stores/pagePreferencesStore.ts) · page 1/2
 
-Source SHA-256: 563ffdb01d0e2564349255c0ca4826158cb9452d81a7f3e8f57722033d923012
+Source SHA-256: be3891a44c22497995207154adc6694bfdc78e2d5bc570ddb8240b965558b344
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -83,28 +83,28 @@ Source SHA-256: 563ffdb01d0e2564349255c0ca4826158cb9452d81a7f3e8f57722033d923012
 | stored | VariableDeclaration | readLegacyWorkspaceTab | [159](../../src/stores/pagePreferencesStore.ts#L159) |
 | isUsagePeriod | FunctionDeclaration |  | [163](../../src/stores/pagePreferencesStore.ts#L163) |
 | isUsageLogTarget | FunctionDeclaration |  | [167](../../src/stores/pagePreferencesStore.ts#L167) |
-| coerceUsageFilter | FunctionDeclaration |  | [171](../../src/stores/pagePreferencesStore.ts#L171) |
-| sessionProviderFor | FunctionDeclaration |  | [184](../../src/stores/pagePreferencesStore.ts#L184) |
-| skillCompatibleTarget | FunctionDeclaration |  | [193](../../src/stores/pagePreferencesStore.ts#L193) |
-| skillCompatibleTarget | ExportSpecifier |  | [197](../../src/stores/pagePreferencesStore.ts#L197) |
-| readPersisted | FunctionDeclaration |  | [199](../../src/stores/pagePreferencesStore.ts#L199) |
-| raw | VariableDeclaration | readPersisted | [202](../../src/stores/pagePreferencesStore.ts#L202) |
-| parsed | VariableDeclaration | readPersisted | [204](../../src/stores/pagePreferencesStore.ts#L204) |
-| writePersisted | FunctionDeclaration |  | [212](../../src/stores/pagePreferencesStore.ts#L212) |
-| migrateVisibleAgents | FunctionDeclaration |  | [222](../../src/stores/pagePreferencesStore.ts#L222) |
-| hadCline | VariableDeclaration | migrateVisibleAgents | [223](../../src/stores/pagePreferencesStore.ts#L223) |
-| visible | VariableDeclaration | migrateVisibleAgents | [224](../../src/stores/pagePreferencesStore.ts#L224) |
-| codeAt | VariableDeclaration | migrateVisibleAgents | [226](../../src/stores/pagePreferencesStore.ts#L226) |
-| initialState | FunctionDeclaration |  | [232](../../src/stores/pagePreferencesStore.ts#L232) |
-| stored | VariableDeclaration | initialState | [233](../../src/stores/pagePreferencesStore.ts#L233) |
-| rawVisible | VariableDeclaration | initialState | [234](../../src/stores/pagePreferencesStore.ts#L234) |
-| sourceVisible | VariableDeclaration | initialState | [237](../../src/stores/pagePreferencesStore.ts#L237) |
-| visibleAgents | VariableDeclaration | initialState | [239](../../src/stores/pagePreferencesStore.ts#L239) |
-| usagePeriod | VariableDeclaration | initialState | [241](../../src/stores/pagePreferencesStore.ts#L241) |
-| usageLogTarget | VariableDeclaration | initialState | [242](../../src/stores/pagePreferencesStore.ts#L242) |
-| providersTarget | VariableDeclaration | initialState | [246](../../src/stores/pagePreferencesStore.ts#L246) |
-| workspaceTarget | VariableDeclaration | initialState | [253](../../src/stores/pagePreferencesStore.ts#L253) |
-| proxyTarget | VariableDeclaration | initialState | [258](../../src/stores/pagePreferencesStore.ts#L258) |
-| sessionsProvider | VariableDeclaration | initialState | [265](../../src/stores/pagePreferencesStore.ts#L265) |
-| agQuotaViewMode | VariableDeclaration | initialState | [272](../../src/stores/pagePreferencesStore.ts#L272) |
-| providersTab | VariableDeclaration | initialState | [277](../../src/stores/pagePreferencesStore.ts#L277) |
+| coerceUsageFilter | FunctionDeclaration |  | [177](../../src/stores/pagePreferencesStore.ts#L177) |
+| sessionProviderFor | FunctionDeclaration |  | [195](../../src/stores/pagePreferencesStore.ts#L195) |
+| skillCompatibleTarget | FunctionDeclaration |  | [204](../../src/stores/pagePreferencesStore.ts#L204) |
+| skillCompatibleTarget | ExportSpecifier |  | [208](../../src/stores/pagePreferencesStore.ts#L208) |
+| readPersisted | FunctionDeclaration |  | [210](../../src/stores/pagePreferencesStore.ts#L210) |
+| raw | VariableDeclaration | readPersisted | [213](../../src/stores/pagePreferencesStore.ts#L213) |
+| parsed | VariableDeclaration | readPersisted | [215](../../src/stores/pagePreferencesStore.ts#L215) |
+| writePersisted | FunctionDeclaration |  | [223](../../src/stores/pagePreferencesStore.ts#L223) |
+| migrateVisibleAgents | FunctionDeclaration |  | [233](../../src/stores/pagePreferencesStore.ts#L233) |
+| hadCline | VariableDeclaration | migrateVisibleAgents | [234](../../src/stores/pagePreferencesStore.ts#L234) |
+| visible | VariableDeclaration | migrateVisibleAgents | [235](../../src/stores/pagePreferencesStore.ts#L235) |
+| codeAt | VariableDeclaration | migrateVisibleAgents | [237](../../src/stores/pagePreferencesStore.ts#L237) |
+| initialState | FunctionDeclaration |  | [243](../../src/stores/pagePreferencesStore.ts#L243) |
+| stored | VariableDeclaration | initialState | [244](../../src/stores/pagePreferencesStore.ts#L244) |
+| rawVisible | VariableDeclaration | initialState | [245](../../src/stores/pagePreferencesStore.ts#L245) |
+| sourceVisible | VariableDeclaration | initialState | [248](../../src/stores/pagePreferencesStore.ts#L248) |
+| visibleAgents | VariableDeclaration | initialState | [250](../../src/stores/pagePreferencesStore.ts#L250) |
+| usagePeriod | VariableDeclaration | initialState | [252](../../src/stores/pagePreferencesStore.ts#L252) |
+| usageLogTarget | VariableDeclaration | initialState | [253](../../src/stores/pagePreferencesStore.ts#L253) |
+| providersTarget | VariableDeclaration | initialState | [257](../../src/stores/pagePreferencesStore.ts#L257) |
+| workspaceTarget | VariableDeclaration | initialState | [264](../../src/stores/pagePreferencesStore.ts#L264) |
+| proxyTarget | VariableDeclaration | initialState | [269](../../src/stores/pagePreferencesStore.ts#L269) |
+| sessionsProvider | VariableDeclaration | initialState | [276](../../src/stores/pagePreferencesStore.ts#L276) |
+| agQuotaViewMode | VariableDeclaration | initialState | [283](../../src/stores/pagePreferencesStore.ts#L283) |
+| providersTab | VariableDeclaration | initialState | [288](../../src/stores/pagePreferencesStore.ts#L288) |

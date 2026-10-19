@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/logging.rs) · page 1/3
 
-Source SHA-256: e84c49675b566df0f2940b73bae3985b5b5ee606c72ebd25215890b2bcd3a24e
+Source SHA-256: 59634134e09d9df52a4661a2b6853c41c7cfe576a0b15b80fc3d8bcc25fc4252
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -16,95 +16,95 @@ Source SHA-256: e84c49675b566df0f2940b73bae3985b5b5ee606c72ebd25215890b2bcd3a24e
 | log::warn | macro invocation (unexpanded) | update_proxy_log_attempts | [91](../../src-tauri/src/proxy/logging.rs#L91) |
 | mark_last_attempt_failure | function_item |  | [97](../../src-tauri/src/proxy/logging.rs#L97) |
 | patch_completed_fallback_log | function_item |  | [106](../../src-tauri/src/proxy/logging.rs#L106) |
-| rusqlite::params | macro invocation (unexpanded) | patch_completed_fallback_log | [123](../../src-tauri/src/proxy/logging.rs#L123) |
-| log::warn | macro invocation (unexpanded) | patch_completed_fallback_log | [131](../../src-tauri/src/proxy/logging.rs#L131) |
-| log_request | function_item |  | [137](../../src-tauri/src/proxy/logging.rs#L137) |
-| validate_listener_auth | function_item |  | [158](../../src-tauri/src/proxy/logging.rs#L158) |
-| validate_smart_gateway_binding_auth | function_item |  | [165](../../src-tauri/src/proxy/logging.rs#L165) |
-| log_listener_auth_rejected | function_item |  | [187](../../src-tauri/src/proxy/logging.rs#L187) |
-| log::warn | macro invocation (unexpanded) | log_listener_auth_rejected | [195](../../src-tauri/src/proxy/logging.rs#L195) |
-| validate_desktop_gateway_auth | function_item |  | [203](../../src-tauri/src/proxy/logging.rs#L203) |
-| gateway_auth_error | function_item |  | [243](../../src-tauri/src/proxy/logging.rs#L243) |
-| log_early_failure | function_item |  | [247](../../src-tauri/src/proxy/logging.rs#L247) |
-| log::error | macro invocation (unexpanded) | log_early_failure | [275](../../src-tauri/src/proxy/logging.rs#L275) |
-| error_diagnostic | function_item |  | [279](../../src-tauri/src/proxy/logging.rs#L279) |
-| upstream_error_category | function_item |  | [294](../../src-tauri/src/proxy/logging.rs#L294) |
-| update_log_diagnostic | function_item |  | [302](../../src-tauri/src/proxy/logging.rs#L302) |
-| log::error | macro invocation (unexpanded) | update_log_diagnostic | [310](../../src-tauri/src/proxy/logging.rs#L310) |
-| sanitized_upstream_diagnostic | function_item |  | [314](../../src-tauri/src/proxy/logging.rs#L314) |
-| format | macro invocation (unexpanded) | sanitized_upstream_diagnostic | [341](../../src-tauri/src/proxy/logging.rs#L341) |
-| format | macro invocation (unexpanded) | sanitized_upstream_diagnostic | [346](../../src-tauri/src/proxy/logging.rs#L346) |
-| format | macro invocation (unexpanded) | sanitized_upstream_diagnostic | [351](../../src-tauri/src/proxy/logging.rs#L351) |
-| explicitly_rejects_stream_options | function_item |  | [355](../../src-tauri/src/proxy/logging.rs#L355) |
-| sanitize_diagnostic_text | function_item |  | [372](../../src-tauri/src/proxy/logging.rs#L372) |
-| update_log_usage | function_item |  | [376](../../src-tauri/src/proxy/logging.rs#L376) |
-| log::error | macro invocation (unexpanded) | update_log_usage | [393](../../src-tauri/src/proxy/logging.rs#L393) |
-| extract_usage_from_json | function_item |  | [399](../../src-tauri/src/proxy/logging.rs#L399) |
-| extract_usage_from_sse | function_item |  | [404](../../src-tauri/src/proxy/logging.rs#L404) |
-| usage_from_value | function_item |  | [413](../../src-tauri/src/proxy/logging.rs#L413) |
-| json_error | function_item |  | [459](../../src-tauri/src/proxy/logging.rs#L459) |
-| json_error_with_retry_after | function_item |  | [463](../../src-tauri/src/proxy/logging.rs#L463) |
-| serde_json::json | macro invocation (unexpanded) | json_error_with_retry_after | [468](../../src-tauri/src/proxy/logging.rs#L468) |
-| anthropic_error | function_item |  | [480](../../src-tauri/src/proxy/logging.rs#L480) |
-| is_hop_by_hop_header | function_item |  | [488](../../src-tauri/src/proxy/logging.rs#L488) |
-| matches | macro invocation (unexpanded) | is_hop_by_hop_header | [490](../../src-tauri/src/proxy/logging.rs#L490) |
-| tests | mod_item |  | [504](../../src-tauri/src/proxy/logging.rs#L504) |
-| provider | function_item | tests | [509](../../src-tauri/src/proxy/logging.rs#L509) |
-| listener_token_falls_back_to_x_api_key_for_bare_bearer | function_item | tests | [542](../../src-tauri/src/proxy/logging.rs#L542) |
-| assert_eq | macro invocation (unexpanded) | tests::listener_token_falls_back_to_x_api_key_for_bare_bearer | [546](../../src-tauri/src/proxy/logging.rs#L546) |
-| assert_eq | macro invocation (unexpanded) | tests::listener_token_falls_back_to_x_api_key_for_bare_bearer | [552](../../src-tauri/src/proxy/logging.rs#L552) |
-| smart_gateway_accepts_request_larger_than_axum_default | function_item | tests | [556](../../src-tauri/src/proxy/logging.rs#L556) |
-| format | macro invocation (unexpanded) | tests::smart_gateway_accepts_request_larger_than_axum_default | [559](../../src-tauri/src/proxy/logging.rs#L559) |
-| assert_ne | macro invocation (unexpanded) | tests::smart_gateway_accepts_request_larger_than_axum_default | [576](../../src-tauri/src/proxy/logging.rs#L576) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_accepts_request_larger_than_axum_default | [577](../../src-tauri/src/proxy/logging.rs#L577) |
-| circuit_test_state | function_item | tests | [580](../../src-tauri/src/proxy/logging.rs#L580) |
-| TestServer | struct_item | tests | [595](../../src-tauri/src/proxy/logging.rs#L595) |
-| Drop for TestServer | impl | tests | [597](../../src-tauri/src/proxy/logging.rs#L597) |
-| drop | function_item | Drop for TestServer | [598](../../src-tauri/src/proxy/logging.rs#L598) |
-| responses_envelope_fallback_obeys_admission_and_updates_single_log | function_item | tests | [604](../../src-tauri/src/proxy/logging.rs#L604) |
-| format | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [616](../../src-tauri/src/proxy/logging.rs#L616) |
-| format | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [617](../../src-tauri/src/proxy/logging.rs#L617) |
-| serde_json::json | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [622](../../src-tauri/src/proxy/logging.rs#L622) |
-| serde_json::json | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [628](../../src-tauri/src/proxy/logging.rs#L628) |
-| rusqlite::params | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [644](../../src-tauri/src/proxy/logging.rs#L644) |
-| rusqlite::params | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [653](../../src-tauri/src/proxy/logging.rs#L653) |
-| format | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [664](../../src-tauri/src/proxy/logging.rs#L664) |
-| serde_json::json | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [666](../../src-tauri/src/proxy/logging.rs#L666) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [673](../../src-tauri/src/proxy/logging.rs#L673) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [681](../../src-tauri/src/proxy/logging.rs#L681) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [682](../../src-tauri/src/proxy/logging.rs#L682) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [684](../../src-tauri/src/proxy/logging.rs#L684) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [687](../../src-tauri/src/proxy/logging.rs#L687) |
+| rusqlite::params | macro invocation (unexpanded) | patch_completed_fallback_log | [124](../../src-tauri/src/proxy/logging.rs#L124) |
+| log::warn | macro invocation (unexpanded) | patch_completed_fallback_log | [132](../../src-tauri/src/proxy/logging.rs#L132) |
+| log_request | function_item |  | [138](../../src-tauri/src/proxy/logging.rs#L138) |
+| validate_listener_auth | function_item |  | [159](../../src-tauri/src/proxy/logging.rs#L159) |
+| validate_smart_gateway_binding_auth | function_item |  | [166](../../src-tauri/src/proxy/logging.rs#L166) |
+| log_listener_auth_rejected | function_item |  | [188](../../src-tauri/src/proxy/logging.rs#L188) |
+| log::warn | macro invocation (unexpanded) | log_listener_auth_rejected | [196](../../src-tauri/src/proxy/logging.rs#L196) |
+| validate_desktop_gateway_auth | function_item |  | [204](../../src-tauri/src/proxy/logging.rs#L204) |
+| gateway_auth_error | function_item |  | [244](../../src-tauri/src/proxy/logging.rs#L244) |
+| log_early_failure | function_item |  | [248](../../src-tauri/src/proxy/logging.rs#L248) |
+| log::error | macro invocation (unexpanded) | log_early_failure | [276](../../src-tauri/src/proxy/logging.rs#L276) |
+| error_diagnostic | function_item |  | [280](../../src-tauri/src/proxy/logging.rs#L280) |
+| upstream_error_category | function_item |  | [295](../../src-tauri/src/proxy/logging.rs#L295) |
+| update_log_diagnostic | function_item |  | [303](../../src-tauri/src/proxy/logging.rs#L303) |
+| log::error | macro invocation (unexpanded) | update_log_diagnostic | [311](../../src-tauri/src/proxy/logging.rs#L311) |
+| sanitized_upstream_diagnostic | function_item |  | [315](../../src-tauri/src/proxy/logging.rs#L315) |
+| format | macro invocation (unexpanded) | sanitized_upstream_diagnostic | [342](../../src-tauri/src/proxy/logging.rs#L342) |
+| format | macro invocation (unexpanded) | sanitized_upstream_diagnostic | [347](../../src-tauri/src/proxy/logging.rs#L347) |
+| format | macro invocation (unexpanded) | sanitized_upstream_diagnostic | [352](../../src-tauri/src/proxy/logging.rs#L352) |
+| explicitly_rejects_stream_options | function_item |  | [356](../../src-tauri/src/proxy/logging.rs#L356) |
+| sanitize_diagnostic_text | function_item |  | [373](../../src-tauri/src/proxy/logging.rs#L373) |
+| update_log_usage | function_item |  | [377](../../src-tauri/src/proxy/logging.rs#L377) |
+| log::error | macro invocation (unexpanded) | update_log_usage | [394](../../src-tauri/src/proxy/logging.rs#L394) |
+| extract_usage_from_json | function_item |  | [400](../../src-tauri/src/proxy/logging.rs#L400) |
+| extract_usage_from_sse | function_item |  | [405](../../src-tauri/src/proxy/logging.rs#L405) |
+| usage_from_value | function_item |  | [414](../../src-tauri/src/proxy/logging.rs#L414) |
+| json_error | function_item |  | [469](../../src-tauri/src/proxy/logging.rs#L469) |
+| json_error_with_retry_after | function_item |  | [473](../../src-tauri/src/proxy/logging.rs#L473) |
+| serde_json::json | macro invocation (unexpanded) | json_error_with_retry_after | [478](../../src-tauri/src/proxy/logging.rs#L478) |
+| anthropic_error | function_item |  | [490](../../src-tauri/src/proxy/logging.rs#L490) |
+| is_hop_by_hop_header | function_item |  | [498](../../src-tauri/src/proxy/logging.rs#L498) |
+| matches | macro invocation (unexpanded) | is_hop_by_hop_header | [500](../../src-tauri/src/proxy/logging.rs#L500) |
+| tests | mod_item |  | [514](../../src-tauri/src/proxy/logging.rs#L514) |
+| provider | function_item | tests | [519](../../src-tauri/src/proxy/logging.rs#L519) |
+| listener_token_falls_back_to_x_api_key_for_bare_bearer | function_item | tests | [552](../../src-tauri/src/proxy/logging.rs#L552) |
+| assert_eq | macro invocation (unexpanded) | tests::listener_token_falls_back_to_x_api_key_for_bare_bearer | [556](../../src-tauri/src/proxy/logging.rs#L556) |
+| assert_eq | macro invocation (unexpanded) | tests::listener_token_falls_back_to_x_api_key_for_bare_bearer | [562](../../src-tauri/src/proxy/logging.rs#L562) |
+| smart_gateway_accepts_request_larger_than_axum_default | function_item | tests | [566](../../src-tauri/src/proxy/logging.rs#L566) |
+| format | macro invocation (unexpanded) | tests::smart_gateway_accepts_request_larger_than_axum_default | [569](../../src-tauri/src/proxy/logging.rs#L569) |
+| assert_ne | macro invocation (unexpanded) | tests::smart_gateway_accepts_request_larger_than_axum_default | [586](../../src-tauri/src/proxy/logging.rs#L586) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_accepts_request_larger_than_axum_default | [587](../../src-tauri/src/proxy/logging.rs#L587) |
+| circuit_test_state | function_item | tests | [590](../../src-tauri/src/proxy/logging.rs#L590) |
+| TestServer | struct_item | tests | [605](../../src-tauri/src/proxy/logging.rs#L605) |
+| Drop for TestServer | impl | tests | [607](../../src-tauri/src/proxy/logging.rs#L607) |
+| drop | function_item | Drop for TestServer | [608](../../src-tauri/src/proxy/logging.rs#L608) |
+| responses_envelope_fallback_obeys_admission_and_updates_single_log | function_item | tests | [614](../../src-tauri/src/proxy/logging.rs#L614) |
+| format | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [626](../../src-tauri/src/proxy/logging.rs#L626) |
+| format | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [627](../../src-tauri/src/proxy/logging.rs#L627) |
+| serde_json::json | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [632](../../src-tauri/src/proxy/logging.rs#L632) |
+| serde_json::json | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [638](../../src-tauri/src/proxy/logging.rs#L638) |
+| rusqlite::params | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [654](../../src-tauri/src/proxy/logging.rs#L654) |
+| rusqlite::params | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [663](../../src-tauri/src/proxy/logging.rs#L663) |
+| format | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [674](../../src-tauri/src/proxy/logging.rs#L674) |
+| serde_json::json | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [676](../../src-tauri/src/proxy/logging.rs#L676) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [683](../../src-tauri/src/proxy/logging.rs#L683) |
 | assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [691](../../src-tauri/src/proxy/logging.rs#L691) |
 | assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [692](../../src-tauri/src/proxy/logging.rs#L692) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [693](../../src-tauri/src/proxy/logging.rs#L693) |
 | assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [694](../../src-tauri/src/proxy/logging.rs#L694) |
-| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [695](../../src-tauri/src/proxy/logging.rs#L695) |
 | assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [697](../../src-tauri/src/proxy/logging.rs#L697) |
-| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [698](../../src-tauri/src/proxy/logging.rs#L698) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [700](../../src-tauri/src/proxy/logging.rs#L700) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [701](../../src-tauri/src/proxy/logging.rs#L701) |
 | assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [702](../../src-tauri/src/proxy/logging.rs#L702) |
-| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [703](../../src-tauri/src/proxy/logging.rs#L703) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [705](../../src-tauri/src/proxy/logging.rs#L705) |
-| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [706](../../src-tauri/src/proxy/logging.rs#L706) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [708](../../src-tauri/src/proxy/logging.rs#L708) |
-| seed_loopback_gateway | function_item | tests | [717](../../src-tauri/src/proxy/logging.rs#L717) |
-| rusqlite::params | macro invocation (unexpanded) | tests::seed_loopback_gateway | [731](../../src-tauri/src/proxy/logging.rs#L731) |
-| rusqlite::params | macro invocation (unexpanded) | tests::seed_loopback_gateway | [736](../../src-tauri/src/proxy/logging.rs#L736) |
-| format | macro invocation (unexpanded) | tests::seed_loopback_gateway | [741](../../src-tauri/src/proxy/logging.rs#L741) |
-| rusqlite::params | macro invocation (unexpanded) | tests::seed_loopback_gateway | [747](../../src-tauri/src/proxy/logging.rs#L747) |
-| first_output_deadline_switches_before_client_commit_for_code_and_codex | function_item | tests | [754](../../src-tauri/src/proxy/logging.rs#L754) |
-| format | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [760](../../src-tauri/src/proxy/logging.rs#L760) |
-| format | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [761](../../src-tauri/src/proxy/logging.rs#L761) |
-| concat | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [778](../../src-tauri/src/proxy/logging.rs#L778) |
-| serde_json::json | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [793](../../src-tauri/src/proxy/logging.rs#L793) |
-| serde_json::json | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [795](../../src-tauri/src/proxy/logging.rs#L795) |
-| format | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [798](../../src-tauri/src/proxy/logging.rs#L798) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [806](../../src-tauri/src/proxy/logging.rs#L806) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [808](../../src-tauri/src/proxy/logging.rs#L808) |
-| assert | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [809](../../src-tauri/src/proxy/logging.rs#L809) |
-| assert | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [810](../../src-tauri/src/proxy/logging.rs#L810) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [812](../../src-tauri/src/proxy/logging.rs#L812) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [815](../../src-tauri/src/proxy/logging.rs#L815) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [817](../../src-tauri/src/proxy/logging.rs#L817) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [703](../../src-tauri/src/proxy/logging.rs#L703) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [704](../../src-tauri/src/proxy/logging.rs#L704) |
+| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [705](../../src-tauri/src/proxy/logging.rs#L705) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [707](../../src-tauri/src/proxy/logging.rs#L707) |
+| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [708](../../src-tauri/src/proxy/logging.rs#L708) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [710](../../src-tauri/src/proxy/logging.rs#L710) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [712](../../src-tauri/src/proxy/logging.rs#L712) |
+| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [713](../../src-tauri/src/proxy/logging.rs#L713) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [715](../../src-tauri/src/proxy/logging.rs#L715) |
+| assert | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [716](../../src-tauri/src/proxy/logging.rs#L716) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_envelope_fallback_obeys_admission_and_updates_single_log | [718](../../src-tauri/src/proxy/logging.rs#L718) |
+| seed_loopback_gateway | function_item | tests | [727](../../src-tauri/src/proxy/logging.rs#L727) |
+| rusqlite::params | macro invocation (unexpanded) | tests::seed_loopback_gateway | [741](../../src-tauri/src/proxy/logging.rs#L741) |
+| rusqlite::params | macro invocation (unexpanded) | tests::seed_loopback_gateway | [746](../../src-tauri/src/proxy/logging.rs#L746) |
+| format | macro invocation (unexpanded) | tests::seed_loopback_gateway | [751](../../src-tauri/src/proxy/logging.rs#L751) |
+| rusqlite::params | macro invocation (unexpanded) | tests::seed_loopback_gateway | [757](../../src-tauri/src/proxy/logging.rs#L757) |
+| first_output_deadline_switches_before_client_commit_for_code_and_codex | function_item | tests | [764](../../src-tauri/src/proxy/logging.rs#L764) |
+| format | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [770](../../src-tauri/src/proxy/logging.rs#L770) |
+| format | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [771](../../src-tauri/src/proxy/logging.rs#L771) |
+| concat | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [788](../../src-tauri/src/proxy/logging.rs#L788) |
+| serde_json::json | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [803](../../src-tauri/src/proxy/logging.rs#L803) |
+| serde_json::json | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [805](../../src-tauri/src/proxy/logging.rs#L805) |
+| format | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [808](../../src-tauri/src/proxy/logging.rs#L808) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [816](../../src-tauri/src/proxy/logging.rs#L816) |
 | assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [818](../../src-tauri/src/proxy/logging.rs#L818) |
+| assert | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [819](../../src-tauri/src/proxy/logging.rs#L819) |
+| assert | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [820](../../src-tauri/src/proxy/logging.rs#L820) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [822](../../src-tauri/src/proxy/logging.rs#L822) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [825](../../src-tauri/src/proxy/logging.rs#L825) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [827](../../src-tauri/src/proxy/logging.rs#L827) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_deadline_switches_before_client_commit_for_code_and_codex | [828](../../src-tauri/src/proxy/logging.rs#L828) |

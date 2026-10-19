@@ -4,107 +4,107 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex_anthropic.rs) · page 1/3
 
-Source SHA-256: 1f02af2c944d2b5f4b331ebd54792256503cf5558f6477496bd214ad8a13a9a2
+Source SHA-256: 641353a101e565c7edce283338882906cbf6a4651b40de81704b3afee8232e39
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | ANTHROPIC_VERSION | const_item |  | [7](../../src-tauri/src/proxy/codex_anthropic.rs#L7) |
 | anthropic_version_header | function_item |  | [9](../../src-tauri/src/proxy/codex_anthropic.rs#L9) |
 | responses_request_to_anthropic_messages | function_item |  | [14](../../src-tauri/src/proxy/codex_anthropic.rs#L14) |
-| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [31](../../src-tauri/src/proxy/codex_anthropic.rs#L31) |
-| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [79](../../src-tauri/src/proxy/codex_anthropic.rs#L79) |
-| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [82](../../src-tauri/src/proxy/codex_anthropic.rs#L82) |
-| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [87](../../src-tauri/src/proxy/codex_anthropic.rs#L87) |
-| anthropic_response_to_responses | function_item |  | [95](../../src-tauri/src/proxy/codex_anthropic.rs#L95) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [116](../../src-tauri/src/proxy/codex_anthropic.rs#L116) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [128](../../src-tauri/src/proxy/codex_anthropic.rs#L128) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [133](../../src-tauri/src/proxy/codex_anthropic.rs#L133) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [145](../../src-tauri/src/proxy/codex_anthropic.rs#L145) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [159](../../src-tauri/src/proxy/codex_anthropic.rs#L159) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [172](../../src-tauri/src/proxy/codex_anthropic.rs#L172) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [180](../../src-tauri/src/proxy/codex_anthropic.rs#L180) |
-| json | macro invocation (unexpanded) | anthropic_response_to_responses | [185](../../src-tauri/src/proxy/codex_anthropic.rs#L185) |
-| anthropic_error_to_responses | function_item |  | [194](../../src-tauri/src/proxy/codex_anthropic.rs#L194) |
-| json | macro invocation (unexpanded) | anthropic_error_to_responses | [199](../../src-tauri/src/proxy/codex_anthropic.rs#L199) |
-| anthropic_usage_to_responses | function_item |  | [210](../../src-tauri/src/proxy/codex_anthropic.rs#L210) |
-| json | macro invocation (unexpanded) | anthropic_usage_to_responses | [224](../../src-tauri/src/proxy/codex_anthropic.rs#L224) |
-| json | macro invocation (unexpanded) | anthropic_usage_to_responses | [230](../../src-tauri/src/proxy/codex_anthropic.rs#L230) |
-| responses_input_to_messages | function_item |  | [235](../../src-tauri/src/proxy/codex_anthropic.rs#L235) |
-| vec | macro invocation (unexpanded) | responses_input_to_messages | [238](../../src-tauri/src/proxy/codex_anthropic.rs#L238) |
-| json | macro invocation (unexpanded) | responses_input_to_messages | [254](../../src-tauri/src/proxy/codex_anthropic.rs#L254) |
-| json | macro invocation (unexpanded) | responses_input_to_messages | [256](../../src-tauri/src/proxy/codex_anthropic.rs#L256) |
-| json | macro invocation (unexpanded) | responses_input_to_messages | [265](../../src-tauri/src/proxy/codex_anthropic.rs#L265) |
-| json | macro invocation (unexpanded) | responses_input_to_messages | [283](../../src-tauri/src/proxy/codex_anthropic.rs#L283) |
-| message_blocks_vec | function_item |  | [300](../../src-tauri/src/proxy/codex_anthropic.rs#L300) |
-| vec | macro invocation (unexpanded) | message_blocks_vec | [303](../../src-tauri/src/proxy/codex_anthropic.rs#L303) |
-| sanitize_anthropic_messages | function_item |  | [313](../../src-tauri/src/proxy/codex_anthropic.rs#L313) |
-| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [333](../../src-tauri/src/proxy/codex_anthropic.rs#L333) |
-| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [380](../../src-tauri/src/proxy/codex_anthropic.rs#L380) |
-| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [400](../../src-tauri/src/proxy/codex_anthropic.rs#L400) |
-| flush_tool_uses | function_item |  | [439](../../src-tauri/src/proxy/codex_anthropic.rs#L439) |
-| json | macro invocation (unexpanded) | flush_tool_uses | [459](../../src-tauri/src/proxy/codex_anthropic.rs#L459) |
-| flush_tool_results | function_item |  | [462](../../src-tauri/src/proxy/codex_anthropic.rs#L462) |
-| json | macro invocation (unexpanded) | flush_tool_results | [466](../../src-tauri/src/proxy/codex_anthropic.rs#L466) |
-| convert_responses_content | function_item |  | [469](../../src-tauri/src/proxy/codex_anthropic.rs#L469) |
-| vec | macro invocation (unexpanded) | convert_responses_content | [471](../../src-tauri/src/proxy/codex_anthropic.rs#L471) |
-| json | macro invocation (unexpanded) | convert_responses_content | [482](../../src-tauri/src/proxy/codex_anthropic.rs#L482) |
-| json | macro invocation (unexpanded) | convert_responses_content | [492](../../src-tauri/src/proxy/codex_anthropic.rs#L492) |
-| responses_image_to_anthropic | function_item |  | [507](../../src-tauri/src/proxy/codex_anthropic.rs#L507) |
-| json | macro invocation (unexpanded) | responses_image_to_anthropic | [514](../../src-tauri/src/proxy/codex_anthropic.rs#L514) |
-| json | macro invocation (unexpanded) | responses_image_to_anthropic | [519](../../src-tauri/src/proxy/codex_anthropic.rs#L519) |
-| EDIT_UNIQUE_CONTEXT_HINT | const_item |  | [525](../../src-tauri/src/proxy/codex_anthropic.rs#L525) |
-| VIEW_TOOL_READ_HINT | const_item |  | [527](../../src-tauri/src/proxy/codex_anthropic.rs#L527) |
-| enrich_edit_tool_description | function_item |  | [529](../../src-tauri/src/proxy/codex_anthropic.rs#L529) |
-| matches | macro invocation (unexpanded) | enrich_edit_tool_description | [531](../../src-tauri/src/proxy/codex_anthropic.rs#L531) |
-| format | macro invocation (unexpanded) | enrich_edit_tool_description | [546](../../src-tauri/src/proxy/codex_anthropic.rs#L546) |
-| matches | macro invocation (unexpanded) | enrich_edit_tool_description | [550](../../src-tauri/src/proxy/codex_anthropic.rs#L550) |
-| format | macro invocation (unexpanded) | enrich_edit_tool_description | [558](../../src-tauri/src/proxy/codex_anthropic.rs#L558) |
-| responses_tool_to_anthropic | function_item |  | [565](../../src-tauri/src/proxy/codex_anthropic.rs#L565) |
-| json | macro invocation (unexpanded) | responses_tool_to_anthropic | [571](../../src-tauri/src/proxy/codex_anthropic.rs#L571) |
-| json | macro invocation (unexpanded) | responses_tool_to_anthropic | [577](../../src-tauri/src/proxy/codex_anthropic.rs#L577) |
-| responses_tool_choice_to_anthropic | function_item |  | [584](../../src-tauri/src/proxy/codex_anthropic.rs#L584) |
-| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [587](../../src-tauri/src/proxy/codex_anthropic.rs#L587) |
-| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [588](../../src-tauri/src/proxy/codex_anthropic.rs#L588) |
-| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [589](../../src-tauri/src/proxy/codex_anthropic.rs#L589) |
-| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [592](../../src-tauri/src/proxy/codex_anthropic.rs#L592) |
-| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [601](../../src-tauri/src/proxy/codex_anthropic.rs#L601) |
-| instructions_text | function_item |  | [605](../../src-tauri/src/proxy/codex_anthropic.rs#L605) |
-| output_text | function_item |  | [617](../../src-tauri/src/proxy/codex_anthropic.rs#L617) |
-| copy_if_present | function_item |  | [629](../../src-tauri/src/proxy/codex_anthropic.rs#L629) |
-| ensure_response_usage_fields | function_item |  | [636](../../src-tauri/src/proxy/codex_anthropic.rs#L636) |
-| fill_responses_usage | function_item |  | [649](../../src-tauri/src/proxy/codex_anthropic.rs#L649) |
-| json | macro invocation (unexpanded) | fill_responses_usage | [654](../../src-tauri/src/proxy/codex_anthropic.rs#L654) |
-| json | macro invocation (unexpanded) | fill_responses_usage | [669](../../src-tauri/src/proxy/codex_anthropic.rs#L669) |
-| json | macro invocation (unexpanded) | fill_responses_usage | [670](../../src-tauri/src/proxy/codex_anthropic.rs#L670) |
-| json | macro invocation (unexpanded) | fill_responses_usage | [673](../../src-tauri/src/proxy/codex_anthropic.rs#L673) |
-| json_i64 | function_item |  | [676](../../src-tauri/src/proxy/codex_anthropic.rs#L676) |
-| ensure_responses_sse_usage | function_item |  | [686](../../src-tauri/src/proxy/codex_anthropic.rs#L686) |
-| parse_sse_event | function_item |  | [710](../../src-tauri/src/proxy/codex_anthropic.rs#L710) |
-| push_responses_event | function_item |  | [737](../../src-tauri/src/proxy/codex_anthropic.rs#L737) |
-| PendingTool | struct_item |  | [746](../../src-tauri/src/proxy/codex_anthropic.rs#L746) |
-| output_index | field_declaration | PendingTool | [747](../../src-tauri/src/proxy/codex_anthropic.rs#L747) |
-| item_id | field_declaration | PendingTool | [748](../../src-tauri/src/proxy/codex_anthropic.rs#L748) |
-| call_id | field_declaration | PendingTool | [749](../../src-tauri/src/proxy/codex_anthropic.rs#L749) |
-| name | field_declaration | PendingTool | [750](../../src-tauri/src/proxy/codex_anthropic.rs#L750) |
-| arguments | field_declaration | PendingTool | [751](../../src-tauri/src/proxy/codex_anthropic.rs#L751) |
-| AnthropicSseToResponsesConverter | struct_item |  | [755](../../src-tauri/src/proxy/codex_anthropic.rs#L755) |
-| fallback_model | field_declaration | AnthropicSseToResponsesConverter | [756](../../src-tauri/src/proxy/codex_anthropic.rs#L756) |
-| response_id | field_declaration | AnthropicSseToResponsesConverter | [757](../../src-tauri/src/proxy/codex_anthropic.rs#L757) |
-| model | field_declaration | AnthropicSseToResponsesConverter | [758](../../src-tauri/src/proxy/codex_anthropic.rs#L758) |
-| started | field_declaration | AnthropicSseToResponsesConverter | [759](../../src-tauri/src/proxy/codex_anthropic.rs#L759) |
-| completed | field_declaration | AnthropicSseToResponsesConverter | [760](../../src-tauri/src/proxy/codex_anthropic.rs#L760) |
-| output_index | field_declaration | AnthropicSseToResponsesConverter | [761](../../src-tauri/src/proxy/codex_anthropic.rs#L761) |
-| content_index | field_declaration | AnthropicSseToResponsesConverter | [762](../../src-tauri/src/proxy/codex_anthropic.rs#L762) |
-| reasoning_item_started | field_declaration | AnthropicSseToResponsesConverter | [763](../../src-tauri/src/proxy/codex_anthropic.rs#L763) |
-| reasoning_item_closed | field_declaration | AnthropicSseToResponsesConverter | [764](../../src-tauri/src/proxy/codex_anthropic.rs#L764) |
-| reasoning_output_index | field_declaration | AnthropicSseToResponsesConverter | [765](../../src-tauri/src/proxy/codex_anthropic.rs#L765) |
-| reasoning_item_id | field_declaration | AnthropicSseToResponsesConverter | [766](../../src-tauri/src/proxy/codex_anthropic.rs#L766) |
-| reasoning | field_declaration | AnthropicSseToResponsesConverter | [767](../../src-tauri/src/proxy/codex_anthropic.rs#L767) |
-| text_item_started | field_declaration | AnthropicSseToResponsesConverter | [768](../../src-tauri/src/proxy/codex_anthropic.rs#L768) |
-| text_output_index | field_declaration | AnthropicSseToResponsesConverter | [769](../../src-tauri/src/proxy/codex_anthropic.rs#L769) |
-| text_item_id | field_declaration | AnthropicSseToResponsesConverter | [770](../../src-tauri/src/proxy/codex_anthropic.rs#L770) |
-| text | field_declaration | AnthropicSseToResponsesConverter | [771](../../src-tauri/src/proxy/codex_anthropic.rs#L771) |
-| tools | field_declaration | AnthropicSseToResponsesConverter | [772](../../src-tauri/src/proxy/codex_anthropic.rs#L772) |
-| tool_output_indices | field_declaration | AnthropicSseToResponsesConverter | [773](../../src-tauri/src/proxy/codex_anthropic.rs#L773) |
-| input_tokens | field_declaration | AnthropicSseToResponsesConverter | [774](../../src-tauri/src/proxy/codex_anthropic.rs#L774) |
-| cache_read_input_tokens | field_declaration | AnthropicSseToResponsesConverter | [775](../../src-tauri/src/proxy/codex_anthropic.rs#L775) |
+| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [27](../../src-tauri/src/proxy/codex_anthropic.rs#L27) |
+| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [44](../../src-tauri/src/proxy/codex_anthropic.rs#L44) |
+| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [89](../../src-tauri/src/proxy/codex_anthropic.rs#L89) |
+| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [92](../../src-tauri/src/proxy/codex_anthropic.rs#L92) |
+| json | macro invocation (unexpanded) | responses_request_to_anthropic_messages | [97](../../src-tauri/src/proxy/codex_anthropic.rs#L97) |
+| ensure_deepseek_assistant_thinking | function_item |  | [110](../../src-tauri/src/proxy/codex_anthropic.rs#L110) |
+| json | macro invocation (unexpanded) | ensure_deepseek_assistant_thinking | [129](../../src-tauri/src/proxy/codex_anthropic.rs#L129) |
+| json | macro invocation (unexpanded) | ensure_deepseek_assistant_thinking | [134](../../src-tauri/src/proxy/codex_anthropic.rs#L134) |
+| json | macro invocation (unexpanded) | ensure_deepseek_assistant_thinking | [158](../../src-tauri/src/proxy/codex_anthropic.rs#L158) |
+| json | macro invocation (unexpanded) | ensure_deepseek_assistant_thinking | [167](../../src-tauri/src/proxy/codex_anthropic.rs#L167) |
+| json | macro invocation (unexpanded) | ensure_deepseek_assistant_thinking | [182](../../src-tauri/src/proxy/codex_anthropic.rs#L182) |
+| anthropic_response_to_responses | function_item |  | [188](../../src-tauri/src/proxy/codex_anthropic.rs#L188) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [209](../../src-tauri/src/proxy/codex_anthropic.rs#L209) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [221](../../src-tauri/src/proxy/codex_anthropic.rs#L221) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [226](../../src-tauri/src/proxy/codex_anthropic.rs#L226) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [238](../../src-tauri/src/proxy/codex_anthropic.rs#L238) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [252](../../src-tauri/src/proxy/codex_anthropic.rs#L252) |
+| format | macro invocation (unexpanded) | anthropic_response_to_responses | [270](../../src-tauri/src/proxy/codex_anthropic.rs#L270) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [271](../../src-tauri/src/proxy/codex_anthropic.rs#L271) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [279](../../src-tauri/src/proxy/codex_anthropic.rs#L279) |
+| json | macro invocation (unexpanded) | anthropic_response_to_responses | [284](../../src-tauri/src/proxy/codex_anthropic.rs#L284) |
+| anthropic_error_to_responses | function_item |  | [293](../../src-tauri/src/proxy/codex_anthropic.rs#L293) |
+| json | macro invocation (unexpanded) | anthropic_error_to_responses | [298](../../src-tauri/src/proxy/codex_anthropic.rs#L298) |
+| anthropic_usage_to_responses | function_item |  | [309](../../src-tauri/src/proxy/codex_anthropic.rs#L309) |
+| json | macro invocation (unexpanded) | anthropic_usage_to_responses | [323](../../src-tauri/src/proxy/codex_anthropic.rs#L323) |
+| json | macro invocation (unexpanded) | anthropic_usage_to_responses | [329](../../src-tauri/src/proxy/codex_anthropic.rs#L329) |
+| responses_input_to_messages | function_item |  | [334](../../src-tauri/src/proxy/codex_anthropic.rs#L334) |
+| vec | macro invocation (unexpanded) | responses_input_to_messages | [337](../../src-tauri/src/proxy/codex_anthropic.rs#L337) |
+| json | macro invocation (unexpanded) | responses_input_to_messages | [352](../../src-tauri/src/proxy/codex_anthropic.rs#L352) |
+| json | macro invocation (unexpanded) | responses_input_to_messages | [354](../../src-tauri/src/proxy/codex_anthropic.rs#L354) |
+| json | macro invocation (unexpanded) | responses_input_to_messages | [356](../../src-tauri/src/proxy/codex_anthropic.rs#L356) |
+| matches | macro invocation (unexpanded) | responses_input_to_messages | [368](../../src-tauri/src/proxy/codex_anthropic.rs#L368) |
+| json | macro invocation (unexpanded) | responses_input_to_messages | [379](../../src-tauri/src/proxy/codex_anthropic.rs#L379) |
+| json | macro invocation (unexpanded) | responses_input_to_messages | [397](../../src-tauri/src/proxy/codex_anthropic.rs#L397) |
+| message_blocks_vec | function_item |  | [414](../../src-tauri/src/proxy/codex_anthropic.rs#L414) |
+| vec | macro invocation (unexpanded) | message_blocks_vec | [417](../../src-tauri/src/proxy/codex_anthropic.rs#L417) |
+| sanitize_anthropic_messages | function_item |  | [427](../../src-tauri/src/proxy/codex_anthropic.rs#L427) |
+| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [447](../../src-tauri/src/proxy/codex_anthropic.rs#L447) |
+| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [471](../../src-tauri/src/proxy/codex_anthropic.rs#L471) |
+| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [500](../../src-tauri/src/proxy/codex_anthropic.rs#L500) |
+| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [520](../../src-tauri/src/proxy/codex_anthropic.rs#L520) |
+| json | macro invocation (unexpanded) | sanitize_anthropic_messages | [557](../../src-tauri/src/proxy/codex_anthropic.rs#L557) |
+| flush_tool_uses | function_item |  | [566](../../src-tauri/src/proxy/codex_anthropic.rs#L566) |
+| json | macro invocation (unexpanded) | flush_tool_uses | [586](../../src-tauri/src/proxy/codex_anthropic.rs#L586) |
+| flush_tool_results | function_item |  | [589](../../src-tauri/src/proxy/codex_anthropic.rs#L589) |
+| json | macro invocation (unexpanded) | flush_tool_results | [593](../../src-tauri/src/proxy/codex_anthropic.rs#L593) |
+| convert_responses_content | function_item |  | [596](../../src-tauri/src/proxy/codex_anthropic.rs#L596) |
+| vec | macro invocation (unexpanded) | convert_responses_content | [598](../../src-tauri/src/proxy/codex_anthropic.rs#L598) |
+| json | macro invocation (unexpanded) | convert_responses_content | [609](../../src-tauri/src/proxy/codex_anthropic.rs#L609) |
+| responses_image_to_anthropic | function_item |  | [629](../../src-tauri/src/proxy/codex_anthropic.rs#L629) |
+| json | macro invocation (unexpanded) | responses_image_to_anthropic | [636](../../src-tauri/src/proxy/codex_anthropic.rs#L636) |
+| json | macro invocation (unexpanded) | responses_image_to_anthropic | [641](../../src-tauri/src/proxy/codex_anthropic.rs#L641) |
+| EDIT_UNIQUE_CONTEXT_HINT | const_item |  | [647](../../src-tauri/src/proxy/codex_anthropic.rs#L647) |
+| VIEW_TOOL_READ_HINT | const_item |  | [649](../../src-tauri/src/proxy/codex_anthropic.rs#L649) |
+| enrich_edit_tool_description | function_item |  | [651](../../src-tauri/src/proxy/codex_anthropic.rs#L651) |
+| matches | macro invocation (unexpanded) | enrich_edit_tool_description | [653](../../src-tauri/src/proxy/codex_anthropic.rs#L653) |
+| format | macro invocation (unexpanded) | enrich_edit_tool_description | [668](../../src-tauri/src/proxy/codex_anthropic.rs#L668) |
+| matches | macro invocation (unexpanded) | enrich_edit_tool_description | [672](../../src-tauri/src/proxy/codex_anthropic.rs#L672) |
+| format | macro invocation (unexpanded) | enrich_edit_tool_description | [680](../../src-tauri/src/proxy/codex_anthropic.rs#L680) |
+| responses_tool_to_anthropic | function_item |  | [687](../../src-tauri/src/proxy/codex_anthropic.rs#L687) |
+| json | macro invocation (unexpanded) | responses_tool_to_anthropic | [693](../../src-tauri/src/proxy/codex_anthropic.rs#L693) |
+| json | macro invocation (unexpanded) | responses_tool_to_anthropic | [699](../../src-tauri/src/proxy/codex_anthropic.rs#L699) |
+| responses_tool_choice_to_anthropic | function_item |  | [706](../../src-tauri/src/proxy/codex_anthropic.rs#L706) |
+| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [709](../../src-tauri/src/proxy/codex_anthropic.rs#L709) |
+| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [710](../../src-tauri/src/proxy/codex_anthropic.rs#L710) |
+| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [711](../../src-tauri/src/proxy/codex_anthropic.rs#L711) |
+| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [714](../../src-tauri/src/proxy/codex_anthropic.rs#L714) |
+| json | macro invocation (unexpanded) | responses_tool_choice_to_anthropic | [723](../../src-tauri/src/proxy/codex_anthropic.rs#L723) |
+| instructions_text | function_item |  | [727](../../src-tauri/src/proxy/codex_anthropic.rs#L727) |
+| output_text | function_item |  | [739](../../src-tauri/src/proxy/codex_anthropic.rs#L739) |
+| copy_if_present | function_item |  | [751](../../src-tauri/src/proxy/codex_anthropic.rs#L751) |
+| ensure_response_usage_fields | function_item |  | [758](../../src-tauri/src/proxy/codex_anthropic.rs#L758) |
+| fill_responses_usage | function_item |  | [771](../../src-tauri/src/proxy/codex_anthropic.rs#L771) |
+| json | macro invocation (unexpanded) | fill_responses_usage | [776](../../src-tauri/src/proxy/codex_anthropic.rs#L776) |
+| json | macro invocation (unexpanded) | fill_responses_usage | [791](../../src-tauri/src/proxy/codex_anthropic.rs#L791) |
+| json | macro invocation (unexpanded) | fill_responses_usage | [792](../../src-tauri/src/proxy/codex_anthropic.rs#L792) |
+| json | macro invocation (unexpanded) | fill_responses_usage | [795](../../src-tauri/src/proxy/codex_anthropic.rs#L795) |
+| json_i64 | function_item |  | [798](../../src-tauri/src/proxy/codex_anthropic.rs#L798) |
+| ensure_responses_sse_usage | function_item |  | [808](../../src-tauri/src/proxy/codex_anthropic.rs#L808) |
+| parse_sse_event | function_item |  | [832](../../src-tauri/src/proxy/codex_anthropic.rs#L832) |
+| push_responses_event | function_item |  | [859](../../src-tauri/src/proxy/codex_anthropic.rs#L859) |
+| PendingTool | struct_item |  | [868](../../src-tauri/src/proxy/codex_anthropic.rs#L868) |
+| output_index | field_declaration | PendingTool | [869](../../src-tauri/src/proxy/codex_anthropic.rs#L869) |
+| item_id | field_declaration | PendingTool | [870](../../src-tauri/src/proxy/codex_anthropic.rs#L870) |
+| call_id | field_declaration | PendingTool | [871](../../src-tauri/src/proxy/codex_anthropic.rs#L871) |
+| name | field_declaration | PendingTool | [872](../../src-tauri/src/proxy/codex_anthropic.rs#L872) |
+| arguments | field_declaration | PendingTool | [873](../../src-tauri/src/proxy/codex_anthropic.rs#L873) |
+| AnthropicSseToResponsesConverter | struct_item |  | [877](../../src-tauri/src/proxy/codex_anthropic.rs#L877) |
+| fallback_model | field_declaration | AnthropicSseToResponsesConverter | [878](../../src-tauri/src/proxy/codex_anthropic.rs#L878) |
+| response_id | field_declaration | AnthropicSseToResponsesConverter | [879](../../src-tauri/src/proxy/codex_anthropic.rs#L879) |
+| model | field_declaration | AnthropicSseToResponsesConverter | [880](../../src-tauri/src/proxy/codex_anthropic.rs#L880) |
+| started | field_declaration | AnthropicSseToResponsesConverter | [881](../../src-tauri/src/proxy/codex_anthropic.rs#L881) |
+| completed | field_declaration | AnthropicSseToResponsesConverter | [882](../../src-tauri/src/proxy/codex_anthropic.rs#L882) |
+| output_index | field_declaration | AnthropicSseToResponsesConverter | [883](../../src-tauri/src/proxy/codex_anthropic.rs#L883) |
+| content_index | field_declaration | AnthropicSseToResponsesConverter | [884](../../src-tauri/src/proxy/codex_anthropic.rs#L884) |
+| reasoning_item_started | field_declaration | AnthropicSseToResponsesConverter | [885](../../src-tauri/src/proxy/codex_anthropic.rs#L885) |
+| reasoning_item_closed | field_declaration | AnthropicSseToResponsesConverter | [886](../../src-tauri/src/proxy/codex_anthropic.rs#L886) |

@@ -4,67 +4,79 @@
 
 [Module](web-components.md) · [Source](../../src/components/usage/UsageToolbar.tsx) · page 1/1
 
-Source SHA-256: 085aaef5c8ed376a47da4f36b69b816d4bf158b90b50d39fb48672ae97023736
+Source SHA-256: 74f3c7b778d3b414d836ed9004685759a8e9a9ad00044fa7a85ad9814e47d318
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| SOURCE_SHORT_LABEL | VariableDeclaration |  | [15](../../src/components/usage/UsageToolbar.tsx#L15) |
-| key | PropertySignature | SOURCE_SHORT_LABEL | [15](../../src/components/usage/UsageToolbar.tsx#L15) |
-| fallback | PropertySignature | SOURCE_SHORT_LABEL | [15](../../src/components/usage/UsageToolbar.tsx#L15) |
-| UsageToolbarProps | InterfaceDeclaration |  | [28](../../src/components/usage/UsageToolbar.tsx#L28) |
-| period | PropertySignature | UsageToolbarProps | [29](../../src/components/usage/UsageToolbar.tsx#L29) |
-| onPeriodChange | PropertySignature | UsageToolbarProps | [30](../../src/components/usage/UsageToolbar.tsx#L30) |
-| logTargetApp | PropertySignature | UsageToolbarProps | [31](../../src/components/usage/UsageToolbar.tsx#L31) |
-| onTargetAppChange | PropertySignature | UsageToolbarProps | [32](../../src/components/usage/UsageToolbar.tsx#L32) |
-| refreshing | PropertySignature | UsageToolbarProps | [33](../../src/components/usage/UsageToolbar.tsx#L33) |
-| onRefresh | PropertySignature | UsageToolbarProps | [34](../../src/components/usage/UsageToolbar.tsx#L34) |
-| onSyncCodex | PropertySignature | UsageToolbarProps | [35](../../src/components/usage/UsageToolbar.tsx#L35) |
-| onRebuildCodex | PropertySignature | UsageToolbarProps | [36](../../src/components/usage/UsageToolbar.tsx#L36) |
-| onSyncClaudeCode | PropertySignature | UsageToolbarProps | [37](../../src/components/usage/UsageToolbar.tsx#L37) |
-| onRebuildClaudeCode | PropertySignature | UsageToolbarProps | [38](../../src/components/usage/UsageToolbar.tsx#L38) |
-| onSyncOpenCode | PropertySignature | UsageToolbarProps | [39](../../src/components/usage/UsageToolbar.tsx#L39) |
-| onRebuildOpenCode | PropertySignature | UsageToolbarProps | [40](../../src/components/usage/UsageToolbar.tsx#L40) |
-| onSyncPi | PropertySignature | UsageToolbarProps | [41](../../src/components/usage/UsageToolbar.tsx#L41) |
-| onRebuildPi | PropertySignature | UsageToolbarProps | [42](../../src/components/usage/UsageToolbar.tsx#L42) |
-| onSyncDsh | PropertySignature | UsageToolbarProps | [43](../../src/components/usage/UsageToolbar.tsx#L43) |
-| onRebuildDsh | PropertySignature | UsageToolbarProps | [44](../../src/components/usage/UsageToolbar.tsx#L44) |
-| onOpenPricing | PropertySignature | UsageToolbarProps | [45](../../src/components/usage/UsageToolbar.tsx#L45) |
-| onOpenMaintenance | PropertySignature | UsageToolbarProps | [46](../../src/components/usage/UsageToolbar.tsx#L46) |
-| maintaining | PropertySignature | UsageToolbarProps | [47](../../src/components/usage/UsageToolbar.tsx#L47) |
-| className | PropertySignature | UsageToolbarProps | [48](../../src/components/usage/UsageToolbar.tsx#L48) |
-| style | PropertySignature | UsageToolbarProps | [49](../../src/components/usage/UsageToolbar.tsx#L49) |
-| UsageToolbar | VariableDeclaration |  | [52](../../src/components/usage/UsageToolbar.tsx#L52) |
-| period | BindingElement | UsageToolbar | [53](../../src/components/usage/UsageToolbar.tsx#L53) |
-| onPeriodChange | BindingElement | UsageToolbar | [54](../../src/components/usage/UsageToolbar.tsx#L54) |
-| logTargetApp | BindingElement | UsageToolbar | [55](../../src/components/usage/UsageToolbar.tsx#L55) |
-| onTargetAppChange | BindingElement | UsageToolbar | [56](../../src/components/usage/UsageToolbar.tsx#L56) |
-| refreshing | BindingElement | UsageToolbar | [57](../../src/components/usage/UsageToolbar.tsx#L57) |
-| onRefresh | BindingElement | UsageToolbar | [58](../../src/components/usage/UsageToolbar.tsx#L58) |
-| onSyncCodex | BindingElement | UsageToolbar | [59](../../src/components/usage/UsageToolbar.tsx#L59) |
-| onRebuildCodex | BindingElement | UsageToolbar | [60](../../src/components/usage/UsageToolbar.tsx#L60) |
-| onSyncClaudeCode | BindingElement | UsageToolbar | [61](../../src/components/usage/UsageToolbar.tsx#L61) |
-| onRebuildClaudeCode | BindingElement | UsageToolbar | [62](../../src/components/usage/UsageToolbar.tsx#L62) |
-| onSyncOpenCode | BindingElement | UsageToolbar | [63](../../src/components/usage/UsageToolbar.tsx#L63) |
-| onRebuildOpenCode | BindingElement | UsageToolbar | [64](../../src/components/usage/UsageToolbar.tsx#L64) |
-| onSyncPi | BindingElement | UsageToolbar | [65](../../src/components/usage/UsageToolbar.tsx#L65) |
-| onRebuildPi | BindingElement | UsageToolbar | [66](../../src/components/usage/UsageToolbar.tsx#L66) |
-| onSyncDsh | BindingElement | UsageToolbar | [67](../../src/components/usage/UsageToolbar.tsx#L67) |
-| onRebuildDsh | BindingElement | UsageToolbar | [68](../../src/components/usage/UsageToolbar.tsx#L68) |
-| onOpenPricing | BindingElement | UsageToolbar | [69](../../src/components/usage/UsageToolbar.tsx#L69) |
-| onOpenMaintenance | BindingElement | UsageToolbar | [70](../../src/components/usage/UsageToolbar.tsx#L70) |
-| maintaining | BindingElement | UsageToolbar | [71](../../src/components/usage/UsageToolbar.tsx#L71) |
-| className | BindingElement | UsageToolbar | [72](../../src/components/usage/UsageToolbar.tsx#L72) |
-| style | BindingElement | UsageToolbar | [73](../../src/components/usage/UsageToolbar.tsx#L73) |
-| { t } | VariableDeclaration | UsageToolbar | [75](../../src/components/usage/UsageToolbar.tsx#L75) |
-| t | BindingElement | UsageToolbar.{ t } | [75](../../src/components/usage/UsageToolbar.tsx#L75) |
-| visibleAgents | VariableDeclaration | UsageToolbar | [76](../../src/components/usage/UsageToolbar.tsx#L76) |
-| availableOptions | VariableDeclaration | UsageToolbar | [78](../../src/components/usage/UsageToolbar.tsx#L78) |
-| includesCodex | VariableDeclaration | UsageToolbar | [89](../../src/components/usage/UsageToolbar.tsx#L89) |
-| includesOpenCode | VariableDeclaration | UsageToolbar | [90](../../src/components/usage/UsageToolbar.tsx#L90) |
-| includesClaudeCode | VariableDeclaration | UsageToolbar | [91](../../src/components/usage/UsageToolbar.tsx#L91) |
-| includesPi | VariableDeclaration | UsageToolbar | [92](../../src/components/usage/UsageToolbar.tsx#L92) |
-| includesDsh | VariableDeclaration | UsageToolbar | [93](../../src/components/usage/UsageToolbar.tsx#L93) |
-| moreItems | VariableDeclaration | UsageToolbar | [95](../../src/components/usage/UsageToolbar.tsx#L95) |
-| fullLabel | VariableDeclaration | UsageToolbar | [141](../../src/components/usage/UsageToolbar.tsx#L141) |
-| shortDef | VariableDeclaration | UsageToolbar | [142](../../src/components/usage/UsageToolbar.tsx#L142) |
-| shortLabel | VariableDeclaration | UsageToolbar | [143](../../src/components/usage/UsageToolbar.tsx#L143) |
+| SOURCE_SHORT_LABEL | VariableDeclaration |  | [17](../../src/components/usage/UsageToolbar.tsx#L17) |
+| key | PropertySignature | SOURCE_SHORT_LABEL | [17](../../src/components/usage/UsageToolbar.tsx#L17) |
+| fallback | PropertySignature | SOURCE_SHORT_LABEL | [17](../../src/components/usage/UsageToolbar.tsx#L17) |
+| UsageToolbarProps | InterfaceDeclaration |  | [31](../../src/components/usage/UsageToolbar.tsx#L31) |
+| period | PropertySignature | UsageToolbarProps | [32](../../src/components/usage/UsageToolbar.tsx#L32) |
+| onPeriodChange | PropertySignature | UsageToolbarProps | [33](../../src/components/usage/UsageToolbar.tsx#L33) |
+| logTargetApp | PropertySignature | UsageToolbarProps | [34](../../src/components/usage/UsageToolbar.tsx#L34) |
+| onTargetAppChange | PropertySignature | UsageToolbarProps | [35](../../src/components/usage/UsageToolbar.tsx#L35) |
+| refreshing | PropertySignature | UsageToolbarProps | [36](../../src/components/usage/UsageToolbar.tsx#L36) |
+| onRefresh | PropertySignature | UsageToolbarProps | [37](../../src/components/usage/UsageToolbar.tsx#L37) |
+| onSyncCodex | PropertySignature | UsageToolbarProps | [38](../../src/components/usage/UsageToolbar.tsx#L38) |
+| onRebuildCodex | PropertySignature | UsageToolbarProps | [39](../../src/components/usage/UsageToolbar.tsx#L39) |
+| onSyncClaudeCode | PropertySignature | UsageToolbarProps | [40](../../src/components/usage/UsageToolbar.tsx#L40) |
+| onRebuildClaudeCode | PropertySignature | UsageToolbarProps | [41](../../src/components/usage/UsageToolbar.tsx#L41) |
+| onSyncOpenCode | PropertySignature | UsageToolbarProps | [42](../../src/components/usage/UsageToolbar.tsx#L42) |
+| onRebuildOpenCode | PropertySignature | UsageToolbarProps | [43](../../src/components/usage/UsageToolbar.tsx#L43) |
+| onSyncPi | PropertySignature | UsageToolbarProps | [44](../../src/components/usage/UsageToolbar.tsx#L44) |
+| onRebuildPi | PropertySignature | UsageToolbarProps | [45](../../src/components/usage/UsageToolbar.tsx#L45) |
+| onSyncDsh | PropertySignature | UsageToolbarProps | [46](../../src/components/usage/UsageToolbar.tsx#L46) |
+| onRebuildDsh | PropertySignature | UsageToolbarProps | [47](../../src/components/usage/UsageToolbar.tsx#L47) |
+| onOpenPricing | PropertySignature | UsageToolbarProps | [48](../../src/components/usage/UsageToolbar.tsx#L48) |
+| onOpenMaintenance | PropertySignature | UsageToolbarProps | [49](../../src/components/usage/UsageToolbar.tsx#L49) |
+| maintaining | PropertySignature | UsageToolbarProps | [50](../../src/components/usage/UsageToolbar.tsx#L50) |
+| className | PropertySignature | UsageToolbarProps | [51](../../src/components/usage/UsageToolbar.tsx#L51) |
+| style | PropertySignature | UsageToolbarProps | [52](../../src/components/usage/UsageToolbar.tsx#L52) |
+| UsageToolbar | VariableDeclaration |  | [55](../../src/components/usage/UsageToolbar.tsx#L55) |
+| period | BindingElement | UsageToolbar | [56](../../src/components/usage/UsageToolbar.tsx#L56) |
+| onPeriodChange | BindingElement | UsageToolbar | [57](../../src/components/usage/UsageToolbar.tsx#L57) |
+| logTargetApp | BindingElement | UsageToolbar | [58](../../src/components/usage/UsageToolbar.tsx#L58) |
+| onTargetAppChange | BindingElement | UsageToolbar | [59](../../src/components/usage/UsageToolbar.tsx#L59) |
+| refreshing | BindingElement | UsageToolbar | [60](../../src/components/usage/UsageToolbar.tsx#L60) |
+| onRefresh | BindingElement | UsageToolbar | [61](../../src/components/usage/UsageToolbar.tsx#L61) |
+| onSyncCodex | BindingElement | UsageToolbar | [62](../../src/components/usage/UsageToolbar.tsx#L62) |
+| onRebuildCodex | BindingElement | UsageToolbar | [63](../../src/components/usage/UsageToolbar.tsx#L63) |
+| onSyncClaudeCode | BindingElement | UsageToolbar | [64](../../src/components/usage/UsageToolbar.tsx#L64) |
+| onRebuildClaudeCode | BindingElement | UsageToolbar | [65](../../src/components/usage/UsageToolbar.tsx#L65) |
+| onSyncOpenCode | BindingElement | UsageToolbar | [66](../../src/components/usage/UsageToolbar.tsx#L66) |
+| onRebuildOpenCode | BindingElement | UsageToolbar | [67](../../src/components/usage/UsageToolbar.tsx#L67) |
+| onSyncPi | BindingElement | UsageToolbar | [68](../../src/components/usage/UsageToolbar.tsx#L68) |
+| onRebuildPi | BindingElement | UsageToolbar | [69](../../src/components/usage/UsageToolbar.tsx#L69) |
+| onSyncDsh | BindingElement | UsageToolbar | [70](../../src/components/usage/UsageToolbar.tsx#L70) |
+| onRebuildDsh | BindingElement | UsageToolbar | [71](../../src/components/usage/UsageToolbar.tsx#L71) |
+| onOpenPricing | BindingElement | UsageToolbar | [72](../../src/components/usage/UsageToolbar.tsx#L72) |
+| onOpenMaintenance | BindingElement | UsageToolbar | [73](../../src/components/usage/UsageToolbar.tsx#L73) |
+| maintaining | BindingElement | UsageToolbar | [74](../../src/components/usage/UsageToolbar.tsx#L74) |
+| className | BindingElement | UsageToolbar | [75](../../src/components/usage/UsageToolbar.tsx#L75) |
+| style | BindingElement | UsageToolbar | [76](../../src/components/usage/UsageToolbar.tsx#L76) |
+| { t } | VariableDeclaration | UsageToolbar | [78](../../src/components/usage/UsageToolbar.tsx#L78) |
+| t | BindingElement | UsageToolbar.{ t } | [78](../../src/components/usage/UsageToolbar.tsx#L78) |
+| visibleAgents | VariableDeclaration | UsageToolbar | [79](../../src/components/usage/UsageToolbar.tsx#L79) |
+| availableOptions | VariableDeclaration | UsageToolbar | [81](../../src/components/usage/UsageToolbar.tsx#L81) |
+| allOption | VariableDeclaration | UsageToolbar | [93](../../src/components/usage/UsageToolbar.tsx#L93) |
+| agentOptions | VariableDeclaration | UsageToolbar | [94](../../src/components/usage/UsageToolbar.tsx#L94) |
+| gatewayOptions | VariableDeclaration | UsageToolbar | [95](../../src/components/usage/UsageToolbar.tsx#L95) |
+| renderOptionPill | VariableDeclaration | UsageToolbar | [97](../../src/components/usage/UsageToolbar.tsx#L97) |
+| fullLabel | VariableDeclaration | UsageToolbar.renderOptionPill | [98](../../src/components/usage/UsageToolbar.tsx#L98) |
+| shortDef | VariableDeclaration | UsageToolbar.renderOptionPill | [99](../../src/components/usage/UsageToolbar.tsx#L99) |
+| shortLabel | VariableDeclaration | UsageToolbar.renderOptionPill | [100](../../src/components/usage/UsageToolbar.tsx#L100) |
+| active | VariableDeclaration | UsageToolbar.renderOptionPill | [101](../../src/components/usage/UsageToolbar.tsx#L101) |
+| isAll | VariableDeclaration | UsageToolbar.renderOptionPill | [102](../../src/components/usage/UsageToolbar.tsx#L102) |
+| includesCodex | VariableDeclaration | UsageToolbar | [118](../../src/components/usage/UsageToolbar.tsx#L118) |
+| includesOpenCode | VariableDeclaration | UsageToolbar | [119](../../src/components/usage/UsageToolbar.tsx#L119) |
+| includesClaudeCode | VariableDeclaration | UsageToolbar | [120](../../src/components/usage/UsageToolbar.tsx#L120) |
+| includesPi | VariableDeclaration | UsageToolbar | [121](../../src/components/usage/UsageToolbar.tsx#L121) |
+| includesDsh | VariableDeclaration | UsageToolbar | [122](../../src/components/usage/UsageToolbar.tsx#L122) |
+| moreItems | VariableDeclaration | UsageToolbar | [124](../../src/components/usage/UsageToolbar.tsx#L124) |
+| refreshLabel | VariableDeclaration | UsageToolbar | [160](../../src/components/usage/UsageToolbar.tsx#L160) |
+| moreActionsLabel | VariableDeclaration | UsageToolbar | [161](../../src/components/usage/UsageToolbar.tsx#L161) |
+| periodTagLabel | VariableDeclaration | UsageToolbar | [162](../../src/components/usage/UsageToolbar.tsx#L162) |
+| getPeriodLabel | VariableDeclaration | UsageToolbar | [164](../../src/components/usage/UsageToolbar.tsx#L164) |
+| active | VariableDeclaration | UsageToolbar | [217](../../src/components/usage/UsageToolbar.tsx#L217) |
+| label | VariableDeclaration | UsageToolbar | [218](../../src/components/usage/UsageToolbar.tsx#L218) |

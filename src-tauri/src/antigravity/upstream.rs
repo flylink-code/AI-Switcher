@@ -299,9 +299,6 @@ impl UpstreamClient {
                     Err(_) => {
                         last_was_network = true;
                         last_error = "timeout".to_string();
-                        if idx == 0 {
-                            self.mark_daily_limited();
-                        }
                         log::warn!(
                             "Antigravity generate {method} {url} response header timeout after {}s; trying next host",
                             header_timeout.as_secs()

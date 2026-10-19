@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/state.rs) · page 1/1
 
-Source SHA-256: e83b5bd9de3889c268c094cc2bf654c6282659f4a6fef830c747d8828cd8d22b
+Source SHA-256: 1ec937c46d3677b5922c7d01798accd6ba8e5340646a9dcaabc594eb35aab380
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -35,65 +35,66 @@ Source SHA-256: e83b5bd9de3889c268c094cc2bf654c6282659f4a6fef830c747d8828cd8d22b
 | format | macro invocation (unexpanded) | ProxyManager::start | [104](../../src-tauri/src/proxy/state.rs#L104) |
 | format | macro invocation (unexpanded) | ProxyManager::start | [115](../../src-tauri/src/proxy/state.rs#L115) |
 | matches | macro invocation (unexpanded) | ProxyManager::start | [126](../../src-tauri/src/proxy/state.rs#L126) |
-| matches | macro invocation (unexpanded) | ProxyManager::start | [138](../../src-tauri/src/proxy/state.rs#L138) |
-| format | macro invocation (unexpanded) | ProxyManager::start | [151](../../src-tauri/src/proxy/state.rs#L151) |
-| format | macro invocation (unexpanded) | ProxyManager::start | [155](../../src-tauri/src/proxy/state.rs#L155) |
-| format | macro invocation (unexpanded) | ProxyManager::start | [159](../../src-tauri/src/proxy/state.rs#L159) |
-| log::error | macro invocation (unexpanded) | ProxyManager::start | [179](../../src-tauri/src/proxy/state.rs#L179) |
-| log::info | macro invocation (unexpanded) | ProxyManager::start | [205](../../src-tauri/src/proxy/state.rs#L205) |
-| stop | function_item | ProxyManager | [211](../../src-tauri/src/proxy/state.rs#L211) |
-| log::info | macro invocation (unexpanded) | ProxyManager::stop | [219](../../src-tauri/src/proxy/state.rs#L219) |
-| stop_graceful | function_item | ProxyManager | [225](../../src-tauri/src/proxy/state.rs#L225) |
-| log::info | macro invocation (unexpanded) | ProxyManager::stop_graceful | [233](../../src-tauri/src/proxy/state.rs#L233) |
-| stop_target | function_item | ProxyManager | [236](../../src-tauri/src/proxy/state.rs#L236) |
-| stop_target_graceful | function_item | ProxyManager | [253](../../src-tauri/src/proxy/state.rs#L253) |
-| schedule_automatic_log_maintenance | function_item | ProxyManager | [282](../../src-tauri/src/proxy/state.rs#L282) |
-| log::info | macro invocation (unexpanded) | ProxyManager::schedule_automatic_log_maintenance | [301](../../src-tauri/src/proxy/state.rs#L301) |
-| log::warn | macro invocation (unexpanded) | ProxyManager::schedule_automatic_log_maintenance | [303](../../src-tauri/src/proxy/state.rs#L303) |
-| smart_gateway_router | function_item |  | [309](../../src-tauri/src/proxy/state.rs#L309) |
-| smart_gateway_openai_handler | function_item |  | [345](../../src-tauri/src/proxy/state.rs#L345) |
-| count_tokens_handler | function_item |  | [374](../../src-tauri/src/proxy/state.rs#L374) |
-| acquire_smart_gateway_inbound | function_item |  | [392](../../src-tauri/src/proxy/state.rs#L392) |
-| ProxyStatus | struct_item |  | [407](../../src-tauri/src/proxy/state.rs#L407) |
-| running | field_declaration | ProxyStatus | [408](../../src-tauri/src/proxy/state.rs#L408) |
-| port | field_declaration | ProxyStatus | [409](../../src-tauri/src/proxy/state.rs#L409) |
-| target_provider | field_declaration | ProxyStatus | [410](../../src-tauri/src/proxy/state.rs#L410) |
-| phase | field_declaration | ProxyStatus | [411](../../src-tauri/src/proxy/state.rs#L411) |
-| last_error | field_declaration | ProxyStatus | [412](../../src-tauri/src/proxy/state.rs#L412) |
-| checked_at | field_declaration | ProxyStatus | [413](../../src-tauri/src/proxy/state.rs#L413) |
-| ProxyLifecycleEvent | struct_item |  | [417](../../src-tauri/src/proxy/state.rs#L417) |
-| target | field_declaration | ProxyLifecycleEvent | [418](../../src-tauri/src/proxy/state.rs#L418) |
-| error | field_declaration | ProxyLifecycleEvent | [419](../../src-tauri/src/proxy/state.rs#L419) |
-| ListenerKind | enum_item |  | [423](../../src-tauri/src/proxy/state.rs#L423) |
-| Agent | enum_variant | ListenerKind | [424](../../src-tauri/src/proxy/state.rs#L424) |
-| SmartGateway | enum_variant | ListenerKind | [425](../../src-tauri/src/proxy/state.rs#L425) |
-| ProxyState | struct_item |  | [429](../../src-tauri/src/proxy/state.rs#L429) |
-| db | field_declaration | ProxyState | [430](../../src-tauri/src/proxy/state.rs#L430) |
-| client | field_declaration | ProxyState | [431](../../src-tauri/src/proxy/state.rs#L431) |
-| codex_history | field_declaration | ProxyState | [432](../../src-tauri/src/proxy/state.rs#L432) |
-| target | field_declaration | ProxyState | [433](../../src-tauri/src/proxy/state.rs#L433) |
-| listener_kind | field_declaration | ProxyState | [434](../../src-tauri/src/proxy/state.rs#L434) |
-| port | field_declaration | ProxyState | [435](../../src-tauri/src/proxy/state.rs#L435) |
-| started_at | field_declaration | ProxyState | [436](../../src-tauri/src/proxy/state.rs#L436) |
-| correlation | field_declaration | ProxyState | [437](../../src-tauri/src/proxy/state.rs#L437) |
-| request_log | field_declaration | ProxyState | [438](../../src-tauri/src/proxy/state.rs#L438) |
-| request_path | field_declaration | ProxyState | [439](../../src-tauri/src/proxy/state.rs#L439) |
-| PreparedUpstreamRequest | struct_item |  | [442](../../src-tauri/src/proxy/state.rs#L442) |
-| builder | field_declaration | PreparedUpstreamRequest | [443](../../src-tauri/src/proxy/state.rs#L443) |
-| outgoing_body | field_declaration | PreparedUpstreamRequest | [444](../../src-tauri/src/proxy/state.rs#L444) |
-| translated | field_declaration | PreparedUpstreamRequest | [445](../../src-tauri/src/proxy/state.rs#L445) |
-| apply_catalog_subagent_signal | function_item |  | [448](../../src-tauri/src/proxy/state.rs#L448) |
-| circuit_is_open | function_item |  | [460](../../src-tauri/src/proxy/state.rs#L460) |
-| record_provider_success | function_item |  | [464](../../src-tauri/src/proxy/state.rs#L464) |
-| record_provider_failure | function_item |  | [468](../../src-tauri/src/proxy/state.rs#L468) |
-| next_failover_provider | function_item |  | [472](../../src-tauri/src/proxy/state.rs#L472) |
-| next_failover_provider_ex | function_item |  | [480](../../src-tauri/src/proxy/state.rs#L480) |
-| load_gateway_catalog | function_item |  | [565](../../src-tauri/src/proxy/state.rs#L565) |
-| presented_listener_token | function_item |  | [603](../../src-tauri/src/proxy/state.rs#L603) |
-| resolve_binding_target | function_item |  | [628](../../src-tauri/src/proxy/state.rs#L628) |
-| gateway_catalog_enabled | function_item |  | [648](../../src-tauri/src/proxy/state.rs#L648) |
-| hydrate_provider_credential | function_item |  | [652](../../src-tauri/src/proxy/state.rs#L652) |
-| log::error | macro invocation (unexpanded) | hydrate_provider_credential | [663](../../src-tauri/src/proxy/state.rs#L663) |
-| log::error | macro invocation (unexpanded) | hydrate_provider_credential | [674](../../src-tauri/src/proxy/state.rs#L674) |
-| CS_SUBAGENT_HEADER | const_item |  | [681](../../src-tauri/src/proxy/state.rs#L681) |
-| is_claude_code_subagent_request | function_item |  | [683](../../src-tauri/src/proxy/state.rs#L683) |
+| matches | macro invocation (unexpanded) | ProxyManager::start | [142](../../src-tauri/src/proxy/state.rs#L142) |
+| format | macro invocation (unexpanded) | ProxyManager::start | [162](../../src-tauri/src/proxy/state.rs#L162) |
+| format | macro invocation (unexpanded) | ProxyManager::start | [166](../../src-tauri/src/proxy/state.rs#L166) |
+| format | macro invocation (unexpanded) | ProxyManager::start | [170](../../src-tauri/src/proxy/state.rs#L170) |
+| format | macro invocation (unexpanded) | ProxyManager::start | [174](../../src-tauri/src/proxy/state.rs#L174) |
+| log::error | macro invocation (unexpanded) | ProxyManager::start | [194](../../src-tauri/src/proxy/state.rs#L194) |
+| log::info | macro invocation (unexpanded) | ProxyManager::start | [220](../../src-tauri/src/proxy/state.rs#L220) |
+| stop | function_item | ProxyManager | [226](../../src-tauri/src/proxy/state.rs#L226) |
+| log::info | macro invocation (unexpanded) | ProxyManager::stop | [234](../../src-tauri/src/proxy/state.rs#L234) |
+| stop_graceful | function_item | ProxyManager | [240](../../src-tauri/src/proxy/state.rs#L240) |
+| log::info | macro invocation (unexpanded) | ProxyManager::stop_graceful | [248](../../src-tauri/src/proxy/state.rs#L248) |
+| stop_target | function_item | ProxyManager | [251](../../src-tauri/src/proxy/state.rs#L251) |
+| stop_target_graceful | function_item | ProxyManager | [268](../../src-tauri/src/proxy/state.rs#L268) |
+| schedule_automatic_log_maintenance | function_item | ProxyManager | [297](../../src-tauri/src/proxy/state.rs#L297) |
+| log::info | macro invocation (unexpanded) | ProxyManager::schedule_automatic_log_maintenance | [316](../../src-tauri/src/proxy/state.rs#L316) |
+| log::warn | macro invocation (unexpanded) | ProxyManager::schedule_automatic_log_maintenance | [318](../../src-tauri/src/proxy/state.rs#L318) |
+| smart_gateway_router | function_item |  | [324](../../src-tauri/src/proxy/state.rs#L324) |
+| smart_gateway_openai_handler | function_item |  | [367](../../src-tauri/src/proxy/state.rs#L367) |
+| count_tokens_handler | function_item |  | [396](../../src-tauri/src/proxy/state.rs#L396) |
+| acquire_smart_gateway_inbound | function_item |  | [414](../../src-tauri/src/proxy/state.rs#L414) |
+| ProxyStatus | struct_item |  | [429](../../src-tauri/src/proxy/state.rs#L429) |
+| running | field_declaration | ProxyStatus | [430](../../src-tauri/src/proxy/state.rs#L430) |
+| port | field_declaration | ProxyStatus | [431](../../src-tauri/src/proxy/state.rs#L431) |
+| target_provider | field_declaration | ProxyStatus | [432](../../src-tauri/src/proxy/state.rs#L432) |
+| phase | field_declaration | ProxyStatus | [433](../../src-tauri/src/proxy/state.rs#L433) |
+| last_error | field_declaration | ProxyStatus | [434](../../src-tauri/src/proxy/state.rs#L434) |
+| checked_at | field_declaration | ProxyStatus | [435](../../src-tauri/src/proxy/state.rs#L435) |
+| ProxyLifecycleEvent | struct_item |  | [439](../../src-tauri/src/proxy/state.rs#L439) |
+| target | field_declaration | ProxyLifecycleEvent | [440](../../src-tauri/src/proxy/state.rs#L440) |
+| error | field_declaration | ProxyLifecycleEvent | [441](../../src-tauri/src/proxy/state.rs#L441) |
+| ListenerKind | enum_item |  | [445](../../src-tauri/src/proxy/state.rs#L445) |
+| Agent | enum_variant | ListenerKind | [446](../../src-tauri/src/proxy/state.rs#L446) |
+| SmartGateway | enum_variant | ListenerKind | [447](../../src-tauri/src/proxy/state.rs#L447) |
+| ProxyState | struct_item |  | [451](../../src-tauri/src/proxy/state.rs#L451) |
+| db | field_declaration | ProxyState | [452](../../src-tauri/src/proxy/state.rs#L452) |
+| client | field_declaration | ProxyState | [453](../../src-tauri/src/proxy/state.rs#L453) |
+| codex_history | field_declaration | ProxyState | [454](../../src-tauri/src/proxy/state.rs#L454) |
+| target | field_declaration | ProxyState | [455](../../src-tauri/src/proxy/state.rs#L455) |
+| listener_kind | field_declaration | ProxyState | [456](../../src-tauri/src/proxy/state.rs#L456) |
+| port | field_declaration | ProxyState | [457](../../src-tauri/src/proxy/state.rs#L457) |
+| started_at | field_declaration | ProxyState | [458](../../src-tauri/src/proxy/state.rs#L458) |
+| correlation | field_declaration | ProxyState | [459](../../src-tauri/src/proxy/state.rs#L459) |
+| request_log | field_declaration | ProxyState | [460](../../src-tauri/src/proxy/state.rs#L460) |
+| request_path | field_declaration | ProxyState | [461](../../src-tauri/src/proxy/state.rs#L461) |
+| PreparedUpstreamRequest | struct_item |  | [464](../../src-tauri/src/proxy/state.rs#L464) |
+| builder | field_declaration | PreparedUpstreamRequest | [465](../../src-tauri/src/proxy/state.rs#L465) |
+| outgoing_body | field_declaration | PreparedUpstreamRequest | [466](../../src-tauri/src/proxy/state.rs#L466) |
+| translated | field_declaration | PreparedUpstreamRequest | [467](../../src-tauri/src/proxy/state.rs#L467) |
+| apply_catalog_subagent_signal | function_item |  | [470](../../src-tauri/src/proxy/state.rs#L470) |
+| circuit_is_open | function_item |  | [482](../../src-tauri/src/proxy/state.rs#L482) |
+| record_provider_success | function_item |  | [486](../../src-tauri/src/proxy/state.rs#L486) |
+| record_provider_failure | function_item |  | [490](../../src-tauri/src/proxy/state.rs#L490) |
+| next_failover_provider | function_item |  | [494](../../src-tauri/src/proxy/state.rs#L494) |
+| next_failover_provider_ex | function_item |  | [502](../../src-tauri/src/proxy/state.rs#L502) |
+| load_gateway_catalog | function_item |  | [587](../../src-tauri/src/proxy/state.rs#L587) |
+| presented_listener_token | function_item |  | [625](../../src-tauri/src/proxy/state.rs#L625) |
+| resolve_binding_target | function_item |  | [650](../../src-tauri/src/proxy/state.rs#L650) |
+| gateway_catalog_enabled | function_item |  | [670](../../src-tauri/src/proxy/state.rs#L670) |
+| hydrate_provider_credential | function_item |  | [674](../../src-tauri/src/proxy/state.rs#L674) |
+| log::error | macro invocation (unexpanded) | hydrate_provider_credential | [685](../../src-tauri/src/proxy/state.rs#L685) |
+| log::error | macro invocation (unexpanded) | hydrate_provider_credential | [696](../../src-tauri/src/proxy/state.rs#L696) |
+| CS_SUBAGENT_HEADER | const_item |  | [703](../../src-tauri/src/proxy/state.rs#L703) |
+| is_claude_code_subagent_request | function_item |  | [705](../../src-tauri/src/proxy/state.rs#L705) |

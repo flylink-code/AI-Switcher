@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/upstream.rs) · page 1/2
 
-Source SHA-256: 7886a7dac3ced8c4f74f42ae21cd4fb7cb880da374a53cd089f034365bfb452e
+Source SHA-256: 02092d01963f4a71a10310cbbdfb1d439de59914ed3ca8f11fe45c9e63261fe7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -52,59 +52,59 @@ Source SHA-256: 7886a7dac3ced8c4f74f42ae21cd4fb7cb880da374a53cd089f034365bfb452e
 | log::debug | macro invocation (unexpanded) | UpstreamClient::generate | [267](../../src-tauri/src/antigravity/upstream.rs#L267) |
 | format | macro invocation (unexpanded) | UpstreamClient::generate | [271](../../src-tauri/src/antigravity/upstream.rs#L271) |
 | format | macro invocation (unexpanded) | UpstreamClient::generate | [272](../../src-tauri/src/antigravity/upstream.rs#L272) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [305](../../src-tauri/src/antigravity/upstream.rs#L305) |
-| log::info | macro invocation (unexpanded) | UpstreamClient::generate | [317](../../src-tauri/src/antigravity/upstream.rs#L317) |
-| format | macro invocation (unexpanded) | UpstreamClient::generate | [335](../../src-tauri/src/antigravity/upstream.rs#L335) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [342](../../src-tauri/src/antigravity/upstream.rs#L342) |
-| log::debug | macro invocation (unexpanded) | UpstreamClient::generate | [351](../../src-tauri/src/antigravity/upstream.rs#L351) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [359](../../src-tauri/src/antigravity/upstream.rs#L359) |
-| log::debug | macro invocation (unexpanded) | UpstreamClient::generate | [367](../../src-tauri/src/antigravity/upstream.rs#L367) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [375](../../src-tauri/src/antigravity/upstream.rs#L375) |
-| matches | macro invocation (unexpanded) | UpstreamClient::generate | [387](../../src-tauri/src/antigravity/upstream.rs#L387) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [389](../../src-tauri/src/antigravity/upstream.rs#L389) |
-| matches | macro invocation (unexpanded) | UpstreamClient::generate | [397](../../src-tauri/src/antigravity/upstream.rs#L397) |
-| matches | macro invocation (unexpanded) | UpstreamClient::generate | [407](../../src-tauri/src/antigravity/upstream.rs#L407) |
-| format | macro invocation (unexpanded) | UpstreamClient::generate | [411](../../src-tauri/src/antigravity/upstream.rs#L411) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [413](../../src-tauri/src/antigravity/upstream.rs#L413) |
-| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [422](../../src-tauri/src/antigravity/upstream.rs#L422) |
-| Default for UpstreamClient | impl |  | [444](../../src-tauri/src/antigravity/upstream.rs#L444) |
-| default | function_item | Default for UpstreamClient | [445](../../src-tauri/src/antigravity/upstream.rs#L445) |
-| wrap_v1internal | function_item |  | [451](../../src-tauri/src/antigravity/upstream.rs#L451) |
-| json | macro invocation (unexpanded) | wrap_v1internal | [455](../../src-tauri/src/antigravity/upstream.rs#L455) |
-| unwrap_v1internal | function_item |  | [465](../../src-tauri/src/antigravity/upstream.rs#L465) |
-| tests | mod_item |  | [473](../../src-tauri/src/antigravity/upstream.rs#L473) |
-| wraps_model_id_unchanged | function_item | tests | [477](../../src-tauri/src/antigravity/upstream.rs#L477) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [302](../../src-tauri/src/antigravity/upstream.rs#L302) |
+| log::info | macro invocation (unexpanded) | UpstreamClient::generate | [314](../../src-tauri/src/antigravity/upstream.rs#L314) |
+| format | macro invocation (unexpanded) | UpstreamClient::generate | [332](../../src-tauri/src/antigravity/upstream.rs#L332) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [339](../../src-tauri/src/antigravity/upstream.rs#L339) |
+| log::debug | macro invocation (unexpanded) | UpstreamClient::generate | [348](../../src-tauri/src/antigravity/upstream.rs#L348) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [356](../../src-tauri/src/antigravity/upstream.rs#L356) |
+| log::debug | macro invocation (unexpanded) | UpstreamClient::generate | [364](../../src-tauri/src/antigravity/upstream.rs#L364) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [372](../../src-tauri/src/antigravity/upstream.rs#L372) |
+| matches | macro invocation (unexpanded) | UpstreamClient::generate | [384](../../src-tauri/src/antigravity/upstream.rs#L384) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [386](../../src-tauri/src/antigravity/upstream.rs#L386) |
+| matches | macro invocation (unexpanded) | UpstreamClient::generate | [394](../../src-tauri/src/antigravity/upstream.rs#L394) |
+| matches | macro invocation (unexpanded) | UpstreamClient::generate | [404](../../src-tauri/src/antigravity/upstream.rs#L404) |
+| format | macro invocation (unexpanded) | UpstreamClient::generate | [408](../../src-tauri/src/antigravity/upstream.rs#L408) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [410](../../src-tauri/src/antigravity/upstream.rs#L410) |
+| log::warn | macro invocation (unexpanded) | UpstreamClient::generate | [419](../../src-tauri/src/antigravity/upstream.rs#L419) |
+| Default for UpstreamClient | impl |  | [441](../../src-tauri/src/antigravity/upstream.rs#L441) |
+| default | function_item | Default for UpstreamClient | [442](../../src-tauri/src/antigravity/upstream.rs#L442) |
+| wrap_v1internal | function_item |  | [448](../../src-tauri/src/antigravity/upstream.rs#L448) |
+| json | macro invocation (unexpanded) | wrap_v1internal | [452](../../src-tauri/src/antigravity/upstream.rs#L452) |
+| unwrap_v1internal | function_item |  | [462](../../src-tauri/src/antigravity/upstream.rs#L462) |
+| tests | mod_item |  | [470](../../src-tauri/src/antigravity/upstream.rs#L470) |
+| wraps_model_id_unchanged | function_item | tests | [474](../../src-tauri/src/antigravity/upstream.rs#L474) |
+| json | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [475](../../src-tauri/src/antigravity/upstream.rs#L475) |
+| assert_eq | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [476](../../src-tauri/src/antigravity/upstream.rs#L476) |
+| assert_eq | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [477](../../src-tauri/src/antigravity/upstream.rs#L477) |
 | json | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [478](../../src-tauri/src/antigravity/upstream.rs#L478) |
 | assert_eq | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [479](../../src-tauri/src/antigravity/upstream.rs#L479) |
-| assert_eq | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [480](../../src-tauri/src/antigravity/upstream.rs#L480) |
-| json | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [481](../../src-tauri/src/antigravity/upstream.rs#L481) |
-| assert_eq | macro invocation (unexpanded) | tests::wraps_model_id_unchanged | [482](../../src-tauri/src/antigravity/upstream.rs#L482) |
-| parses_retry_after_seconds | function_item | tests | [486](../../src-tauri/src/antigravity/upstream.rs#L486) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [487](../../src-tauri/src/antigravity/upstream.rs#L487) |
+| parses_retry_after_seconds | function_item | tests | [483](../../src-tauri/src/antigravity/upstream.rs#L483) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [484](../../src-tauri/src/antigravity/upstream.rs#L484) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [485](../../src-tauri/src/antigravity/upstream.rs#L485) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [486](../../src-tauri/src/antigravity/upstream.rs#L486) |
 | assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [488](../../src-tauri/src/antigravity/upstream.rs#L488) |
 | assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [489](../../src-tauri/src/antigravity/upstream.rs#L489) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [491](../../src-tauri/src/antigravity/upstream.rs#L491) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_retry_after_seconds | [492](../../src-tauri/src/antigravity/upstream.rs#L492) |
-| server_error_backoff_grows_exponentially | function_item | tests | [496](../../src-tauri/src/antigravity/upstream.rs#L496) |
+| server_error_backoff_grows_exponentially | function_item | tests | [493](../../src-tauri/src/antigravity/upstream.rs#L493) |
+| assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [494](../../src-tauri/src/antigravity/upstream.rs#L494) |
+| assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [495](../../src-tauri/src/antigravity/upstream.rs#L495) |
+| assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [496](../../src-tauri/src/antigravity/upstream.rs#L496) |
 | assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [497](../../src-tauri/src/antigravity/upstream.rs#L497) |
-| assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [498](../../src-tauri/src/antigravity/upstream.rs#L498) |
-| assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [499](../../src-tauri/src/antigravity/upstream.rs#L499) |
-| assert_eq | macro invocation (unexpanded) | tests::server_error_backoff_grows_exponentially | [500](../../src-tauri/src/antigravity/upstream.rs#L500) |
-| classifies_model_quota_vs_account_rpm | function_item | tests | [504](../../src-tauri/src/antigravity/upstream.rs#L504) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [505](../../src-tauri/src/antigravity/upstream.rs#L505) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [512](../../src-tauri/src/antigravity/upstream.rs#L512) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [519](../../src-tauri/src/antigravity/upstream.rs#L519) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [526](../../src-tauri/src/antigravity/upstream.rs#L526) |
-| assert | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [533](../../src-tauri/src/antigravity/upstream.rs#L533) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [536](../../src-tauri/src/antigravity/upstream.rs#L536) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [540](../../src-tauri/src/antigravity/upstream.rs#L540) |
-| fallback_prefers_sandbox_before_production | function_item | tests | [547](../../src-tauri/src/antigravity/upstream.rs#L547) |
-| assert | macro invocation (unexpanded) | tests::fallback_prefers_sandbox_before_production | [548](../../src-tauri/src/antigravity/upstream.rs#L548) |
-| assert | macro invocation (unexpanded) | tests::fallback_prefers_sandbox_before_production | [549](../../src-tauri/src/antigravity/upstream.rs#L549) |
-| assert | macro invocation (unexpanded) | tests::fallback_prefers_sandbox_before_production | [550](../../src-tauri/src/antigravity/upstream.rs#L550) |
-| model_error_text_does_not_trigger_host_fallback | function_item | tests | [554](../../src-tauri/src/antigravity/upstream.rs#L554) |
-| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [555](../../src-tauri/src/antigravity/upstream.rs#L555) |
-| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [556](../../src-tauri/src/antigravity/upstream.rs#L556) |
-| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [557](../../src-tauri/src/antigravity/upstream.rs#L557) |
-| rebuilds_client_error_status_without_laundering | function_item | tests | [561](../../src-tauri/src/antigravity/upstream.rs#L561) |
-| assert_eq | macro invocation (unexpanded) | tests::rebuilds_client_error_status_without_laundering | [566](../../src-tauri/src/antigravity/upstream.rs#L566) |
+| classifies_model_quota_vs_account_rpm | function_item | tests | [501](../../src-tauri/src/antigravity/upstream.rs#L501) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [502](../../src-tauri/src/antigravity/upstream.rs#L502) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [509](../../src-tauri/src/antigravity/upstream.rs#L509) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [516](../../src-tauri/src/antigravity/upstream.rs#L516) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [523](../../src-tauri/src/antigravity/upstream.rs#L523) |
+| assert | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [530](../../src-tauri/src/antigravity/upstream.rs#L530) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [533](../../src-tauri/src/antigravity/upstream.rs#L533) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_model_quota_vs_account_rpm | [537](../../src-tauri/src/antigravity/upstream.rs#L537) |
+| fallback_prefers_sandbox_before_production | function_item | tests | [544](../../src-tauri/src/antigravity/upstream.rs#L544) |
+| assert | macro invocation (unexpanded) | tests::fallback_prefers_sandbox_before_production | [545](../../src-tauri/src/antigravity/upstream.rs#L545) |
+| assert | macro invocation (unexpanded) | tests::fallback_prefers_sandbox_before_production | [546](../../src-tauri/src/antigravity/upstream.rs#L546) |
+| assert | macro invocation (unexpanded) | tests::fallback_prefers_sandbox_before_production | [547](../../src-tauri/src/antigravity/upstream.rs#L547) |
+| model_error_text_does_not_trigger_host_fallback | function_item | tests | [551](../../src-tauri/src/antigravity/upstream.rs#L551) |
+| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [552](../../src-tauri/src/antigravity/upstream.rs#L552) |
+| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [553](../../src-tauri/src/antigravity/upstream.rs#L553) |
+| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [554](../../src-tauri/src/antigravity/upstream.rs#L554) |
+| rebuilds_client_error_status_without_laundering | function_item | tests | [558](../../src-tauri/src/antigravity/upstream.rs#L558) |
+| assert_eq | macro invocation (unexpanded) | tests::rebuilds_client_error_status_without_laundering | [563](../../src-tauri/src/antigravity/upstream.rs#L563) |

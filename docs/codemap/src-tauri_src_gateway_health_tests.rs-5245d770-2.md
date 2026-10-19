@@ -4,7 +4,7 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health/tests.rs) · page 2/2
 
-Source SHA-256: 6f93f41d3a0abf7231ec264c99b1e543f6ed9b8e10f1c62812485518549eac2d
+Source SHA-256: 8810fb53290a28c16488a5d0631966c84aa7da58a0b1642cb494677adf0c2e77
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -36,3 +36,6 @@ Source SHA-256: 6f93f41d3a0abf7231ec264c99b1e543f6ed9b8e10f1c62812485518549eac2d
 | test_min_cooldown_remaining | function_item |  | [444](../../src-tauri/src/gateway/health/tests.rs#L444) |
 | assert | macro invocation (unexpanded) | test_min_cooldown_remaining | [454](../../src-tauri/src/gateway/health/tests.rs#L454) |
 | assert | macro invocation (unexpanded) | test_min_cooldown_remaining | [455](../../src-tauri/src/gateway/health/tests.rs#L455) |
+| test_relay_502_client_validation_error_is_ignored_not_transient | function_item |  | [459](../../src-tauri/src/gateway/health/tests.rs#L459) |
+| assert_eq | macro invocation (unexpanded) | test_relay_502_client_validation_error_is_ignored_not_transient | [465](../../src-tauri/src/gateway/health/tests.rs#L465) |
+| assert_eq | macro invocation (unexpanded) | test_relay_502_client_validation_error_is_ignored_not_transient | [466](../../src-tauri/src/gateway/health/tests.rs#L466) |

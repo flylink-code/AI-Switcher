@@ -292,6 +292,8 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
         .route("/healthz", get(handlers::health))
         .route("/v1/models", get(handlers::list_models))
         .route("/models", get(handlers::list_models))
+        .route("/v1/models/:id", get(handlers::get_model))
+        .route("/models/:id", get(handlers::get_model))
         .route("/v1/messages/count_tokens", post(handlers::count_tokens))
         .route("/messages/count_tokens", post(handlers::count_tokens))
         .route("/v1/messages", any(handlers::anthropic_messages))
@@ -300,6 +302,14 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
         .route("/chat/completions", any(handlers::openai_chat))
         .route("/v1/responses", any(handlers::openai_responses))
         .route("/responses", any(handlers::openai_responses))
+        .route(
+            "/v1/responses/compact",
+            any(handlers::openai_responses_compact),
+        )
+        .route(
+            "/responses/compact",
+            any(handlers::openai_responses_compact),
+        )
         .layer(DefaultBodyLimit::max(
             crate::proxy::LOCAL_LISTENER_BODY_LIMIT,
         ))

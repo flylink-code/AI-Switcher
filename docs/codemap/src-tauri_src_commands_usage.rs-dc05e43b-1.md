@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/usage.rs) · page 1/3
 
-Source SHA-256: 4d7d5a4f90b8837834676808385e9c4c3d0df7dd50983a9665d46291a7b744ba
+Source SHA-256: 8243e89fac6b54bf3d9a92f03fb4e382749b8fb694cbf4e39769d7ff7e463868
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -14,97 +14,97 @@ Source SHA-256: 4d7d5a4f90b8837834676808385e9c4c3d0df7dd50983a9665d46291a7b744ba
 | ClaudeDesktop | enum_variant | UsageSource | [33](../../src-tauri/src/commands/usage.rs#L33) |
 | Codex | enum_variant | UsageSource | [34](../../src-tauri/src/commands/usage.rs#L34) |
 | Antigravity | enum_variant | UsageSource | [35](../../src-tauri/src/commands/usage.rs#L35) |
-| OpenCode | enum_variant | UsageSource | [36](../../src-tauri/src/commands/usage.rs#L36) |
-| Pi | enum_variant | UsageSource | [37](../../src-tauri/src/commands/usage.rs#L37) |
-| Dsh | enum_variant | UsageSource | [38](../../src-tauri/src/commands/usage.rs#L38) |
-| Cline | enum_variant | UsageSource | [39](../../src-tauri/src/commands/usage.rs#L39) |
-| VscodeCopilot | enum_variant | UsageSource | [40](../../src-tauri/src/commands/usage.rs#L40) |
-| UsageSource | impl |  | [43](../../src-tauri/src/commands/usage.rs#L43) |
-| parse | function_item | UsageSource | [44](../../src-tauri/src/commands/usage.rs#L44) |
-| proxy_target | function_item | UsageSource | [60](../../src-tauri/src/commands/usage.rs#L60) |
-| includes_local_codex | function_item | UsageSource | [77](../../src-tauri/src/commands/usage.rs#L77) |
-| matches | macro invocation (unexpanded) | UsageSource::includes_local_codex | [78](../../src-tauri/src/commands/usage.rs#L78) |
-| includes_local_claude_code | function_item | UsageSource | [81](../../src-tauri/src/commands/usage.rs#L81) |
-| matches | macro invocation (unexpanded) | UsageSource::includes_local_claude_code | [82](../../src-tauri/src/commands/usage.rs#L82) |
-| includes_local_opencode | function_item | UsageSource | [85](../../src-tauri/src/commands/usage.rs#L85) |
-| matches | macro invocation (unexpanded) | UsageSource::includes_local_opencode | [86](../../src-tauri/src/commands/usage.rs#L86) |
-| UsageDashboard | struct_item |  | [92](../../src-tauri/src/commands/usage.rs#L92) |
-| summary | field_declaration | UsageDashboard | [93](../../src-tauri/src/commands/usage.rs#L93) |
-| by_provider | field_declaration | UsageDashboard | [94](../../src-tauri/src/commands/usage.rs#L94) |
-| by_model | field_declaration | UsageDashboard | [95](../../src-tauri/src/commands/usage.rs#L95) |
-| trend | field_declaration | UsageDashboard | [96](../../src-tauri/src/commands/usage.rs#L96) |
-| trend_granularity | field_declaration | UsageDashboard | [98](../../src-tauri/src/commands/usage.rs#L98) |
-| local_codex | field_declaration | UsageDashboard | [99](../../src-tauri/src/commands/usage.rs#L99) |
-| local_claude_code | field_declaration | UsageDashboard | [100](../../src-tauri/src/commands/usage.rs#L100) |
-| local_opencode | field_declaration | UsageDashboard | [101](../../src-tauri/src/commands/usage.rs#L101) |
-| LocalCodexUsage | struct_item |  | [106](../../src-tauri/src/commands/usage.rs#L106) |
-| available | field_declaration | LocalCodexUsage | [107](../../src-tauri/src/commands/usage.rs#L107) |
-| session_count | field_declaration | LocalCodexUsage | [108](../../src-tauri/src/commands/usage.rs#L108) |
-| event_count | field_declaration | LocalCodexUsage | [109](../../src-tauri/src/commands/usage.rs#L109) |
-| message | field_declaration | LocalCodexUsage | [110](../../src-tauri/src/commands/usage.rs#L110) |
-| ModelPricingInput | struct_item |  | [115](../../src-tauri/src/commands/usage.rs#L115) |
-| model | field_declaration | ModelPricingInput | [116](../../src-tauri/src/commands/usage.rs#L116) |
-| provider | field_declaration | ModelPricingInput | [118](../../src-tauri/src/commands/usage.rs#L118) |
-| input_price_per_million | field_declaration | ModelPricingInput | [119](../../src-tauri/src/commands/usage.rs#L119) |
-| cache_read_price_per_million | field_declaration | ModelPricingInput | [121](../../src-tauri/src/commands/usage.rs#L121) |
-| cache_write_price_per_million | field_declaration | ModelPricingInput | [123](../../src-tauri/src/commands/usage.rs#L123) |
-| output_price_per_million | field_declaration | ModelPricingInput | [124](../../src-tauri/src/commands/usage.rs#L124) |
-| batch_input_price_per_million | field_declaration | ModelPricingInput | [126](../../src-tauri/src/commands/usage.rs#L126) |
-| batch_output_price_per_million | field_declaration | ModelPricingInput | [128](../../src-tauri/src/commands/usage.rs#L128) |
-| currency | field_declaration | ModelPricingInput | [129](../../src-tauri/src/commands/usage.rs#L129) |
-| PricingImportPreview | struct_item |  | [134](../../src-tauri/src/commands/usage.rs#L134) |
-| new_models | field_declaration | PricingImportPreview | [135](../../src-tauri/src/commands/usage.rs#L135) |
-| updated_models | field_declaration | PricingImportPreview | [136](../../src-tauri/src/commands/usage.rs#L136) |
-| errors | field_declaration | PricingImportPreview | [137](../../src-tauri/src/commands/usage.rs#L137) |
-| valid_rows | field_declaration | PricingImportPreview | [138](../../src-tauri/src/commands/usage.rs#L138) |
-| PRICING_COLUMNS | const_item |  | [141](../../src-tauri/src/commands/usage.rs#L141) |
-| LOG_RETENTION_DAYS_KEY | const_item |  | [153](../../src-tauri/src/commands/usage.rs#L153) |
-| LOG_MAX_ROWS_KEY | const_item |  | [154](../../src-tauri/src/commands/usage.rs#L154) |
-| LOG_AUTO_MAINTAIN_KEY | const_item |  | [155](../../src-tauri/src/commands/usage.rs#L155) |
-| LogMaintenancePolicy | struct_item |  | [159](../../src-tauri/src/commands/usage.rs#L159) |
-| retention_days | field_declaration | LogMaintenancePolicy | [160](../../src-tauri/src/commands/usage.rs#L160) |
-| max_rows | field_declaration | LogMaintenancePolicy | [161](../../src-tauri/src/commands/usage.rs#L161) |
-| auto_maintain | field_declaration | LogMaintenancePolicy | [162](../../src-tauri/src/commands/usage.rs#L162) |
-| Default for LogMaintenancePolicy | impl |  | [165](../../src-tauri/src/commands/usage.rs#L165) |
-| default | function_item | Default for LogMaintenancePolicy | [166](../../src-tauri/src/commands/usage.rs#L166) |
-| ProxyLogListInput | struct_item |  | [177](../../src-tauri/src/commands/usage.rs#L177) |
-| days | field_declaration | ProxyLogListInput | [178](../../src-tauri/src/commands/usage.rs#L178) |
-| hours | field_declaration | ProxyLogListInput | [179](../../src-tauri/src/commands/usage.rs#L179) |
-| today | field_declaration | ProxyLogListInput | [180](../../src-tauri/src/commands/usage.rs#L180) |
-| target_app | field_declaration | ProxyLogListInput | [181](../../src-tauri/src/commands/usage.rs#L181) |
-| status_code | field_declaration | ProxyLogListInput | [182](../../src-tauri/src/commands/usage.rs#L182) |
-| only_failures | field_declaration | ProxyLogListInput | [183](../../src-tauri/src/commands/usage.rs#L183) |
-| only_gateway | field_declaration | ProxyLogListInput | [184](../../src-tauri/src/commands/usage.rs#L184) |
-| page | field_declaration | ProxyLogListInput | [185](../../src-tauri/src/commands/usage.rs#L185) |
-| page_size | field_declaration | ProxyLogListInput | [186](../../src-tauri/src/commands/usage.rs#L186) |
-| resolve_usage_since | function_item |  | [189](../../src-tauri/src/commands/usage.rs#L189) |
-| local_midnight_millis | function_item |  | [201](../../src-tauri/src/commands/usage.rs#L201) |
-| list_proxy_request_logs_cmd | function_item |  | [212](../../src-tauri/src/commands/usage.rs#L212) |
-| format | macro invocation (unexpanded) | list_proxy_request_logs_cmd | [231](../../src-tauri/src/commands/usage.rs#L231) |
-| get_usage_dashboard | function_item |  | [235](../../src-tauri/src/commands/usage.rs#L235) |
-| rusqlite::params | macro invocation (unexpanded) | get_usage_dashboard | [262](../../src-tauri/src/commands/usage.rs#L262) |
-| rusqlite::params | macro invocation (unexpanded) | get_usage_dashboard | [292](../../src-tauri/src/commands/usage.rs#L292) |
-| rusqlite::params | macro invocation (unexpanded) | get_usage_dashboard | [322](../../src-tauri/src/commands/usage.rs#L322) |
-| format | macro invocation (unexpanded) | get_usage_dashboard | [387](../../src-tauri/src/commands/usage.rs#L387) |
-| get_usage_trend | function_item |  | [393](../../src-tauri/src/commands/usage.rs#L393) |
-| format | macro invocation (unexpanded) | get_usage_trend | [432](../../src-tauri/src/commands/usage.rs#L432) |
-| sync_codex_session_usage_cmd | function_item |  | [436](../../src-tauri/src/commands/usage.rs#L436) |
-| format | macro invocation (unexpanded) | sync_codex_session_usage_cmd | [444](../../src-tauri/src/commands/usage.rs#L444) |
-| rebuild_codex_session_usage_cmd | function_item |  | [448](../../src-tauri/src/commands/usage.rs#L448) |
-| format | macro invocation (unexpanded) | rebuild_codex_session_usage_cmd | [456](../../src-tauri/src/commands/usage.rs#L456) |
-| sync_claude_code_session_usage_cmd | function_item |  | [460](../../src-tauri/src/commands/usage.rs#L460) |
-| format | macro invocation (unexpanded) | sync_claude_code_session_usage_cmd | [468](../../src-tauri/src/commands/usage.rs#L468) |
-| rebuild_claude_code_session_usage_cmd | function_item |  | [472](../../src-tauri/src/commands/usage.rs#L472) |
-| format | macro invocation (unexpanded) | rebuild_claude_code_session_usage_cmd | [480](../../src-tauri/src/commands/usage.rs#L480) |
-| sync_opencode_session_usage_cmd | function_item |  | [484](../../src-tauri/src/commands/usage.rs#L484) |
-| format | macro invocation (unexpanded) | sync_opencode_session_usage_cmd | [492](../../src-tauri/src/commands/usage.rs#L492) |
-| rebuild_opencode_session_usage_cmd | function_item |  | [496](../../src-tauri/src/commands/usage.rs#L496) |
-| format | macro invocation (unexpanded) | rebuild_opencode_session_usage_cmd | [504](../../src-tauri/src/commands/usage.rs#L504) |
-| sync_pi_session_usage_cmd | function_item |  | [508](../../src-tauri/src/commands/usage.rs#L508) |
-| format | macro invocation (unexpanded) | sync_pi_session_usage_cmd | [516](../../src-tauri/src/commands/usage.rs#L516) |
-| rebuild_pi_session_usage_cmd | function_item |  | [520](../../src-tauri/src/commands/usage.rs#L520) |
-| format | macro invocation (unexpanded) | rebuild_pi_session_usage_cmd | [528](../../src-tauri/src/commands/usage.rs#L528) |
-| sync_dsh_session_usage_cmd | function_item |  | [532](../../src-tauri/src/commands/usage.rs#L532) |
-| format | macro invocation (unexpanded) | sync_dsh_session_usage_cmd | [540](../../src-tauri/src/commands/usage.rs#L540) |
-| rebuild_dsh_session_usage_cmd | function_item |  | [544](../../src-tauri/src/commands/usage.rs#L544) |
-| format | macro invocation (unexpanded) | rebuild_dsh_session_usage_cmd | [552](../../src-tauri/src/commands/usage.rs#L552) |
+| Kiro | enum_variant | UsageSource | [36](../../src-tauri/src/commands/usage.rs#L36) |
+| OpenCode | enum_variant | UsageSource | [37](../../src-tauri/src/commands/usage.rs#L37) |
+| Pi | enum_variant | UsageSource | [38](../../src-tauri/src/commands/usage.rs#L38) |
+| Dsh | enum_variant | UsageSource | [39](../../src-tauri/src/commands/usage.rs#L39) |
+| Cline | enum_variant | UsageSource | [40](../../src-tauri/src/commands/usage.rs#L40) |
+| VscodeCopilot | enum_variant | UsageSource | [41](../../src-tauri/src/commands/usage.rs#L41) |
+| UsageSource | impl |  | [44](../../src-tauri/src/commands/usage.rs#L44) |
+| parse | function_item | UsageSource | [45](../../src-tauri/src/commands/usage.rs#L45) |
+| proxy_target | function_item | UsageSource | [62](../../src-tauri/src/commands/usage.rs#L62) |
+| includes_local_codex | function_item | UsageSource | [80](../../src-tauri/src/commands/usage.rs#L80) |
+| matches | macro invocation (unexpanded) | UsageSource::includes_local_codex | [81](../../src-tauri/src/commands/usage.rs#L81) |
+| includes_local_claude_code | function_item | UsageSource | [84](../../src-tauri/src/commands/usage.rs#L84) |
+| matches | macro invocation (unexpanded) | UsageSource::includes_local_claude_code | [85](../../src-tauri/src/commands/usage.rs#L85) |
+| includes_local_opencode | function_item | UsageSource | [88](../../src-tauri/src/commands/usage.rs#L88) |
+| matches | macro invocation (unexpanded) | UsageSource::includes_local_opencode | [89](../../src-tauri/src/commands/usage.rs#L89) |
+| UsageDashboard | struct_item |  | [95](../../src-tauri/src/commands/usage.rs#L95) |
+| summary | field_declaration | UsageDashboard | [96](../../src-tauri/src/commands/usage.rs#L96) |
+| by_provider | field_declaration | UsageDashboard | [97](../../src-tauri/src/commands/usage.rs#L97) |
+| by_model | field_declaration | UsageDashboard | [98](../../src-tauri/src/commands/usage.rs#L98) |
+| trend | field_declaration | UsageDashboard | [99](../../src-tauri/src/commands/usage.rs#L99) |
+| trend_granularity | field_declaration | UsageDashboard | [101](../../src-tauri/src/commands/usage.rs#L101) |
+| local_codex | field_declaration | UsageDashboard | [102](../../src-tauri/src/commands/usage.rs#L102) |
+| local_claude_code | field_declaration | UsageDashboard | [103](../../src-tauri/src/commands/usage.rs#L103) |
+| local_opencode | field_declaration | UsageDashboard | [104](../../src-tauri/src/commands/usage.rs#L104) |
+| LocalCodexUsage | struct_item |  | [109](../../src-tauri/src/commands/usage.rs#L109) |
+| available | field_declaration | LocalCodexUsage | [110](../../src-tauri/src/commands/usage.rs#L110) |
+| session_count | field_declaration | LocalCodexUsage | [111](../../src-tauri/src/commands/usage.rs#L111) |
+| event_count | field_declaration | LocalCodexUsage | [112](../../src-tauri/src/commands/usage.rs#L112) |
+| message | field_declaration | LocalCodexUsage | [113](../../src-tauri/src/commands/usage.rs#L113) |
+| ModelPricingInput | struct_item |  | [118](../../src-tauri/src/commands/usage.rs#L118) |
+| model | field_declaration | ModelPricingInput | [119](../../src-tauri/src/commands/usage.rs#L119) |
+| provider | field_declaration | ModelPricingInput | [121](../../src-tauri/src/commands/usage.rs#L121) |
+| input_price_per_million | field_declaration | ModelPricingInput | [122](../../src-tauri/src/commands/usage.rs#L122) |
+| cache_read_price_per_million | field_declaration | ModelPricingInput | [124](../../src-tauri/src/commands/usage.rs#L124) |
+| cache_write_price_per_million | field_declaration | ModelPricingInput | [126](../../src-tauri/src/commands/usage.rs#L126) |
+| output_price_per_million | field_declaration | ModelPricingInput | [127](../../src-tauri/src/commands/usage.rs#L127) |
+| batch_input_price_per_million | field_declaration | ModelPricingInput | [129](../../src-tauri/src/commands/usage.rs#L129) |
+| batch_output_price_per_million | field_declaration | ModelPricingInput | [131](../../src-tauri/src/commands/usage.rs#L131) |
+| currency | field_declaration | ModelPricingInput | [132](../../src-tauri/src/commands/usage.rs#L132) |
+| PricingImportPreview | struct_item |  | [137](../../src-tauri/src/commands/usage.rs#L137) |
+| new_models | field_declaration | PricingImportPreview | [138](../../src-tauri/src/commands/usage.rs#L138) |
+| updated_models | field_declaration | PricingImportPreview | [139](../../src-tauri/src/commands/usage.rs#L139) |
+| errors | field_declaration | PricingImportPreview | [140](../../src-tauri/src/commands/usage.rs#L140) |
+| valid_rows | field_declaration | PricingImportPreview | [141](../../src-tauri/src/commands/usage.rs#L141) |
+| PRICING_COLUMNS | const_item |  | [144](../../src-tauri/src/commands/usage.rs#L144) |
+| LOG_RETENTION_DAYS_KEY | const_item |  | [156](../../src-tauri/src/commands/usage.rs#L156) |
+| LOG_MAX_ROWS_KEY | const_item |  | [157](../../src-tauri/src/commands/usage.rs#L157) |
+| LOG_AUTO_MAINTAIN_KEY | const_item |  | [158](../../src-tauri/src/commands/usage.rs#L158) |
+| LogMaintenancePolicy | struct_item |  | [162](../../src-tauri/src/commands/usage.rs#L162) |
+| retention_days | field_declaration | LogMaintenancePolicy | [163](../../src-tauri/src/commands/usage.rs#L163) |
+| max_rows | field_declaration | LogMaintenancePolicy | [164](../../src-tauri/src/commands/usage.rs#L164) |
+| auto_maintain | field_declaration | LogMaintenancePolicy | [165](../../src-tauri/src/commands/usage.rs#L165) |
+| Default for LogMaintenancePolicy | impl |  | [168](../../src-tauri/src/commands/usage.rs#L168) |
+| default | function_item | Default for LogMaintenancePolicy | [169](../../src-tauri/src/commands/usage.rs#L169) |
+| ProxyLogListInput | struct_item |  | [180](../../src-tauri/src/commands/usage.rs#L180) |
+| days | field_declaration | ProxyLogListInput | [181](../../src-tauri/src/commands/usage.rs#L181) |
+| hours | field_declaration | ProxyLogListInput | [182](../../src-tauri/src/commands/usage.rs#L182) |
+| today | field_declaration | ProxyLogListInput | [183](../../src-tauri/src/commands/usage.rs#L183) |
+| target_app | field_declaration | ProxyLogListInput | [184](../../src-tauri/src/commands/usage.rs#L184) |
+| status_code | field_declaration | ProxyLogListInput | [185](../../src-tauri/src/commands/usage.rs#L185) |
+| only_failures | field_declaration | ProxyLogListInput | [186](../../src-tauri/src/commands/usage.rs#L186) |
+| only_gateway | field_declaration | ProxyLogListInput | [187](../../src-tauri/src/commands/usage.rs#L187) |
+| page | field_declaration | ProxyLogListInput | [188](../../src-tauri/src/commands/usage.rs#L188) |
+| page_size | field_declaration | ProxyLogListInput | [189](../../src-tauri/src/commands/usage.rs#L189) |
+| resolve_usage_since | function_item |  | [192](../../src-tauri/src/commands/usage.rs#L192) |
+| local_midnight_millis | function_item |  | [204](../../src-tauri/src/commands/usage.rs#L204) |
+| list_proxy_request_logs_cmd | function_item |  | [215](../../src-tauri/src/commands/usage.rs#L215) |
+| format | macro invocation (unexpanded) | list_proxy_request_logs_cmd | [234](../../src-tauri/src/commands/usage.rs#L234) |
+| get_usage_dashboard | function_item |  | [238](../../src-tauri/src/commands/usage.rs#L238) |
+| rusqlite::params | macro invocation (unexpanded) | get_usage_dashboard | [265](../../src-tauri/src/commands/usage.rs#L265) |
+| rusqlite::params | macro invocation (unexpanded) | get_usage_dashboard | [295](../../src-tauri/src/commands/usage.rs#L295) |
+| rusqlite::params | macro invocation (unexpanded) | get_usage_dashboard | [325](../../src-tauri/src/commands/usage.rs#L325) |
+| format | macro invocation (unexpanded) | get_usage_dashboard | [390](../../src-tauri/src/commands/usage.rs#L390) |
+| get_usage_trend | function_item |  | [396](../../src-tauri/src/commands/usage.rs#L396) |
+| format | macro invocation (unexpanded) | get_usage_trend | [435](../../src-tauri/src/commands/usage.rs#L435) |
+| sync_codex_session_usage_cmd | function_item |  | [439](../../src-tauri/src/commands/usage.rs#L439) |
+| format | macro invocation (unexpanded) | sync_codex_session_usage_cmd | [447](../../src-tauri/src/commands/usage.rs#L447) |
+| rebuild_codex_session_usage_cmd | function_item |  | [451](../../src-tauri/src/commands/usage.rs#L451) |
+| format | macro invocation (unexpanded) | rebuild_codex_session_usage_cmd | [459](../../src-tauri/src/commands/usage.rs#L459) |
+| sync_claude_code_session_usage_cmd | function_item |  | [463](../../src-tauri/src/commands/usage.rs#L463) |
+| format | macro invocation (unexpanded) | sync_claude_code_session_usage_cmd | [471](../../src-tauri/src/commands/usage.rs#L471) |
+| rebuild_claude_code_session_usage_cmd | function_item |  | [475](../../src-tauri/src/commands/usage.rs#L475) |
+| format | macro invocation (unexpanded) | rebuild_claude_code_session_usage_cmd | [483](../../src-tauri/src/commands/usage.rs#L483) |
+| sync_opencode_session_usage_cmd | function_item |  | [487](../../src-tauri/src/commands/usage.rs#L487) |
+| format | macro invocation (unexpanded) | sync_opencode_session_usage_cmd | [495](../../src-tauri/src/commands/usage.rs#L495) |
+| rebuild_opencode_session_usage_cmd | function_item |  | [499](../../src-tauri/src/commands/usage.rs#L499) |
+| format | macro invocation (unexpanded) | rebuild_opencode_session_usage_cmd | [507](../../src-tauri/src/commands/usage.rs#L507) |
+| sync_pi_session_usage_cmd | function_item |  | [511](../../src-tauri/src/commands/usage.rs#L511) |
+| format | macro invocation (unexpanded) | sync_pi_session_usage_cmd | [519](../../src-tauri/src/commands/usage.rs#L519) |
+| rebuild_pi_session_usage_cmd | function_item |  | [523](../../src-tauri/src/commands/usage.rs#L523) |
+| format | macro invocation (unexpanded) | rebuild_pi_session_usage_cmd | [531](../../src-tauri/src/commands/usage.rs#L531) |
+| sync_dsh_session_usage_cmd | function_item |  | [535](../../src-tauri/src/commands/usage.rs#L535) |
+| format | macro invocation (unexpanded) | sync_dsh_session_usage_cmd | [543](../../src-tauri/src/commands/usage.rs#L543) |
+| rebuild_dsh_session_usage_cmd | function_item |  | [547](../../src-tauri/src/commands/usage.rs#L547) |

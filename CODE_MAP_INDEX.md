@@ -6,23 +6,23 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 
 | Module | Files | Symbols | Map |
 | --- | ---: | ---: | --- |
-| rust-antigravity | 30 | 3227 | [open](docs/codemap/rust-antigravity.md) |
+| rust-antigravity | 30 | 3339 | [open](docs/codemap/rust-antigravity.md) |
 | rust-coding | 9 | 186 | [open](docs/codemap/rust-coding.md) |
-| rust-commands | 48 | 3305 | [open](docs/codemap/rust-commands.md) |
+| rust-commands | 48 | 3306 | [open](docs/codemap/rust-commands.md) |
 | rust-config | 11 | 1333 | [open](docs/codemap/rust-config.md) |
-| rust-database | 10 | 1566 | [open](docs/codemap/rust-database.md) |
+| rust-database | 10 | 1585 | [open](docs/codemap/rust-database.md) |
 | rust-deeplink | 1 | 94 | [open](docs/codemap/rust-deeplink.md) |
-| rust-gateway | 10 | 854 | [open](docs/codemap/rust-gateway.md) |
-| rust-kiro | 16 | 937 | [open](docs/codemap/rust-kiro.md) |
-| rust-proxy | 22 | 2135 | [open](docs/codemap/rust-proxy.md) |
+| rust-gateway | 10 | 861 | [open](docs/codemap/rust-gateway.md) |
+| rust-kiro | 16 | 1019 | [open](docs/codemap/rust-kiro.md) |
+| rust-proxy | 22 | 2347 | [open](docs/codemap/rust-proxy.md) |
 | rust-quota | 7 | 220 | [open](docs/codemap/rust-quota.md) |
-| rust-root | 32 | 2716 | [open](docs/codemap/rust-root.md) |
+| rust-root | 32 | 2718 | [open](docs/codemap/rust-root.md) |
 | rust-session_manager | 8 | 432 | [open](docs/codemap/rust-session_manager.md) |
 | rust-usage | 8 | 326 | [open](docs/codemap/rust-usage.md) |
 | scripts-root | 17 | 155 | [open](docs/codemap/scripts-root.md) |
 | scripts-system-test | 21 | 337 | [open](docs/codemap/scripts-system-test.md) |
 | tooling | 7 | 218 | [open](docs/codemap/tooling.md) |
-| web-components | 84 | 2636 | [open](docs/codemap/web-components.md) |
+| web-components | 84 | 2658 | [open](docs/codemap/web-components.md) |
 | web-i18n | 1 | 6 | [open](docs/codemap/web-i18n.md) |
 | web-lib | 17 | 355 | [open](docs/codemap/web-lib.md) |
 | web-pages | 23 | 2280 | [open](docs/codemap/web-pages.md) |
@@ -32,6 +32,6 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | web-types | 2 | 1210 | [open](docs/codemap/web-types.md) |
 | web-utils | 5 | 88 | [open](docs/codemap/web-utils.md) |
 
-Total: 412 source files, 25418 extracted symbols, 0 parser diagnostics.
+Total: 412 source files, 25875 extracted symbols, 0 parser diagnostics.
 
 Scope includes local declarations; excludes imports, parameters, runtime/macro-generated symbols. PowerShell/BAT use lexical navigation only.

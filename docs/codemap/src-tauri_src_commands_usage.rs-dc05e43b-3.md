@@ -4,84 +4,85 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/usage.rs) · page 3/3
 
-Source SHA-256: 4d7d5a4f90b8837834676808385e9c4c3d0df7dd50983a9665d46291a7b744ba
+Source SHA-256: 8243e89fac6b54bf3d9a92f03fb4e382749b8fb694cbf4e39769d7ff7e463868
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1488](../../src-tauri/src/commands/usage.rs#L1488) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1489](../../src-tauri/src/commands/usage.rs#L1489) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1490](../../src-tauri/src/commands/usage.rs#L1490) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1491](../../src-tauri/src/commands/usage.rs#L1491) |
-| codex_local_usage_skips_agent_files_and_reads_archived | function_item | tests | [1495](../../src-tauri/src/commands/usage.rs#L1495) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1516](../../src-tauri/src/commands/usage.rs#L1516) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1517](../../src-tauri/src/commands/usage.rs#L1517) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1518](../../src-tauri/src/commands/usage.rs#L1518) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1492](../../src-tauri/src/commands/usage.rs#L1492) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1493](../../src-tauri/src/commands/usage.rs#L1493) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_total_then_last_do_not_pollute_each_other | [1494](../../src-tauri/src/commands/usage.rs#L1494) |
+| codex_local_usage_skips_agent_files_and_reads_archived | function_item | tests | [1498](../../src-tauri/src/commands/usage.rs#L1498) |
 | assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1519](../../src-tauri/src/commands/usage.rs#L1519) |
-| assert | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1520](../../src-tauri/src/commands/usage.rs#L1520) |
-| assert | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1521](../../src-tauri/src/commands/usage.rs#L1521) |
-| codex_local_usage_reports_empty_or_missing_data | function_item | tests | [1525](../../src-tauri/src/commands/usage.rs#L1525) |
-| assert | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1528](../../src-tauri/src/commands/usage.rs#L1528) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1529](../../src-tauri/src/commands/usage.rs#L1529) |
-| assert | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1534](../../src-tauri/src/commands/usage.rs#L1534) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1535](../../src-tauri/src/commands/usage.rs#L1535) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1536](../../src-tauri/src/commands/usage.rs#L1536) |
-| apply_codex_estimated_cost_uses_usd_pricing | function_item | tests | [1540](../../src-tauri/src/commands/usage.rs#L1540) |
-| vec | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1568](../../src-tauri/src/commands/usage.rs#L1568) |
-| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1583](../../src-tauri/src/commands/usage.rs#L1583) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1584](../../src-tauri/src/commands/usage.rs#L1584) |
-| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1585](../../src-tauri/src/commands/usage.rs#L1585) |
-| apply_codex_estimated_cost_uses_cny_pricing | function_item | tests | [1589](../../src-tauri/src/commands/usage.rs#L1589) |
-| vec | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1614](../../src-tauri/src/commands/usage.rs#L1614) |
-| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1629](../../src-tauri/src/commands/usage.rs#L1629) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1630](../../src-tauri/src/commands/usage.rs#L1630) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1631](../../src-tauri/src/commands/usage.rs#L1631) |
-| pick_summary_currency_converts_mixed_to_usd | function_item | tests | [1635](../../src-tauri/src/commands/usage.rs#L1635) |
-| vec | macro invocation (unexpanded) | tests::pick_summary_currency_converts_mixed_to_usd | [1636](../../src-tauri/src/commands/usage.rs#L1636) |
-| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_converts_mixed_to_usd | [1647](../../src-tauri/src/commands/usage.rs#L1647) |
-| assert | macro invocation (unexpanded) | tests::pick_summary_currency_converts_mixed_to_usd | [1649](../../src-tauri/src/commands/usage.rs#L1649) |
-| pick_summary_currency_keeps_single_usd | function_item | tests | [1653](../../src-tauri/src/commands/usage.rs#L1653) |
-| vec | macro invocation (unexpanded) | tests::pick_summary_currency_keeps_single_usd | [1654](../../src-tauri/src/commands/usage.rs#L1654) |
-| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_keeps_single_usd | [1659](../../src-tauri/src/commands/usage.rs#L1659) |
-| assert | macro invocation (unexpanded) | tests::pick_summary_currency_keeps_single_usd | [1660](../../src-tauri/src/commands/usage.rs#L1660) |
-| pick_summary_currency_empty_defaults_to_usd_zero | function_item | tests | [1664](../../src-tauri/src/commands/usage.rs#L1664) |
-| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_empty_defaults_to_usd_zero | [1666](../../src-tauri/src/commands/usage.rs#L1666) |
-| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_empty_defaults_to_usd_zero | [1667](../../src-tauri/src/commands/usage.rs#L1667) |
-| apply_codex_estimated_cost_converts_mixed_currencies_to_usd | function_item | tests | [1671](../../src-tauri/src/commands/usage.rs#L1671) |
-| vec | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1709](../../src-tauri/src/commands/usage.rs#L1709) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1741](../../src-tauri/src/commands/usage.rs#L1741) |
-| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1742](../../src-tauri/src/commands/usage.rs#L1742) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1743](../../src-tauri/src/commands/usage.rs#L1743) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1520](../../src-tauri/src/commands/usage.rs#L1520) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1521](../../src-tauri/src/commands/usage.rs#L1521) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1522](../../src-tauri/src/commands/usage.rs#L1522) |
+| assert | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1523](../../src-tauri/src/commands/usage.rs#L1523) |
+| assert | macro invocation (unexpanded) | tests::codex_local_usage_skips_agent_files_and_reads_archived | [1524](../../src-tauri/src/commands/usage.rs#L1524) |
+| codex_local_usage_reports_empty_or_missing_data | function_item | tests | [1528](../../src-tauri/src/commands/usage.rs#L1528) |
+| assert | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1531](../../src-tauri/src/commands/usage.rs#L1531) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1532](../../src-tauri/src/commands/usage.rs#L1532) |
+| assert | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1537](../../src-tauri/src/commands/usage.rs#L1537) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1538](../../src-tauri/src/commands/usage.rs#L1538) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_local_usage_reports_empty_or_missing_data | [1539](../../src-tauri/src/commands/usage.rs#L1539) |
+| apply_codex_estimated_cost_uses_usd_pricing | function_item | tests | [1543](../../src-tauri/src/commands/usage.rs#L1543) |
+| vec | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1571](../../src-tauri/src/commands/usage.rs#L1571) |
+| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1586](../../src-tauri/src/commands/usage.rs#L1586) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1587](../../src-tauri/src/commands/usage.rs#L1587) |
+| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_usd_pricing | [1588](../../src-tauri/src/commands/usage.rs#L1588) |
+| apply_codex_estimated_cost_uses_cny_pricing | function_item | tests | [1592](../../src-tauri/src/commands/usage.rs#L1592) |
+| vec | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1617](../../src-tauri/src/commands/usage.rs#L1617) |
+| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1632](../../src-tauri/src/commands/usage.rs#L1632) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1633](../../src-tauri/src/commands/usage.rs#L1633) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_uses_cny_pricing | [1634](../../src-tauri/src/commands/usage.rs#L1634) |
+| pick_summary_currency_converts_mixed_to_usd | function_item | tests | [1638](../../src-tauri/src/commands/usage.rs#L1638) |
+| vec | macro invocation (unexpanded) | tests::pick_summary_currency_converts_mixed_to_usd | [1639](../../src-tauri/src/commands/usage.rs#L1639) |
+| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_converts_mixed_to_usd | [1650](../../src-tauri/src/commands/usage.rs#L1650) |
+| assert | macro invocation (unexpanded) | tests::pick_summary_currency_converts_mixed_to_usd | [1652](../../src-tauri/src/commands/usage.rs#L1652) |
+| pick_summary_currency_keeps_single_usd | function_item | tests | [1656](../../src-tauri/src/commands/usage.rs#L1656) |
+| vec | macro invocation (unexpanded) | tests::pick_summary_currency_keeps_single_usd | [1657](../../src-tauri/src/commands/usage.rs#L1657) |
+| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_keeps_single_usd | [1662](../../src-tauri/src/commands/usage.rs#L1662) |
+| assert | macro invocation (unexpanded) | tests::pick_summary_currency_keeps_single_usd | [1663](../../src-tauri/src/commands/usage.rs#L1663) |
+| pick_summary_currency_empty_defaults_to_usd_zero | function_item | tests | [1667](../../src-tauri/src/commands/usage.rs#L1667) |
+| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_empty_defaults_to_usd_zero | [1669](../../src-tauri/src/commands/usage.rs#L1669) |
+| assert_eq | macro invocation (unexpanded) | tests::pick_summary_currency_empty_defaults_to_usd_zero | [1670](../../src-tauri/src/commands/usage.rs#L1670) |
+| apply_codex_estimated_cost_converts_mixed_currencies_to_usd | function_item | tests | [1674](../../src-tauri/src/commands/usage.rs#L1674) |
+| vec | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1712](../../src-tauri/src/commands/usage.rs#L1712) |
 | assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1744](../../src-tauri/src/commands/usage.rs#L1744) |
 | assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1745](../../src-tauri/src/commands/usage.rs#L1745) |
-| usd_pricing | function_item | tests | [1748](../../src-tauri/src/commands/usage.rs#L1748) |
-| cny_pricing | function_item | tests | [1765](../../src-tauri/src/commands/usage.rs#L1765) |
-| provider_group | function_item | tests | [1771](../../src-tauri/src/commands/usage.rs#L1771) |
-| fold_provider_breakdowns_prices_by_model_not_provider_name | function_item | tests | [1789](../../src-tauri/src/commands/usage.rs#L1789) |
-| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1790](../../src-tauri/src/commands/usage.rs#L1790) |
-| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1796](../../src-tauri/src/commands/usage.rs#L1796) |
-| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1798](../../src-tauri/src/commands/usage.rs#L1798) |
-| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1799](../../src-tauri/src/commands/usage.rs#L1799) |
-| assert | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1801](../../src-tauri/src/commands/usage.rs#L1801) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1746](../../src-tauri/src/commands/usage.rs#L1746) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1747](../../src-tauri/src/commands/usage.rs#L1747) |
+| assert | macro invocation (unexpanded) | tests::apply_codex_estimated_cost_converts_mixed_currencies_to_usd | [1748](../../src-tauri/src/commands/usage.rs#L1748) |
+| usd_pricing | function_item | tests | [1751](../../src-tauri/src/commands/usage.rs#L1751) |
+| cny_pricing | function_item | tests | [1768](../../src-tauri/src/commands/usage.rs#L1768) |
+| provider_group | function_item | tests | [1774](../../src-tauri/src/commands/usage.rs#L1774) |
+| fold_provider_breakdowns_prices_by_model_not_provider_name | function_item | tests | [1792](../../src-tauri/src/commands/usage.rs#L1792) |
+| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1793](../../src-tauri/src/commands/usage.rs#L1793) |
+| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1799](../../src-tauri/src/commands/usage.rs#L1799) |
+| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1801](../../src-tauri/src/commands/usage.rs#L1801) |
 | assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1802](../../src-tauri/src/commands/usage.rs#L1802) |
-| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1803](../../src-tauri/src/commands/usage.rs#L1803) |
-| apply_fuzzy_pricing_must_not_zero_provider_costs | function_item | tests | [1807](../../src-tauri/src/commands/usage.rs#L1807) |
-| vec | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1808](../../src-tauri/src/commands/usage.rs#L1808) |
-| vec | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1818](../../src-tauri/src/commands/usage.rs#L1818) |
-| assert | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1821](../../src-tauri/src/commands/usage.rs#L1821) |
-| vec | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1822](../../src-tauri/src/commands/usage.rs#L1822) |
-| assert | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1829](../../src-tauri/src/commands/usage.rs#L1829) |
-| fold_provider_breakdowns_sums_mixed_models_as_usd | function_item | tests | [1833](../../src-tauri/src/commands/usage.rs#L1833) |
-| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1834](../../src-tauri/src/commands/usage.rs#L1834) |
-| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1838](../../src-tauri/src/commands/usage.rs#L1838) |
-| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1843](../../src-tauri/src/commands/usage.rs#L1843) |
-| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1844](../../src-tauri/src/commands/usage.rs#L1844) |
-| assert | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1846](../../src-tauri/src/commands/usage.rs#L1846) |
+| assert | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1804](../../src-tauri/src/commands/usage.rs#L1804) |
+| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1805](../../src-tauri/src/commands/usage.rs#L1805) |
+| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_prices_by_model_not_provider_name | [1806](../../src-tauri/src/commands/usage.rs#L1806) |
+| apply_fuzzy_pricing_must_not_zero_provider_costs | function_item | tests | [1810](../../src-tauri/src/commands/usage.rs#L1810) |
+| vec | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1811](../../src-tauri/src/commands/usage.rs#L1811) |
+| vec | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1821](../../src-tauri/src/commands/usage.rs#L1821) |
+| assert | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1824](../../src-tauri/src/commands/usage.rs#L1824) |
+| vec | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1825](../../src-tauri/src/commands/usage.rs#L1825) |
+| assert | macro invocation (unexpanded) | tests::apply_fuzzy_pricing_must_not_zero_provider_costs | [1832](../../src-tauri/src/commands/usage.rs#L1832) |
+| fold_provider_breakdowns_sums_mixed_models_as_usd | function_item | tests | [1836](../../src-tauri/src/commands/usage.rs#L1836) |
+| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1837](../../src-tauri/src/commands/usage.rs#L1837) |
+| vec | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1841](../../src-tauri/src/commands/usage.rs#L1841) |
+| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1846](../../src-tauri/src/commands/usage.rs#L1846) |
 | assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1847](../../src-tauri/src/commands/usage.rs#L1847) |
-| row | function_item | tests | [1850](../../src-tauri/src/commands/usage.rs#L1850) |
-| pricing_import_defaults_optional_prices_and_currency | function_item | tests | [1855](../../src-tauri/src/commands/usage.rs#L1855) |
-| assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1868](../../src-tauri/src/commands/usage.rs#L1868) |
-| assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1869](../../src-tauri/src/commands/usage.rs#L1869) |
-| assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1870](../../src-tauri/src/commands/usage.rs#L1870) |
+| assert | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1849](../../src-tauri/src/commands/usage.rs#L1849) |
+| assert_eq | macro invocation (unexpanded) | tests::fold_provider_breakdowns_sums_mixed_models_as_usd | [1850](../../src-tauri/src/commands/usage.rs#L1850) |
+| row | function_item | tests | [1853](../../src-tauri/src/commands/usage.rs#L1853) |
+| pricing_import_defaults_optional_prices_and_currency | function_item | tests | [1858](../../src-tauri/src/commands/usage.rs#L1858) |
 | assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1871](../../src-tauri/src/commands/usage.rs#L1871) |
-| pricing_import_rejects_invalid_numeric_values | function_item | tests | [1875](../../src-tauri/src/commands/usage.rs#L1875) |
-| assert | macro invocation (unexpanded) | tests::pricing_import_rejects_invalid_numeric_values | [1888](../../src-tauri/src/commands/usage.rs#L1888) |
+| assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1872](../../src-tauri/src/commands/usage.rs#L1872) |
+| assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1873](../../src-tauri/src/commands/usage.rs#L1873) |
+| assert_eq | macro invocation (unexpanded) | tests::pricing_import_defaults_optional_prices_and_currency | [1874](../../src-tauri/src/commands/usage.rs#L1874) |
+| pricing_import_rejects_invalid_numeric_values | function_item | tests | [1878](../../src-tauri/src/commands/usage.rs#L1878) |
+| assert | macro invocation (unexpanded) | tests::pricing_import_rejects_invalid_numeric_values | [1891](../../src-tauri/src/commands/usage.rs#L1891) |

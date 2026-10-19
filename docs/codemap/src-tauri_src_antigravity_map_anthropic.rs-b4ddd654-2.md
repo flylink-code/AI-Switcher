@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/map/anthropic.rs) · page 2/4
 
-Source SHA-256: c263b164283a474703b094463755a5c2dc62fabf11ef370f55f89ebeaa01d8a8
+Source SHA-256: c5df81edead199bc9f6ef67e55a877e3f149e409abc7ca87764d0322828bd3a8
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [987](../../src-tauri/src/antigravity/map/anthropic.rs#L987) |
-| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [999](../../src-tauri/src/antigravity/map/anthropic.rs#L999) |
-| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1006](../../src-tauri/src/antigravity/map/anthropic.rs#L1006) |
-| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1013](../../src-tauri/src/antigravity/map/anthropic.rs#L1013) |
-| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1018](../../src-tauri/src/antigravity/map/anthropic.rs#L1018) |
-| anthropic_sse_message_start | function_item |  | [1024](../../src-tauri/src/antigravity/map/anthropic.rs#L1024) |
-| json | macro invocation (unexpanded) | anthropic_sse_message_start | [1025](../../src-tauri/src/antigravity/map/anthropic.rs#L1025) |
-| AssistantContent | struct_item |  | [1040](../../src-tauri/src/antigravity/map/anthropic.rs#L1040) |
-| thought_text | field_declaration | AssistantContent | [1041](../../src-tauri/src/antigravity/map/anthropic.rs#L1041) |
-| thought_signature | field_declaration | AssistantContent | [1042](../../src-tauri/src/antigravity/map/anthropic.rs#L1042) |
-| text | field_declaration | AssistantContent | [1043](../../src-tauri/src/antigravity/map/anthropic.rs#L1043) |
-| tools | field_declaration | AssistantContent | [1044](../../src-tauri/src/antigravity/map/anthropic.rs#L1044) |
-| stop_reason | field_declaration | AssistantContent | [1045](../../src-tauri/src/antigravity/map/anthropic.rs#L1045) |
-| extract_assistant | function_item |  | [1048](../../src-tauri/src/antigravity/map/anthropic.rs#L1048) |
-| format | macro invocation (unexpanded) | extract_assistant | [1111](../../src-tauri/src/antigravity/map/anthropic.rs#L1111) |
-| json | macro invocation (unexpanded) | extract_assistant | [1123](../../src-tauri/src/antigravity/map/anthropic.rs#L1123) |
-| json | macro invocation (unexpanded) | extract_assistant | [1126](../../src-tauri/src/antigravity/map/anthropic.rs#L1126) |
-| json | macro invocation (unexpanded) | extract_assistant | [1129](../../src-tauri/src/antigravity/map/anthropic.rs#L1129) |
-| tests | mod_item |  | [1158](../../src-tauri/src/antigravity/map/anthropic.rs#L1158) |
-| no_params | function_item | tests | [1163](../../src-tauri/src/antigravity/map/anthropic.rs#L1163) |
-| top_level_and_leading_system_stay_system_while_mid_session_is_reminder | function_item | tests | [1168](../../src-tauri/src/antigravity/map/anthropic.rs#L1168) |
-| json | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1169](../../src-tauri/src/antigravity/map/anthropic.rs#L1169) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1188](../../src-tauri/src/antigravity/map/anthropic.rs#L1188) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1189](../../src-tauri/src/antigravity/map/anthropic.rs#L1189) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1190](../../src-tauri/src/antigravity/map/anthropic.rs#L1190) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1193](../../src-tauri/src/antigravity/map/anthropic.rs#L1193) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1194](../../src-tauri/src/antigravity/map/anthropic.rs#L1194) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1195](../../src-tauri/src/antigravity/map/anthropic.rs#L1195) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1199](../../src-tauri/src/antigravity/map/anthropic.rs#L1199) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1200](../../src-tauri/src/antigravity/map/anthropic.rs#L1200) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1201](../../src-tauri/src/antigravity/map/anthropic.rs#L1201) |
-| gemini_history_tool_use_gets_sentinel_signature_without_cache | function_item | tests | [1208](../../src-tauri/src/antigravity/map/anthropic.rs#L1208) |
-| json | macro invocation (unexpanded) | tests::gemini_history_tool_use_gets_sentinel_signature_without_cache | [1209](../../src-tauri/src/antigravity/map/anthropic.rs#L1209) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_history_tool_use_gets_sentinel_signature_without_cache | [1224](../../src-tauri/src/antigravity/map/anthropic.rs#L1224) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_history_tool_use_gets_sentinel_signature_without_cache | [1228](../../src-tauri/src/antigravity/map/anthropic.rs#L1228) |
-| captured_response_signature_is_reinjected_by_tool_id | function_item | tests | [1232](../../src-tauri/src/antigravity/map/anthropic.rs#L1232) |
-| json | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1234](../../src-tauri/src/antigravity/map/anthropic.rs#L1234) |
-| assert | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1252](../../src-tauri/src/antigravity/map/anthropic.rs#L1252) |
-| assert_eq | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1253](../../src-tauri/src/antigravity/map/anthropic.rs#L1253) |
-| assert_eq | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1257](../../src-tauri/src/antigravity/map/anthropic.rs#L1257) |
-| json | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1263](../../src-tauri/src/antigravity/map/anthropic.rs#L1263) |
-| assert_eq | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1278](../../src-tauri/src/antigravity/map/anthropic.rs#L1278) |
-| session_signature_is_fallback_for_unknown_tool_id | function_item | tests | [1282](../../src-tauri/src/antigravity/map/anthropic.rs#L1282) |
-| json | macro invocation (unexpanded) | tests::session_signature_is_fallback_for_unknown_tool_id | [1284](../../src-tauri/src/antigravity/map/anthropic.rs#L1284) |
-| assert_eq | macro invocation (unexpanded) | tests::session_signature_is_fallback_for_unknown_tool_id | [1296](../../src-tauri/src/antigravity/map/anthropic.rs#L1296) |
-| claude_target_history_tool_use_has_no_signature_injected | function_item | tests | [1300](../../src-tauri/src/antigravity/map/anthropic.rs#L1300) |
-| json | macro invocation (unexpanded) | tests::claude_target_history_tool_use_has_no_signature_injected | [1301](../../src-tauri/src/antigravity/map/anthropic.rs#L1301) |
-| assert | macro invocation (unexpanded) | tests::claude_target_history_tool_use_has_no_signature_injected | [1313](../../src-tauri/src/antigravity/map/anthropic.rs#L1313) |
-| assert | macro invocation (unexpanded) | tests::claude_target_history_tool_use_has_no_signature_injected | [1314](../../src-tauri/src/antigravity/map/anthropic.rs#L1314) |
-| gemini_target_requests_include_thoughts | function_item | tests | [1318](../../src-tauri/src/antigravity/map/anthropic.rs#L1318) |
-| json | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1319](../../src-tauri/src/antigravity/map/anthropic.rs#L1319) |
-| assert | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1326](../../src-tauri/src/antigravity/map/anthropic.rs#L1326) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1327](../../src-tauri/src/antigravity/map/anthropic.rs#L1327) |
-| assert | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1332](../../src-tauri/src/antigravity/map/anthropic.rs#L1332) |
-| classifier_style_request_disables_thoughts | function_item | tests | [1338](../../src-tauri/src/antigravity/map/anthropic.rs#L1338) |
-| json | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1341](../../src-tauri/src/antigravity/map/anthropic.rs#L1341) |
-| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1348](../../src-tauri/src/antigravity/map/anthropic.rs#L1348) |
-| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1349](../../src-tauri/src/antigravity/map/anthropic.rs#L1349) |
-| json | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1358](../../src-tauri/src/antigravity/map/anthropic.rs#L1358) |
-| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1376](../../src-tauri/src/antigravity/map/anthropic.rs#L1376) |
-| assert_eq | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1377](../../src-tauri/src/antigravity/map/anthropic.rs#L1377) |
-| assert_eq | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1378](../../src-tauri/src/antigravity/map/anthropic.rs#L1378) |
-| json | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1385](../../src-tauri/src/antigravity/map/anthropic.rs#L1385) |
-| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1398](../../src-tauri/src/antigravity/map/anthropic.rs#L1398) |
-| tool_use_input_args_are_corrected_against_declarations | function_item | tests | [1404](../../src-tauri/src/antigravity/map/anthropic.rs#L1404) |
-| json | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1406](../../src-tauri/src/antigravity/map/anthropic.rs#L1406) |
-| json | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1423](../../src-tauri/src/antigravity/map/anthropic.rs#L1423) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1440](../../src-tauri/src/antigravity/map/anthropic.rs#L1440) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1441](../../src-tauri/src/antigravity/map/anthropic.rs#L1441) |
-| assert | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1442](../../src-tauri/src/antigravity/map/anthropic.rs#L1442) |
-| assert_eq | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1443](../../src-tauri/src/antigravity/map/anthropic.rs#L1443) |
-| write_tool_contents_unwrap_katex_but_keep_edit_old_string | function_item | tests | [1447](../../src-tauri/src/antigravity/map/anthropic.rs#L1447) |
-| json | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1448](../../src-tauri/src/antigravity/map/anthropic.rs#L1448) |
-| assert_eq | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1464](../../src-tauri/src/antigravity/map/anthropic.rs#L1464) |
-| assert_eq | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1465](../../src-tauri/src/antigravity/map/anthropic.rs#L1465) |
-| assert_eq | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1469](../../src-tauri/src/antigravity/map/anthropic.rs#L1469) |
-| converts_basic_messages | function_item | tests | [1473](../../src-tauri/src/antigravity/map/anthropic.rs#L1473) |
-| json | macro invocation (unexpanded) | tests::converts_basic_messages | [1474](../../src-tauri/src/antigravity/map/anthropic.rs#L1474) |
-| assert_eq | macro invocation (unexpanded) | tests::converts_basic_messages | [1480](../../src-tauri/src/antigravity/map/anthropic.rs#L1480) |
-| assert_eq | macro invocation (unexpanded) | tests::converts_basic_messages | [1481](../../src-tauri/src/antigravity/map/anthropic.rs#L1481) |
-| sse_chunk_without_finish_reason_does_not_stop_message | function_item | tests | [1485](../../src-tauri/src/antigravity/map/anthropic.rs#L1485) |
-| json | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1486](../../src-tauri/src/antigravity/map/anthropic.rs#L1486) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1500](../../src-tauri/src/antigravity/map/anthropic.rs#L1500) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1501](../../src-tauri/src/antigravity/map/anthropic.rs#L1501) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1504](../../src-tauri/src/antigravity/map/anthropic.rs#L1504) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1505](../../src-tauri/src/antigravity/map/anthropic.rs#L1505) |
-| sse_chunk_with_stop_emits_message_stop_once | function_item | tests | [1509](../../src-tauri/src/antigravity/map/anthropic.rs#L1509) |
-| json | macro invocation (unexpanded) | tests::sse_chunk_with_stop_emits_message_stop_once | [1510](../../src-tauri/src/antigravity/map/anthropic.rs#L1510) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_chunk_with_stop_emits_message_stop_once | [1530](../../src-tauri/src/antigravity/map/anthropic.rs#L1530) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_with_stop_emits_message_stop_once | [1531](../../src-tauri/src/antigravity/map/anthropic.rs#L1531) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_with_stop_emits_message_stop_once | [1534](../../src-tauri/src/antigravity/map/anthropic.rs#L1534) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_with_stop_emits_message_stop_once | [1536](../../src-tauri/src/antigravity/map/anthropic.rs#L1536) |
-| assert | macro invocation (unexpanded) | tests::sse_chunk_with_stop_emits_message_stop_once | [1545](../../src-tauri/src/antigravity/map/anthropic.rs#L1545) |
-| sse_reports_prompt_and_thought_tokens_on_stop | function_item | tests | [1549](../../src-tauri/src/antigravity/map/anthropic.rs#L1549) |
-| json | macro invocation (unexpanded) | tests::sse_reports_prompt_and_thought_tokens_on_stop | [1551](../../src-tauri/src/antigravity/map/anthropic.rs#L1551) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_reports_prompt_and_thought_tokens_on_stop | [1566](../../src-tauri/src/antigravity/map/anthropic.rs#L1566) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_reports_prompt_and_thought_tokens_on_stop | [1567](../../src-tauri/src/antigravity/map/anthropic.rs#L1567) |
-| json | macro invocation (unexpanded) | tests::sse_reports_prompt_and_thought_tokens_on_stop | [1569](../../src-tauri/src/antigravity/map/anthropic.rs#L1569) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_reports_prompt_and_thought_tokens_on_stop | [1592](../../src-tauri/src/antigravity/map/anthropic.rs#L1592) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_reports_prompt_and_thought_tokens_on_stop | [1593](../../src-tauri/src/antigravity/map/anthropic.rs#L1593) |
+| json | macro invocation (unexpanded) | AnthropicStreamState::close_open_block | [1019](../../src-tauri/src/antigravity/map/anthropic.rs#L1019) |
+| push_visible_text | function_item | AnthropicStreamState | [1023](../../src-tauri/src/antigravity/map/anthropic.rs#L1023) |
+| flush_text_carry | function_item | AnthropicStreamState | [1032](../../src-tauri/src/antigravity/map/anthropic.rs#L1032) |
+| json | macro invocation (unexpanded) | AnthropicStreamState::flush_text_carry | [1054](../../src-tauri/src/antigravity/map/anthropic.rs#L1054) |
+| open_block_if_needed | function_item | AnthropicStreamState | [1061](../../src-tauri/src/antigravity/map/anthropic.rs#L1061) |
+| json | macro invocation (unexpanded) | AnthropicStreamState::open_block_if_needed | [1071](../../src-tauri/src/antigravity/map/anthropic.rs#L1071) |
+| json | macro invocation (unexpanded) | AnthropicStreamState::open_block_if_needed | [1072](../../src-tauri/src/antigravity/map/anthropic.rs#L1072) |
+| json | macro invocation (unexpanded) | AnthropicStreamState::open_block_if_needed | [1074](../../src-tauri/src/antigravity/map/anthropic.rs#L1074) |
+| gemini_to_anthropic_sse_chunk | function_item |  | [1092](../../src-tauri/src/antigravity/map/anthropic.rs#L1092) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1113](../../src-tauri/src/antigravity/map/anthropic.rs#L1113) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1122](../../src-tauri/src/antigravity/map/anthropic.rs#L1122) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1144](../../src-tauri/src/antigravity/map/anthropic.rs#L1144) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1145](../../src-tauri/src/antigravity/map/anthropic.rs#L1145) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1146](../../src-tauri/src/antigravity/map/anthropic.rs#L1146) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1147](../../src-tauri/src/antigravity/map/anthropic.rs#L1147) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1159](../../src-tauri/src/antigravity/map/anthropic.rs#L1159) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1166](../../src-tauri/src/antigravity/map/anthropic.rs#L1166) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1176](../../src-tauri/src/antigravity/map/anthropic.rs#L1176) |
+| json | macro invocation (unexpanded) | gemini_to_anthropic_sse_chunk | [1181](../../src-tauri/src/antigravity/map/anthropic.rs#L1181) |
+| anthropic_sse_message_start | function_item |  | [1187](../../src-tauri/src/antigravity/map/anthropic.rs#L1187) |
+| json | macro invocation (unexpanded) | anthropic_sse_message_start | [1188](../../src-tauri/src/antigravity/map/anthropic.rs#L1188) |
+| AssistantContent | struct_item |  | [1203](../../src-tauri/src/antigravity/map/anthropic.rs#L1203) |
+| thought_text | field_declaration | AssistantContent | [1204](../../src-tauri/src/antigravity/map/anthropic.rs#L1204) |
+| thought_signature | field_declaration | AssistantContent | [1205](../../src-tauri/src/antigravity/map/anthropic.rs#L1205) |
+| text | field_declaration | AssistantContent | [1206](../../src-tauri/src/antigravity/map/anthropic.rs#L1206) |
+| tools | field_declaration | AssistantContent | [1207](../../src-tauri/src/antigravity/map/anthropic.rs#L1207) |
+| stop_reason | field_declaration | AssistantContent | [1208](../../src-tauri/src/antigravity/map/anthropic.rs#L1208) |
+| extract_assistant | function_item |  | [1211](../../src-tauri/src/antigravity/map/anthropic.rs#L1211) |
+| format | macro invocation (unexpanded) | extract_assistant | [1274](../../src-tauri/src/antigravity/map/anthropic.rs#L1274) |
+| json | macro invocation (unexpanded) | extract_assistant | [1286](../../src-tauri/src/antigravity/map/anthropic.rs#L1286) |
+| json | macro invocation (unexpanded) | extract_assistant | [1289](../../src-tauri/src/antigravity/map/anthropic.rs#L1289) |
+| json | macro invocation (unexpanded) | extract_assistant | [1292](../../src-tauri/src/antigravity/map/anthropic.rs#L1292) |
+| tests | mod_item |  | [1321](../../src-tauri/src/antigravity/map/anthropic.rs#L1321) |
+| no_params | function_item | tests | [1326](../../src-tauri/src/antigravity/map/anthropic.rs#L1326) |
+| top_level_and_leading_system_stay_system_while_mid_session_is_reminder | function_item | tests | [1331](../../src-tauri/src/antigravity/map/anthropic.rs#L1331) |
+| json | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1332](../../src-tauri/src/antigravity/map/anthropic.rs#L1332) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1351](../../src-tauri/src/antigravity/map/anthropic.rs#L1351) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1352](../../src-tauri/src/antigravity/map/anthropic.rs#L1352) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1353](../../src-tauri/src/antigravity/map/anthropic.rs#L1353) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1356](../../src-tauri/src/antigravity/map/anthropic.rs#L1356) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1357](../../src-tauri/src/antigravity/map/anthropic.rs#L1357) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1358](../../src-tauri/src/antigravity/map/anthropic.rs#L1358) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1362](../../src-tauri/src/antigravity/map/anthropic.rs#L1362) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1363](../../src-tauri/src/antigravity/map/anthropic.rs#L1363) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_and_leading_system_stay_system_while_mid_session_is_reminder | [1364](../../src-tauri/src/antigravity/map/anthropic.rs#L1364) |
+| gemini_history_tool_use_gets_sentinel_signature_without_cache | function_item | tests | [1371](../../src-tauri/src/antigravity/map/anthropic.rs#L1371) |
+| json | macro invocation (unexpanded) | tests::gemini_history_tool_use_gets_sentinel_signature_without_cache | [1372](../../src-tauri/src/antigravity/map/anthropic.rs#L1372) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_history_tool_use_gets_sentinel_signature_without_cache | [1387](../../src-tauri/src/antigravity/map/anthropic.rs#L1387) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_history_tool_use_gets_sentinel_signature_without_cache | [1391](../../src-tauri/src/antigravity/map/anthropic.rs#L1391) |
+| captured_response_signature_is_reinjected_by_tool_id | function_item | tests | [1395](../../src-tauri/src/antigravity/map/anthropic.rs#L1395) |
+| json | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1397](../../src-tauri/src/antigravity/map/anthropic.rs#L1397) |
+| assert | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1415](../../src-tauri/src/antigravity/map/anthropic.rs#L1415) |
+| assert_eq | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1416](../../src-tauri/src/antigravity/map/anthropic.rs#L1416) |
+| assert_eq | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1420](../../src-tauri/src/antigravity/map/anthropic.rs#L1420) |
+| json | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1426](../../src-tauri/src/antigravity/map/anthropic.rs#L1426) |
+| assert_eq | macro invocation (unexpanded) | tests::captured_response_signature_is_reinjected_by_tool_id | [1441](../../src-tauri/src/antigravity/map/anthropic.rs#L1441) |
+| session_signature_is_fallback_for_unknown_tool_id | function_item | tests | [1445](../../src-tauri/src/antigravity/map/anthropic.rs#L1445) |
+| json | macro invocation (unexpanded) | tests::session_signature_is_fallback_for_unknown_tool_id | [1447](../../src-tauri/src/antigravity/map/anthropic.rs#L1447) |
+| assert_eq | macro invocation (unexpanded) | tests::session_signature_is_fallback_for_unknown_tool_id | [1459](../../src-tauri/src/antigravity/map/anthropic.rs#L1459) |
+| claude_target_history_tool_use_has_no_signature_injected | function_item | tests | [1463](../../src-tauri/src/antigravity/map/anthropic.rs#L1463) |
+| json | macro invocation (unexpanded) | tests::claude_target_history_tool_use_has_no_signature_injected | [1464](../../src-tauri/src/antigravity/map/anthropic.rs#L1464) |
+| assert | macro invocation (unexpanded) | tests::claude_target_history_tool_use_has_no_signature_injected | [1476](../../src-tauri/src/antigravity/map/anthropic.rs#L1476) |
+| assert | macro invocation (unexpanded) | tests::claude_target_history_tool_use_has_no_signature_injected | [1477](../../src-tauri/src/antigravity/map/anthropic.rs#L1477) |
+| gemini_target_requests_include_thoughts | function_item | tests | [1481](../../src-tauri/src/antigravity/map/anthropic.rs#L1481) |
+| json | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1482](../../src-tauri/src/antigravity/map/anthropic.rs#L1482) |
+| assert | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1489](../../src-tauri/src/antigravity/map/anthropic.rs#L1489) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1490](../../src-tauri/src/antigravity/map/anthropic.rs#L1490) |
+| assert | macro invocation (unexpanded) | tests::gemini_target_requests_include_thoughts | [1495](../../src-tauri/src/antigravity/map/anthropic.rs#L1495) |
+| classifier_style_request_disables_thoughts | function_item | tests | [1501](../../src-tauri/src/antigravity/map/anthropic.rs#L1501) |
+| json | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1504](../../src-tauri/src/antigravity/map/anthropic.rs#L1504) |
+| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1511](../../src-tauri/src/antigravity/map/anthropic.rs#L1511) |
+| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1512](../../src-tauri/src/antigravity/map/anthropic.rs#L1512) |
+| json | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1521](../../src-tauri/src/antigravity/map/anthropic.rs#L1521) |
+| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1539](../../src-tauri/src/antigravity/map/anthropic.rs#L1539) |
+| assert_eq | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1540](../../src-tauri/src/antigravity/map/anthropic.rs#L1540) |
+| assert_eq | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1541](../../src-tauri/src/antigravity/map/anthropic.rs#L1541) |
+| json | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1548](../../src-tauri/src/antigravity/map/anthropic.rs#L1548) |
+| assert | macro invocation (unexpanded) | tests::classifier_style_request_disables_thoughts | [1561](../../src-tauri/src/antigravity/map/anthropic.rs#L1561) |
+| tool_use_input_args_are_corrected_against_declarations | function_item | tests | [1567](../../src-tauri/src/antigravity/map/anthropic.rs#L1567) |
+| json | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1569](../../src-tauri/src/antigravity/map/anthropic.rs#L1569) |
+| json | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1586](../../src-tauri/src/antigravity/map/anthropic.rs#L1586) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1603](../../src-tauri/src/antigravity/map/anthropic.rs#L1603) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1604](../../src-tauri/src/antigravity/map/anthropic.rs#L1604) |
+| assert | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1605](../../src-tauri/src/antigravity/map/anthropic.rs#L1605) |
+| assert_eq | macro invocation (unexpanded) | tests::tool_use_input_args_are_corrected_against_declarations | [1606](../../src-tauri/src/antigravity/map/anthropic.rs#L1606) |
+| write_tool_contents_unwrap_katex_but_keep_edit_old_string | function_item | tests | [1610](../../src-tauri/src/antigravity/map/anthropic.rs#L1610) |
+| json | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1611](../../src-tauri/src/antigravity/map/anthropic.rs#L1611) |
+| assert_eq | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1627](../../src-tauri/src/antigravity/map/anthropic.rs#L1627) |
+| assert_eq | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1628](../../src-tauri/src/antigravity/map/anthropic.rs#L1628) |
+| assert_eq | macro invocation (unexpanded) | tests::write_tool_contents_unwrap_katex_but_keep_edit_old_string | [1632](../../src-tauri/src/antigravity/map/anthropic.rs#L1632) |
+| converts_basic_messages | function_item | tests | [1636](../../src-tauri/src/antigravity/map/anthropic.rs#L1636) |
+| json | macro invocation (unexpanded) | tests::converts_basic_messages | [1637](../../src-tauri/src/antigravity/map/anthropic.rs#L1637) |
+| assert_eq | macro invocation (unexpanded) | tests::converts_basic_messages | [1643](../../src-tauri/src/antigravity/map/anthropic.rs#L1643) |
+| assert_eq | macro invocation (unexpanded) | tests::converts_basic_messages | [1644](../../src-tauri/src/antigravity/map/anthropic.rs#L1644) |
+| sse_chunk_without_finish_reason_does_not_stop_message | function_item | tests | [1648](../../src-tauri/src/antigravity/map/anthropic.rs#L1648) |
+| json | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1649](../../src-tauri/src/antigravity/map/anthropic.rs#L1649) |
+| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1663](../../src-tauri/src/antigravity/map/anthropic.rs#L1663) |
+| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1664](../../src-tauri/src/antigravity/map/anthropic.rs#L1664) |
+| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1667](../../src-tauri/src/antigravity/map/anthropic.rs#L1667) |
+| assert | macro invocation (unexpanded) | tests::sse_chunk_without_finish_reason_does_not_stop_message | [1668](../../src-tauri/src/antigravity/map/anthropic.rs#L1668) |

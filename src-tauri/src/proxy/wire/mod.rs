@@ -182,9 +182,16 @@ fn parse_anthropic(body: &Value) -> Request {
             parts: parts_from_anthropic_content(message.get("content").unwrap_or(&Value::Null)),
         });
     }
+    let system = content_text(body.get("system").unwrap_or(&Value::Null));
+    if messages.is_empty() && !system.trim().is_empty() {
+        messages.push(Message {
+            role: "user".into(),
+            parts: vec![Part::Text(system.clone())],
+        });
+    }
     Request {
         model: string_field(body, "model"),
-        system: content_text(body.get("system").unwrap_or(&Value::Null)),
+        system,
         messages,
         max_tokens: body.get("max_tokens").and_then(Value::as_u64),
         temperature: body.get("temperature").cloned(),
@@ -325,6 +332,12 @@ fn parse_chat(body: &Value) -> Request {
             parts,
         });
     }
+    if messages.is_empty() && !system.trim().is_empty() {
+        messages.push(Message {
+            role: "user".into(),
+            parts: vec![Part::Text(system.clone())],
+        });
+    }
     Request {
         model: string_field(body, "model"),
         system,
@@ -459,6 +472,14 @@ fn build_chat(request: &Request) -> Value {
 
 fn parse_responses(body: &Value) -> Request {
     let mut messages: Vec<Message> = Vec::new();
+    if let Some(text) = body.get("input").and_then(Value::as_str) {
+        if !text.trim().is_empty() {
+            messages.push(Message {
+                role: "user".into(),
+                parts: vec![Part::Text(text.to_string())],
+            });
+        }
+    }
     for item in body
         .get("input")
         .and_then(Value::as_array)
@@ -530,9 +551,16 @@ fn parse_responses(body: &Value) -> Request {
             parts,
         });
     }
+    let system = content_text(body.get("instructions").unwrap_or(&Value::Null));
+    if messages.is_empty() && !system.trim().is_empty() {
+        messages.push(Message {
+            role: "user".into(),
+            parts: vec![Part::Text(system.clone())],
+        });
+    }
     Request {
         model: string_field(body, "model"),
-        system: content_text(body.get("instructions").unwrap_or(&Value::Null)),
+        system,
         messages,
         max_tokens: body
             .get("max_output_tokens")

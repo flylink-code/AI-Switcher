@@ -4,7 +4,7 @@
 
 [Module](web-components.md) · [Source](../../src/components/UsageCalendar.tsx) · page 1/2
 
-Source SHA-256: 36c5081ca989d2a6a815e6f7bfa288efdaf108b205d5e94723b97d972dc2c8fb
+Source SHA-256: 90c3069a53f72b57cf36505bb2700e70bb52f4752bc386e4a1f5f51128884f62
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -35,10 +35,9 @@ Source SHA-256: 36c5081ca989d2a6a815e6f7bfa288efdaf108b205d5e94723b97d972dc2c8fb
 | { i18n, t } | VariableDeclaration | UsageCalendar | [46](../../src/components/UsageCalendar.tsx#L46) |
 | i18n | BindingElement | UsageCalendar.{ i18n, t } | [46](../../src/components/UsageCalendar.tsx#L46) |
 | t | BindingElement | UsageCalendar.{ i18n, t } | [46](../../src/components/UsageCalendar.tsx#L46) |
-| { token } | VariableDeclaration | UsageCalendar | [47](../../src/components/UsageCalendar.tsx#L47) |
-| token | BindingElement | UsageCalendar.{ token } | [47](../../src/components/UsageCalendar.tsx#L47) |
-| granularity | VariableDeclaration | UsageCalendar | [48](../../src/components/UsageCalendar.tsx#L48) |
-| byDate | VariableDeclaration | UsageCalendar | [49](../../src/components/UsageCalendar.tsx#L49) |
+| granularity | VariableDeclaration | UsageCalendar | [47](../../src/components/UsageCalendar.tsx#L47) |
+| byDate | VariableDeclaration | UsageCalendar | [48](../../src/components/UsageCalendar.tsx#L48) |
+| cellBorder | VariableDeclaration | UsageCalendar | [49](../../src/components/UsageCalendar.tsx#L49) |
 | levels | VariableDeclaration | UsageCalendar | [50](../../src/components/UsageCalendar.tsx#L50) |
 | monthFormatter | VariableDeclaration | UsageCalendar | [57](../../src/components/UsageCalendar.tsx#L57) |
 | days | VariableDeclaration | UsageCalendar | [73](../../src/components/UsageCalendar.tsx#L73) |
@@ -108,3 +107,4 @@ Source SHA-256: 36c5081ca989d2a6a815e6f7bfa288efdaf108b205d5e94723b97d972dc2c8fb
 | byDate | PropertySignature | HourlyHeatmap | [465](../../src/components/UsageCalendar.tsx#L465) |
 | t | PropertySignature | HourlyHeatmap | [466](../../src/components/UsageCalendar.tsx#L466) |
 | compact | PropertySignature | HourlyHeatmap | [467](../../src/components/UsageCalendar.tsx#L467) |
+| keys | VariableDeclaration | HourlyHeatmap | [469](../../src/components/UsageCalendar.tsx#L469) |
