@@ -1797,7 +1797,7 @@ fn append_openai_message(message: &Value, output: &mut Vec<Value>) {
         _ => {}
     }
     if role != "assistant" {
-        output.extend(tool_results.drain(..));
+        output.append(&mut tool_results);
     }
     if !text_blocks.is_empty() || !tool_calls.is_empty() {
         let mut result = Map::new();

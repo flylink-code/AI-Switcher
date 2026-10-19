@@ -329,6 +329,10 @@ pub(crate) async fn refresh_direct_upstream_locked<R: tauri::Runtime>(
         .with_read_conn(crate::database::dao::gateway::list_bindings)?;
     for binding in bindings {
         if binding.mode == "direct" && binding.direct_upstream_id == upstream_id {
+            if binding.target_app == ProviderTarget::VscodeCopilot {
+                crate::commands::vscode_copilot::sync_managed_config(state)?;
+                continue;
+            }
             let provider = state.db.with_read_conn(|conn| {
                 crate::database::dao::gateway::provider_from_upstream(
                     conn,

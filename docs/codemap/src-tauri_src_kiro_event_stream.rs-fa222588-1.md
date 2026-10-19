@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/event_stream.rs) · page 1/1
 
-Source SHA-256: 776f166a5c9f8aaced0bff413cec523fe44651068f368c8b356aab7147357cf1
+Source SHA-256: bfd03cb813718e97e9fec80b3ca1eaf620367ea14307d1b031f6ca12aac54917
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -35,20 +35,20 @@ Source SHA-256: 776f166a5c9f8aaced0bff413cec523fe44651068f368c8b356aab7147357cf1
 | FrameDecoder | impl |  | [218](../../src-tauri/src/kiro/event_stream.rs#L218) |
 | new | function_item | FrameDecoder | [219](../../src-tauri/src/kiro/event_stream.rs#L219) |
 | push | function_item | FrameDecoder | [223](../../src-tauri/src/kiro/event_stream.rs#L223) |
-| Default for FrameDecoder | impl |  | [263](../../src-tauri/src/kiro/event_stream.rs#L263) |
-| default | function_item | Default for FrameDecoder | [264](../../src-tauri/src/kiro/event_stream.rs#L264) |
-| tests | mod_item |  | [270](../../src-tauri/src/kiro/event_stream.rs#L270) |
-| crc32_known_vectors | function_item | tests | [274](../../src-tauri/src/kiro/event_stream.rs#L274) |
-| assert_eq | macro invocation (unexpanded) | tests::crc32_known_vectors | [275](../../src-tauri/src/kiro/event_stream.rs#L275) |
-| assert_eq | macro invocation (unexpanded) | tests::crc32_known_vectors | [276](../../src-tauri/src/kiro/event_stream.rs#L276) |
-| round_trip_event_frame | function_item | tests | [280](../../src-tauri/src/kiro/event_stream.rs#L280) |
+| Default for FrameDecoder | impl |  | [261](../../src-tauri/src/kiro/event_stream.rs#L261) |
+| default | function_item | Default for FrameDecoder | [262](../../src-tauri/src/kiro/event_stream.rs#L262) |
+| tests | mod_item |  | [268](../../src-tauri/src/kiro/event_stream.rs#L268) |
+| crc32_known_vectors | function_item | tests | [272](../../src-tauri/src/kiro/event_stream.rs#L272) |
+| assert_eq | macro invocation (unexpanded) | tests::crc32_known_vectors | [273](../../src-tauri/src/kiro/event_stream.rs#L273) |
+| assert_eq | macro invocation (unexpanded) | tests::crc32_known_vectors | [274](../../src-tauri/src/kiro/event_stream.rs#L274) |
+| round_trip_event_frame | function_item | tests | [278](../../src-tauri/src/kiro/event_stream.rs#L278) |
+| assert_eq | macro invocation (unexpanded) | tests::round_trip_event_frame | [282](../../src-tauri/src/kiro/event_stream.rs#L282) |
+| assert_eq | macro invocation (unexpanded) | tests::round_trip_event_frame | [283](../../src-tauri/src/kiro/event_stream.rs#L283) |
 | assert_eq | macro invocation (unexpanded) | tests::round_trip_event_frame | [284](../../src-tauri/src/kiro/event_stream.rs#L284) |
-| assert_eq | macro invocation (unexpanded) | tests::round_trip_event_frame | [285](../../src-tauri/src/kiro/event_stream.rs#L285) |
-| assert_eq | macro invocation (unexpanded) | tests::round_trip_event_frame | [286](../../src-tauri/src/kiro/event_stream.rs#L286) |
-| decoder_waits_for_a_partial_frame | function_item | tests | [290](../../src-tauri/src/kiro/event_stream.rs#L290) |
-| assert | macro invocation (unexpanded) | tests::decoder_waits_for_a_partial_frame | [293](../../src-tauri/src/kiro/event_stream.rs#L293) |
-| assert_eq | macro invocation (unexpanded) | tests::decoder_waits_for_a_partial_frame | [295](../../src-tauri/src/kiro/event_stream.rs#L295) |
-| parse_frame_supports_non_string_headers_and_exception_frames | function_item | tests | [299](../../src-tauri/src/kiro/event_stream.rs#L299) |
+| decoder_waits_for_a_partial_frame | function_item | tests | [288](../../src-tauri/src/kiro/event_stream.rs#L288) |
+| assert | macro invocation (unexpanded) | tests::decoder_waits_for_a_partial_frame | [291](../../src-tauri/src/kiro/event_stream.rs#L291) |
+| assert_eq | macro invocation (unexpanded) | tests::decoder_waits_for_a_partial_frame | [293](../../src-tauri/src/kiro/event_stream.rs#L293) |
+| parse_frame_supports_non_string_headers_and_exception_frames | function_item | tests | [297](../../src-tauri/src/kiro/event_stream.rs#L297) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_frame_supports_non_string_headers_and_exception_frames | [333](../../src-tauri/src/kiro/event_stream.rs#L333) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_frame_supports_non_string_headers_and_exception_frames | [334](../../src-tauri/src/kiro/event_stream.rs#L334) |
 | assert_eq | macro invocation (unexpanded) | tests::parse_frame_supports_non_string_headers_and_exception_frames | [335](../../src-tauri/src/kiro/event_stream.rs#L335) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_frame_supports_non_string_headers_and_exception_frames | [336](../../src-tauri/src/kiro/event_stream.rs#L336) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_frame_supports_non_string_headers_and_exception_frames | [337](../../src-tauri/src/kiro/event_stream.rs#L337) |

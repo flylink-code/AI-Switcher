@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/convert.rs) · page 1/5
 
-Source SHA-256: 166d1453fb5d4ec3f7c1ba7171dfc8b9be751f603bc0327eb974562b50e3c3d7
+Source SHA-256: 120375a25de03c2b704e79b214fd92fab87e04f3e74e00e53bf26a9543f84d69
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -18,4 +18,4 @@
 | [src-tauri/src/config/mod.rs](../../src-tauri/src/config/mod.rs) | 10 | [1](src-tauri_src_config_mod.rs-c785dba6-1.md) |
 | [src-tauri/src/config/opencode.rs](../../src-tauri/src/config/opencode.rs) | 225 | [1](src-tauri_src_config_opencode.rs-91e6d285-1.md) [2](src-tauri_src_config_opencode.rs-91e6d285-2.md) [3](src-tauri_src_config_opencode.rs-91e6d285-3.md) |
 | [src-tauri/src/config/paths.rs](../../src-tauri/src/config/paths.rs) | 117 | [1](src-tauri_src_config_paths.rs-bad9782f-1.md) [2](src-tauri_src_config_paths.rs-bad9782f-2.md) |
-| [src-tauri/src/config/vscode_copilot.rs](../../src-tauri/src/config/vscode_copilot.rs) | 99 | [1](src-tauri_src_config_vscode_copilot.rs-31ec6f96-1.md) |
+| [src-tauri/src/config/vscode_copilot.rs](../../src-tauri/src/config/vscode_copilot.rs) | 173 | [1](src-tauri_src_config_vscode_copilot.rs-31ec6f96-1.md) [2](src-tauri_src_config_vscode_copilot.rs-31ec6f96-2.md) |

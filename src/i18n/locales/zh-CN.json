@@ -74,6 +74,11 @@
     "removeTitle": "移除 AI-Switcher 的 Copilot 配置？",
     "removeBody": "只删除名为 “AI-Switcher” 的条目并解除绑定，其他 provider 不受影响。",
     "path": "配置文件",
+    "vscodePath": "VS Code 路径",
+    "vscodeNotDetected": "未检测到 VS Code",
+    "extensionStatus": "Copilot 扩展",
+    "extensionInstalled": "已安装",
+    "extensionMissing": "未检测到 GitHub Copilot Chat 扩展（可在 VS Code 扩展市场安装）",
     "models": "模型数量",
     "modelsCount": "{{count}} 个模型",
     "gateway": "智能网关",
@@ -1935,6 +1940,7 @@
       "codex": "Codex 配置",
       "opencode": "OpenCode 配置",
       "pi": "Pi CLI 配置",
+      "vscodeCopilot": "VS Code Copilot 配置",
       "system": "启动与关闭",
       "app": "AI-Switcher 数据目录",
       "db": "数据库",
@@ -1978,6 +1984,7 @@
       "claudeDesktopMetaPath": "_meta.json",
       "claudeDesktopNormalConfigPath": "claude_desktop_config.json（1p）",
       "claudeDesktopThreepConfigPath": "claude_desktop_config.json（3p）",
+      "vscodeCopilotConfigPath": "chatLanguageModels.json",
       "appConfigDir": "数据目录",
       "appDbPath": "数据库文件",
       "backupDir": "备份目录",
@@ -2118,6 +2125,12 @@
     "changelogTitle": "本版本更新",
     "changelogEmpty": "当前构建没有对应的更新说明。",
     "changelog": {
+      "1_6_4": [
+        "新增 VS Code 与 Copilot 扩展的本机安装、版本和路径探测，并在 Agent 卡片、环境路径与环境诊断中显示状态。",
+        "完善 Copilot 多 Profile 托管模型同步，保留用户模型设置；供应商更新时同步刷新 Copilot 网关和直连目录。",
+        "为已识别的 VS Code Claude Agent SDK 原生模型图片能力声明提供兼容补丁，精确匹配并备份后原子写入；未知构建或受完整性校验的文件不修改。应用后需完全重启 VS Code；实际识图依赖所选模型及附件读取工具，不包含子 Agent 启动错误修复。",
+        "扩展 Linux / macOS 的编辑器、Pi CLI 与 Node 工具路径探测，改进运行状态识别与本地安装包构建流程。"
+      ],
       "1_6_3": [
         "增强跨协议请求与工具调用兼容性：支持 stop_sequences 透传、无参工具调用自动补齐 \"{}\" 参数与流式增量事件、空 input 自动回退 instructions/system 提示词、工具输出多媒体与文档/联网搜索结果提取，并确保转换后的 Responses ID 全局唯一。",
         "优化 Antigravity 与 Kiro 反代网关：新增 /v1/models/:id 单模型元数据查询与 Kiro /v1/responses/compact 端点；自动剥离 Gemini 上游触发 RESOURCE_EXHAUSTED 的 Claude Agent SDK 固定身份提示词；仅对 Flash 模型下发显式 thinkingBudget（保留 Argon / Pro 后缀推理档位）；支持 count_tokens 深度思考预算加成与 Claude Code 模型验证探活本地快速响应。",

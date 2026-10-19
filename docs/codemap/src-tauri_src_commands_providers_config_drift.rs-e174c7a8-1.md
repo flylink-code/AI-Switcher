@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/config_drift.rs) · page 1/1
 
-Source SHA-256: 54200a57b9cff9d106c388ff45ffadf593561447f9ebf66fe974af68c1913161
+Source SHA-256: d157ac6c618ef602566cf573e21bfddd55c6e053fe54ce13e5e6938e3f529c80
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,26 +20,26 @@ Source SHA-256: 54200a57b9cff9d106c388ff45ffadf593561447f9ebf66fe974af68c1913161
 | drift_provider | function_item |  | [20](../../src-tauri/src/commands/providers/config_drift.rs#L20) |
 | codex_drift_fields | function_item |  | [33](../../src-tauri/src/commands/providers/config_drift.rs#L33) |
 | parse_codex_drift_fields | function_item |  | [43](../../src-tauri/src/commands/providers/config_drift.rs#L43) |
-| format | macro invocation (unexpanded) | parse_codex_drift_fields | [63](../../src-tauri/src/commands/providers/config_drift.rs#L63) |
-| CODEX_DRIFT_BASELINE | const_item |  | [69](../../src-tauri/src/commands/providers/config_drift.rs#L69) |
-| save_codex_drift_baseline | function_item |  | [71](../../src-tauri/src/commands/providers/config_drift.rs#L71) |
-| drift_changes | function_item |  | [77](../../src-tauri/src/commands/providers/config_drift.rs#L77) |
-| config_drift_report | function_item |  | [91](../../src-tauri/src/commands/providers/config_drift.rs#L91) |
-| matches | macro invocation (unexpanded) | config_drift_report | [92](../../src-tauri/src/commands/providers/config_drift.rs#L92) |
-| CORE_GATEWAY_CODE_KEYS | const_item | config_drift_report | [111](../../src-tauri/src/commands/providers/config_drift.rs#L111) |
-| SALT | static_item | config_drift_report | [125](../../src-tauri/src/commands/providers/config_drift.rs#L125) |
-| vec | macro invocation (unexpanded) | config_drift_report | [131](../../src-tauri/src/commands/providers/config_drift.rs#L131) |
-| vec | macro invocation (unexpanded) | config_drift_report | [133](../../src-tauri/src/commands/providers/config_drift.rs#L133) |
-| format | macro invocation (unexpanded) | config_drift_report | [143](../../src-tauri/src/commands/providers/config_drift.rs#L143) |
-| get_agent_config_drift | function_item |  | [147](../../src-tauri/src/commands/providers/config_drift.rs#L147) |
-| reapply_agent_config | function_item |  | [152](../../src-tauri/src/commands/providers/config_drift.rs#L152) |
-| config_drift_tests | mod_item |  | [166](../../src-tauri/src/commands/providers/config_drift.rs#L166) |
-| codex_drift_ignores_toml_formatting | function_item | config_drift_tests | [170](../../src-tauri/src/commands/providers/config_drift.rs#L170) |
-| assert | macro invocation (unexpanded) | config_drift_tests::codex_drift_ignores_toml_formatting | [173](../../src-tauri/src/commands/providers/config_drift.rs#L173) |
-| assert | macro invocation (unexpanded) | config_drift_tests::codex_drift_ignores_toml_formatting | [175](../../src-tauri/src/commands/providers/config_drift.rs#L175) |
-| drift_preview_never_serializes_values | function_item | config_drift_tests | [179](../../src-tauri/src/commands/providers/config_drift.rs#L179) |
-| assert_eq | macro invocation (unexpanded) | config_drift_tests::drift_preview_never_serializes_values | [183](../../src-tauri/src/commands/providers/config_drift.rs#L183) |
-| assert | macro invocation (unexpanded) | config_drift_tests::drift_preview_never_serializes_values | [185](../../src-tauri/src/commands/providers/config_drift.rs#L185) |
+| format | macro invocation (unexpanded) | parse_codex_drift_fields | [64](../../src-tauri/src/commands/providers/config_drift.rs#L64) |
+| CODEX_DRIFT_BASELINE | const_item |  | [70](../../src-tauri/src/commands/providers/config_drift.rs#L70) |
+| save_codex_drift_baseline | function_item |  | [72](../../src-tauri/src/commands/providers/config_drift.rs#L72) |
+| drift_changes | function_item |  | [78](../../src-tauri/src/commands/providers/config_drift.rs#L78) |
+| config_drift_report | function_item |  | [92](../../src-tauri/src/commands/providers/config_drift.rs#L92) |
+| matches | macro invocation (unexpanded) | config_drift_report | [93](../../src-tauri/src/commands/providers/config_drift.rs#L93) |
+| CORE_GATEWAY_CODE_KEYS | const_item | config_drift_report | [112](../../src-tauri/src/commands/providers/config_drift.rs#L112) |
+| SALT | static_item | config_drift_report | [126](../../src-tauri/src/commands/providers/config_drift.rs#L126) |
+| vec | macro invocation (unexpanded) | config_drift_report | [132](../../src-tauri/src/commands/providers/config_drift.rs#L132) |
+| vec | macro invocation (unexpanded) | config_drift_report | [134](../../src-tauri/src/commands/providers/config_drift.rs#L134) |
+| format | macro invocation (unexpanded) | config_drift_report | [144](../../src-tauri/src/commands/providers/config_drift.rs#L144) |
+| get_agent_config_drift | function_item |  | [148](../../src-tauri/src/commands/providers/config_drift.rs#L148) |
+| reapply_agent_config | function_item |  | [153](../../src-tauri/src/commands/providers/config_drift.rs#L153) |
+| config_drift_tests | mod_item |  | [167](../../src-tauri/src/commands/providers/config_drift.rs#L167) |
+| codex_drift_ignores_toml_formatting | function_item | config_drift_tests | [171](../../src-tauri/src/commands/providers/config_drift.rs#L171) |
+| assert | macro invocation (unexpanded) | config_drift_tests::codex_drift_ignores_toml_formatting | [174](../../src-tauri/src/commands/providers/config_drift.rs#L174) |
+| assert | macro invocation (unexpanded) | config_drift_tests::codex_drift_ignores_toml_formatting | [176](../../src-tauri/src/commands/providers/config_drift.rs#L176) |
+| drift_preview_never_serializes_values | function_item | config_drift_tests | [180](../../src-tauri/src/commands/providers/config_drift.rs#L180) |
+| assert_eq | macro invocation (unexpanded) | config_drift_tests::drift_preview_never_serializes_values | [184](../../src-tauri/src/commands/providers/config_drift.rs#L184) |
 | assert | macro invocation (unexpanded) | config_drift_tests::drift_preview_never_serializes_values | [186](../../src-tauri/src/commands/providers/config_drift.rs#L186) |
-| drift_normalizes_endpoint_and_ignores_unowned_fields | function_item | config_drift_tests | [190](../../src-tauri/src/commands/providers/config_drift.rs#L190) |
-| assert | macro invocation (unexpanded) | config_drift_tests::drift_normalizes_endpoint_and_ignores_unowned_fields | [196](../../src-tauri/src/commands/providers/config_drift.rs#L196) |
+| assert | macro invocation (unexpanded) | config_drift_tests::drift_preview_never_serializes_values | [187](../../src-tauri/src/commands/providers/config_drift.rs#L187) |
+| drift_normalizes_endpoint_and_ignores_unowned_fields | function_item | config_drift_tests | [191](../../src-tauri/src/commands/providers/config_drift.rs#L191) |
+| assert | macro invocation (unexpanded) | config_drift_tests::drift_normalizes_endpoint_and_ignores_unowned_fields | [197](../../src-tauri/src/commands/providers/config_drift.rs#L197) |

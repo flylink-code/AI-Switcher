@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/upstream_request.rs) · page 1/2
 
-Source SHA-256: c3dc23e38e5bf40860967dd727348ec8e1f85c374612b09dd56d3878d4764ac3
+Source SHA-256: f67a3b0ea5454a09c0b43a3d9b2958c15204af55e2670337521f45498143fe2c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -30,81 +30,81 @@ Source SHA-256: c3dc23e38e5bf40860967dd727348ec8e1f85c374612b09dd56d3878d4764ac3
 | log::info | macro invocation (unexpanded) | proxy_handler_inner | [525](../../src-tauri/src/proxy/upstream_request.rs#L525) |
 | log::warn | macro invocation (unexpanded) | proxy_handler_inner | [575](../../src-tauri/src/proxy/upstream_request.rs#L575) |
 | format | macro invocation (unexpanded) | proxy_handler_inner | [618](../../src-tauri/src/proxy/upstream_request.rs#L618) |
-| log::error | macro invocation (unexpanded) | proxy_handler_inner | [811](../../src-tauri/src/proxy/upstream_request.rs#L811) |
-| log::warn | macro invocation (unexpanded) | proxy_handler_inner | [914](../../src-tauri/src/proxy/upstream_request.rs#L914) |
-| format | macro invocation (unexpanded) | proxy_handler_inner | [1100](../../src-tauri/src/proxy/upstream_request.rs#L1100) |
-| format | macro invocation (unexpanded) | proxy_handler_inner | [1137](../../src-tauri/src/proxy/upstream_request.rs#L1137) |
-| format | macro invocation (unexpanded) | proxy_handler_inner | [1272](../../src-tauri/src/proxy/upstream_request.rs#L1272) |
-| PassthroughCursor | struct_item |  | [1276](../../src-tauri/src/proxy/upstream_request.rs#L1276) |
-| saw_message_start | field_declaration | PassthroughCursor | [1277](../../src-tauri/src/proxy/upstream_request.rs#L1277) |
-| saw_message_stop | field_declaration | PassthroughCursor | [1278](../../src-tauri/src/proxy/upstream_request.rs#L1278) |
-| open_blocks | field_declaration | PassthroughCursor | [1279](../../src-tauri/src/proxy/upstream_request.rs#L1279) |
-| next_block_index | field_declaration | PassthroughCursor | [1280](../../src-tauri/src/proxy/upstream_request.rs#L1280) |
-| emitted_body | field_declaration | PassthroughCursor | [1281](../../src-tauri/src/proxy/upstream_request.rs#L1281) |
-| PassthroughDrain | struct_item |  | [1284](../../src-tauri/src/proxy/upstream_request.rs#L1284) |
-| frames | field_declaration | PassthroughDrain | [1285](../../src-tauri/src/proxy/upstream_request.rs#L1285) |
-| terminal_error | field_declaration | PassthroughDrain | [1287](../../src-tauri/src/proxy/upstream_request.rs#L1287) |
-| terminal_message | field_declaration | PassthroughDrain | [1289](../../src-tauri/src/proxy/upstream_request.rs#L1289) |
-| finished | field_declaration | PassthroughDrain | [1291](../../src-tauri/src/proxy/upstream_request.rs#L1291) |
-| drain_passthrough_frames | function_item |  | [1294](../../src-tauri/src/proxy/upstream_request.rs#L1294) |
-| passthrough_frame_is_terminal_error | function_item |  | [1336](../../src-tauri/src/proxy/upstream_request.rs#L1336) |
-| passthrough_frame_error_message | function_item |  | [1345](../../src-tauri/src/proxy/upstream_request.rs#L1345) |
-| note_passthrough_frame | function_item |  | [1357](../../src-tauri/src/proxy/upstream_request.rs#L1357) |
-| sse_frame_data_json | function_item |  | [1406](../../src-tauri/src/proxy/upstream_request.rs#L1406) |
-| passthrough_abort | function_item |  | [1421](../../src-tauri/src/proxy/upstream_request.rs#L1421) |
-| record_passthrough_usage | function_item |  | [1432](../../src-tauri/src/proxy/upstream_request.rs#L1432) |
-| log::error | macro invocation (unexpanded) | record_passthrough_usage | [1458](../../src-tauri/src/proxy/upstream_request.rs#L1458) |
-| sse_frame_is_event | function_item |  | [1464](../../src-tauri/src/proxy/upstream_request.rs#L1464) |
-| mark_passthrough_midstream_error | function_item |  | [1475](../../src-tauri/src/proxy/upstream_request.rs#L1475) |
-| is_claude_desktop_inference_probe | function_item |  | [1496](../../src-tauri/src/proxy/upstream_request.rs#L1496) |
-| is_claude_code_model_validation_probe | function_item |  | [1550](../../src-tauri/src/proxy/upstream_request.rs#L1550) |
-| matches | macro invocation (unexpanded) | is_claude_code_model_validation_probe | [1607](../../src-tauri/src/proxy/upstream_request.rs#L1607) |
-| PROBE_MAX_TEXT_CHARS | const_item |  | [1613](../../src-tauri/src/proxy/upstream_request.rs#L1613) |
-| probe_tests | mod_item |  | [1616](../../src-tauri/src/proxy/upstream_request.rs#L1616) |
-| detects_claude_desktop_probe_request | function_item | probe_tests | [1620](../../src-tauri/src/proxy/upstream_request.rs#L1620) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1621](../../src-tauri/src/proxy/upstream_request.rs#L1621) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1631](../../src-tauri/src/proxy/upstream_request.rs#L1631) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1637](../../src-tauri/src/proxy/upstream_request.rs#L1637) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1644](../../src-tauri/src/proxy/upstream_request.rs#L1644) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1651](../../src-tauri/src/proxy/upstream_request.rs#L1651) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1658](../../src-tauri/src/proxy/upstream_request.rs#L1658) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1668](../../src-tauri/src/proxy/upstream_request.rs#L1668) |
-| detects_model_switch_confirmation_but_not_real_turns | function_item | probe_tests | [1677](../../src-tauri/src/proxy/upstream_request.rs#L1677) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1678](../../src-tauri/src/proxy/upstream_request.rs#L1678) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1687](../../src-tauri/src/proxy/upstream_request.rs#L1687) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1694](../../src-tauri/src/proxy/upstream_request.rs#L1694) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1695](../../src-tauri/src/proxy/upstream_request.rs#L1695) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1702](../../src-tauri/src/proxy/upstream_request.rs#L1702) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1703](../../src-tauri/src/proxy/upstream_request.rs#L1703) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1710](../../src-tauri/src/proxy/upstream_request.rs#L1710) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1714](../../src-tauri/src/proxy/upstream_request.rs#L1714) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1720](../../src-tauri/src/proxy/upstream_request.rs#L1720) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1724](../../src-tauri/src/proxy/upstream_request.rs#L1724) |
-| detects_claude_code_model_validation_probe | function_item | probe_tests | [1733](../../src-tauri/src/proxy/upstream_request.rs#L1733) |
-| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1734](../../src-tauri/src/proxy/upstream_request.rs#L1734) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1747](../../src-tauri/src/proxy/upstream_request.rs#L1747) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1753](../../src-tauri/src/proxy/upstream_request.rs#L1753) |
-| assert | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1759](../../src-tauri/src/proxy/upstream_request.rs#L1759) |
-| sse_frame_is_event_reads_event_line | function_item | probe_tests | [1768](../../src-tauri/src/proxy/upstream_request.rs#L1768) |
-| assert | macro invocation (unexpanded) | probe_tests::sse_frame_is_event_reads_event_line | [1769](../../src-tauri/src/proxy/upstream_request.rs#L1769) |
-| assert | macro invocation (unexpanded) | probe_tests::sse_frame_is_event_reads_event_line | [1773](../../src-tauri/src/proxy/upstream_request.rs#L1773) |
-| assert | macro invocation (unexpanded) | probe_tests::sse_frame_is_event_reads_event_line | [1777](../../src-tauri/src/proxy/upstream_request.rs#L1777) |
-| passthrough_holds_partial_frame | function_item | probe_tests | [1784](../../src-tauri/src/proxy/upstream_request.rs#L1784) |
+| log::error | macro invocation (unexpanded) | proxy_handler_inner | [810](../../src-tauri/src/proxy/upstream_request.rs#L810) |
+| log::warn | macro invocation (unexpanded) | proxy_handler_inner | [913](../../src-tauri/src/proxy/upstream_request.rs#L913) |
+| format | macro invocation (unexpanded) | proxy_handler_inner | [1099](../../src-tauri/src/proxy/upstream_request.rs#L1099) |
+| format | macro invocation (unexpanded) | proxy_handler_inner | [1136](../../src-tauri/src/proxy/upstream_request.rs#L1136) |
+| format | macro invocation (unexpanded) | proxy_handler_inner | [1271](../../src-tauri/src/proxy/upstream_request.rs#L1271) |
+| PassthroughCursor | struct_item |  | [1275](../../src-tauri/src/proxy/upstream_request.rs#L1275) |
+| saw_message_start | field_declaration | PassthroughCursor | [1276](../../src-tauri/src/proxy/upstream_request.rs#L1276) |
+| saw_message_stop | field_declaration | PassthroughCursor | [1277](../../src-tauri/src/proxy/upstream_request.rs#L1277) |
+| open_blocks | field_declaration | PassthroughCursor | [1278](../../src-tauri/src/proxy/upstream_request.rs#L1278) |
+| next_block_index | field_declaration | PassthroughCursor | [1279](../../src-tauri/src/proxy/upstream_request.rs#L1279) |
+| emitted_body | field_declaration | PassthroughCursor | [1280](../../src-tauri/src/proxy/upstream_request.rs#L1280) |
+| PassthroughDrain | struct_item |  | [1283](../../src-tauri/src/proxy/upstream_request.rs#L1283) |
+| frames | field_declaration | PassthroughDrain | [1284](../../src-tauri/src/proxy/upstream_request.rs#L1284) |
+| terminal_error | field_declaration | PassthroughDrain | [1286](../../src-tauri/src/proxy/upstream_request.rs#L1286) |
+| terminal_message | field_declaration | PassthroughDrain | [1288](../../src-tauri/src/proxy/upstream_request.rs#L1288) |
+| finished | field_declaration | PassthroughDrain | [1290](../../src-tauri/src/proxy/upstream_request.rs#L1290) |
+| drain_passthrough_frames | function_item |  | [1293](../../src-tauri/src/proxy/upstream_request.rs#L1293) |
+| passthrough_frame_is_terminal_error | function_item |  | [1335](../../src-tauri/src/proxy/upstream_request.rs#L1335) |
+| passthrough_frame_error_message | function_item |  | [1344](../../src-tauri/src/proxy/upstream_request.rs#L1344) |
+| note_passthrough_frame | function_item |  | [1356](../../src-tauri/src/proxy/upstream_request.rs#L1356) |
+| sse_frame_data_json | function_item |  | [1405](../../src-tauri/src/proxy/upstream_request.rs#L1405) |
+| passthrough_abort | function_item |  | [1420](../../src-tauri/src/proxy/upstream_request.rs#L1420) |
+| record_passthrough_usage | function_item |  | [1431](../../src-tauri/src/proxy/upstream_request.rs#L1431) |
+| log::error | macro invocation (unexpanded) | record_passthrough_usage | [1457](../../src-tauri/src/proxy/upstream_request.rs#L1457) |
+| sse_frame_is_event | function_item |  | [1463](../../src-tauri/src/proxy/upstream_request.rs#L1463) |
+| mark_passthrough_midstream_error | function_item |  | [1474](../../src-tauri/src/proxy/upstream_request.rs#L1474) |
+| is_claude_desktop_inference_probe | function_item |  | [1495](../../src-tauri/src/proxy/upstream_request.rs#L1495) |
+| is_claude_code_model_validation_probe | function_item |  | [1549](../../src-tauri/src/proxy/upstream_request.rs#L1549) |
+| matches | macro invocation (unexpanded) | is_claude_code_model_validation_probe | [1606](../../src-tauri/src/proxy/upstream_request.rs#L1606) |
+| PROBE_MAX_TEXT_CHARS | const_item |  | [1612](../../src-tauri/src/proxy/upstream_request.rs#L1612) |
+| probe_tests | mod_item |  | [1615](../../src-tauri/src/proxy/upstream_request.rs#L1615) |
+| detects_claude_desktop_probe_request | function_item | probe_tests | [1619](../../src-tauri/src/proxy/upstream_request.rs#L1619) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1620](../../src-tauri/src/proxy/upstream_request.rs#L1620) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1630](../../src-tauri/src/proxy/upstream_request.rs#L1630) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1636](../../src-tauri/src/proxy/upstream_request.rs#L1636) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1643](../../src-tauri/src/proxy/upstream_request.rs#L1643) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1650](../../src-tauri/src/proxy/upstream_request.rs#L1650) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1657](../../src-tauri/src/proxy/upstream_request.rs#L1657) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_desktop_probe_request | [1667](../../src-tauri/src/proxy/upstream_request.rs#L1667) |
+| detects_model_switch_confirmation_but_not_real_turns | function_item | probe_tests | [1676](../../src-tauri/src/proxy/upstream_request.rs#L1676) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1677](../../src-tauri/src/proxy/upstream_request.rs#L1677) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1686](../../src-tauri/src/proxy/upstream_request.rs#L1686) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1693](../../src-tauri/src/proxy/upstream_request.rs#L1693) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1694](../../src-tauri/src/proxy/upstream_request.rs#L1694) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1701](../../src-tauri/src/proxy/upstream_request.rs#L1701) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1702](../../src-tauri/src/proxy/upstream_request.rs#L1702) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1709](../../src-tauri/src/proxy/upstream_request.rs#L1709) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1713](../../src-tauri/src/proxy/upstream_request.rs#L1713) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1719](../../src-tauri/src/proxy/upstream_request.rs#L1719) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_model_switch_confirmation_but_not_real_turns | [1723](../../src-tauri/src/proxy/upstream_request.rs#L1723) |
+| detects_claude_code_model_validation_probe | function_item | probe_tests | [1732](../../src-tauri/src/proxy/upstream_request.rs#L1732) |
+| serde_json::json | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1733](../../src-tauri/src/proxy/upstream_request.rs#L1733) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1746](../../src-tauri/src/proxy/upstream_request.rs#L1746) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1752](../../src-tauri/src/proxy/upstream_request.rs#L1752) |
+| assert | macro invocation (unexpanded) | probe_tests::detects_claude_code_model_validation_probe | [1758](../../src-tauri/src/proxy/upstream_request.rs#L1758) |
+| sse_frame_is_event_reads_event_line | function_item | probe_tests | [1767](../../src-tauri/src/proxy/upstream_request.rs#L1767) |
+| assert | macro invocation (unexpanded) | probe_tests::sse_frame_is_event_reads_event_line | [1768](../../src-tauri/src/proxy/upstream_request.rs#L1768) |
+| assert | macro invocation (unexpanded) | probe_tests::sse_frame_is_event_reads_event_line | [1772](../../src-tauri/src/proxy/upstream_request.rs#L1772) |
+| assert | macro invocation (unexpanded) | probe_tests::sse_frame_is_event_reads_event_line | [1776](../../src-tauri/src/proxy/upstream_request.rs#L1776) |
+| passthrough_holds_partial_frame | function_item | probe_tests | [1783](../../src-tauri/src/proxy/upstream_request.rs#L1783) |
+| assert | macro invocation (unexpanded) | probe_tests::passthrough_holds_partial_frame | [1789](../../src-tauri/src/proxy/upstream_request.rs#L1789) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_holds_partial_frame | [1790](../../src-tauri/src/proxy/upstream_request.rs#L1790) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_holds_partial_frame | [1791](../../src-tauri/src/proxy/upstream_request.rs#L1791) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_holds_partial_frame | [1792](../../src-tauri/src/proxy/upstream_request.rs#L1792) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_holds_partial_frame | [1793](../../src-tauri/src/proxy/upstream_request.rs#L1793) |
-| assert | macro invocation (unexpanded) | probe_tests::passthrough_holds_partial_frame | [1794](../../src-tauri/src/proxy/upstream_request.rs#L1794) |
-| passthrough_replaces_error_event_and_closes_open_block | function_item | probe_tests | [1798](../../src-tauri/src/proxy/upstream_request.rs#L1798) |
-| concat | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1799](../../src-tauri/src/proxy/upstream_request.rs#L1799) |
+| passthrough_replaces_error_event_and_closes_open_block | function_item | probe_tests | [1797](../../src-tauri/src/proxy/upstream_request.rs#L1797) |
+| concat | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1798](../../src-tauri/src/proxy/upstream_request.rs#L1798) |
+| assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1811](../../src-tauri/src/proxy/upstream_request.rs#L1811) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1812](../../src-tauri/src/proxy/upstream_request.rs#L1812) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1813](../../src-tauri/src/proxy/upstream_request.rs#L1813) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1814](../../src-tauri/src/proxy/upstream_request.rs#L1814) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1815](../../src-tauri/src/proxy/upstream_request.rs#L1815) |
-| assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1816](../../src-tauri/src/proxy/upstream_request.rs#L1816) |
-| assert_eq | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1817](../../src-tauri/src/proxy/upstream_request.rs#L1817) |
+| assert_eq | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1816](../../src-tauri/src/proxy/upstream_request.rs#L1816) |
+| assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1823](../../src-tauri/src/proxy/upstream_request.rs#L1823) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1824](../../src-tauri/src/proxy/upstream_request.rs#L1824) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1825](../../src-tauri/src/proxy/upstream_request.rs#L1825) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1826](../../src-tauri/src/proxy/upstream_request.rs#L1826) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1827](../../src-tauri/src/proxy/upstream_request.rs#L1827) |
-| assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1828](../../src-tauri/src/proxy/upstream_request.rs#L1828) |

@@ -4,107 +4,107 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/node_runtime.rs) · page 1/2
 
-Source SHA-256: 2d4a12cc634f5a801f4af7589d5cbf393bbfd56716f4f750ff5a1956bb7896ee
+Source SHA-256: d74da873619699f96725ddfc5cc88201932d7ef49d8937fa21732c01ad0b69ff
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | MINIMUM_NODE_MAJOR | const_item |  | [12](../../src-tauri/src/commands/node_runtime.rs#L12) |
-| CREATE_NO_WINDOW | const_item |  | [13](../../src-tauri/src/commands/node_runtime.rs#L13) |
-| FNM_NODE_DIST_MIRROR | const_item |  | [15](../../src-tauri/src/commands/node_runtime.rs#L15) |
-| NPM_REGISTRY_MIRROR | const_item |  | [17](../../src-tauri/src/commands/node_runtime.rs#L17) |
-| NPM_REGISTRY_OFFICIAL | const_item |  | [19](../../src-tauri/src/commands/node_runtime.rs#L19) |
-| DEFAULT_GITHUB_MIRROR_BASE | const_item |  | [20](../../src-tauri/src/commands/node_runtime.rs#L20) |
-| FNM_RELEASE_ZIP_LINUX | const_item |  | [22](../../src-tauri/src/commands/node_runtime.rs#L22) |
-| FNM_RELEASE_ZIP_LINUX_ARM64 | const_item |  | [25](../../src-tauri/src/commands/node_runtime.rs#L25) |
-| FNM_RELEASE_ZIP_WINDOWS | const_item |  | [28](../../src-tauri/src/commands/node_runtime.rs#L28) |
-| FNM_INSTALL_SCRIPT | const_item |  | [31](../../src-tauri/src/commands/node_runtime.rs#L31) |
-| NodeRuntimeStatus | struct_item |  | [35](../../src-tauri/src/commands/node_runtime.rs#L35) |
-| installed | field_declaration | NodeRuntimeStatus | [36](../../src-tauri/src/commands/node_runtime.rs#L36) |
-| version | field_declaration | NodeRuntimeStatus | [37](../../src-tauri/src/commands/node_runtime.rs#L37) |
-| meets_minimum | field_declaration | NodeRuntimeStatus | [38](../../src-tauri/src/commands/node_runtime.rs#L38) |
-| npm_path | field_declaration | NodeRuntimeStatus | [39](../../src-tauri/src/commands/node_runtime.rs#L39) |
-| node_path | field_declaration | NodeRuntimeStatus | [40](../../src-tauri/src/commands/node_runtime.rs#L40) |
-| source | field_declaration | NodeRuntimeStatus | [41](../../src-tauri/src/commands/node_runtime.rs#L41) |
-| fnm_installed | field_declaration | NodeRuntimeStatus | [42](../../src-tauri/src/commands/node_runtime.rs#L42) |
-| install_hint | field_declaration | NodeRuntimeStatus | [43](../../src-tauri/src/commands/node_runtime.rs#L43) |
-| ResolvedNodeRuntime | struct_item |  | [47](../../src-tauri/src/commands/node_runtime.rs#L47) |
-| node_path | field_declaration | ResolvedNodeRuntime | [48](../../src-tauri/src/commands/node_runtime.rs#L48) |
-| npm_path | field_declaration | ResolvedNodeRuntime | [49](../../src-tauri/src/commands/node_runtime.rs#L49) |
-| decode_output | function_item |  | [52](../../src-tauri/src/commands/node_runtime.rs#L52) |
-| shell_single_quote | function_item |  | [65](../../src-tauri/src/commands/node_runtime.rs#L65) |
-| format | macro invocation (unexpanded) | shell_single_quote | [66](../../src-tauri/src/commands/node_runtime.rs#L66) |
-| quoted | function_item |  | [70](../../src-tauri/src/commands/node_runtime.rs#L70) |
-| format | macro invocation (unexpanded) | quoted | [71](../../src-tauri/src/commands/node_runtime.rs#L71) |
-| parse_node_version | function_item |  | [74](../../src-tauri/src/commands/node_runtime.rs#L74) |
-| version_meets_minimum | function_item |  | [87](../../src-tauri/src/commands/node_runtime.rs#L87) |
-| map_npm_install_error | function_item |  | [96](../../src-tauri/src/commands/node_runtime.rs#L96) |
-| format | macro invocation (unexpanded) | map_npm_install_error | [103](../../src-tauri/src/commands/node_runtime.rs#L103) |
-| format | macro invocation (unexpanded) | map_npm_install_error | [108](../../src-tauri/src/commands/node_runtime.rs#L108) |
-| format | macro invocation (unexpanded) | map_npm_install_error | [121](../../src-tauri/src/commands/node_runtime.rs#L121) |
-| github_download_candidates | function_item |  | [129](../../src-tauri/src/commands/node_runtime.rs#L129) |
-| vec | macro invocation (unexpanded) | github_download_candidates | [130](../../src-tauri/src/commands/node_runtime.rs#L130) |
-| format | macro invocation (unexpanded) | github_download_candidates | [136](../../src-tauri/src/commands/node_runtime.rs#L136) |
-| format | macro invocation (unexpanded) | github_download_candidates | [144](../../src-tauri/src/commands/node_runtime.rs#L144) |
-| configure_hidden | function_item |  | [152](../../src-tauri/src/commands/node_runtime.rs#L152) |
-| QUICK_COMMAND_TIMEOUT | const_item |  | [161](../../src-tauri/src/commands/node_runtime.rs#L161) |
-| NPM_INSTALL_TIMEOUT | const_item |  | [162](../../src-tauri/src/commands/node_runtime.rs#L162) |
-| FNM_INSTALL_TIMEOUT | const_item |  | [163](../../src-tauri/src/commands/node_runtime.rs#L163) |
-| run_output | function_item |  | [165](../../src-tauri/src/commands/node_runtime.rs#L165) |
-| run_output_timeout | function_item |  | [169](../../src-tauri/src/commands/node_runtime.rs#L169) |
-| home_dir | function_item |  | [175](../../src-tauri/src/commands/node_runtime.rs#L175) |
-| fnm_candidate_dirs | function_item |  | [179](../../src-tauri/src/commands/node_runtime.rs#L179) |
-| fnm_install_dir | function_item |  | [202](../../src-tauri/src/commands/node_runtime.rs#L202) |
-| looks_like_fnm_path | function_item |  | [215](../../src-tauri/src/commands/node_runtime.rs#L215) |
-| push_bin_dir | function_item |  | [220](../../src-tauri/src/commands/node_runtime.rs#L220) |
-| fnm_node_bin_dirs | function_item |  | [232](../../src-tauri/src/commands/node_runtime.rs#L232) |
-| executable_candidates | function_item |  | [271](../../src-tauri/src/commands/node_runtime.rs#L271) |
-| vec | macro invocation (unexpanded) | executable_candidates | [274](../../src-tauri/src/commands/node_runtime.rs#L274) |
-| vec | macro invocation (unexpanded) | executable_candidates | [284](../../src-tauri/src/commands/node_runtime.rs#L284) |
-| find_fnm_binary | function_item |  | [288](../../src-tauri/src/commands/node_runtime.rs#L288) |
-| resolve_command_on_path | function_item |  | [302](../../src-tauri/src/commands/node_runtime.rs#L302) |
-| format | macro invocation (unexpanded) | resolve_command_on_path | [324](../../src-tauri/src/commands/node_runtime.rs#L324) |
-| read_node_version | function_item |  | [340](../../src-tauri/src/commands/node_runtime.rs#L340) |
-| run_tool_version | function_item |  | [349](../../src-tauri/src/commands/node_runtime.rs#L349) |
-| format | macro invocation (unexpanded) | run_tool_version | [361](../../src-tauri/src/commands/node_runtime.rs#L361) |
-| sibling_npm | function_item |  | [383](../../src-tauri/src/commands/node_runtime.rs#L383) |
-| probe_from_node | function_item |  | [390](../../src-tauri/src/commands/node_runtime.rs#L390) |
-| probe_fnm_default_node | function_item |  | [401](../../src-tauri/src/commands/node_runtime.rs#L401) |
-| format | macro invocation (unexpanded) | probe_fnm_default_node | [405](../../src-tauri/src/commands/node_runtime.rs#L405) |
-| format | macro invocation (unexpanded) | probe_fnm_default_node | [438](../../src-tauri/src/commands/node_runtime.rs#L438) |
-| common_system_node_dirs | function_item |  | [457](../../src-tauri/src/commands/node_runtime.rs#L457) |
-| probe_system_node | function_item |  | [482](../../src-tauri/src/commands/node_runtime.rs#L482) |
-| status_from_probe | function_item |  | [500](../../src-tauri/src/commands/node_runtime.rs#L500) |
-| format | macro invocation (unexpanded) | status_from_probe | [508](../../src-tauri/src/commands/node_runtime.rs#L508) |
-| format | macro invocation (unexpanded) | status_from_probe | [510](../../src-tauri/src/commands/node_runtime.rs#L510) |
-| format | macro invocation (unexpanded) | status_from_probe | [533](../../src-tauri/src/commands/node_runtime.rs#L533) |
-| probe_node_runtime | function_item |  | [540](../../src-tauri/src/commands/node_runtime.rs#L540) |
-| require_node_for_npm | function_item |  | [564](../../src-tauri/src/commands/node_runtime.rs#L564) |
-| scrub_npm_env | function_item |  | [586](../../src-tauri/src/commands/node_runtime.rs#L586) |
-| run_anchored_npm | function_item |  | [599](../../src-tauri/src/commands/node_runtime.rs#L599) |
-| run_anchored_npm_with_timeout | function_item |  | [603](../../src-tauri/src/commands/node_runtime.rs#L603) |
-| format | macro invocation (unexpanded) | run_anchored_npm_with_timeout | [618](../../src-tauri/src/commands/node_runtime.rs#L618) |
-| vec | macro invocation (unexpanded) | run_anchored_npm_with_timeout | [638](../../src-tauri/src/commands/node_runtime.rs#L638) |
-| npm_global_bin_dirs | function_item |  | [658](../../src-tauri/src/commands/node_runtime.rs#L658) |
-| run_anchored_npm_global_install | function_item |  | [700](../../src-tauri/src/commands/node_runtime.rs#L700) |
-| run_anchored_npm_global_install_official | function_item |  | [724](../../src-tauri/src/commands/node_runtime.rs#L724) |
-| run_anchored_npm_global_uninstall | function_item |  | [745](../../src-tauri/src/commands/node_runtime.rs#L745) |
-| download_bytes | function_item |  | [758](../../src-tauri/src/commands/node_runtime.rs#L758) |
-| format | macro invocation (unexpanded) | download_bytes | [762](../../src-tauri/src/commands/node_runtime.rs#L762) |
-| format | macro invocation (unexpanded) | download_bytes | [766](../../src-tauri/src/commands/node_runtime.rs#L766) |
-| format | macro invocation (unexpanded) | download_bytes | [768](../../src-tauri/src/commands/node_runtime.rs#L768) |
-| format | macro invocation (unexpanded) | download_bytes | [776](../../src-tauri/src/commands/node_runtime.rs#L776) |
-| download_bytes_with_fallbacks | function_item |  | [779](../../src-tauri/src/commands/node_runtime.rs#L779) |
-| log::warn | macro invocation (unexpanded) | download_bytes_with_fallbacks | [785](../../src-tauri/src/commands/node_runtime.rs#L785) |
-| extract_zip_bytes | function_item |  | [795](../../src-tauri/src/commands/node_runtime.rs#L795) |
-| format | macro invocation (unexpanded) | extract_zip_bytes | [799](../../src-tauri/src/commands/node_runtime.rs#L799) |
-| format | macro invocation (unexpanded) | extract_zip_bytes | [803](../../src-tauri/src/commands/node_runtime.rs#L803) |
-| install_fnm_binary | function_item |  | [834](../../src-tauri/src/commands/node_runtime.rs#L834) |
-| log::warn | macro invocation (unexpanded) | install_fnm_binary | [899](../../src-tauri/src/commands/node_runtime.rs#L899) |
-| format | macro invocation (unexpanded) | install_fnm_binary | [905](../../src-tauri/src/commands/node_runtime.rs#L905) |
-| format | macro invocation (unexpanded) | install_fnm_binary | [910](../../src-tauri/src/commands/node_runtime.rs#L910) |
-| format | macro invocation (unexpanded) | install_fnm_binary | [935](../../src-tauri/src/commands/node_runtime.rs#L935) |
-| run_fnm_with_env | function_item |  | [956](../../src-tauri/src/commands/node_runtime.rs#L956) |
-| format | macro invocation (unexpanded) | run_fnm_with_env | [968](../../src-tauri/src/commands/node_runtime.rs#L968) |
-| format | macro invocation (unexpanded) | run_fnm_with_env | [978](../../src-tauri/src/commands/node_runtime.rs#L978) |
-| install_node_22_via_fnm | function_item |  | [986](../../src-tauri/src/commands/node_runtime.rs#L986) |
-| log::warn | macro invocation (unexpanded) | install_node_22_via_fnm | [990](../../src-tauri/src/commands/node_runtime.rs#L990) |
+| CREATE_NO_WINDOW | const_item |  | [14](../../src-tauri/src/commands/node_runtime.rs#L14) |
+| FNM_NODE_DIST_MIRROR | const_item |  | [16](../../src-tauri/src/commands/node_runtime.rs#L16) |
+| NPM_REGISTRY_MIRROR | const_item |  | [18](../../src-tauri/src/commands/node_runtime.rs#L18) |
+| NPM_REGISTRY_OFFICIAL | const_item |  | [20](../../src-tauri/src/commands/node_runtime.rs#L20) |
+| DEFAULT_GITHUB_MIRROR_BASE | const_item |  | [21](../../src-tauri/src/commands/node_runtime.rs#L21) |
+| FNM_RELEASE_ZIP_LINUX | const_item |  | [23](../../src-tauri/src/commands/node_runtime.rs#L23) |
+| FNM_RELEASE_ZIP_LINUX_ARM64 | const_item |  | [26](../../src-tauri/src/commands/node_runtime.rs#L26) |
+| FNM_RELEASE_ZIP_WINDOWS | const_item |  | [29](../../src-tauri/src/commands/node_runtime.rs#L29) |
+| FNM_INSTALL_SCRIPT | const_item |  | [32](../../src-tauri/src/commands/node_runtime.rs#L32) |
+| NodeRuntimeStatus | struct_item |  | [36](../../src-tauri/src/commands/node_runtime.rs#L36) |
+| installed | field_declaration | NodeRuntimeStatus | [37](../../src-tauri/src/commands/node_runtime.rs#L37) |
+| version | field_declaration | NodeRuntimeStatus | [38](../../src-tauri/src/commands/node_runtime.rs#L38) |
+| meets_minimum | field_declaration | NodeRuntimeStatus | [39](../../src-tauri/src/commands/node_runtime.rs#L39) |
+| npm_path | field_declaration | NodeRuntimeStatus | [40](../../src-tauri/src/commands/node_runtime.rs#L40) |
+| node_path | field_declaration | NodeRuntimeStatus | [41](../../src-tauri/src/commands/node_runtime.rs#L41) |
+| source | field_declaration | NodeRuntimeStatus | [42](../../src-tauri/src/commands/node_runtime.rs#L42) |
+| fnm_installed | field_declaration | NodeRuntimeStatus | [43](../../src-tauri/src/commands/node_runtime.rs#L43) |
+| install_hint | field_declaration | NodeRuntimeStatus | [44](../../src-tauri/src/commands/node_runtime.rs#L44) |
+| ResolvedNodeRuntime | struct_item |  | [48](../../src-tauri/src/commands/node_runtime.rs#L48) |
+| node_path | field_declaration | ResolvedNodeRuntime | [49](../../src-tauri/src/commands/node_runtime.rs#L49) |
+| npm_path | field_declaration | ResolvedNodeRuntime | [50](../../src-tauri/src/commands/node_runtime.rs#L50) |
+| decode_output | function_item |  | [53](../../src-tauri/src/commands/node_runtime.rs#L53) |
+| shell_single_quote | function_item |  | [66](../../src-tauri/src/commands/node_runtime.rs#L66) |
+| format | macro invocation (unexpanded) | shell_single_quote | [67](../../src-tauri/src/commands/node_runtime.rs#L67) |
+| quoted | function_item |  | [71](../../src-tauri/src/commands/node_runtime.rs#L71) |
+| format | macro invocation (unexpanded) | quoted | [72](../../src-tauri/src/commands/node_runtime.rs#L72) |
+| parse_node_version | function_item |  | [75](../../src-tauri/src/commands/node_runtime.rs#L75) |
+| version_meets_minimum | function_item |  | [88](../../src-tauri/src/commands/node_runtime.rs#L88) |
+| map_npm_install_error | function_item |  | [97](../../src-tauri/src/commands/node_runtime.rs#L97) |
+| format | macro invocation (unexpanded) | map_npm_install_error | [104](../../src-tauri/src/commands/node_runtime.rs#L104) |
+| format | macro invocation (unexpanded) | map_npm_install_error | [109](../../src-tauri/src/commands/node_runtime.rs#L109) |
+| format | macro invocation (unexpanded) | map_npm_install_error | [122](../../src-tauri/src/commands/node_runtime.rs#L122) |
+| github_download_candidates | function_item |  | [130](../../src-tauri/src/commands/node_runtime.rs#L130) |
+| vec | macro invocation (unexpanded) | github_download_candidates | [131](../../src-tauri/src/commands/node_runtime.rs#L131) |
+| format | macro invocation (unexpanded) | github_download_candidates | [137](../../src-tauri/src/commands/node_runtime.rs#L137) |
+| format | macro invocation (unexpanded) | github_download_candidates | [145](../../src-tauri/src/commands/node_runtime.rs#L145) |
+| configure_hidden | function_item |  | [153](../../src-tauri/src/commands/node_runtime.rs#L153) |
+| QUICK_COMMAND_TIMEOUT | const_item |  | [162](../../src-tauri/src/commands/node_runtime.rs#L162) |
+| NPM_INSTALL_TIMEOUT | const_item |  | [163](../../src-tauri/src/commands/node_runtime.rs#L163) |
+| FNM_INSTALL_TIMEOUT | const_item |  | [164](../../src-tauri/src/commands/node_runtime.rs#L164) |
+| run_output | function_item |  | [166](../../src-tauri/src/commands/node_runtime.rs#L166) |
+| run_output_timeout | function_item |  | [170](../../src-tauri/src/commands/node_runtime.rs#L170) |
+| home_dir | function_item |  | [176](../../src-tauri/src/commands/node_runtime.rs#L176) |
+| fnm_candidate_dirs | function_item |  | [180](../../src-tauri/src/commands/node_runtime.rs#L180) |
+| fnm_install_dir | function_item |  | [203](../../src-tauri/src/commands/node_runtime.rs#L203) |
+| looks_like_fnm_path | function_item |  | [216](../../src-tauri/src/commands/node_runtime.rs#L216) |
+| push_bin_dir | function_item |  | [221](../../src-tauri/src/commands/node_runtime.rs#L221) |
+| fnm_node_bin_dirs | function_item |  | [233](../../src-tauri/src/commands/node_runtime.rs#L233) |
+| executable_candidates | function_item |  | [272](../../src-tauri/src/commands/node_runtime.rs#L272) |
+| vec | macro invocation (unexpanded) | executable_candidates | [275](../../src-tauri/src/commands/node_runtime.rs#L275) |
+| vec | macro invocation (unexpanded) | executable_candidates | [285](../../src-tauri/src/commands/node_runtime.rs#L285) |
+| find_fnm_binary | function_item |  | [289](../../src-tauri/src/commands/node_runtime.rs#L289) |
+| resolve_command_on_path | function_item |  | [303](../../src-tauri/src/commands/node_runtime.rs#L303) |
+| format | macro invocation (unexpanded) | resolve_command_on_path | [325](../../src-tauri/src/commands/node_runtime.rs#L325) |
+| read_node_version | function_item |  | [341](../../src-tauri/src/commands/node_runtime.rs#L341) |
+| run_tool_version | function_item |  | [350](../../src-tauri/src/commands/node_runtime.rs#L350) |
+| format | macro invocation (unexpanded) | run_tool_version | [362](../../src-tauri/src/commands/node_runtime.rs#L362) |
+| sibling_npm | function_item |  | [384](../../src-tauri/src/commands/node_runtime.rs#L384) |
+| probe_from_node | function_item |  | [391](../../src-tauri/src/commands/node_runtime.rs#L391) |
+| probe_fnm_default_node | function_item |  | [402](../../src-tauri/src/commands/node_runtime.rs#L402) |
+| format | macro invocation (unexpanded) | probe_fnm_default_node | [406](../../src-tauri/src/commands/node_runtime.rs#L406) |
+| format | macro invocation (unexpanded) | probe_fnm_default_node | [439](../../src-tauri/src/commands/node_runtime.rs#L439) |
+| common_system_node_dirs | function_item |  | [458](../../src-tauri/src/commands/node_runtime.rs#L458) |
+| probe_system_node | function_item |  | [483](../../src-tauri/src/commands/node_runtime.rs#L483) |
+| status_from_probe | function_item |  | [501](../../src-tauri/src/commands/node_runtime.rs#L501) |
+| format | macro invocation (unexpanded) | status_from_probe | [509](../../src-tauri/src/commands/node_runtime.rs#L509) |
+| format | macro invocation (unexpanded) | status_from_probe | [511](../../src-tauri/src/commands/node_runtime.rs#L511) |
+| format | macro invocation (unexpanded) | status_from_probe | [534](../../src-tauri/src/commands/node_runtime.rs#L534) |
+| probe_node_runtime | function_item |  | [541](../../src-tauri/src/commands/node_runtime.rs#L541) |
+| require_node_for_npm | function_item |  | [565](../../src-tauri/src/commands/node_runtime.rs#L565) |
+| scrub_npm_env | function_item |  | [587](../../src-tauri/src/commands/node_runtime.rs#L587) |
+| run_anchored_npm | function_item |  | [600](../../src-tauri/src/commands/node_runtime.rs#L600) |
+| run_anchored_npm_with_timeout | function_item |  | [604](../../src-tauri/src/commands/node_runtime.rs#L604) |
+| format | macro invocation (unexpanded) | run_anchored_npm_with_timeout | [619](../../src-tauri/src/commands/node_runtime.rs#L619) |
+| vec | macro invocation (unexpanded) | run_anchored_npm_with_timeout | [639](../../src-tauri/src/commands/node_runtime.rs#L639) |
+| npm_global_bin_dirs | function_item |  | [659](../../src-tauri/src/commands/node_runtime.rs#L659) |
+| run_anchored_npm_global_install | function_item |  | [701](../../src-tauri/src/commands/node_runtime.rs#L701) |
+| run_anchored_npm_global_install_official | function_item |  | [725](../../src-tauri/src/commands/node_runtime.rs#L725) |
+| run_anchored_npm_global_uninstall | function_item |  | [746](../../src-tauri/src/commands/node_runtime.rs#L746) |
+| download_bytes | function_item |  | [759](../../src-tauri/src/commands/node_runtime.rs#L759) |
+| format | macro invocation (unexpanded) | download_bytes | [763](../../src-tauri/src/commands/node_runtime.rs#L763) |
+| format | macro invocation (unexpanded) | download_bytes | [767](../../src-tauri/src/commands/node_runtime.rs#L767) |
+| format | macro invocation (unexpanded) | download_bytes | [769](../../src-tauri/src/commands/node_runtime.rs#L769) |
+| format | macro invocation (unexpanded) | download_bytes | [777](../../src-tauri/src/commands/node_runtime.rs#L777) |
+| download_bytes_with_fallbacks | function_item |  | [780](../../src-tauri/src/commands/node_runtime.rs#L780) |
+| log::warn | macro invocation (unexpanded) | download_bytes_with_fallbacks | [786](../../src-tauri/src/commands/node_runtime.rs#L786) |
+| extract_zip_bytes | function_item |  | [796](../../src-tauri/src/commands/node_runtime.rs#L796) |
+| format | macro invocation (unexpanded) | extract_zip_bytes | [800](../../src-tauri/src/commands/node_runtime.rs#L800) |
+| format | macro invocation (unexpanded) | extract_zip_bytes | [804](../../src-tauri/src/commands/node_runtime.rs#L804) |
+| install_fnm_binary | function_item |  | [835](../../src-tauri/src/commands/node_runtime.rs#L835) |
+| log::warn | macro invocation (unexpanded) | install_fnm_binary | [900](../../src-tauri/src/commands/node_runtime.rs#L900) |
+| format | macro invocation (unexpanded) | install_fnm_binary | [906](../../src-tauri/src/commands/node_runtime.rs#L906) |
+| format | macro invocation (unexpanded) | install_fnm_binary | [911](../../src-tauri/src/commands/node_runtime.rs#L911) |
+| format | macro invocation (unexpanded) | install_fnm_binary | [936](../../src-tauri/src/commands/node_runtime.rs#L936) |
+| run_fnm_with_env | function_item |  | [957](../../src-tauri/src/commands/node_runtime.rs#L957) |
+| format | macro invocation (unexpanded) | run_fnm_with_env | [969](../../src-tauri/src/commands/node_runtime.rs#L969) |
+| format | macro invocation (unexpanded) | run_fnm_with_env | [979](../../src-tauri/src/commands/node_runtime.rs#L979) |
+| install_node_22_via_fnm | function_item |  | [987](../../src-tauri/src/commands/node_runtime.rs#L987) |
+| log::warn | macro invocation (unexpanded) | install_node_22_via_fnm | [991](../../src-tauri/src/commands/node_runtime.rs#L991) |

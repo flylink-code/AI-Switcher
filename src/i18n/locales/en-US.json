@@ -74,6 +74,11 @@
     "removeTitle": "Remove the AI-Switcher Copilot config?",
     "removeBody": "Only the entry named \"AI-Switcher\" is deleted and the binding is released. Other providers are unaffected.",
     "path": "Config file",
+    "vscodePath": "VS Code path",
+    "vscodeNotDetected": "VS Code not detected",
+    "extensionStatus": "Copilot extension",
+    "extensionInstalled": "Installed",
+    "extensionMissing": "GitHub Copilot Chat extension not detected (install from VS Code Marketplace)",
     "models": "Models",
     "modelsCount": "{{count}} models",
     "gateway": "Smart gateway",
@@ -1935,6 +1940,7 @@
       "codex": "Codex config",
       "opencode": "OpenCode config",
       "pi": "Pi CLI config",
+      "vscodeCopilot": "VS Code Copilot config",
       "system": "Launch & close",
       "app": "AI-Switcher data dir",
       "db": "Database",
@@ -1978,6 +1984,7 @@
       "claudeDesktopMetaPath": "_meta.json",
       "claudeDesktopNormalConfigPath": "claude_desktop_config.json (1p)",
       "claudeDesktopThreepConfigPath": "claude_desktop_config.json (3p)",
+      "vscodeCopilotConfigPath": "chatLanguageModels.json",
       "appConfigDir": "Data dir",
       "appDbPath": "Database file",
       "backupDir": "Backup dir",
@@ -2118,6 +2125,12 @@
     "changelogTitle": "What’s new",
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
+      "1_6_4": [
+        "Added local VS Code and Copilot extension detection, including version and path details in the Agent card, environment paths, and environment diagnostics.",
+        "Improved managed Copilot model synchronization across user Profiles while preserving user model settings; provider updates now refresh both gateway and direct Copilot catalogs.",
+        "Added a compatibility patch for the Claude Agent SDK native-model vision declaration in recognized VS Code builds, using exact matching, a backup, and an atomic write. Unknown builds and integrity-checked files are left unchanged. Fully restart VS Code after applying; image understanding still depends on the selected model and attachment-reading tools. This does not fix subagent startup errors.",
+        "Expanded Linux and macOS editor, Pi CLI, and Node tool-path detection, and improved runtime status detection and local installer builds."
+      ],
       "1_6_3": [
         "Enhanced cross-protocol request and tool-call compatibility: added stop_sequences passthrough, automatic \"{}\" fallback and delta events for parameterless tool calls, instructions/system fallback when input is empty, multimedia/document/web-search extraction in tool outputs, and unique converted Responses IDs.",
         "Improved Antigravity and Kiro reverse-proxy gateways: added /v1/models/:id model lookup and Kiro /v1/responses/compact endpoints; stripped fixed Claude Agent SDK identity lines that triggered RESOURCE_EXHAUSTED on Gemini upstreams; restricted explicit numeric thinkingBudget to Flash models while preserving Argon/Pro tier suffixes; added thinking budget padding in count_tokens and fast local responses for Claude Code model validation probes.",

@@ -53,6 +53,7 @@ pub struct PathsInfo {
     pub claude_desktop_meta_path: Option<String>,
     pub claude_desktop_normal_config_path: Option<String>,
     pub claude_desktop_threep_config_path: Option<String>,
+    pub vscode_copilot_config_path: String,
 }
 
 /// Camel-case the field names for the frontend (TS interface uses camelCase).
@@ -98,5 +99,6 @@ pub fn get_paths() -> PathsInfo {
         claude_desktop_meta_path: desktop.meta_path.map(|p| s(&p)),
         claude_desktop_normal_config_path: desktop.normal_config_path.map(|p| s(&p)),
         claude_desktop_threep_config_path: desktop.threep_config_path.map(|p| s(&p)),
+        vscode_copilot_config_path: s(&crate::config::vscode_copilot::chat_language_models_path()),
     }
 }

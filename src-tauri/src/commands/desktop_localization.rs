@@ -2,6 +2,7 @@
 //!
 //! Third-party packs are treated as data only. No script or executable from the
 //! selected directory is ever launched.
+#![cfg_attr(not(windows), allow(dead_code, unused_imports))]
 
 use crate::config::{
     atomic_write, get_app_config_dir, get_backup_dir, read_json_file, write_json_file,
@@ -274,9 +275,9 @@ pub async fn download_desktop_localization_pack(
 pub fn select_desktop_localization_pack() -> AppResult<Option<String>> {
     #[cfg(not(windows))]
     {
-        return Err(AppError::Config(
+        Err(AppError::Config(
             "Claude Desktop 中文化首版仅支持 Windows".to_string(),
-        ));
+        ))
     }
 
     #[cfg(windows)]
@@ -428,9 +429,9 @@ async fn run_localization_action(
     #[cfg(not(windows))]
     {
         let _ = (action, pack_path);
-        return Err(AppError::Config(
+        Err(AppError::Config(
             "Claude Desktop 中文化首版仅支持 Windows".to_string(),
-        ));
+        ))
     }
 
     #[cfg(windows)]
@@ -794,7 +795,7 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
     let current_pack = pack_info(pack_path, pack_valid);
     #[cfg(not(windows))]
     {
-        return Ok(DesktopLocalizationStatus {
+        Ok(DesktopLocalizationStatus {
             platform_supported: false,
             install_detected: false,
             install_kind: None,
@@ -820,7 +821,7 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             log_path: None,
             last_installed_at: None,
             dynamic_catalog_required: false,
-        });
+        })
     }
 
     #[cfg(windows)]

@@ -4,85 +4,90 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 12/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| running | PropertySignature | AntigravityGatewayStatus | [1504](../../src/types/backend.ts#L1504) |
-| port | PropertySignature | AntigravityGatewayStatus | [1505](../../src/types/backend.ts#L1505) |
-| apiKey | PropertySignature | AntigravityGatewayStatus | [1506](../../src/types/backend.ts#L1506) |
-| accountCount | PropertySignature | AntigravityGatewayStatus | [1507](../../src/types/backend.ts#L1507) |
-| baseUrl | PropertySignature | AntigravityGatewayStatus | [1508](../../src/types/backend.ts#L1508) |
-| outboundMode | PropertySignature | AntigravityGatewayStatus | [1509](../../src/types/backend.ts#L1509) |
-| outboundProxyUrl | PropertySignature | AntigravityGatewayStatus | [1510](../../src/types/backend.ts#L1510) |
-| effectiveOutboundProxy | PropertySignature | AntigravityGatewayStatus | [1511](../../src/types/backend.ts#L1511) |
-| exitProxies | PropertySignature | AntigravityGatewayStatus | [1512](../../src/types/backend.ts#L1512) |
-| exitChainLabel | PropertySignature | AntigravityGatewayStatus | [1513](../../src/types/backend.ts#L1513) |
-| exitError | PropertySignature | AntigravityGatewayStatus | [1514](../../src/types/backend.ts#L1514) |
-| limiterSettings | PropertySignature | AntigravityGatewayStatus | [1515](../../src/types/backend.ts#L1515) |
-| fastPath | PropertySignature | AntigravityGatewayStatus | [1516](../../src/types/backend.ts#L1516) |
-| AntigravityExitProxy | InterfaceDeclaration |  | [1519](../../src/types/backend.ts#L1519) |
-| id | PropertySignature | AntigravityExitProxy | [1520](../../src/types/backend.ts#L1520) |
-| name | PropertySignature | AntigravityExitProxy | [1521](../../src/types/backend.ts#L1521) |
-| enabled | PropertySignature | AntigravityExitProxy | [1522](../../src/types/backend.ts#L1522) |
-| proxyUrl | PropertySignature | AntigravityExitProxy | [1523](../../src/types/backend.ts#L1523) |
-| proxyRedacted | PropertySignature | AntigravityExitProxy | [1524](../../src/types/backend.ts#L1524) |
-| probeOk | PropertySignature | AntigravityExitProxy | [1525](../../src/types/backend.ts#L1525) |
-| probeIp | PropertySignature | AntigravityExitProxy | [1526](../../src/types/backend.ts#L1526) |
-| probeHop | PropertySignature | AntigravityExitProxy | [1527](../../src/types/backend.ts#L1527) |
-| probeMessage | PropertySignature | AntigravityExitProxy | [1528](../../src/types/backend.ts#L1528) |
-| latencyOk | PropertySignature | AntigravityExitProxy | [1529](../../src/types/backend.ts#L1529) |
-| latencyMs | PropertySignature | AntigravityExitProxy | [1530](../../src/types/backend.ts#L1530) |
-| latencyMessage | PropertySignature | AntigravityExitProxy | [1531](../../src/types/backend.ts#L1531) |
-| AntigravityExitProxyInput | InterfaceDeclaration |  | [1534](../../src/types/backend.ts#L1534) |
-| id | PropertySignature | AntigravityExitProxyInput | [1535](../../src/types/backend.ts#L1535) |
-| name | PropertySignature | AntigravityExitProxyInput | [1536](../../src/types/backend.ts#L1536) |
-| enabled | PropertySignature | AntigravityExitProxyInput | [1537](../../src/types/backend.ts#L1537) |
-| proxyUrl | PropertySignature | AntigravityExitProxyInput | [1538](../../src/types/backend.ts#L1538) |
-| AntigravityExitProbeResult | InterfaceDeclaration |  | [1541](../../src/types/backend.ts#L1541) |
-| id | PropertySignature | AntigravityExitProbeResult | [1542](../../src/types/backend.ts#L1542) |
-| ok | PropertySignature | AntigravityExitProbeResult | [1543](../../src/types/backend.ts#L1543) |
-| ip | PropertySignature | AntigravityExitProbeResult | [1544](../../src/types/backend.ts#L1544) |
-| hop | PropertySignature | AntigravityExitProbeResult | [1545](../../src/types/backend.ts#L1545) |
-| message | PropertySignature | AntigravityExitProbeResult | [1546](../../src/types/backend.ts#L1546) |
-| AntigravityExitLatencyResult | InterfaceDeclaration |  | [1549](../../src/types/backend.ts#L1549) |
-| id | PropertySignature | AntigravityExitLatencyResult | [1550](../../src/types/backend.ts#L1550) |
-| ok | PropertySignature | AntigravityExitLatencyResult | [1551](../../src/types/backend.ts#L1551) |
-| millis | PropertySignature | AntigravityExitLatencyResult | [1552](../../src/types/backend.ts#L1552) |
-| hop | PropertySignature | AntigravityExitLatencyResult | [1553](../../src/types/backend.ts#L1553) |
-| message | PropertySignature | AntigravityExitLatencyResult | [1554](../../src/types/backend.ts#L1554) |
-| AntigravityLimiterSettings | InterfaceDeclaration |  | [1557](../../src/types/backend.ts#L1557) |
-| accountConcurrency | PropertySignature | AntigravityLimiterSettings | [1558](../../src/types/backend.ts#L1558) |
-| subagentConcurrency | PropertySignature | AntigravityLimiterSettings | [1559](../../src/types/backend.ts#L1559) |
-| minRequestIntervalMs | PropertySignature | AntigravityLimiterSettings | [1560](../../src/types/backend.ts#L1560) |
-| ratePerMin | PropertySignature | AntigravityLimiterSettings | [1561](../../src/types/backend.ts#L1561) |
-| tokenBurst | PropertySignature | AntigravityLimiterSettings | [1562](../../src/types/backend.ts#L1562) |
-| acquireTimeoutSecs | PropertySignature | AntigravityLimiterSettings | [1563](../../src/types/backend.ts#L1563) |
-| AntigravityFastPathSettings | InterfaceDeclaration |  | [1566](../../src/types/backend.ts#L1566) |
-| quotaMock | PropertySignature | AntigravityFastPathSettings | [1567](../../src/types/backend.ts#L1567) |
-| titleSkip | PropertySignature | AntigravityFastPathSettings | [1568](../../src/types/backend.ts#L1568) |
-| prefixDetect | PropertySignature | AntigravityFastPathSettings | [1569](../../src/types/backend.ts#L1569) |
-| suggestionSkip | PropertySignature | AntigravityFastPathSettings | [1570](../../src/types/backend.ts#L1570) |
-| filepathMock | PropertySignature | AntigravityFastPathSettings | [1571](../../src/types/backend.ts#L1571) |
-| flashDegrade | PropertySignature | AntigravityFastPathSettings | [1572](../../src/types/backend.ts#L1572) |
-| AntigravityCatalogModel | InterfaceDeclaration |  | [1575](../../src/types/backend.ts#L1575) |
-| id | PropertySignature | AntigravityCatalogModel | [1576](../../src/types/backend.ts#L1576) |
-| displayName | PropertySignature | AntigravityCatalogModel | [1577](../../src/types/backend.ts#L1577) |
-| AntigravityDefaults | InterfaceDeclaration |  | [1580](../../src/types/backend.ts#L1580) |
-| defaultPort | PropertySignature | AntigravityDefaults | [1581](../../src/types/backend.ts#L1581) |
-| externalPort | PropertySignature | AntigravityDefaults | [1582](../../src/types/backend.ts#L1582) |
-| port | PropertySignature | AntigravityDefaults | [1583](../../src/types/backend.ts#L1583) |
-| baseUrl | PropertySignature | AntigravityDefaults | [1584](../../src/types/backend.ts#L1584) |
-| apiKey | PropertySignature | AntigravityDefaults | [1585](../../src/types/backend.ts#L1585) |
-| running | PropertySignature | AntigravityDefaults | [1586](../../src/types/backend.ts#L1586) |
-| models | PropertySignature | AntigravityDefaults | [1587](../../src/types/backend.ts#L1587) |
-| defaultModel | PropertySignature | AntigravityDefaults | [1588](../../src/types/backend.ts#L1588) |
-| geminiFlash | PropertySignature | AntigravityDefaults | [1589](../../src/types/backend.ts#L1589) |
-| geminiFlashLow | PropertySignature | AntigravityDefaults | [1590](../../src/types/backend.ts#L1590) |
-| geminiPro | PropertySignature | AntigravityDefaults | [1591](../../src/types/backend.ts#L1591) |
-| PoolQuotaWarning | InterfaceDeclaration |  | [1594](../../src/types/backend.ts#L1594) |
-| hasWarning | PropertySignature | PoolQuotaWarning | [1595](../../src/types/backend.ts#L1595) |
-| warningLevel | PropertySignature | PoolQuotaWarning | [1596](../../src/types/backend.ts#L1596) |
-| message | PropertySignature | PoolQuotaWarning | [1597](../../src/types/backend.ts#L1597) |
-| minRemainingFraction | PropertySignature | PoolQuotaWarning | [1598](../../src/types/backend.ts#L1598) |
-| totalUsableAccounts | PropertySignature | PoolQuotaWarning | [1599](../../src/types/backend.ts#L1599) |
+| quotaClaudeWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1503](../../src/types/backend.ts#L1503) |
+| quotaUpdatedAt | PropertySignature | AntigravityAccountPublic | [1504](../../src/types/backend.ts#L1504) |
+| quotaForbidden | PropertySignature | AntigravityAccountPublic | [1505](../../src/types/backend.ts#L1505) |
+| quota | PropertySignature | AntigravityAccountPublic | [1506](../../src/types/backend.ts#L1506) |
+| AntigravityGatewayStatus | InterfaceDeclaration |  | [1509](../../src/types/backend.ts#L1509) |
+| running | PropertySignature | AntigravityGatewayStatus | [1510](../../src/types/backend.ts#L1510) |
+| port | PropertySignature | AntigravityGatewayStatus | [1511](../../src/types/backend.ts#L1511) |
+| apiKey | PropertySignature | AntigravityGatewayStatus | [1512](../../src/types/backend.ts#L1512) |
+| accountCount | PropertySignature | AntigravityGatewayStatus | [1513](../../src/types/backend.ts#L1513) |
+| baseUrl | PropertySignature | AntigravityGatewayStatus | [1514](../../src/types/backend.ts#L1514) |
+| outboundMode | PropertySignature | AntigravityGatewayStatus | [1515](../../src/types/backend.ts#L1515) |
+| outboundProxyUrl | PropertySignature | AntigravityGatewayStatus | [1516](../../src/types/backend.ts#L1516) |
+| effectiveOutboundProxy | PropertySignature | AntigravityGatewayStatus | [1517](../../src/types/backend.ts#L1517) |
+| exitProxies | PropertySignature | AntigravityGatewayStatus | [1518](../../src/types/backend.ts#L1518) |
+| exitChainLabel | PropertySignature | AntigravityGatewayStatus | [1519](../../src/types/backend.ts#L1519) |
+| exitError | PropertySignature | AntigravityGatewayStatus | [1520](../../src/types/backend.ts#L1520) |
+| limiterSettings | PropertySignature | AntigravityGatewayStatus | [1521](../../src/types/backend.ts#L1521) |
+| fastPath | PropertySignature | AntigravityGatewayStatus | [1522](../../src/types/backend.ts#L1522) |
+| AntigravityExitProxy | InterfaceDeclaration |  | [1525](../../src/types/backend.ts#L1525) |
+| id | PropertySignature | AntigravityExitProxy | [1526](../../src/types/backend.ts#L1526) |
+| name | PropertySignature | AntigravityExitProxy | [1527](../../src/types/backend.ts#L1527) |
+| enabled | PropertySignature | AntigravityExitProxy | [1528](../../src/types/backend.ts#L1528) |
+| proxyUrl | PropertySignature | AntigravityExitProxy | [1529](../../src/types/backend.ts#L1529) |
+| proxyRedacted | PropertySignature | AntigravityExitProxy | [1530](../../src/types/backend.ts#L1530) |
+| probeOk | PropertySignature | AntigravityExitProxy | [1531](../../src/types/backend.ts#L1531) |
+| probeIp | PropertySignature | AntigravityExitProxy | [1532](../../src/types/backend.ts#L1532) |
+| probeHop | PropertySignature | AntigravityExitProxy | [1533](../../src/types/backend.ts#L1533) |
+| probeMessage | PropertySignature | AntigravityExitProxy | [1534](../../src/types/backend.ts#L1534) |
+| latencyOk | PropertySignature | AntigravityExitProxy | [1535](../../src/types/backend.ts#L1535) |
+| latencyMs | PropertySignature | AntigravityExitProxy | [1536](../../src/types/backend.ts#L1536) |
+| latencyMessage | PropertySignature | AntigravityExitProxy | [1537](../../src/types/backend.ts#L1537) |
+| AntigravityExitProxyInput | InterfaceDeclaration |  | [1540](../../src/types/backend.ts#L1540) |
+| id | PropertySignature | AntigravityExitProxyInput | [1541](../../src/types/backend.ts#L1541) |
+| name | PropertySignature | AntigravityExitProxyInput | [1542](../../src/types/backend.ts#L1542) |
+| enabled | PropertySignature | AntigravityExitProxyInput | [1543](../../src/types/backend.ts#L1543) |
+| proxyUrl | PropertySignature | AntigravityExitProxyInput | [1544](../../src/types/backend.ts#L1544) |
+| AntigravityExitProbeResult | InterfaceDeclaration |  | [1547](../../src/types/backend.ts#L1547) |
+| id | PropertySignature | AntigravityExitProbeResult | [1548](../../src/types/backend.ts#L1548) |
+| ok | PropertySignature | AntigravityExitProbeResult | [1549](../../src/types/backend.ts#L1549) |
+| ip | PropertySignature | AntigravityExitProbeResult | [1550](../../src/types/backend.ts#L1550) |
+| hop | PropertySignature | AntigravityExitProbeResult | [1551](../../src/types/backend.ts#L1551) |
+| message | PropertySignature | AntigravityExitProbeResult | [1552](../../src/types/backend.ts#L1552) |
+| AntigravityExitLatencyResult | InterfaceDeclaration |  | [1555](../../src/types/backend.ts#L1555) |
+| id | PropertySignature | AntigravityExitLatencyResult | [1556](../../src/types/backend.ts#L1556) |
+| ok | PropertySignature | AntigravityExitLatencyResult | [1557](../../src/types/backend.ts#L1557) |
+| millis | PropertySignature | AntigravityExitLatencyResult | [1558](../../src/types/backend.ts#L1558) |
+| hop | PropertySignature | AntigravityExitLatencyResult | [1559](../../src/types/backend.ts#L1559) |
+| message | PropertySignature | AntigravityExitLatencyResult | [1560](../../src/types/backend.ts#L1560) |
+| AntigravityLimiterSettings | InterfaceDeclaration |  | [1563](../../src/types/backend.ts#L1563) |
+| accountConcurrency | PropertySignature | AntigravityLimiterSettings | [1564](../../src/types/backend.ts#L1564) |
+| subagentConcurrency | PropertySignature | AntigravityLimiterSettings | [1565](../../src/types/backend.ts#L1565) |
+| minRequestIntervalMs | PropertySignature | AntigravityLimiterSettings | [1566](../../src/types/backend.ts#L1566) |
+| ratePerMin | PropertySignature | AntigravityLimiterSettings | [1567](../../src/types/backend.ts#L1567) |
+| tokenBurst | PropertySignature | AntigravityLimiterSettings | [1568](../../src/types/backend.ts#L1568) |
+| acquireTimeoutSecs | PropertySignature | AntigravityLimiterSettings | [1569](../../src/types/backend.ts#L1569) |
+| AntigravityFastPathSettings | InterfaceDeclaration |  | [1572](../../src/types/backend.ts#L1572) |
+| quotaMock | PropertySignature | AntigravityFastPathSettings | [1573](../../src/types/backend.ts#L1573) |
+| titleSkip | PropertySignature | AntigravityFastPathSettings | [1574](../../src/types/backend.ts#L1574) |
+| prefixDetect | PropertySignature | AntigravityFastPathSettings | [1575](../../src/types/backend.ts#L1575) |
+| suggestionSkip | PropertySignature | AntigravityFastPathSettings | [1576](../../src/types/backend.ts#L1576) |
+| filepathMock | PropertySignature | AntigravityFastPathSettings | [1577](../../src/types/backend.ts#L1577) |
+| flashDegrade | PropertySignature | AntigravityFastPathSettings | [1578](../../src/types/backend.ts#L1578) |
+| AntigravityCatalogModel | InterfaceDeclaration |  | [1581](../../src/types/backend.ts#L1581) |
+| id | PropertySignature | AntigravityCatalogModel | [1582](../../src/types/backend.ts#L1582) |
+| displayName | PropertySignature | AntigravityCatalogModel | [1583](../../src/types/backend.ts#L1583) |
+| AntigravityDefaults | InterfaceDeclaration |  | [1586](../../src/types/backend.ts#L1586) |
+| defaultPort | PropertySignature | AntigravityDefaults | [1587](../../src/types/backend.ts#L1587) |
+| externalPort | PropertySignature | AntigravityDefaults | [1588](../../src/types/backend.ts#L1588) |
+| port | PropertySignature | AntigravityDefaults | [1589](../../src/types/backend.ts#L1589) |
+| baseUrl | PropertySignature | AntigravityDefaults | [1590](../../src/types/backend.ts#L1590) |
+| apiKey | PropertySignature | AntigravityDefaults | [1591](../../src/types/backend.ts#L1591) |
+| running | PropertySignature | AntigravityDefaults | [1592](../../src/types/backend.ts#L1592) |
+| models | PropertySignature | AntigravityDefaults | [1593](../../src/types/backend.ts#L1593) |
+| defaultModel | PropertySignature | AntigravityDefaults | [1594](../../src/types/backend.ts#L1594) |
+| geminiFlash | PropertySignature | AntigravityDefaults | [1595](../../src/types/backend.ts#L1595) |
+| geminiFlashLow | PropertySignature | AntigravityDefaults | [1596](../../src/types/backend.ts#L1596) |
+| geminiPro | PropertySignature | AntigravityDefaults | [1597](../../src/types/backend.ts#L1597) |
+| PoolQuotaWarning | InterfaceDeclaration |  | [1600](../../src/types/backend.ts#L1600) |
+| hasWarning | PropertySignature | PoolQuotaWarning | [1601](../../src/types/backend.ts#L1601) |
+| warningLevel | PropertySignature | PoolQuotaWarning | [1602](../../src/types/backend.ts#L1602) |
+| message | PropertySignature | PoolQuotaWarning | [1603](../../src/types/backend.ts#L1603) |
+| minRemainingFraction | PropertySignature | PoolQuotaWarning | [1604](../../src/types/backend.ts#L1604) |
+| totalUsableAccounts | PropertySignature | PoolQuotaWarning | [1605](../../src/types/backend.ts#L1605) |

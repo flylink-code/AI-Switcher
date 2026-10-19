@@ -13,7 +13,7 @@
 | [src-tauri/src/coding/cline/session.rs](../../src-tauri/src/coding/cline/session.rs) | 40 | [1](src-tauri_src_coding_cline_session.rs-31f5689e-1.md) |
 | [src-tauri/src/coding/mod.rs](../../src-tauri/src/coding/mod.rs) | 2 | [1](src-tauri_src_coding_mod.rs-3433ff64-1.md) |
 | [src-tauri/src/coding/pi/config.rs](../../src-tauri/src/coding/pi/config.rs) | 44 | [1](src-tauri_src_coding_pi_config.rs-00777f6e-1.md) |
-| [src-tauri/src/coding/pi/detector.rs](../../src-tauri/src/coding/pi/detector.rs) | 37 | [1](src-tauri_src_coding_pi_detector.rs-b293a92c-1.md) |
+| [src-tauri/src/coding/pi/detector.rs](../../src-tauri/src/coding/pi/detector.rs) | 38 | [1](src-tauri_src_coding_pi_detector.rs-b293a92c-1.md) |
 | [src-tauri/src/coding/pi/mcp.rs](../../src-tauri/src/coding/pi/mcp.rs) | 17 | [1](src-tauri_src_coding_pi_mcp.rs-818a7969-1.md) |
 | [src-tauri/src/coding/pi/mod.rs](../../src-tauri/src/coding/pi/mod.rs) | 4 | [1](src-tauri_src_coding_pi_mod.rs-49d938b1-1.md) |
 | [src-tauri/src/coding/pi/session.rs](../../src-tauri/src/coding/pi/session.rs) | 23 | [1](src-tauri_src_coding_pi_session.rs-8d535c5d-1.md) |

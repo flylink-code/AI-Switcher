@@ -4,7 +4,7 @@
 
 [Module](web-components.md) · [Source](../../src/components/agent/VscodeCopilotCard.tsx) · page 1/1
 
-Source SHA-256: 77d77e20e5313990789e8d4a8b2c757b4784ff539a0024e003d1a9c9e5477f87
+Source SHA-256: c1fa85b69d969d2e0cdae4ba2cb680c31b2136ba3f48aa59bd956699afc5c8ba
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -60,6 +60,6 @@ Source SHA-256: 77d77e20e5313990789e8d4a8b2c757b4784ff539a0024e003d1a9c9e5477f87
 | enabledUpstreams | VariableDeclaration | VscodeCopilotCard.handleModeChange | [144](../../src/components/agent/VscodeCopilotCard.tsx#L144) |
 | existingId | VariableDeclaration | VscodeCopilotCard.handleModeChange | [145](../../src/components/agent/VscodeCopilotCard.tsx#L145) |
 | handleSelectDirectUpstream | VariableDeclaration | VscodeCopilotCard | [166](../../src/components/agent/VscodeCopilotCard.tsx#L166) |
-| render | PropertyAssignment | VscodeCopilotCard | [414](../../src/components/agent/VscodeCopilotCard.tsx#L414) |
-| render | PropertyAssignment | VscodeCopilotCard | [421](../../src/components/agent/VscodeCopilotCard.tsx#L421) |
-| render | PropertyAssignment | VscodeCopilotCard | [427](../../src/components/agent/VscodeCopilotCard.tsx#L427) |
+| render | PropertyAssignment | VscodeCopilotCard | [450](../../src/components/agent/VscodeCopilotCard.tsx#L450) |
+| render | PropertyAssignment | VscodeCopilotCard | [457](../../src/components/agent/VscodeCopilotCard.tsx#L457) |
+| render | PropertyAssignment | VscodeCopilotCard | [463](../../src/components/agent/VscodeCopilotCard.tsx#L463) |

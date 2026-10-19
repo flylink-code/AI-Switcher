@@ -156,6 +156,11 @@ pub fn enter_isolated_home(home: &Path) -> IsolatedHomeGuard {
         ("DSH_HOME", home.join(".dsh")),
         ("PI_CODING_AGENT_DIR", home.join(".pi").join("agent")),
         ("XDG_DATA_HOME", home.join(".local").join("share")),
+        ("XDG_CONFIG_HOME", home.join(".config")),
+        (
+            "AISW_VSCODE_USER_DIR",
+            home.join(".config").join("Code").join("User"),
+        ),
     ];
     let mut previous_extra = Vec::with_capacity(extra.len());
     for (key, path) in extra {

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-Local AI configuration, unified provider pool, and smart gateway workbench for **Claude Code**, **Claude Desktop**, **Codex**, **VS Code Copilot**, **OpenCode**, and **Pi**. **v1.6.3**
+Local AI configuration, unified provider pool, and smart gateway workbench for **Claude Code**, **Claude Desktop**, **Codex**, **VS Code Copilot**, **OpenCode**, and **Pi**. **v1.6.4**
 
 Every agent shares a single global upstream pool (`upstreams`) with unified connection modes: **Smart Gateway (recommended)**, **Direct**, or **Official**. Built-in Antigravity and Kiro reverse-proxy gateways run in an isolated Sidecar child process (`--gateway-sidecar`) by default with automatic supervision.
 

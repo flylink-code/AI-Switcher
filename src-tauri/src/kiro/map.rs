@@ -316,7 +316,7 @@ fn normalize_kiro_tool_schema(schema: Value) -> Value {
 }
 
 fn sanitize_tool_pairing_and_placeholders(
-    history: &mut Vec<Value>,
+    history: &mut [Value],
     current: &mut CurrentTurn,
     tools: &mut Vec<Value>,
 ) {

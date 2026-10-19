@@ -234,8 +234,8 @@ fn normalize_view_range_value(value: &mut Value) {
         if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
             *value = parsed;
         } else if let Some((a, b)) = trimmed
-            .trim_matches(|c| c == '[' || c == ']')
-            .split_once(|c: char| c == ',' || c == '-' || c == ':')
+            .trim_matches(['[', ']'])
+            .split_once([',', '-', ':'])
         {
             if let (Ok(start), Ok(end)) = (a.trim().parse::<i64>(), b.trim().parse::<i64>()) {
                 *value = serde_json::json!([start, end]);

@@ -43,19 +43,41 @@ fn classify_process(image_path: &str) -> Option<AppKind> {
         .unwrap_or(&normalized);
     let file_name = without_args.rsplit('/').next().unwrap_or(without_args);
 
-    if file_name == "codex.exe" || file_name == "codex" {
+    // Linux/macOS `ps -ax -o command=` for Node-based CLIs often starts with `node /path/to/...`
+    if file_name.starts_with("node ") || normalized.starts_with("node ") {
+        for token in normalized.split_whitespace().skip(1) {
+            if token.starts_with('-') {
+                continue;
+            }
+            let bin = token.rsplit('/').next().unwrap_or(token);
+            if bin == "claude" || token.contains("@anthropic-ai/claude-code") {
+                return Some(AppKind::ClaudeCode);
+            }
+            if bin == "codex" || token.contains("@openai/codex") {
+                return Some(AppKind::Codex);
+            }
+            if bin == "opencode" || token.contains("opencode-ai") {
+                return Some(AppKind::OpenCode);
+            }
+            break;
+        }
+    }
+
+    let first_token = file_name.split_whitespace().next().unwrap_or(file_name);
+
+    if first_token == "codex.exe" || first_token == "codex" {
         return Some(AppKind::Codex);
     }
 
-    if file_name == "opencode.exe" || file_name == "opencode" {
+    if first_token == "opencode.exe" || first_token == "opencode" {
         return Some(AppKind::OpenCode);
     }
 
-    if file_name == "claude-desktop" || file_name == "claude-desktop.exe" {
+    if first_token == "claude-desktop" || first_token == "claude-desktop.exe" {
         return Some(AppKind::ClaudeDesktop);
     }
 
-    if file_name != "claude.exe" && file_name != "claude" {
+    if first_token != "claude.exe" && first_token != "claude" {
         return None;
     }
 

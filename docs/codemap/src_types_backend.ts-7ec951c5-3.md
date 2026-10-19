@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 3/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| message | PropertySignature | ConnectionTestResult | [270](../../src/types/backend.ts#L270) |
-| checkedAt | PropertySignature | ConnectionTestResult | [271](../../src/types/backend.ts#L271) |
-| latencyMs | PropertySignature | ConnectionTestResult | [272](../../src/types/backend.ts#L272) |
-| ProviderDoctorReport | InterfaceDeclaration |  | [275](../../src/types/backend.ts#L275) |
-| providerId | PropertySignature | ProviderDoctorReport | [276](../../src/types/backend.ts#L276) |
-| providerName | PropertySignature | ProviderDoctorReport | [277](../../src/types/backend.ts#L277) |
-| targetApp | PropertySignature | ProviderDoctorReport | [278](../../src/types/backend.ts#L278) |
-| ok | PropertySignature | ProviderDoctorReport | [279](../../src/types/backend.ts#L279) |
-| category | PropertySignature | ProviderDoctorReport | [280](../../src/types/backend.ts#L280) |
-| message | PropertySignature | ProviderDoctorReport | [281](../../src/types/backend.ts#L281) |
-| latencyMs | PropertySignature | ProviderDoctorReport | [282](../../src/types/backend.ts#L282) |
-| statusCode | PropertySignature | ProviderDoctorReport | [283](../../src/types/backend.ts#L283) |
-| quarantined | PropertySignature | ProviderDoctorReport | [284](../../src/types/backend.ts#L284) |
-| ProviderHealthUpdated | InterfaceDeclaration |  | [287](../../src/types/backend.ts#L287) |
-| providerId | PropertySignature | ProviderHealthUpdated | [288](../../src/types/backend.ts#L288) |
-| targetApp | PropertySignature | ProviderHealthUpdated | [289](../../src/types/backend.ts#L289) |
-| ok | PropertySignature | ProviderHealthUpdated | [290](../../src/types/backend.ts#L290) |
-| category | PropertySignature | ProviderHealthUpdated | [291](../../src/types/backend.ts#L291) |
-| message | PropertySignature | ProviderHealthUpdated | [292](../../src/types/backend.ts#L292) |
-| checkedAt | PropertySignature | ProviderHealthUpdated | [293](../../src/types/backend.ts#L293) |
-| latencyMs | PropertySignature | ProviderHealthUpdated | [294](../../src/types/backend.ts#L294) |
-| CodexProviderSyncResult | InterfaceDeclaration |  | [297](../../src/types/backend.ts#L297) |
-| status | PropertySignature | CodexProviderSyncResult | [298](../../src/types/backend.ts#L298) |
-| message | PropertySignature | CodexProviderSyncResult | [299](../../src/types/backend.ts#L299) |
-| targetProvider | PropertySignature | CodexProviderSyncResult | [300](../../src/types/backend.ts#L300) |
-| backupDir | PropertySignature | CodexProviderSyncResult | [301](../../src/types/backend.ts#L301) |
-| changedSessionFiles | PropertySignature | CodexProviderSyncResult | [302](../../src/types/backend.ts#L302) |
-| sqliteRowsUpdated | PropertySignature | CodexProviderSyncResult | [303](../../src/types/backend.ts#L303) |
-| skippedLockedFiles | PropertySignature | CodexProviderSyncResult | [304](../../src/types/backend.ts#L304) |
-| CodexSwitchNotice | TypeAliasDeclaration |  | [307](../../src/types/backend.ts#L307) |
-| SwitchProviderResult | InterfaceDeclaration |  | [311](../../src/types/backend.ts#L311) |
-| provider | PropertySignature | SwitchProviderResult | [312](../../src/types/backend.ts#L312) |
-| sessionSync | PropertySignature | SwitchProviderResult | [313](../../src/types/backend.ts#L313) |
-| codexNotice | PropertySignature | SwitchProviderResult | [314](../../src/types/backend.ts#L314) |
-| ModelDiscoveryResult | InterfaceDeclaration |  | [317](../../src/types/backend.ts#L317) |
-| models | PropertySignature | ModelDiscoveryResult | [318](../../src/types/backend.ts#L318) |
-| message | PropertySignature | ModelDiscoveryResult | [319](../../src/types/backend.ts#L319) |
-| checkedAt | PropertySignature | ModelDiscoveryResult | [320](../../src/types/backend.ts#L320) |
-| source | PropertySignature | ModelDiscoveryResult | [321](../../src/types/backend.ts#L321) |
-| stale | PropertySignature | ModelDiscoveryResult | [322](../../src/types/backend.ts#L322) |
-| expiresAt | PropertySignature | ModelDiscoveryResult | [323](../../src/types/backend.ts#L323) |
-| error | PropertySignature | ModelDiscoveryResult | [324](../../src/types/backend.ts#L324) |
-| GatewayUpstreamImportItem | InterfaceDeclaration |  | [327](../../src/types/backend.ts#L327) |
-| providerId | PropertySignature | GatewayUpstreamImportItem | [328](../../src/types/backend.ts#L328) |
-| name | PropertySignature | GatewayUpstreamImportItem | [329](../../src/types/backend.ts#L329) |
-| upstreamId | PropertySignature | GatewayUpstreamImportItem | [330](../../src/types/backend.ts#L330) |
-| skipped | PropertySignature | GatewayUpstreamImportItem | [331](../../src/types/backend.ts#L331) |
-| reason | PropertySignature | GatewayUpstreamImportItem | [332](../../src/types/backend.ts#L332) |
-| GatewayUpstreamImportResult | InterfaceDeclaration |  | [335](../../src/types/backend.ts#L335) |
-| imported | PropertySignature | GatewayUpstreamImportResult | [336](../../src/types/backend.ts#L336) |
-| skipped | PropertySignature | GatewayUpstreamImportResult | [337](../../src/types/backend.ts#L337) |
-| items | PropertySignature | GatewayUpstreamImportResult | [338](../../src/types/backend.ts#L338) |
-| GatewayUpstreamModelRow | InterfaceDeclaration |  | [341](../../src/types/backend.ts#L341) |
-| modelId | PropertySignature | GatewayUpstreamModelRow | [342](../../src/types/backend.ts#L342) |
-| visible | PropertySignature | GatewayUpstreamModelRow | [343](../../src/types/backend.ts#L343) |
-| displayName | PropertySignature | GatewayUpstreamModelRow | [344](../../src/types/backend.ts#L344) |
-| contextWindow | PropertySignature | GatewayUpstreamModelRow | [345](../../src/types/backend.ts#L345) |
-| maxOutputTokens | PropertySignature | GatewayUpstreamModelRow | [346](../../src/types/backend.ts#L346) |
-| reasoningLevels | PropertySignature | GatewayUpstreamModelRow | [347](../../src/types/backend.ts#L347) |
-| capabilities | PropertySignature | GatewayUpstreamModelRow | [348](../../src/types/backend.ts#L348) |
-| SmartGatewayStatus | InterfaceDeclaration |  | [351](../../src/types/backend.ts#L351) |
-| running | PropertySignature | SmartGatewayStatus | [352](../../src/types/backend.ts#L352) |
-| port | PropertySignature | SmartGatewayStatus | [353](../../src/types/backend.ts#L353) |
-| phase | PropertySignature | SmartGatewayStatus | [354](../../src/types/backend.ts#L354) |
-| lastError | PropertySignature | SmartGatewayStatus | [355](../../src/types/backend.ts#L355) |
-| baseUrl | PropertySignature | SmartGatewayStatus | [356](../../src/types/backend.ts#L356) |
-| apiKey | PropertySignature | SmartGatewayStatus | [357](../../src/types/backend.ts#L357) |
-| bindingCount | PropertySignature | SmartGatewayStatus | [358](../../src/types/backend.ts#L358) |
-| checkedAt | PropertySignature | SmartGatewayStatus | [359](../../src/types/backend.ts#L359) |
-| RouteModePatch | InterfaceDeclaration |  | [365](../../src/types/backend.ts#L365) |
-| enabled | PropertySignature | RouteModePatch | [366](../../src/types/backend.ts#L366) |
-| model | PropertySignature | RouteModePatch | [367](../../src/types/backend.ts#L367) |
-| thinkingConfigJson | PropertySignature | RouteModePatch | [368](../../src/types/backend.ts#L368) |
-| fallbackModels | PropertySignature | RouteModePatch | [369](../../src/types/backend.ts#L369) |
-| threshold | PropertySignature | RouteModePatch | [370](../../src/types/backend.ts#L370) |
-| RouteModeUsageStat | InterfaceDeclaration |  | [375](../../src/types/backend.ts#L375) |
-| modeId | PropertySignature | RouteModeUsageStat | [376](../../src/types/backend.ts#L376) |
-| requestCount | PropertySignature | RouteModeUsageStat | [377](../../src/types/backend.ts#L377) |
-| estimatedCost | PropertySignature | RouteModeUsageStat | [378](../../src/types/backend.ts#L378) |
-| UpstreamDailyUsageStat | InterfaceDeclaration |  | [381](../../src/types/backend.ts#L381) |
-| upstreamId | PropertySignature | UpstreamDailyUsageStat | [382](../../src/types/backend.ts#L382) |
-| requestCount | PropertySignature | UpstreamDailyUsageStat | [383](../../src/types/backend.ts#L383) |
-| successfulRequestCount | PropertySignature | UpstreamDailyUsageStat | [384](../../src/types/backend.ts#L384) |
-| successRate | PropertySignature | UpstreamDailyUsageStat | [385](../../src/types/backend.ts#L385) |
-| estimatedCost | PropertySignature | UpstreamDailyUsageStat | [386](../../src/types/backend.ts#L386) |
-| estimatedCostCurrency | PropertySignature | UpstreamDailyUsageStat | [387](../../src/types/backend.ts#L387) |
-| estimatedCostsByCurrency | PropertySignature | UpstreamDailyUsageStat | [388](../../src/types/backend.ts#L388) |
-| GatewayUpstreamDiscoverItem | InterfaceDeclaration |  | [391](../../src/types/backend.ts#L391) |
-| id | PropertySignature | GatewayUpstreamDiscoverItem | [392](../../src/types/backend.ts#L392) |
-| name | PropertySignature | GatewayUpstreamDiscoverItem | [393](../../src/types/backend.ts#L393) |
-| result | PropertySignature | GatewayUpstreamDiscoverItem | [394](../../src/types/backend.ts#L394) |
-| ProviderImportResult | InterfaceDeclaration |  | [397](../../src/types/backend.ts#L397) |
-| imported | PropertySignature | ProviderImportResult | [398](../../src/types/backend.ts#L398) |
-| skipped | PropertySignature | ProviderImportResult | [399](../../src/types/backend.ts#L399) |
-| ImportResource | TypeAliasDeclaration |  | [402](../../src/types/backend.ts#L402) |
-| ImportPreviewItem | InterfaceDeclaration |  | [404](../../src/types/backend.ts#L404) |
-| name | PropertySignature | ImportPreviewItem | [405](../../src/types/backend.ts#L405) |
-| summary | PropertySignature | ImportPreviewItem | [406](../../src/types/backend.ts#L406) |
-| detail | PropertySignature | ImportPreviewItem | [407](../../src/types/backend.ts#L407) |
-| ImportPreview | InterfaceDeclaration |  | [410](../../src/types/backend.ts#L410) |
+| reasoningLevels | PropertySignature | GatewayCatalogModelOption | [260](../../src/types/backend.ts#L260) |
+| ConnectionTestResult | InterfaceDeclaration |  | [271](../../src/types/backend.ts#L271) |
+| ok | PropertySignature | ConnectionTestResult | [272](../../src/types/backend.ts#L272) |
+| category | PropertySignature | ConnectionTestResult | [273](../../src/types/backend.ts#L273) |
+| message | PropertySignature | ConnectionTestResult | [274](../../src/types/backend.ts#L274) |
+| checkedAt | PropertySignature | ConnectionTestResult | [275](../../src/types/backend.ts#L275) |
+| latencyMs | PropertySignature | ConnectionTestResult | [276](../../src/types/backend.ts#L276) |
+| ProviderDoctorReport | InterfaceDeclaration |  | [279](../../src/types/backend.ts#L279) |
+| providerId | PropertySignature | ProviderDoctorReport | [280](../../src/types/backend.ts#L280) |
+| providerName | PropertySignature | ProviderDoctorReport | [281](../../src/types/backend.ts#L281) |
+| targetApp | PropertySignature | ProviderDoctorReport | [282](../../src/types/backend.ts#L282) |
+| ok | PropertySignature | ProviderDoctorReport | [283](../../src/types/backend.ts#L283) |
+| category | PropertySignature | ProviderDoctorReport | [284](../../src/types/backend.ts#L284) |
+| message | PropertySignature | ProviderDoctorReport | [285](../../src/types/backend.ts#L285) |
+| latencyMs | PropertySignature | ProviderDoctorReport | [286](../../src/types/backend.ts#L286) |
+| statusCode | PropertySignature | ProviderDoctorReport | [287](../../src/types/backend.ts#L287) |
+| quarantined | PropertySignature | ProviderDoctorReport | [288](../../src/types/backend.ts#L288) |
+| ProviderHealthUpdated | InterfaceDeclaration |  | [291](../../src/types/backend.ts#L291) |
+| providerId | PropertySignature | ProviderHealthUpdated | [292](../../src/types/backend.ts#L292) |
+| targetApp | PropertySignature | ProviderHealthUpdated | [293](../../src/types/backend.ts#L293) |
+| ok | PropertySignature | ProviderHealthUpdated | [294](../../src/types/backend.ts#L294) |
+| category | PropertySignature | ProviderHealthUpdated | [295](../../src/types/backend.ts#L295) |
+| message | PropertySignature | ProviderHealthUpdated | [296](../../src/types/backend.ts#L296) |
+| checkedAt | PropertySignature | ProviderHealthUpdated | [297](../../src/types/backend.ts#L297) |
+| latencyMs | PropertySignature | ProviderHealthUpdated | [298](../../src/types/backend.ts#L298) |
+| CodexProviderSyncResult | InterfaceDeclaration |  | [301](../../src/types/backend.ts#L301) |
+| status | PropertySignature | CodexProviderSyncResult | [302](../../src/types/backend.ts#L302) |
+| message | PropertySignature | CodexProviderSyncResult | [303](../../src/types/backend.ts#L303) |
+| targetProvider | PropertySignature | CodexProviderSyncResult | [304](../../src/types/backend.ts#L304) |
+| backupDir | PropertySignature | CodexProviderSyncResult | [305](../../src/types/backend.ts#L305) |
+| changedSessionFiles | PropertySignature | CodexProviderSyncResult | [306](../../src/types/backend.ts#L306) |
+| sqliteRowsUpdated | PropertySignature | CodexProviderSyncResult | [307](../../src/types/backend.ts#L307) |
+| skippedLockedFiles | PropertySignature | CodexProviderSyncResult | [308](../../src/types/backend.ts#L308) |
+| CodexSwitchNotice | TypeAliasDeclaration |  | [311](../../src/types/backend.ts#L311) |
+| SwitchProviderResult | InterfaceDeclaration |  | [315](../../src/types/backend.ts#L315) |
+| provider | PropertySignature | SwitchProviderResult | [316](../../src/types/backend.ts#L316) |
+| sessionSync | PropertySignature | SwitchProviderResult | [317](../../src/types/backend.ts#L317) |
+| codexNotice | PropertySignature | SwitchProviderResult | [318](../../src/types/backend.ts#L318) |
+| ModelDiscoveryResult | InterfaceDeclaration |  | [321](../../src/types/backend.ts#L321) |
+| models | PropertySignature | ModelDiscoveryResult | [322](../../src/types/backend.ts#L322) |
+| message | PropertySignature | ModelDiscoveryResult | [323](../../src/types/backend.ts#L323) |
+| checkedAt | PropertySignature | ModelDiscoveryResult | [324](../../src/types/backend.ts#L324) |
+| source | PropertySignature | ModelDiscoveryResult | [325](../../src/types/backend.ts#L325) |
+| stale | PropertySignature | ModelDiscoveryResult | [326](../../src/types/backend.ts#L326) |
+| expiresAt | PropertySignature | ModelDiscoveryResult | [327](../../src/types/backend.ts#L327) |
+| error | PropertySignature | ModelDiscoveryResult | [328](../../src/types/backend.ts#L328) |
+| GatewayUpstreamImportItem | InterfaceDeclaration |  | [331](../../src/types/backend.ts#L331) |
+| providerId | PropertySignature | GatewayUpstreamImportItem | [332](../../src/types/backend.ts#L332) |
+| name | PropertySignature | GatewayUpstreamImportItem | [333](../../src/types/backend.ts#L333) |
+| upstreamId | PropertySignature | GatewayUpstreamImportItem | [334](../../src/types/backend.ts#L334) |
+| skipped | PropertySignature | GatewayUpstreamImportItem | [335](../../src/types/backend.ts#L335) |
+| reason | PropertySignature | GatewayUpstreamImportItem | [336](../../src/types/backend.ts#L336) |
+| GatewayUpstreamImportResult | InterfaceDeclaration |  | [339](../../src/types/backend.ts#L339) |
+| imported | PropertySignature | GatewayUpstreamImportResult | [340](../../src/types/backend.ts#L340) |
+| skipped | PropertySignature | GatewayUpstreamImportResult | [341](../../src/types/backend.ts#L341) |
+| items | PropertySignature | GatewayUpstreamImportResult | [342](../../src/types/backend.ts#L342) |
+| GatewayUpstreamModelRow | InterfaceDeclaration |  | [345](../../src/types/backend.ts#L345) |
+| modelId | PropertySignature | GatewayUpstreamModelRow | [346](../../src/types/backend.ts#L346) |
+| visible | PropertySignature | GatewayUpstreamModelRow | [347](../../src/types/backend.ts#L347) |
+| displayName | PropertySignature | GatewayUpstreamModelRow | [348](../../src/types/backend.ts#L348) |
+| contextWindow | PropertySignature | GatewayUpstreamModelRow | [349](../../src/types/backend.ts#L349) |
+| maxOutputTokens | PropertySignature | GatewayUpstreamModelRow | [350](../../src/types/backend.ts#L350) |
+| reasoningLevels | PropertySignature | GatewayUpstreamModelRow | [351](../../src/types/backend.ts#L351) |
+| capabilities | PropertySignature | GatewayUpstreamModelRow | [352](../../src/types/backend.ts#L352) |
+| SmartGatewayStatus | InterfaceDeclaration |  | [355](../../src/types/backend.ts#L355) |
+| running | PropertySignature | SmartGatewayStatus | [356](../../src/types/backend.ts#L356) |
+| port | PropertySignature | SmartGatewayStatus | [357](../../src/types/backend.ts#L357) |
+| phase | PropertySignature | SmartGatewayStatus | [358](../../src/types/backend.ts#L358) |
+| lastError | PropertySignature | SmartGatewayStatus | [359](../../src/types/backend.ts#L359) |
+| baseUrl | PropertySignature | SmartGatewayStatus | [360](../../src/types/backend.ts#L360) |
+| apiKey | PropertySignature | SmartGatewayStatus | [361](../../src/types/backend.ts#L361) |
+| bindingCount | PropertySignature | SmartGatewayStatus | [362](../../src/types/backend.ts#L362) |
+| checkedAt | PropertySignature | SmartGatewayStatus | [363](../../src/types/backend.ts#L363) |
+| RouteModePatch | InterfaceDeclaration |  | [369](../../src/types/backend.ts#L369) |
+| enabled | PropertySignature | RouteModePatch | [370](../../src/types/backend.ts#L370) |
+| model | PropertySignature | RouteModePatch | [371](../../src/types/backend.ts#L371) |
+| thinkingConfigJson | PropertySignature | RouteModePatch | [372](../../src/types/backend.ts#L372) |
+| fallbackModels | PropertySignature | RouteModePatch | [373](../../src/types/backend.ts#L373) |
+| threshold | PropertySignature | RouteModePatch | [374](../../src/types/backend.ts#L374) |
+| RouteModeUsageStat | InterfaceDeclaration |  | [379](../../src/types/backend.ts#L379) |
+| modeId | PropertySignature | RouteModeUsageStat | [380](../../src/types/backend.ts#L380) |
+| requestCount | PropertySignature | RouteModeUsageStat | [381](../../src/types/backend.ts#L381) |
+| estimatedCost | PropertySignature | RouteModeUsageStat | [382](../../src/types/backend.ts#L382) |
+| UpstreamDailyUsageStat | InterfaceDeclaration |  | [385](../../src/types/backend.ts#L385) |
+| upstreamId | PropertySignature | UpstreamDailyUsageStat | [386](../../src/types/backend.ts#L386) |
+| requestCount | PropertySignature | UpstreamDailyUsageStat | [387](../../src/types/backend.ts#L387) |
+| successfulRequestCount | PropertySignature | UpstreamDailyUsageStat | [388](../../src/types/backend.ts#L388) |
+| successRate | PropertySignature | UpstreamDailyUsageStat | [389](../../src/types/backend.ts#L389) |
+| estimatedCost | PropertySignature | UpstreamDailyUsageStat | [390](../../src/types/backend.ts#L390) |
+| estimatedCostCurrency | PropertySignature | UpstreamDailyUsageStat | [391](../../src/types/backend.ts#L391) |
+| estimatedCostsByCurrency | PropertySignature | UpstreamDailyUsageStat | [392](../../src/types/backend.ts#L392) |
+| GatewayUpstreamDiscoverItem | InterfaceDeclaration |  | [395](../../src/types/backend.ts#L395) |
+| id | PropertySignature | GatewayUpstreamDiscoverItem | [396](../../src/types/backend.ts#L396) |
+| name | PropertySignature | GatewayUpstreamDiscoverItem | [397](../../src/types/backend.ts#L397) |
+| result | PropertySignature | GatewayUpstreamDiscoverItem | [398](../../src/types/backend.ts#L398) |
+| ProviderImportResult | InterfaceDeclaration |  | [401](../../src/types/backend.ts#L401) |
+| imported | PropertySignature | ProviderImportResult | [402](../../src/types/backend.ts#L402) |
+| skipped | PropertySignature | ProviderImportResult | [403](../../src/types/backend.ts#L403) |
+| ImportResource | TypeAliasDeclaration |  | [406](../../src/types/backend.ts#L406) |
+| ImportPreviewItem | InterfaceDeclaration |  | [408](../../src/types/backend.ts#L408) |

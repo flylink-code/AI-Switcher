@@ -4,24 +4,24 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/paths.rs) · page 2/2
 
-Source SHA-256: 96fb78e97097a9feb6eecb405189fcbe6ff6f9ba411d0f75a77838cc703e6be6
+Source SHA-256: cf4cabb74aedd1a12b8d6caf81494f34dda7a2117be679fa6583097fd36ff257
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [603](../../src-tauri/src/config/paths.rs#L603) |
-| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [604](../../src-tauri/src/config/paths.rs#L604) |
-| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [605](../../src-tauri/src/config/paths.rs#L605) |
-| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [606](../../src-tauri/src/config/paths.rs#L606) |
-| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [607](../../src-tauri/src/config/paths.rs#L607) |
 | assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [608](../../src-tauri/src/config/paths.rs#L608) |
 | assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [609](../../src-tauri/src/config/paths.rs#L609) |
 | assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [610](../../src-tauri/src/config/paths.rs#L610) |
-| usable_local_path_rejects_foreign_os_and_relative | function_item | tests | [614](../../src-tauri/src/config/paths.rs#L614) |
-| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [615](../../src-tauri/src/config/paths.rs#L615) |
-| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [616](../../src-tauri/src/config/paths.rs#L616) |
-| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [619](../../src-tauri/src/config/paths.rs#L619) |
+| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [611](../../src-tauri/src/config/paths.rs#L611) |
+| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [612](../../src-tauri/src/config/paths.rs#L612) |
+| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [613](../../src-tauri/src/config/paths.rs#L613) |
+| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [614](../../src-tauri/src/config/paths.rs#L614) |
+| assert | macro invocation (unexpanded) | tests::windows_drive_and_unc_paths_are_detected | [615](../../src-tauri/src/config/paths.rs#L615) |
+| usable_local_path_rejects_foreign_os_and_relative | function_item | tests | [619](../../src-tauri/src/config/paths.rs#L619) |
 | assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [620](../../src-tauri/src/config/paths.rs#L620) |
 | assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [621](../../src-tauri/src/config/paths.rs#L621) |
-| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [622](../../src-tauri/src/config/paths.rs#L622) |
+| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [624](../../src-tauri/src/config/paths.rs#L624) |
+| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [625](../../src-tauri/src/config/paths.rs#L625) |
 | assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [626](../../src-tauri/src/config/paths.rs#L626) |
 | assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [627](../../src-tauri/src/config/paths.rs#L627) |
+| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [631](../../src-tauri/src/config/paths.rs#L631) |
+| assert | macro invocation (unexpanded) | tests::usable_local_path_rejects_foreign_os_and_relative | [632](../../src-tauri/src/config/paths.rs#L632) |

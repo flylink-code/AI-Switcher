@@ -4,69 +4,73 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/vscode_copilot.rs) · page 1/1
 
-Source SHA-256: f4914889a34e135ab95e81be84f13f5508792ed1bea1359c41076e74f2791f5a
+Source SHA-256: 01b036cefd055d25557d8808dd1ae3a40889c3fd13b3bd35aa2b6047a14710b9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| TARGET | const_item |  | [18](../../src-tauri/src/commands/vscode_copilot.rs#L18) |
-| OWNERSHIP_KEY | const_item |  | [19](../../src-tauri/src/commands/vscode_copilot.rs#L19) |
-| VscodeCopilotStatus | struct_item |  | [23](../../src-tauri/src/commands/vscode_copilot.rs#L23) |
-| config_path | field_declaration | VscodeCopilotStatus | [24](../../src-tauri/src/commands/vscode_copilot.rs#L24) |
-| file_exists | field_declaration | VscodeCopilotStatus | [25](../../src-tauri/src/commands/vscode_copilot.rs#L25) |
-| bound | field_declaration | VscodeCopilotStatus | [26](../../src-tauri/src/commands/vscode_copilot.rs#L26) |
-| applied | field_declaration | VscodeCopilotStatus | [27](../../src-tauri/src/commands/vscode_copilot.rs#L27) |
-| mode | field_declaration | VscodeCopilotStatus | [28](../../src-tauri/src/commands/vscode_copilot.rs#L28) |
-| direct_upstream_id | field_declaration | VscodeCopilotStatus | [29](../../src-tauri/src/commands/vscode_copilot.rs#L29) |
-| model_count | field_declaration | VscodeCopilotStatus | [30](../../src-tauri/src/commands/vscode_copilot.rs#L30) |
-| gateway_running | field_declaration | VscodeCopilotStatus | [31](../../src-tauri/src/commands/vscode_copilot.rs#L31) |
-| drift | field_declaration | VscodeCopilotStatus | [32](../../src-tauri/src/commands/vscode_copilot.rs#L32) |
-| gateway_base_url | function_item |  | [35](../../src-tauri/src/commands/vscode_copilot.rs#L35) |
-| format | macro invocation (unexpanded) | gateway_base_url | [46](../../src-tauri/src/commands/vscode_copilot.rs#L46) |
-| build_models | function_item |  | [50](../../src-tauri/src/commands/vscode_copilot.rs#L50) |
-| matches | macro invocation (unexpanded) | build_models | [114](../../src-tauri/src/commands/vscode_copilot.rs#L114) |
-| vec | macro invocation (unexpanded) | build_models | [118](../../src-tauri/src/commands/vscode_copilot.rs#L118) |
-| matches | macro invocation (unexpanded) | build_models | [122](../../src-tauri/src/commands/vscode_copilot.rs#L122) |
-| expected_entry | function_item |  | [157](../../src-tauri/src/commands/vscode_copilot.rs#L157) |
-| sync_managed_config | function_item |  | [171](../../src-tauri/src/commands/vscode_copilot.rs#L171) |
-| CopilotMutationSnapshot | struct_item |  | [183](../../src-tauri/src/commands/vscode_copilot.rs#L183) |
-| path | field_declaration | CopilotMutationSnapshot | [184](../../src-tauri/src/commands/vscode_copilot.rs#L184) |
-| file_contents | field_declaration | CopilotMutationSnapshot | [185](../../src-tauri/src/commands/vscode_copilot.rs#L185) |
-| binding | field_declaration | CopilotMutationSnapshot | [186](../../src-tauri/src/commands/vscode_copilot.rs#L186) |
-| ownership | field_declaration | CopilotMutationSnapshot | [187](../../src-tauri/src/commands/vscode_copilot.rs#L187) |
-| CopilotMutationSnapshot | impl |  | [190](../../src-tauri/src/commands/vscode_copilot.rs#L190) |
-| capture | function_item | CopilotMutationSnapshot | [191](../../src-tauri/src/commands/vscode_copilot.rs#L191) |
-| format | macro invocation (unexpanded) | CopilotMutationSnapshot::capture | [195](../../src-tauri/src/commands/vscode_copilot.rs#L195) |
-| restore | function_item | CopilotMutationSnapshot | [211](../../src-tauri/src/commands/vscode_copilot.rs#L211) |
-| format | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [218](../../src-tauri/src/commands/vscode_copilot.rs#L218) |
-| format | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [225](../../src-tauri/src/commands/vscode_copilot.rs#L225) |
-| rusqlite::params | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [236](../../src-tauri/src/commands/vscode_copilot.rs#L236) |
-| format | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [256](../../src-tauri/src/commands/vscode_copilot.rs#L256) |
-| apply_managed_with_rollback | function_item |  | [266](../../src-tauri/src/commands/vscode_copilot.rs#L266) |
-| format | macro invocation (unexpanded) | apply_managed_with_rollback | [281](../../src-tauri/src/commands/vscode_copilot.rs#L281) |
-| remove_managed_with_rollback | function_item |  | [290](../../src-tauri/src/commands/vscode_copilot.rs#L290) |
-| format | macro invocation (unexpanded) | remove_managed_with_rollback | [302](../../src-tauri/src/commands/vscode_copilot.rs#L302) |
-| status_at | function_item |  | [311](../../src-tauri/src/commands/vscode_copilot.rs#L311) |
-| status_inner | function_item |  | [348](../../src-tauri/src/commands/vscode_copilot.rs#L348) |
-| get_vscode_copilot_status | function_item |  | [353](../../src-tauri/src/commands/vscode_copilot.rs#L353) |
-| apply_vscode_copilot | function_item |  | [361](../../src-tauri/src/commands/vscode_copilot.rs#L361) |
-| apply_direct_with_rollback | function_item |  | [386](../../src-tauri/src/commands/vscode_copilot.rs#L386) |
-| format | macro invocation (unexpanded) | apply_direct_with_rollback | [401](../../src-tauri/src/commands/vscode_copilot.rs#L401) |
-| set_vscode_copilot_direct | function_item |  | [412](../../src-tauri/src/commands/vscode_copilot.rs#L412) |
-| format | macro invocation (unexpanded) | set_vscode_copilot_direct | [430](../../src-tauri/src/commands/vscode_copilot.rs#L430) |
-| remove_vscode_copilot | function_item |  | [445](../../src-tauri/src/commands/vscode_copilot.rs#L445) |
-| tests | mod_item |  | [459](../../src-tauri/src/commands/vscode_copilot.rs#L459) |
-| test_state | function_item | tests | [465](../../src-tauri/src/commands/vscode_copilot.rs#L465) |
-| status_surfaces_corrupted_chat_language_models_file | function_item | tests | [476](../../src-tauri/src/commands/vscode_copilot.rs#L476) |
-| assert | macro invocation (unexpanded) | tests::status_surfaces_corrupted_chat_language_models_file | [483](../../src-tauri/src/commands/vscode_copilot.rs#L483) |
-| apply_rolls_back_db_binding_when_config_write_fails | function_item | tests | [487](../../src-tauri/src/commands/vscode_copilot.rs#L487) |
-| assert | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [495](../../src-tauri/src/commands/vscode_copilot.rs#L495) |
-| assert | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [501](../../src-tauri/src/commands/vscode_copilot.rs#L501) |
-| assert | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [509](../../src-tauri/src/commands/vscode_copilot.rs#L509) |
-| assert_eq | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [510](../../src-tauri/src/commands/vscode_copilot.rs#L510) |
-| build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | function_item | tests | [517](../../src-tauri/src/commands/vscode_copilot.rs#L517) |
-| vec | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [541](../../src-tauri/src/commands/vscode_copilot.rs#L541) |
-| rusqlite::params | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [551](../../src-tauri/src/commands/vscode_copilot.rs#L551) |
-| assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [563](../../src-tauri/src/commands/vscode_copilot.rs#L563) |
-| assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [564](../../src-tauri/src/commands/vscode_copilot.rs#L564) |
-| assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [573](../../src-tauri/src/commands/vscode_copilot.rs#L573) |
+| TARGET | const_item |  | [19](../../src-tauri/src/commands/vscode_copilot.rs#L19) |
+| OWNERSHIP_KEY | const_item |  | [20](../../src-tauri/src/commands/vscode_copilot.rs#L20) |
+| VscodeCopilotStatus | struct_item |  | [24](../../src-tauri/src/commands/vscode_copilot.rs#L24) |
+| config_path | field_declaration | VscodeCopilotStatus | [25](../../src-tauri/src/commands/vscode_copilot.rs#L25) |
+| file_exists | field_declaration | VscodeCopilotStatus | [26](../../src-tauri/src/commands/vscode_copilot.rs#L26) |
+| bound | field_declaration | VscodeCopilotStatus | [27](../../src-tauri/src/commands/vscode_copilot.rs#L27) |
+| applied | field_declaration | VscodeCopilotStatus | [28](../../src-tauri/src/commands/vscode_copilot.rs#L28) |
+| mode | field_declaration | VscodeCopilotStatus | [29](../../src-tauri/src/commands/vscode_copilot.rs#L29) |
+| direct_upstream_id | field_declaration | VscodeCopilotStatus | [30](../../src-tauri/src/commands/vscode_copilot.rs#L30) |
+| model_count | field_declaration | VscodeCopilotStatus | [31](../../src-tauri/src/commands/vscode_copilot.rs#L31) |
+| gateway_running | field_declaration | VscodeCopilotStatus | [32](../../src-tauri/src/commands/vscode_copilot.rs#L32) |
+| drift | field_declaration | VscodeCopilotStatus | [33](../../src-tauri/src/commands/vscode_copilot.rs#L33) |
+| vscode_installed | field_declaration | VscodeCopilotStatus | [34](../../src-tauri/src/commands/vscode_copilot.rs#L34) |
+| vscode_version | field_declaration | VscodeCopilotStatus | [35](../../src-tauri/src/commands/vscode_copilot.rs#L35) |
+| vscode_path | field_declaration | VscodeCopilotStatus | [36](../../src-tauri/src/commands/vscode_copilot.rs#L36) |
+| copilot_extension_installed | field_declaration | VscodeCopilotStatus | [37](../../src-tauri/src/commands/vscode_copilot.rs#L37) |
+| gateway_base_url | function_item |  | [40](../../src-tauri/src/commands/vscode_copilot.rs#L40) |
+| format | macro invocation (unexpanded) | gateway_base_url | [51](../../src-tauri/src/commands/vscode_copilot.rs#L51) |
+| build_models | function_item |  | [55](../../src-tauri/src/commands/vscode_copilot.rs#L55) |
+| matches | macro invocation (unexpanded) | build_models | [119](../../src-tauri/src/commands/vscode_copilot.rs#L119) |
+| vec | macro invocation (unexpanded) | build_models | [123](../../src-tauri/src/commands/vscode_copilot.rs#L123) |
+| matches | macro invocation (unexpanded) | build_models | [127](../../src-tauri/src/commands/vscode_copilot.rs#L127) |
+| expected_entry | function_item |  | [162](../../src-tauri/src/commands/vscode_copilot.rs#L162) |
+| sync_managed_config | function_item |  | [176](../../src-tauri/src/commands/vscode_copilot.rs#L176) |
+| CopilotMutationSnapshot | struct_item |  | [188](../../src-tauri/src/commands/vscode_copilot.rs#L188) |
+| path | field_declaration | CopilotMutationSnapshot | [189](../../src-tauri/src/commands/vscode_copilot.rs#L189) |
+| file_contents | field_declaration | CopilotMutationSnapshot | [190](../../src-tauri/src/commands/vscode_copilot.rs#L190) |
+| binding | field_declaration | CopilotMutationSnapshot | [191](../../src-tauri/src/commands/vscode_copilot.rs#L191) |
+| ownership | field_declaration | CopilotMutationSnapshot | [192](../../src-tauri/src/commands/vscode_copilot.rs#L192) |
+| CopilotMutationSnapshot | impl |  | [195](../../src-tauri/src/commands/vscode_copilot.rs#L195) |
+| capture | function_item | CopilotMutationSnapshot | [196](../../src-tauri/src/commands/vscode_copilot.rs#L196) |
+| format | macro invocation (unexpanded) | CopilotMutationSnapshot::capture | [200](../../src-tauri/src/commands/vscode_copilot.rs#L200) |
+| restore | function_item | CopilotMutationSnapshot | [216](../../src-tauri/src/commands/vscode_copilot.rs#L216) |
+| format | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [223](../../src-tauri/src/commands/vscode_copilot.rs#L223) |
+| format | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [230](../../src-tauri/src/commands/vscode_copilot.rs#L230) |
+| rusqlite::params | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [241](../../src-tauri/src/commands/vscode_copilot.rs#L241) |
+| format | macro invocation (unexpanded) | CopilotMutationSnapshot::restore | [261](../../src-tauri/src/commands/vscode_copilot.rs#L261) |
+| apply_managed_with_rollback | function_item |  | [271](../../src-tauri/src/commands/vscode_copilot.rs#L271) |
+| format | macro invocation (unexpanded) | apply_managed_with_rollback | [286](../../src-tauri/src/commands/vscode_copilot.rs#L286) |
+| remove_managed_with_rollback | function_item |  | [295](../../src-tauri/src/commands/vscode_copilot.rs#L295) |
+| format | macro invocation (unexpanded) | remove_managed_with_rollback | [307](../../src-tauri/src/commands/vscode_copilot.rs#L307) |
+| status_at | function_item |  | [316](../../src-tauri/src/commands/vscode_copilot.rs#L316) |
+| status_inner | function_item |  | [359](../../src-tauri/src/commands/vscode_copilot.rs#L359) |
+| get_vscode_copilot_status | function_item |  | [364](../../src-tauri/src/commands/vscode_copilot.rs#L364) |
+| apply_vscode_copilot | function_item |  | [372](../../src-tauri/src/commands/vscode_copilot.rs#L372) |
+| apply_direct_with_rollback | function_item |  | [397](../../src-tauri/src/commands/vscode_copilot.rs#L397) |
+| format | macro invocation (unexpanded) | apply_direct_with_rollback | [412](../../src-tauri/src/commands/vscode_copilot.rs#L412) |
+| set_vscode_copilot_direct | function_item |  | [423](../../src-tauri/src/commands/vscode_copilot.rs#L423) |
+| format | macro invocation (unexpanded) | set_vscode_copilot_direct | [441](../../src-tauri/src/commands/vscode_copilot.rs#L441) |
+| remove_vscode_copilot | function_item |  | [456](../../src-tauri/src/commands/vscode_copilot.rs#L456) |
+| tests | mod_item |  | [470](../../src-tauri/src/commands/vscode_copilot.rs#L470) |
+| test_state | function_item | tests | [476](../../src-tauri/src/commands/vscode_copilot.rs#L476) |
+| status_surfaces_corrupted_chat_language_models_file | function_item | tests | [487](../../src-tauri/src/commands/vscode_copilot.rs#L487) |
+| assert | macro invocation (unexpanded) | tests::status_surfaces_corrupted_chat_language_models_file | [494](../../src-tauri/src/commands/vscode_copilot.rs#L494) |
+| apply_rolls_back_db_binding_when_config_write_fails | function_item | tests | [498](../../src-tauri/src/commands/vscode_copilot.rs#L498) |
+| assert | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [506](../../src-tauri/src/commands/vscode_copilot.rs#L506) |
+| assert | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [512](../../src-tauri/src/commands/vscode_copilot.rs#L512) |
+| assert | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [520](../../src-tauri/src/commands/vscode_copilot.rs#L520) |
+| assert_eq | macro invocation (unexpanded) | tests::apply_rolls_back_db_binding_when_config_write_fails | [521](../../src-tauri/src/commands/vscode_copilot.rs#L521) |
+| build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | function_item | tests | [528](../../src-tauri/src/commands/vscode_copilot.rs#L528) |
+| vec | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [552](../../src-tauri/src/commands/vscode_copilot.rs#L552) |
+| rusqlite::params | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [562](../../src-tauri/src/commands/vscode_copilot.rs#L562) |
 | assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [574](../../src-tauri/src/commands/vscode_copilot.rs#L574) |
+| assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [575](../../src-tauri/src/commands/vscode_copilot.rs#L575) |
+| assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [584](../../src-tauri/src/commands/vscode_copilot.rs#L584) |
+| assert_eq | macro invocation (unexpanded) | tests::build_models_strips_single_source_provider_prefix_and_upgrades_gemini_efforts | [585](../../src-tauri/src/commands/vscode_copilot.rs#L585) |

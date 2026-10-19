@@ -22,6 +22,10 @@ export interface VscodeCopilotStatus {
   gatewayRunning: boolean;
   /** 只含字段名与有无，不含 token 原值。 */
   drift: { field: string; currentPresent: boolean; appliedPresent: boolean }[];
+  vscodeInstalled?: boolean;
+  vscodeVersion?: string | null;
+  vscodePath?: string | null;
+  copilotExtensionInstalled?: boolean;
 }
 
 export * from "./quota";
@@ -602,6 +606,8 @@ export interface PathsInfo {
   claudeDesktopNormalConfigPath: string | null;
   /** `Claude-3p/claude_desktop_config.json`, or null. */
   claudeDesktopThreepConfigPath: string | null;
+  /** VS Code `chatLanguageModels.json` path. */
+  vscodeCopilotConfigPath?: string;
 }
 
 export interface DataRootInfo {

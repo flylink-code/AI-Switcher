@@ -4,7 +4,7 @@
 
 [Module](rust-coding.md) · [Source](../../src-tauri/src/coding/pi/detector.rs) · page 1/1
 
-Source SHA-256: afd51eb7e39d2556c08b6d3f95aa4fc04bfeea728e05cae7b43e8f360e4d6f28
+Source SHA-256: 6882158c11ecfdfb28e87c80f6888a84cc21b5357468a6d6d0b9243587081826
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -28,20 +28,21 @@ Source SHA-256: afd51eb7e39d2556c08b6d3f95aa4fc04bfeea728e05cae7b43e8f360e4d6f28
 | infer_pi_source | function_item |  | [40](../../src-tauri/src/coding/pi/detector.rs#L40) |
 | parse_version | function_item |  | [67](../../src-tauri/src/coding/pi/detector.rs#L67) |
 | get_pi_candidates | function_item |  | [80](../../src-tauri/src/coding/pi/detector.rs#L80) |
-| empty_info | function_item |  | [142](../../src-tauri/src/coding/pi/detector.rs#L142) |
-| detect_pi_cli_sync | function_item |  | [160](../../src-tauri/src/coding/pi/detector.rs#L160) |
-| format | macro invocation (unexpanded) | detect_pi_cli_sync | [181](../../src-tauri/src/coding/pi/detector.rs#L181) |
-| format | macro invocation (unexpanded) | detect_pi_cli_sync | [193](../../src-tauri/src/coding/pi/detector.rs#L193) |
-| format | macro invocation (unexpanded) | detect_pi_cli_sync | [198](../../src-tauri/src/coding/pi/detector.rs#L198) |
-| fetch_pi_npm_latest_sync | function_item |  | [237](../../src-tauri/src/coding/pi/detector.rs#L237) |
-| cfg | macro invocation (unexpanded) | fetch_pi_npm_latest_sync | [238](../../src-tauri/src/coding/pi/detector.rs#L238) |
-| apply_pi_latest | function_item |  | [260](../../src-tauri/src/coding/pi/detector.rs#L260) |
-| tests | mod_item |  | [272](../../src-tauri/src/coding/pi/detector.rs#L272) |
-| info_with | function_item | tests | [275](../../src-tauri/src/coding/pi/detector.rs#L275) |
-| pi_newer_latest_has_update | function_item | tests | [283](../../src-tauri/src/coding/pi/detector.rs#L283) |
-| assert | macro invocation (unexpanded) | tests::pi_newer_latest_has_update | [284](../../src-tauri/src/coding/pi/detector.rs#L284) |
-| pi_current_higher_than_latest_has_no_update | function_item | tests | [288](../../src-tauri/src/coding/pi/detector.rs#L288) |
-| assert | macro invocation (unexpanded) | tests::pi_current_higher_than_latest_has_no_update | [289](../../src-tauri/src/coding/pi/detector.rs#L289) |
-| pi_same_or_unknown_latest_has_no_update | function_item | tests | [293](../../src-tauri/src/coding/pi/detector.rs#L293) |
-| assert | macro invocation (unexpanded) | tests::pi_same_or_unknown_latest_has_no_update | [294](../../src-tauri/src/coding/pi/detector.rs#L294) |
-| assert | macro invocation (unexpanded) | tests::pi_same_or_unknown_latest_has_no_update | [295](../../src-tauri/src/coding/pi/detector.rs#L295) |
+| pi_probe_env_path | function_item |  | [186](../../src-tauri/src/coding/pi/detector.rs#L186) |
+| empty_info | function_item |  | [205](../../src-tauri/src/coding/pi/detector.rs#L205) |
+| detect_pi_cli_sync | function_item |  | [223](../../src-tauri/src/coding/pi/detector.rs#L223) |
+| format | macro invocation (unexpanded) | detect_pi_cli_sync | [247](../../src-tauri/src/coding/pi/detector.rs#L247) |
+| format | macro invocation (unexpanded) | detect_pi_cli_sync | [259](../../src-tauri/src/coding/pi/detector.rs#L259) |
+| format | macro invocation (unexpanded) | detect_pi_cli_sync | [264](../../src-tauri/src/coding/pi/detector.rs#L264) |
+| fetch_pi_npm_latest_sync | function_item |  | [303](../../src-tauri/src/coding/pi/detector.rs#L303) |
+| cfg | macro invocation (unexpanded) | fetch_pi_npm_latest_sync | [318](../../src-tauri/src/coding/pi/detector.rs#L318) |
+| apply_pi_latest | function_item |  | [340](../../src-tauri/src/coding/pi/detector.rs#L340) |
+| tests | mod_item |  | [352](../../src-tauri/src/coding/pi/detector.rs#L352) |
+| info_with | function_item | tests | [355](../../src-tauri/src/coding/pi/detector.rs#L355) |
+| pi_newer_latest_has_update | function_item | tests | [363](../../src-tauri/src/coding/pi/detector.rs#L363) |
+| assert | macro invocation (unexpanded) | tests::pi_newer_latest_has_update | [364](../../src-tauri/src/coding/pi/detector.rs#L364) |
+| pi_current_higher_than_latest_has_no_update | function_item | tests | [368](../../src-tauri/src/coding/pi/detector.rs#L368) |
+| assert | macro invocation (unexpanded) | tests::pi_current_higher_than_latest_has_no_update | [369](../../src-tauri/src/coding/pi/detector.rs#L369) |
+| pi_same_or_unknown_latest_has_no_update | function_item | tests | [373](../../src-tauri/src/coding/pi/detector.rs#L373) |
+| assert | macro invocation (unexpanded) | tests::pi_same_or_unknown_latest_has_no_update | [374](../../src-tauri/src/coding/pi/detector.rs#L374) |
+| assert | macro invocation (unexpanded) | tests::pi_same_or_unknown_latest_has_no_update | [375](../../src-tauri/src/coding/pi/detector.rs#L375) |

@@ -26,15 +26,15 @@
 | [src-tauri/src/commands/desktop_localization_parts/process.rs](../../src-tauri/src/commands/desktop_localization_parts/process.rs) | 38 | [1](src-tauri_src_commands_desktop_localization_parts_process.rs-2509910f-1.md) |
 | [src-tauri/src/commands/desktop_localization_parts/state.rs](../../src-tauri/src/commands/desktop_localization_parts/state.rs) | 29 | [1](src-tauri_src_commands_desktop_localization_parts_state.rs-d1400a2e-1.md) |
 | [src-tauri/src/commands/desktop_localization_parts/tests.rs](../../src-tauri/src/commands/desktop_localization_parts/tests.rs) | 240 | [1](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-1.md) [2](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-2.md) [3](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-3.md) |
-| [src-tauri/src/commands/doctor.rs](../../src-tauri/src/commands/doctor.rs) | 82 | [1](src-tauri_src_commands_doctor.rs-2917bcc1-1.md) |
+| [src-tauri/src/commands/doctor.rs](../../src-tauri/src/commands/doctor.rs) | 89 | [1](src-tauri_src_commands_doctor.rs-2917bcc1-1.md) |
 | [src-tauri/src/commands/gateway.rs](../../src-tauri/src/commands/gateway.rs) | 48 | [1](src-tauri_src_commands_gateway.rs-6deaa692-1.md) |
 | [src-tauri/src/commands/kiro.rs](../../src-tauri/src/commands/kiro.rs) | 26 | [1](src-tauri_src_commands_kiro.rs-1c6825b3-1.md) |
 | [src-tauri/src/commands/localization.rs](../../src-tauri/src/commands/localization.rs) | 239 | [1](src-tauri_src_commands_localization.rs-412be93b-1.md) [2](src-tauri_src_commands_localization.rs-412be93b-2.md) [3](src-tauri_src_commands_localization.rs-412be93b-3.md) |
 | [src-tauri/src/commands/mcp.rs](../../src-tauri/src/commands/mcp.rs) | 12 | [1](src-tauri_src_commands_mcp.rs-cb75e6fa-1.md) |
 | [src-tauri/src/commands/mod.rs](../../src-tauri/src/commands/mod.rs) | 35 | [1](src-tauri_src_commands_mod.rs-0cf4fb10-1.md) |
 | [src-tauri/src/commands/node_runtime.rs](../../src-tauri/src/commands/node_runtime.rs) | 130 | [1](src-tauri_src_commands_node_runtime.rs-fd8c55f0-1.md) [2](src-tauri_src_commands_node_runtime.rs-fd8c55f0-2.md) |
-| [src-tauri/src/commands/paths.rs](../../src-tauri/src/commands/paths.rs) | 37 | [1](src-tauri_src_commands_paths.rs-87bfdadd-1.md) |
-| [src-tauri/src/commands/pi.rs](../../src-tauri/src/commands/pi.rs) | 18 | [1](src-tauri_src_commands_pi.rs-3391dead-1.md) |
+| [src-tauri/src/commands/paths.rs](../../src-tauri/src/commands/paths.rs) | 38 | [1](src-tauri_src_commands_paths.rs-87bfdadd-1.md) |
+| [src-tauri/src/commands/pi.rs](../../src-tauri/src/commands/pi.rs) | 19 | [1](src-tauri_src_commands_pi.rs-3391dead-1.md) |
 | [src-tauri/src/commands/profiles.rs](../../src-tauri/src/commands/profiles.rs) | 62 | [1](src-tauri_src_commands_profiles.rs-a71a33a3-1.md) |
 | [src-tauri/src/commands/prompts.rs](../../src-tauri/src/commands/prompts.rs) | 8 | [1](src-tauri_src_commands_prompts.rs-1f40b7a1-1.md) |
 | [src-tauri/src/commands/providers/apply.rs](../../src-tauri/src/commands/providers/apply.rs) | 42 | [1](src-tauri_src_commands_providers_apply.rs-5bab3885-1.md) |
@@ -55,4 +55,4 @@
 | [src-tauri/src/commands/system.rs](../../src-tauri/src/commands/system.rs) | 134 | [1](src-tauri_src_commands_system.rs-a493aece-1.md) [2](src-tauri_src_commands_system.rs-a493aece-2.md) |
 | [src-tauri/src/commands/tools.rs](../../src-tauri/src/commands/tools.rs) | 395 | [1](src-tauri_src_commands_tools.rs-5fe0ba91-1.md) [2](src-tauri_src_commands_tools.rs-5fe0ba91-2.md) [3](src-tauri_src_commands_tools.rs-5fe0ba91-3.md) [4](src-tauri_src_commands_tools.rs-5fe0ba91-4.md) |
 | [src-tauri/src/commands/usage.rs](../../src-tauri/src/commands/usage.rs) | 278 | [1](src-tauri_src_commands_usage.rs-dc05e43b-1.md) [2](src-tauri_src_commands_usage.rs-dc05e43b-2.md) [3](src-tauri_src_commands_usage.rs-dc05e43b-3.md) |
-| [src-tauri/src/commands/vscode_copilot.rs](../../src-tauri/src/commands/vscode_copilot.rs) | 62 | [1](src-tauri_src_commands_vscode_copilot.rs-6ed8aa31-1.md) |
+| [src-tauri/src/commands/vscode_copilot.rs](../../src-tauri/src/commands/vscode_copilot.rs) | 66 | [1](src-tauri_src_commands_vscode_copilot.rs-6ed8aa31-1.md) |

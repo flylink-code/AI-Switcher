@@ -4,7 +4,7 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/claude_desktop.rs) · page 1/2
 
-Source SHA-256: 3941cb0abd9c9e27bfe6586bb47345bb3fb72852c9ce470fce66c8f487ee0c02
+Source SHA-256: b19ccd76f1a3e3db47c976b3384f158073100eee7b05f41adb594890c00d6d53
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/runtime_status.rs) · page 1/1
 
-Source SHA-256: bf84997a74092729356d27be7cd37239e70fbf635337402b3b3455dbf2d87740
+Source SHA-256: 885392fd1d23b424763909b47f574fe484158fe76653bf5308b803c37cd1dd3d
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,16 +20,16 @@ Source SHA-256: bf84997a74092729356d27be7cd37239e70fbf635337402b3b3455dbf2d87740
 | Codex | enum_variant | AppKind | [32](../../src-tauri/src/runtime_status.rs#L32) |
 | OpenCode | enum_variant | AppKind | [33](../../src-tauri/src/runtime_status.rs#L33) |
 | classify_process | function_item |  | [36](../../src-tauri/src/runtime_status.rs#L36) |
-| windows_status | function_item |  | [89](../../src-tauri/src/runtime_status.rs#L89) |
-| matches | macro invocation (unexpanded) | windows_status | [124](../../src-tauri/src/runtime_status.rs#L124) |
-| process_image_path | function_item |  | [152](../../src-tauri/src/runtime_status.rs#L152) |
-| vec | macro invocation (unexpanded) | process_image_path | [164](../../src-tauri/src/runtime_status.rs#L164) |
-| unix_status | function_item |  | [181](../../src-tauri/src/runtime_status.rs#L181) |
-| tests | mod_item |  | [211](../../src-tauri/src/runtime_status.rs#L211) |
-| classifies_desktop_and_code_claude_paths | function_item | tests | [215](../../src-tauri/src/runtime_status.rs#L215) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [216](../../src-tauri/src/runtime_status.rs#L216) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [220](../../src-tauri/src/runtime_status.rs#L220) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [224](../../src-tauri/src/runtime_status.rs#L224) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [228](../../src-tauri/src/runtime_status.rs#L228) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [232](../../src-tauri/src/runtime_status.rs#L232) |
-| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [236](../../src-tauri/src/runtime_status.rs#L236) |
+| windows_status | function_item |  | [111](../../src-tauri/src/runtime_status.rs#L111) |
+| matches | macro invocation (unexpanded) | windows_status | [146](../../src-tauri/src/runtime_status.rs#L146) |
+| process_image_path | function_item |  | [174](../../src-tauri/src/runtime_status.rs#L174) |
+| vec | macro invocation (unexpanded) | process_image_path | [186](../../src-tauri/src/runtime_status.rs#L186) |
+| unix_status | function_item |  | [203](../../src-tauri/src/runtime_status.rs#L203) |
+| tests | mod_item |  | [233](../../src-tauri/src/runtime_status.rs#L233) |
+| classifies_desktop_and_code_claude_paths | function_item | tests | [237](../../src-tauri/src/runtime_status.rs#L237) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [238](../../src-tauri/src/runtime_status.rs#L238) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [242](../../src-tauri/src/runtime_status.rs#L242) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [246](../../src-tauri/src/runtime_status.rs#L246) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [250](../../src-tauri/src/runtime_status.rs#L250) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [254](../../src-tauri/src/runtime_status.rs#L254) |
+| assert_eq | macro invocation (unexpanded) | tests::classifies_desktop_and_code_claude_paths | [258](../../src-tauri/src/runtime_status.rs#L258) |

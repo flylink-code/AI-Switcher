@@ -71,13 +71,13 @@ pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
     {
         let home = get_home_dir();
         let app_support = home.join("Library").join("Application Support");
-        return paths_from_dirs(app_support.join("Claude"), app_support.join("Claude-3p"));
+        paths_from_dirs(app_support.join("Claude"), app_support.join("Claude-3p"))
     }
 
     #[cfg(target_os = "linux")]
     {
         let config = linux_config_home();
-        return paths_from_dirs(config.join("Claude"), config.join("Claude-3p"));
+        paths_from_dirs(config.join("Claude"), config.join("Claude-3p"))
     }
 
     #[cfg(windows)]

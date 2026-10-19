@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/unified.rs) · page 1/1
 
-Source SHA-256: 453abc117b8e47b9eae042da9537533a8688a9bd7a2f78c7996484abe4415c0e
+Source SHA-256: 4117bc74c724ae3744f9698f8e28411dc33e43ca6818baa197652c853058bd94
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -38,46 +38,46 @@ Source SHA-256: 453abc117b8e47b9eae042da9537533a8688a9bd7a2f78c7996484abe4415c0e
 | format | macro invocation (unexpanded) | restore_connection_failure | [307](../../src-tauri/src/commands/providers/unified.rs#L307) |
 | apply_runtime_provider | function_item |  | [313](../../src-tauri/src/commands/providers/unified.rs#L313) |
 | refresh_direct_upstream_locked | function_item |  | [322](../../src-tauri/src/commands/providers/unified.rs#L322) |
-| ensure_reverse_gateways_for_pool | function_item |  | [346](../../src-tauri/src/commands/providers/unified.rs#L346) |
-| is_loopback_endpoint_with_port | function_item |  | [365](../../src-tauri/src/commands/providers/unified.rs#L365) |
-| get_agent_connection_mode | function_item |  | [375](../../src-tauri/src/commands/providers/unified.rs#L375) |
-| test_upstream_connection | function_item |  | [392](../../src-tauri/src/commands/providers/unified.rs#L392) |
-| format | macro invocation (unexpanded) | test_upstream_connection | [398](../../src-tauri/src/commands/providers/unified.rs#L398) |
-| sanitize_export_custom_headers | function_item |  | [429](../../src-tauri/src/commands/providers/unified.rs#L429) |
-| export_gateway_upstreams | function_item |  | [456](../../src-tauri/src/commands/providers/unified.rs#L456) |
-| import_live_config_as_upstreams | function_item |  | [486](../../src-tauri/src/commands/providers/unified.rs#L486) |
-| format | macro invocation (unexpanded) | import_live_config_as_upstreams | [526](../../src-tauri/src/commands/providers/unified.rs#L526) |
-| is_live_upstream_loopback | function_item |  | [573](../../src-tauri/src/commands/providers/unified.rs#L573) |
-| matches | macro invocation (unexpanded) | is_live_upstream_loopback | [574](../../src-tauri/src/commands/providers/unified.rs#L574) |
-| live_upstream_input | function_item |  | [580](../../src-tauri/src/commands/providers/unified.rs#L580) |
-| import_gateway_upstreams_json | function_item |  | [615](../../src-tauri/src/commands/providers/unified.rs#L615) |
-| format | macro invocation (unexpanded) | import_gateway_upstreams_json | [622](../../src-tauri/src/commands/providers/unified.rs#L622) |
-| unified_tests | mod_item |  | [675](../../src-tauri/src/commands/providers/unified.rs#L675) |
-| test_sanitize_export_custom_headers_strips_sensitive_keys | function_item | unified_tests | [680](../../src-tauri/src/commands/providers/unified.rs#L680) |
-| assert_eq | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [690](../../src-tauri/src/commands/providers/unified.rs#L690) |
-| assert_eq | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [691](../../src-tauri/src/commands/providers/unified.rs#L691) |
-| assert_eq | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [692](../../src-tauri/src/commands/providers/unified.rs#L692) |
-| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [693](../../src-tauri/src/commands/providers/unified.rs#L693) |
-| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [694](../../src-tauri/src/commands/providers/unified.rs#L694) |
-| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [695](../../src-tauri/src/commands/providers/unified.rs#L695) |
-| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [696](../../src-tauri/src/commands/providers/unified.rs#L696) |
-| test_sanitize_export_custom_headers_none_when_all_sensitive | function_item | unified_tests | [700](../../src-tauri/src/commands/providers/unified.rs#L700) |
-| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_none_when_all_sensitive | [706](../../src-tauri/src/commands/providers/unified.rs#L706) |
-| sample_test_provider | function_item | unified_tests | [709](../../src-tauri/src/commands/providers/unified.rs#L709) |
-| test_validate_direct_provider_claude_code | function_item | unified_tests | [742](../../src-tauri/src/commands/providers/unified.rs#L742) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [745](../../src-tauri/src/commands/providers/unified.rs#L745) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [750](../../src-tauri/src/commands/providers/unified.rs#L750) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [755](../../src-tauri/src/commands/providers/unified.rs#L755) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [758](../../src-tauri/src/commands/providers/unified.rs#L758) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [761](../../src-tauri/src/commands/providers/unified.rs#L761) |
-| test_validate_direct_provider_codex | function_item | unified_tests | [765](../../src-tauri/src/commands/providers/unified.rs#L765) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_codex | [768](../../src-tauri/src/commands/providers/unified.rs#L768) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_codex | [773](../../src-tauri/src/commands/providers/unified.rs#L773) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_codex | [778](../../src-tauri/src/commands/providers/unified.rs#L778) |
-| test_validate_upstream_update_for_direct_bindings | function_item | unified_tests | [782](../../src-tauri/src/commands/providers/unified.rs#L782) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [805](../../src-tauri/src/commands/providers/unified.rs#L805) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [821](../../src-tauri/src/commands/providers/unified.rs#L821) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [831](../../src-tauri/src/commands/providers/unified.rs#L831) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [841](../../src-tauri/src/commands/providers/unified.rs#L841) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [857](../../src-tauri/src/commands/providers/unified.rs#L857) |
-| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [860](../../src-tauri/src/commands/providers/unified.rs#L860) |
+| ensure_reverse_gateways_for_pool | function_item |  | [350](../../src-tauri/src/commands/providers/unified.rs#L350) |
+| is_loopback_endpoint_with_port | function_item |  | [369](../../src-tauri/src/commands/providers/unified.rs#L369) |
+| get_agent_connection_mode | function_item |  | [379](../../src-tauri/src/commands/providers/unified.rs#L379) |
+| test_upstream_connection | function_item |  | [396](../../src-tauri/src/commands/providers/unified.rs#L396) |
+| format | macro invocation (unexpanded) | test_upstream_connection | [402](../../src-tauri/src/commands/providers/unified.rs#L402) |
+| sanitize_export_custom_headers | function_item |  | [433](../../src-tauri/src/commands/providers/unified.rs#L433) |
+| export_gateway_upstreams | function_item |  | [460](../../src-tauri/src/commands/providers/unified.rs#L460) |
+| import_live_config_as_upstreams | function_item |  | [490](../../src-tauri/src/commands/providers/unified.rs#L490) |
+| format | macro invocation (unexpanded) | import_live_config_as_upstreams | [530](../../src-tauri/src/commands/providers/unified.rs#L530) |
+| is_live_upstream_loopback | function_item |  | [577](../../src-tauri/src/commands/providers/unified.rs#L577) |
+| matches | macro invocation (unexpanded) | is_live_upstream_loopback | [578](../../src-tauri/src/commands/providers/unified.rs#L578) |
+| live_upstream_input | function_item |  | [584](../../src-tauri/src/commands/providers/unified.rs#L584) |
+| import_gateway_upstreams_json | function_item |  | [619](../../src-tauri/src/commands/providers/unified.rs#L619) |
+| format | macro invocation (unexpanded) | import_gateway_upstreams_json | [626](../../src-tauri/src/commands/providers/unified.rs#L626) |
+| unified_tests | mod_item |  | [679](../../src-tauri/src/commands/providers/unified.rs#L679) |
+| test_sanitize_export_custom_headers_strips_sensitive_keys | function_item | unified_tests | [684](../../src-tauri/src/commands/providers/unified.rs#L684) |
+| assert_eq | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [694](../../src-tauri/src/commands/providers/unified.rs#L694) |
+| assert_eq | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [695](../../src-tauri/src/commands/providers/unified.rs#L695) |
+| assert_eq | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [696](../../src-tauri/src/commands/providers/unified.rs#L696) |
+| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [697](../../src-tauri/src/commands/providers/unified.rs#L697) |
+| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [698](../../src-tauri/src/commands/providers/unified.rs#L698) |
+| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [699](../../src-tauri/src/commands/providers/unified.rs#L699) |
+| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_strips_sensitive_keys | [700](../../src-tauri/src/commands/providers/unified.rs#L700) |
+| test_sanitize_export_custom_headers_none_when_all_sensitive | function_item | unified_tests | [704](../../src-tauri/src/commands/providers/unified.rs#L704) |
+| assert | macro invocation (unexpanded) | unified_tests::test_sanitize_export_custom_headers_none_when_all_sensitive | [710](../../src-tauri/src/commands/providers/unified.rs#L710) |
+| sample_test_provider | function_item | unified_tests | [713](../../src-tauri/src/commands/providers/unified.rs#L713) |
+| test_validate_direct_provider_claude_code | function_item | unified_tests | [746](../../src-tauri/src/commands/providers/unified.rs#L746) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [749](../../src-tauri/src/commands/providers/unified.rs#L749) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [754](../../src-tauri/src/commands/providers/unified.rs#L754) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [759](../../src-tauri/src/commands/providers/unified.rs#L759) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [762](../../src-tauri/src/commands/providers/unified.rs#L762) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_claude_code | [765](../../src-tauri/src/commands/providers/unified.rs#L765) |
+| test_validate_direct_provider_codex | function_item | unified_tests | [769](../../src-tauri/src/commands/providers/unified.rs#L769) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_codex | [772](../../src-tauri/src/commands/providers/unified.rs#L772) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_codex | [777](../../src-tauri/src/commands/providers/unified.rs#L777) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_direct_provider_codex | [782](../../src-tauri/src/commands/providers/unified.rs#L782) |
+| test_validate_upstream_update_for_direct_bindings | function_item | unified_tests | [786](../../src-tauri/src/commands/providers/unified.rs#L786) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [809](../../src-tauri/src/commands/providers/unified.rs#L809) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [825](../../src-tauri/src/commands/providers/unified.rs#L825) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [835](../../src-tauri/src/commands/providers/unified.rs#L835) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [845](../../src-tauri/src/commands/providers/unified.rs#L845) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [861](../../src-tauri/src/commands/providers/unified.rs#L861) |
+| assert | macro invocation (unexpanded) | unified_tests::test_validate_upstream_update_for_direct_bindings | [864](../../src-tauri/src/commands/providers/unified.rs#L864) |

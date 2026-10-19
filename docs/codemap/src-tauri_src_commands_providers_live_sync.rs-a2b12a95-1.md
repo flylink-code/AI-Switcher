@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/live_sync.rs) · page 1/2
 
-Source SHA-256: ca42dfaa165d33a3edc8bb9f9315018557949fe9f44e44429abf98d9f48d06a9
+Source SHA-256: 66d229ae694e2e057f7e56e33b9f1edf9e659004508704024c73a6bed8b1d318
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -29,82 +29,82 @@ Source SHA-256: ca42dfaa165d33a3edc8bb9f9315018557949fe9f44e44429abf98d9f48d06a9
 | hydrate_catalog_runtime | function_item |  | [350](../../src-tauri/src/commands/providers/live_sync.rs#L350) |
 | apply_native_gateway_entry | function_item |  | [383](../../src-tauri/src/commands/providers/live_sync.rs#L383) |
 | push_bound_gateway_catalogs | function_item |  | [394](../../src-tauri/src/commands/providers/live_sync.rs#L394) |
-| log::warn | macro invocation (unexpanded) | push_bound_gateway_catalogs | [407](../../src-tauri/src/commands/providers/live_sync.rs#L407) |
-| sync_gateway_catalog_target | function_item |  | [455](../../src-tauri/src/commands/providers/live_sync.rs#L455) |
-| sync_dsh_providers_to_live | function_item |  | [481](../../src-tauri/src/commands/providers/live_sync.rs#L481) |
-| sync_cline_providers_to_live | function_item |  | [494](../../src-tauri/src/commands/providers/live_sync.rs#L494) |
-| sync_pi_providers_to_live | function_item |  | [506](../../src-tauri/src/commands/providers/live_sync.rs#L506) |
-| serde_json::json | macro invocation (unexpanded) | sync_pi_providers_to_live | [528](../../src-tauri/src/commands/providers/live_sync.rs#L528) |
-| pi_provider_config | function_item |  | [546](../../src-tauri/src/commands/providers/live_sync.rs#L546) |
-| json | macro invocation (unexpanded) | pi_provider_config | [554](../../src-tauri/src/commands/providers/live_sync.rs#L554) |
-| matches | macro invocation (unexpanded) | pi_provider_config | [559](../../src-tauri/src/commands/providers/live_sync.rs#L559) |
-| json | macro invocation (unexpanded) | pi_provider_config | [560](../../src-tauri/src/commands/providers/live_sync.rs#L560) |
-| pi_provider_id | function_item |  | [567](../../src-tauri/src/commands/providers/live_sync.rs#L567) |
-| pi_api_for_protocol | function_item |  | [591](../../src-tauri/src/commands/providers/live_sync.rs#L591) |
-| pi_proxy_base_url | function_item |  | [600](../../src-tauri/src/commands/providers/live_sync.rs#L600) |
-| format | macro invocation (unexpanded) | pi_proxy_base_url | [604](../../src-tauri/src/commands/providers/live_sync.rs#L604) |
-| format | macro invocation (unexpanded) | pi_proxy_base_url | [606](../../src-tauri/src/commands/providers/live_sync.rs#L606) |
-| normalize_pi_base_url | function_item |  | [611](../../src-tauri/src/commands/providers/live_sync.rs#L611) |
-| build_pi_model_entries | function_item |  | [632](../../src-tauri/src/commands/providers/live_sync.rs#L632) |
-| matches | macro invocation (unexpanded) | build_pi_model_entries | [651](../../src-tauri/src/commands/providers/live_sync.rs#L651) |
-| json | macro invocation (unexpanded) | build_pi_model_entries | [660](../../src-tauri/src/commands/providers/live_sync.rs#L660) |
-| json | macro invocation (unexpanded) | build_pi_model_entries | [667](../../src-tauri/src/commands/providers/live_sync.rs#L667) |
-| extra_models_for_ag_catalog_apply | function_item |  | [682](../../src-tauri/src/commands/providers/live_sync.rs#L682) |
-| extra_models_for_pi_apply | function_item |  | [704](../../src-tauri/src/commands/providers/live_sync.rs#L704) |
-| extend_unique_models | function_item |  | [741](../../src-tauri/src/commands/providers/live_sync.rs#L741) |
-| apply_target_provider | function_item |  | [750](../../src-tauri/src/commands/providers/live_sync.rs#L750) |
-| format | macro invocation (unexpanded) | apply_target_provider | [893](../../src-tauri/src/commands/providers/live_sync.rs#L893) |
-| format | macro invocation (unexpanded) | apply_target_provider | [925](../../src-tauri/src/commands/providers/live_sync.rs#L925) |
-| format | macro invocation (unexpanded) | apply_target_provider | [949](../../src-tauri/src/commands/providers/live_sync.rs#L949) |
-| format | macro invocation (unexpanded) | apply_target_provider | [973](../../src-tauri/src/commands/providers/live_sync.rs#L973) |
-| log::info | macro invocation (unexpanded) | apply_target_provider | [984](../../src-tauri/src/commands/providers/live_sync.rs#L984) |
-| log::warn | macro invocation (unexpanded) | apply_target_provider | [993](../../src-tauri/src/commands/providers/live_sync.rs#L993) |
-| format | macro invocation (unexpanded) | apply_target_provider | [996](../../src-tauri/src/commands/providers/live_sync.rs#L996) |
-| format | macro invocation (unexpanded) | apply_target_provider | [1038](../../src-tauri/src/commands/providers/live_sync.rs#L1038) |
-| SwitchSnapshot | struct_item |  | [1060](../../src-tauri/src/commands/providers/live_sync.rs#L1060) |
-| target | field_declaration | SwitchSnapshot | [1061](../../src-tauri/src/commands/providers/live_sync.rs#L1061) |
-| files | field_declaration | SwitchSnapshot | [1062](../../src-tauri/src/commands/providers/live_sync.rs#L1062) |
-| ownership_key | field_declaration | SwitchSnapshot | [1063](../../src-tauri/src/commands/providers/live_sync.rs#L1063) |
-| ownership_value | field_declaration | SwitchSnapshot | [1064](../../src-tauri/src/commands/providers/live_sync.rs#L1064) |
-| proxy | field_declaration | SwitchSnapshot | [1065](../../src-tauri/src/commands/providers/live_sync.rs#L1065) |
-| FileSnapshot | struct_item |  | [1068](../../src-tauri/src/commands/providers/live_sync.rs#L1068) |
-| path | field_declaration | FileSnapshot | [1069](../../src-tauri/src/commands/providers/live_sync.rs#L1069) |
-| contents | field_declaration | FileSnapshot | [1070](../../src-tauri/src/commands/providers/live_sync.rs#L1070) |
-| last_written | field_declaration | FileSnapshot | [1071](../../src-tauri/src/commands/providers/live_sync.rs#L1071) |
-| ProxySnapshot | struct_item |  | [1074](../../src-tauri/src/commands/providers/live_sync.rs#L1074) |
-| running | field_declaration | ProxySnapshot | [1075](../../src-tauri/src/commands/providers/live_sync.rs#L1075) |
-| port | field_declaration | ProxySnapshot | [1076](../../src-tauri/src/commands/providers/live_sync.rs#L1076) |
-| SwitchSnapshot | impl |  | [1079](../../src-tauri/src/commands/providers/live_sync.rs#L1079) |
-| capture | function_item | SwitchSnapshot | [1080](../../src-tauri/src/commands/providers/live_sync.rs#L1080) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1082](../../src-tauri/src/commands/providers/live_sync.rs#L1082) |
-| format | macro invocation (unexpanded) | SwitchSnapshot::capture | [1087](../../src-tauri/src/commands/providers/live_sync.rs#L1087) |
-| format | macro invocation (unexpanded) | SwitchSnapshot::capture | [1088](../../src-tauri/src/commands/providers/live_sync.rs#L1088) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1104](../../src-tauri/src/commands/providers/live_sync.rs#L1104) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1109](../../src-tauri/src/commands/providers/live_sync.rs#L1109) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1110](../../src-tauri/src/commands/providers/live_sync.rs#L1110) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1115](../../src-tauri/src/commands/providers/live_sync.rs#L1115) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1119](../../src-tauri/src/commands/providers/live_sync.rs#L1119) |
-| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1121](../../src-tauri/src/commands/providers/live_sync.rs#L1121) |
-| restore | function_item | SwitchSnapshot | [1144](../../src-tauri/src/commands/providers/live_sync.rs#L1144) |
-| format | macro invocation (unexpanded) | SwitchSnapshot::restore | [1148](../../src-tauri/src/commands/providers/live_sync.rs#L1148) |
-| format | macro invocation (unexpanded) | SwitchSnapshot::restore | [1154](../../src-tauri/src/commands/providers/live_sync.rs#L1154) |
-| format | macro invocation (unexpanded) | SwitchSnapshot::restore | [1166](../../src-tauri/src/commands/providers/live_sync.rs#L1166) |
-| capture_last_written_files | function_item | SwitchSnapshot | [1175](../../src-tauri/src/commands/providers/live_sync.rs#L1175) |
-| FileSnapshot | impl |  | [1183](../../src-tauri/src/commands/providers/live_sync.rs#L1183) |
-| capture | function_item | FileSnapshot | [1184](../../src-tauri/src/commands/providers/live_sync.rs#L1184) |
-| capture_last_written | function_item | FileSnapshot | [1189](../../src-tauri/src/commands/providers/live_sync.rs#L1189) |
-| restore | function_item | FileSnapshot | [1194](../../src-tauri/src/commands/providers/live_sync.rs#L1194) |
-| format | macro invocation (unexpanded) | FileSnapshot::restore | [1199](../../src-tauri/src/commands/providers/live_sync.rs#L1199) |
-| read_contents | function_item | FileSnapshot | [1214](../../src-tauri/src/commands/providers/live_sync.rs#L1214) |
-| switch_failure_message | function_item |  | [1223](../../src-tauri/src/commands/providers/live_sync.rs#L1223) |
-| rollback_switch | function_item |  | [1230](../../src-tauri/src/commands/providers/live_sync.rs#L1230) |
-| format | macro invocation (unexpanded) | rollback_switch | [1232](../../src-tauri/src/commands/providers/live_sync.rs#L1232) |
-| format | macro invocation (unexpanded) | rollback_switch | [1236](../../src-tauri/src/commands/providers/live_sync.rs#L1236) |
-| CODE_OWNERSHIP_KEY | const_item |  | [1244](../../src-tauri/src/commands/providers/live_sync.rs#L1244) |
-| CodeOwnership | struct_item |  | [1246](../../src-tauri/src/commands/providers/live_sync.rs#L1246) |
-| before | field_declaration | CodeOwnership | [1247](../../src-tauri/src/commands/providers/live_sync.rs#L1247) |
-| written | field_declaration | CodeOwnership | [1248](../../src-tauri/src/commands/providers/live_sync.rs#L1248) |
-| code_managed_fields | function_item |  | [1251](../../src-tauri/src/commands/providers/live_sync.rs#L1251) |
-| normalize_managed_value | function_item |  | [1268](../../src-tauri/src/commands/providers/live_sync.rs#L1268) |
-| normalize_managed_value_for_key | function_item |  | [1276](../../src-tauri/src/commands/providers/live_sync.rs#L1276) |
-| normalize_managed_fields | function_item |  | [1291](../../src-tauri/src/commands/providers/live_sync.rs#L1291) |
+| log::warn | macro invocation (unexpanded) | push_bound_gateway_catalogs | [404](../../src-tauri/src/commands/providers/live_sync.rs#L404) |
+| sync_gateway_catalog_target | function_item |  | [458](../../src-tauri/src/commands/providers/live_sync.rs#L458) |
+| sync_dsh_providers_to_live | function_item |  | [484](../../src-tauri/src/commands/providers/live_sync.rs#L484) |
+| sync_cline_providers_to_live | function_item |  | [497](../../src-tauri/src/commands/providers/live_sync.rs#L497) |
+| sync_pi_providers_to_live | function_item |  | [509](../../src-tauri/src/commands/providers/live_sync.rs#L509) |
+| serde_json::json | macro invocation (unexpanded) | sync_pi_providers_to_live | [531](../../src-tauri/src/commands/providers/live_sync.rs#L531) |
+| pi_provider_config | function_item |  | [549](../../src-tauri/src/commands/providers/live_sync.rs#L549) |
+| json | macro invocation (unexpanded) | pi_provider_config | [557](../../src-tauri/src/commands/providers/live_sync.rs#L557) |
+| matches | macro invocation (unexpanded) | pi_provider_config | [562](../../src-tauri/src/commands/providers/live_sync.rs#L562) |
+| json | macro invocation (unexpanded) | pi_provider_config | [563](../../src-tauri/src/commands/providers/live_sync.rs#L563) |
+| pi_provider_id | function_item |  | [570](../../src-tauri/src/commands/providers/live_sync.rs#L570) |
+| pi_api_for_protocol | function_item |  | [594](../../src-tauri/src/commands/providers/live_sync.rs#L594) |
+| pi_proxy_base_url | function_item |  | [603](../../src-tauri/src/commands/providers/live_sync.rs#L603) |
+| format | macro invocation (unexpanded) | pi_proxy_base_url | [607](../../src-tauri/src/commands/providers/live_sync.rs#L607) |
+| format | macro invocation (unexpanded) | pi_proxy_base_url | [609](../../src-tauri/src/commands/providers/live_sync.rs#L609) |
+| normalize_pi_base_url | function_item |  | [614](../../src-tauri/src/commands/providers/live_sync.rs#L614) |
+| build_pi_model_entries | function_item |  | [635](../../src-tauri/src/commands/providers/live_sync.rs#L635) |
+| matches | macro invocation (unexpanded) | build_pi_model_entries | [654](../../src-tauri/src/commands/providers/live_sync.rs#L654) |
+| json | macro invocation (unexpanded) | build_pi_model_entries | [663](../../src-tauri/src/commands/providers/live_sync.rs#L663) |
+| json | macro invocation (unexpanded) | build_pi_model_entries | [670](../../src-tauri/src/commands/providers/live_sync.rs#L670) |
+| extra_models_for_ag_catalog_apply | function_item |  | [685](../../src-tauri/src/commands/providers/live_sync.rs#L685) |
+| extra_models_for_pi_apply | function_item |  | [707](../../src-tauri/src/commands/providers/live_sync.rs#L707) |
+| extend_unique_models | function_item |  | [744](../../src-tauri/src/commands/providers/live_sync.rs#L744) |
+| apply_target_provider | function_item |  | [753](../../src-tauri/src/commands/providers/live_sync.rs#L753) |
+| format | macro invocation (unexpanded) | apply_target_provider | [896](../../src-tauri/src/commands/providers/live_sync.rs#L896) |
+| format | macro invocation (unexpanded) | apply_target_provider | [928](../../src-tauri/src/commands/providers/live_sync.rs#L928) |
+| format | macro invocation (unexpanded) | apply_target_provider | [952](../../src-tauri/src/commands/providers/live_sync.rs#L952) |
+| format | macro invocation (unexpanded) | apply_target_provider | [976](../../src-tauri/src/commands/providers/live_sync.rs#L976) |
+| log::info | macro invocation (unexpanded) | apply_target_provider | [987](../../src-tauri/src/commands/providers/live_sync.rs#L987) |
+| log::warn | macro invocation (unexpanded) | apply_target_provider | [996](../../src-tauri/src/commands/providers/live_sync.rs#L996) |
+| format | macro invocation (unexpanded) | apply_target_provider | [999](../../src-tauri/src/commands/providers/live_sync.rs#L999) |
+| format | macro invocation (unexpanded) | apply_target_provider | [1041](../../src-tauri/src/commands/providers/live_sync.rs#L1041) |
+| SwitchSnapshot | struct_item |  | [1063](../../src-tauri/src/commands/providers/live_sync.rs#L1063) |
+| target | field_declaration | SwitchSnapshot | [1064](../../src-tauri/src/commands/providers/live_sync.rs#L1064) |
+| files | field_declaration | SwitchSnapshot | [1065](../../src-tauri/src/commands/providers/live_sync.rs#L1065) |
+| ownership_key | field_declaration | SwitchSnapshot | [1066](../../src-tauri/src/commands/providers/live_sync.rs#L1066) |
+| ownership_value | field_declaration | SwitchSnapshot | [1067](../../src-tauri/src/commands/providers/live_sync.rs#L1067) |
+| proxy | field_declaration | SwitchSnapshot | [1068](../../src-tauri/src/commands/providers/live_sync.rs#L1068) |
+| FileSnapshot | struct_item |  | [1071](../../src-tauri/src/commands/providers/live_sync.rs#L1071) |
+| path | field_declaration | FileSnapshot | [1072](../../src-tauri/src/commands/providers/live_sync.rs#L1072) |
+| contents | field_declaration | FileSnapshot | [1073](../../src-tauri/src/commands/providers/live_sync.rs#L1073) |
+| last_written | field_declaration | FileSnapshot | [1074](../../src-tauri/src/commands/providers/live_sync.rs#L1074) |
+| ProxySnapshot | struct_item |  | [1077](../../src-tauri/src/commands/providers/live_sync.rs#L1077) |
+| running | field_declaration | ProxySnapshot | [1078](../../src-tauri/src/commands/providers/live_sync.rs#L1078) |
+| port | field_declaration | ProxySnapshot | [1079](../../src-tauri/src/commands/providers/live_sync.rs#L1079) |
+| SwitchSnapshot | impl |  | [1082](../../src-tauri/src/commands/providers/live_sync.rs#L1082) |
+| capture | function_item | SwitchSnapshot | [1083](../../src-tauri/src/commands/providers/live_sync.rs#L1083) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1085](../../src-tauri/src/commands/providers/live_sync.rs#L1085) |
+| format | macro invocation (unexpanded) | SwitchSnapshot::capture | [1090](../../src-tauri/src/commands/providers/live_sync.rs#L1090) |
+| format | macro invocation (unexpanded) | SwitchSnapshot::capture | [1091](../../src-tauri/src/commands/providers/live_sync.rs#L1091) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1107](../../src-tauri/src/commands/providers/live_sync.rs#L1107) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1112](../../src-tauri/src/commands/providers/live_sync.rs#L1112) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1113](../../src-tauri/src/commands/providers/live_sync.rs#L1113) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1118](../../src-tauri/src/commands/providers/live_sync.rs#L1118) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1122](../../src-tauri/src/commands/providers/live_sync.rs#L1122) |
+| vec | macro invocation (unexpanded) | SwitchSnapshot::capture | [1124](../../src-tauri/src/commands/providers/live_sync.rs#L1124) |
+| restore | function_item | SwitchSnapshot | [1147](../../src-tauri/src/commands/providers/live_sync.rs#L1147) |
+| format | macro invocation (unexpanded) | SwitchSnapshot::restore | [1151](../../src-tauri/src/commands/providers/live_sync.rs#L1151) |
+| format | macro invocation (unexpanded) | SwitchSnapshot::restore | [1157](../../src-tauri/src/commands/providers/live_sync.rs#L1157) |
+| format | macro invocation (unexpanded) | SwitchSnapshot::restore | [1169](../../src-tauri/src/commands/providers/live_sync.rs#L1169) |
+| capture_last_written_files | function_item | SwitchSnapshot | [1178](../../src-tauri/src/commands/providers/live_sync.rs#L1178) |
+| FileSnapshot | impl |  | [1186](../../src-tauri/src/commands/providers/live_sync.rs#L1186) |
+| capture | function_item | FileSnapshot | [1187](../../src-tauri/src/commands/providers/live_sync.rs#L1187) |
+| capture_last_written | function_item | FileSnapshot | [1192](../../src-tauri/src/commands/providers/live_sync.rs#L1192) |
+| restore | function_item | FileSnapshot | [1197](../../src-tauri/src/commands/providers/live_sync.rs#L1197) |
+| format | macro invocation (unexpanded) | FileSnapshot::restore | [1202](../../src-tauri/src/commands/providers/live_sync.rs#L1202) |
+| read_contents | function_item | FileSnapshot | [1217](../../src-tauri/src/commands/providers/live_sync.rs#L1217) |
+| switch_failure_message | function_item |  | [1226](../../src-tauri/src/commands/providers/live_sync.rs#L1226) |
+| rollback_switch | function_item |  | [1233](../../src-tauri/src/commands/providers/live_sync.rs#L1233) |
+| format | macro invocation (unexpanded) | rollback_switch | [1235](../../src-tauri/src/commands/providers/live_sync.rs#L1235) |
+| format | macro invocation (unexpanded) | rollback_switch | [1239](../../src-tauri/src/commands/providers/live_sync.rs#L1239) |
+| CODE_OWNERSHIP_KEY | const_item |  | [1247](../../src-tauri/src/commands/providers/live_sync.rs#L1247) |
+| CodeOwnership | struct_item |  | [1249](../../src-tauri/src/commands/providers/live_sync.rs#L1249) |
+| before | field_declaration | CodeOwnership | [1250](../../src-tauri/src/commands/providers/live_sync.rs#L1250) |
+| written | field_declaration | CodeOwnership | [1251](../../src-tauri/src/commands/providers/live_sync.rs#L1251) |
+| code_managed_fields | function_item |  | [1254](../../src-tauri/src/commands/providers/live_sync.rs#L1254) |
+| normalize_managed_value | function_item |  | [1271](../../src-tauri/src/commands/providers/live_sync.rs#L1271) |
+| normalize_managed_value_for_key | function_item |  | [1279](../../src-tauri/src/commands/providers/live_sync.rs#L1279) |
+| normalize_managed_fields | function_item |  | [1294](../../src-tauri/src/commands/providers/live_sync.rs#L1294) |

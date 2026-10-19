@@ -4,13 +4,13 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/desktop_localization.rs) · page 4/4
 
-Source SHA-256: 5a4ffdb2f22483ad2cea8783190d4dcb81326be94daf177512b12a5ed3b12e0c
+Source SHA-256: df81e586d08bad0fd21df1fe77bc537fe2d37a250603ea0361bb5dde48110f85
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::invalid_download_metadata_falls_back_to_local_source | [2179](../../src-tauri/src/commands/desktop_localization.rs#L2179) |
-| localization_fix_tests | mod_item |  | [2184](../../src-tauri/src/commands/desktop_localization.rs#L2184) |
-| include | macro invocation (unexpanded) | localization_fix_tests | [2187](../../src-tauri/src/commands/desktop_localization.rs#L2187) |
-| LocalizationMutex | struct_item |  | [2191](../../src-tauri/src/commands/desktop_localization.rs#L2191) |
-| LocalizationMutex | impl |  | [2194](../../src-tauri/src/commands/desktop_localization.rs#L2194) |
-| acquire | function_item | LocalizationMutex | [2195](../../src-tauri/src/commands/desktop_localization.rs#L2195) |
+| assert | macro invocation (unexpanded) | tests::invalid_download_metadata_falls_back_to_local_source | [2180](../../src-tauri/src/commands/desktop_localization.rs#L2180) |
+| localization_fix_tests | mod_item |  | [2185](../../src-tauri/src/commands/desktop_localization.rs#L2185) |
+| include | macro invocation (unexpanded) | localization_fix_tests | [2188](../../src-tauri/src/commands/desktop_localization.rs#L2188) |
+| LocalizationMutex | struct_item |  | [2192](../../src-tauri/src/commands/desktop_localization.rs#L2192) |
+| LocalizationMutex | impl |  | [2195](../../src-tauri/src/commands/desktop_localization.rs#L2195) |
+| acquire | function_item | LocalizationMutex | [2196](../../src-tauri/src/commands/desktop_localization.rs#L2196) |

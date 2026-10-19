@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/doctor.rs) · page 1/1
 
-Source SHA-256: 4c3115d870f6c2f0818972f0139ef64b3a570aff75082ec3ff245717128f5760
+Source SHA-256: 5000682b6b57b3d86cc28840a1f05c1fa2b6350429779d6d0b8abb024c0612c3
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -34,59 +34,66 @@ Source SHA-256: 4c3115d870f6c2f0818972f0139ef64b3a570aff75082ec3ff245717128f5760
 | format | macro invocation (unexpanded) | run_environment_doctor | [102](../../src-tauri/src/commands/doctor.rs#L102) |
 | format | macro invocation (unexpanded) | run_environment_doctor | [112](../../src-tauri/src/commands/doctor.rs#L112) |
 | format | macro invocation (unexpanded) | run_environment_doctor | [122](../../src-tauri/src/commands/doctor.rs#L122) |
-| codex_cli_check | function_item |  | [156](../../src-tauri/src/commands/doctor.rs#L156) |
-| format | macro invocation (unexpanded) | codex_cli_check | [172](../../src-tauri/src/commands/doctor.rs#L172) |
-| format | macro invocation (unexpanded) | codex_cli_check | [173](../../src-tauri/src/commands/doctor.rs#L173) |
-| format | macro invocation (unexpanded) | codex_cli_check | [174](../../src-tauri/src/commands/doctor.rs#L174) |
-| repair_environment_visibility | function_item |  | [184](../../src-tauri/src/commands/doctor.rs#L184) |
-| format | macro invocation (unexpanded) | repair_environment_visibility | [192](../../src-tauri/src/commands/doctor.rs#L192) |
-| format | macro invocation (unexpanded) | repair_environment_visibility | [203](../../src-tauri/src/commands/doctor.rs#L203) |
-| format | macro invocation (unexpanded) | repair_environment_visibility | [211](../../src-tauri/src/commands/doctor.rs#L211) |
-| format | macro invocation (unexpanded) | repair_environment_visibility | [215](../../src-tauri/src/commands/doctor.rs#L215) |
-| repair_doctor_check | function_item |  | [233](../../src-tauri/src/commands/doctor.rs#L233) |
-| format | macro invocation (unexpanded) | repair_doctor_check | [284](../../src-tauri/src/commands/doctor.rs#L284) |
-| format | macro invocation (unexpanded) | repair_doctor_check | [287](../../src-tauri/src/commands/doctor.rs#L287) |
-| repair_spinner_verbs | function_item |  | [291](../../src-tauri/src/commands/doctor.rs#L291) |
-| normalize_spinner_verbs | function_item |  | [305](../../src-tauri/src/commands/doctor.rs#L305) |
-| check_claude_settings | function_item |  | [316](../../src-tauri/src/commands/doctor.rs#L316) |
-| format | macro invocation (unexpanded) | check_claude_settings | [341](../../src-tauri/src/commands/doctor.rs#L341) |
-| format | macro invocation (unexpanded) | check_claude_settings | [363](../../src-tauri/src/commands/doctor.rs#L363) |
-| check_claude_code_base_url | function_item |  | [368](../../src-tauri/src/commands/doctor.rs#L368) |
-| format | macro invocation (unexpanded) | check_claude_code_base_url | [380](../../src-tauri/src/commands/doctor.rs#L380) |
-| format | macro invocation (unexpanded) | check_claude_code_base_url | [386](../../src-tauri/src/commands/doctor.rs#L386) |
-| read_claude_base_url | function_item |  | [399](../../src-tauri/src/commands/doctor.rs#L399) |
-| check_claude_code_projects | function_item |  | [410](../../src-tauri/src/commands/doctor.rs#L410) |
-| format | macro invocation (unexpanded) | check_claude_code_projects | [417](../../src-tauri/src/commands/doctor.rs#L417) |
-| format | macro invocation (unexpanded) | check_claude_code_projects | [425](../../src-tauri/src/commands/doctor.rs#L425) |
-| check_codex_config | function_item |  | [429](../../src-tauri/src/commands/doctor.rs#L429) |
-| format | macro invocation (unexpanded) | check_codex_config | [436](../../src-tauri/src/commands/doctor.rs#L436) |
-| format | macro invocation (unexpanded) | check_codex_config | [453](../../src-tauri/src/commands/doctor.rs#L453) |
-| format | macro invocation (unexpanded) | check_codex_config | [460](../../src-tauri/src/commands/doctor.rs#L460) |
-| check_codex_auth | function_item |  | [465](../../src-tauri/src/commands/doctor.rs#L465) |
-| format | macro invocation (unexpanded) | check_codex_auth | [473](../../src-tauri/src/commands/doctor.rs#L473) |
-| check_codex_model_catalog | function_item |  | [480](../../src-tauri/src/commands/doctor.rs#L480) |
-| format | macro invocation (unexpanded) | check_codex_model_catalog | [520](../../src-tauri/src/commands/doctor.rs#L520) |
-| format | macro invocation (unexpanded) | check_codex_model_catalog | [522](../../src-tauri/src/commands/doctor.rs#L522) |
-| check_codex_sessions | function_item |  | [532](../../src-tauri/src/commands/doctor.rs#L532) |
-| format | macro invocation (unexpanded) | check_codex_sessions | [539](../../src-tauri/src/commands/doctor.rs#L539) |
-| format | macro invocation (unexpanded) | check_codex_sessions | [547](../../src-tauri/src/commands/doctor.rs#L547) |
-| check_claude_plugins | function_item |  | [551](../../src-tauri/src/commands/doctor.rs#L551) |
-| format | macro invocation (unexpanded) | check_claude_plugins | [562](../../src-tauri/src/commands/doctor.rs#L562) |
-| check_codex_plugins | function_item |  | [569](../../src-tauri/src/commands/doctor.rs#L569) |
-| format | macro invocation (unexpanded) | check_codex_plugins | [581](../../src-tauri/src/commands/doctor.rs#L581) |
-| count_config_plugins | function_item |  | [588](../../src-tauri/src/commands/doctor.rs#L588) |
-| count_cache_plugin_dirs | function_item |  | [601](../../src-tauri/src/commands/doctor.rs#L601) |
-| count_jsonl_files | function_item |  | [625](../../src-tauri/src/commands/doctor.rs#L625) |
-| count_jsonl_files_rec | function_item |  | [631](../../src-tauri/src/commands/doctor.rs#L631) |
-| truncate | function_item |  | [663](../../src-tauri/src/commands/doctor.rs#L663) |
-| format | macro invocation (unexpanded) | truncate | [669](../../src-tauri/src/commands/doctor.rs#L669) |
-| tests | mod_item |  | [673](../../src-tauri/src/commands/doctor.rs#L673) |
-| codex_cli_missing_is_optional_hint | function_item | tests | [677](../../src-tauri/src/commands/doctor.rs#L677) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_missing_is_optional_hint | [679](../../src-tauri/src/commands/doctor.rs#L679) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_missing_is_optional_hint | [680](../../src-tauri/src/commands/doctor.rs#L680) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_missing_is_optional_hint | [681](../../src-tauri/src/commands/doctor.rs#L681) |
-| codex_cli_broken_still_fails | function_item | tests | [685](../../src-tauri/src/commands/doctor.rs#L685) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_broken_still_fails | [687](../../src-tauri/src/commands/doctor.rs#L687) |
-| codex_cli_installed_reports_version | function_item | tests | [691](../../src-tauri/src/commands/doctor.rs#L691) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_installed_reports_version | [693](../../src-tauri/src/commands/doctor.rs#L693) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_installed_reports_version | [694](../../src-tauri/src/commands/doctor.rs#L694) |
+| check_vscode_copilot_config | function_item |  | [155](../../src-tauri/src/commands/doctor.rs#L155) |
+| format | macro invocation (unexpanded) | check_vscode_copilot_config | [165](../../src-tauri/src/commands/doctor.rs#L165) |
+| format | macro invocation (unexpanded) | check_vscode_copilot_config | [176](../../src-tauri/src/commands/doctor.rs#L176) |
+| format | macro invocation (unexpanded) | check_vscode_copilot_config | [186](../../src-tauri/src/commands/doctor.rs#L186) |
+| format | macro invocation (unexpanded) | check_vscode_copilot_config | [188](../../src-tauri/src/commands/doctor.rs#L188) |
+| format | macro invocation (unexpanded) | check_vscode_copilot_config | [190](../../src-tauri/src/commands/doctor.rs#L190) |
+| format | macro invocation (unexpanded) | check_vscode_copilot_config | [196](../../src-tauri/src/commands/doctor.rs#L196) |
+| codex_cli_check | function_item |  | [202](../../src-tauri/src/commands/doctor.rs#L202) |
+| format | macro invocation (unexpanded) | codex_cli_check | [218](../../src-tauri/src/commands/doctor.rs#L218) |
+| format | macro invocation (unexpanded) | codex_cli_check | [219](../../src-tauri/src/commands/doctor.rs#L219) |
+| format | macro invocation (unexpanded) | codex_cli_check | [220](../../src-tauri/src/commands/doctor.rs#L220) |
+| repair_environment_visibility | function_item |  | [230](../../src-tauri/src/commands/doctor.rs#L230) |
+| format | macro invocation (unexpanded) | repair_environment_visibility | [238](../../src-tauri/src/commands/doctor.rs#L238) |
+| format | macro invocation (unexpanded) | repair_environment_visibility | [249](../../src-tauri/src/commands/doctor.rs#L249) |
+| format | macro invocation (unexpanded) | repair_environment_visibility | [257](../../src-tauri/src/commands/doctor.rs#L257) |
+| format | macro invocation (unexpanded) | repair_environment_visibility | [261](../../src-tauri/src/commands/doctor.rs#L261) |
+| repair_doctor_check | function_item |  | [279](../../src-tauri/src/commands/doctor.rs#L279) |
+| format | macro invocation (unexpanded) | repair_doctor_check | [330](../../src-tauri/src/commands/doctor.rs#L330) |
+| format | macro invocation (unexpanded) | repair_doctor_check | [333](../../src-tauri/src/commands/doctor.rs#L333) |
+| repair_spinner_verbs | function_item |  | [337](../../src-tauri/src/commands/doctor.rs#L337) |
+| normalize_spinner_verbs | function_item |  | [351](../../src-tauri/src/commands/doctor.rs#L351) |
+| check_claude_settings | function_item |  | [362](../../src-tauri/src/commands/doctor.rs#L362) |
+| format | macro invocation (unexpanded) | check_claude_settings | [387](../../src-tauri/src/commands/doctor.rs#L387) |
+| format | macro invocation (unexpanded) | check_claude_settings | [409](../../src-tauri/src/commands/doctor.rs#L409) |
+| check_claude_code_base_url | function_item |  | [414](../../src-tauri/src/commands/doctor.rs#L414) |
+| format | macro invocation (unexpanded) | check_claude_code_base_url | [426](../../src-tauri/src/commands/doctor.rs#L426) |
+| format | macro invocation (unexpanded) | check_claude_code_base_url | [432](../../src-tauri/src/commands/doctor.rs#L432) |
+| read_claude_base_url | function_item |  | [445](../../src-tauri/src/commands/doctor.rs#L445) |
+| check_claude_code_projects | function_item |  | [456](../../src-tauri/src/commands/doctor.rs#L456) |
+| format | macro invocation (unexpanded) | check_claude_code_projects | [463](../../src-tauri/src/commands/doctor.rs#L463) |
+| format | macro invocation (unexpanded) | check_claude_code_projects | [471](../../src-tauri/src/commands/doctor.rs#L471) |
+| check_codex_config | function_item |  | [475](../../src-tauri/src/commands/doctor.rs#L475) |
+| format | macro invocation (unexpanded) | check_codex_config | [482](../../src-tauri/src/commands/doctor.rs#L482) |
+| format | macro invocation (unexpanded) | check_codex_config | [499](../../src-tauri/src/commands/doctor.rs#L499) |
+| format | macro invocation (unexpanded) | check_codex_config | [506](../../src-tauri/src/commands/doctor.rs#L506) |
+| check_codex_auth | function_item |  | [511](../../src-tauri/src/commands/doctor.rs#L511) |
+| format | macro invocation (unexpanded) | check_codex_auth | [519](../../src-tauri/src/commands/doctor.rs#L519) |
+| check_codex_model_catalog | function_item |  | [526](../../src-tauri/src/commands/doctor.rs#L526) |
+| format | macro invocation (unexpanded) | check_codex_model_catalog | [566](../../src-tauri/src/commands/doctor.rs#L566) |
+| format | macro invocation (unexpanded) | check_codex_model_catalog | [568](../../src-tauri/src/commands/doctor.rs#L568) |
+| check_codex_sessions | function_item |  | [578](../../src-tauri/src/commands/doctor.rs#L578) |
+| format | macro invocation (unexpanded) | check_codex_sessions | [585](../../src-tauri/src/commands/doctor.rs#L585) |
+| format | macro invocation (unexpanded) | check_codex_sessions | [593](../../src-tauri/src/commands/doctor.rs#L593) |
+| check_claude_plugins | function_item |  | [597](../../src-tauri/src/commands/doctor.rs#L597) |
+| format | macro invocation (unexpanded) | check_claude_plugins | [608](../../src-tauri/src/commands/doctor.rs#L608) |
+| check_codex_plugins | function_item |  | [615](../../src-tauri/src/commands/doctor.rs#L615) |
+| format | macro invocation (unexpanded) | check_codex_plugins | [627](../../src-tauri/src/commands/doctor.rs#L627) |
+| count_config_plugins | function_item |  | [634](../../src-tauri/src/commands/doctor.rs#L634) |
+| count_cache_plugin_dirs | function_item |  | [647](../../src-tauri/src/commands/doctor.rs#L647) |
+| count_jsonl_files | function_item |  | [671](../../src-tauri/src/commands/doctor.rs#L671) |
+| count_jsonl_files_rec | function_item |  | [677](../../src-tauri/src/commands/doctor.rs#L677) |
+| truncate | function_item |  | [709](../../src-tauri/src/commands/doctor.rs#L709) |
+| format | macro invocation (unexpanded) | truncate | [715](../../src-tauri/src/commands/doctor.rs#L715) |
+| tests | mod_item |  | [719](../../src-tauri/src/commands/doctor.rs#L719) |
+| codex_cli_missing_is_optional_hint | function_item | tests | [723](../../src-tauri/src/commands/doctor.rs#L723) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_missing_is_optional_hint | [725](../../src-tauri/src/commands/doctor.rs#L725) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_missing_is_optional_hint | [726](../../src-tauri/src/commands/doctor.rs#L726) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_missing_is_optional_hint | [727](../../src-tauri/src/commands/doctor.rs#L727) |
+| codex_cli_broken_still_fails | function_item | tests | [731](../../src-tauri/src/commands/doctor.rs#L731) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_broken_still_fails | [733](../../src-tauri/src/commands/doctor.rs#L733) |
+| codex_cli_installed_reports_version | function_item | tests | [737](../../src-tauri/src/commands/doctor.rs#L737) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_installed_reports_version | [739](../../src-tauri/src/commands/doctor.rs#L739) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_installed_reports_version | [740](../../src-tauri/src/commands/doctor.rs#L740) |

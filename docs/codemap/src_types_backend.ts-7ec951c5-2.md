@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 2/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| rpm | PropertySignature | UpstreamLimitPolicy | [139](../../src/types/backend.ts#L139) |
-| queueCapacity | PropertySignature | UpstreamLimitPolicy | [140](../../src/types/backend.ts#L140) |
-| queueTimeoutMs | PropertySignature | UpstreamLimitPolicy | [141](../../src/types/backend.ts#L141) |
-| firstOutputTimeoutMs | PropertySignature | UpstreamLimitPolicy | [142](../../src/types/backend.ts#L142) |
-| UpstreamLimitSnapshot | InterfaceDeclaration |  | [145](../../src/types/backend.ts#L145) |
-| upstreamId | PropertySignature | UpstreamLimitSnapshot | [146](../../src/types/backend.ts#L146) |
-| policy | PropertySignature | UpstreamLimitSnapshot | [147](../../src/types/backend.ts#L147) |
-| active | PropertySignature | UpstreamLimitSnapshot | [148](../../src/types/backend.ts#L148) |
-| queueLen | PropertySignature | UpstreamLimitSnapshot | [149](../../src/types/backend.ts#L149) |
-| currentRpm | PropertySignature | UpstreamLimitSnapshot | [150](../../src/types/backend.ts#L150) |
-| SmartGatewayInboundLimits | InterfaceDeclaration |  | [153](../../src/types/backend.ts#L153) |
-| maxConcurrency | PropertySignature | SmartGatewayInboundLimits | [154](../../src/types/backend.ts#L154) |
-| minIntervalMs | PropertySignature | SmartGatewayInboundLimits | [155](../../src/types/backend.ts#L155) |
-| rpm | PropertySignature | SmartGatewayInboundLimits | [156](../../src/types/backend.ts#L156) |
-| burst | PropertySignature | SmartGatewayInboundLimits | [157](../../src/types/backend.ts#L157) |
-| acquireTimeoutSecs | PropertySignature | SmartGatewayInboundLimits | [158](../../src/types/backend.ts#L158) |
-| SmartGatewayBudgetView | InterfaceDeclaration |  | [161](../../src/types/backend.ts#L161) |
-| dailyBudgetUsd | PropertySignature | SmartGatewayBudgetView | [162](../../src/types/backend.ts#L162) |
-| action | PropertySignature | SmartGatewayBudgetView | [163](../../src/types/backend.ts#L163) |
-| fallbackModel | PropertySignature | SmartGatewayBudgetView | [164](../../src/types/backend.ts#L164) |
-| todaySpendUsd | PropertySignature | SmartGatewayBudgetView | [165](../../src/types/backend.ts#L165) |
-| SmartGatewayBudgetSettings | InterfaceDeclaration |  | [168](../../src/types/backend.ts#L168) |
-| dailyBudgetUsd | PropertySignature | SmartGatewayBudgetSettings | [169](../../src/types/backend.ts#L169) |
-| action | PropertySignature | SmartGatewayBudgetSettings | [170](../../src/types/backend.ts#L170) |
-| fallbackModel | PropertySignature | SmartGatewayBudgetSettings | [171](../../src/types/backend.ts#L171) |
-| SimulateGatewayRouteInput | InterfaceDeclaration |  | [174](../../src/types/backend.ts#L174) |
-| requestedModel | PropertySignature | SimulateGatewayRouteInput | [175](../../src/types/backend.ts#L175) |
-| bodyJson | PropertySignature | SimulateGatewayRouteInput | [176](../../src/types/backend.ts#L176) |
-| tokenCount | PropertySignature | SimulateGatewayRouteInput | [177](../../src/types/backend.ts#L177) |
-| hasWebSearch | PropertySignature | SimulateGatewayRouteInput | [178](../../src/types/backend.ts#L178) |
-| hasVision | PropertySignature | SimulateGatewayRouteInput | [179](../../src/types/backend.ts#L179) |
-| hasThinking | PropertySignature | SimulateGatewayRouteInput | [180](../../src/types/backend.ts#L180) |
-| isSubagent | PropertySignature | SimulateGatewayRouteInput | [181](../../src/types/backend.ts#L181) |
-| isImageGen | PropertySignature | SimulateGatewayRouteInput | [182](../../src/types/backend.ts#L182) |
-| toolNames | PropertySignature | SimulateGatewayRouteInput | [183](../../src/types/backend.ts#L183) |
-| recentWriteTool | PropertySignature | SimulateGatewayRouteInput | [184](../../src/types/backend.ts#L184) |
-| path | PropertySignature | SimulateGatewayRouteInput | [185](../../src/types/backend.ts#L185) |
-| target | PropertySignature | SimulateGatewayRouteInput | [186](../../src/types/backend.ts#L186) |
-| profileId | PropertySignature | SimulateGatewayRouteInput | [187](../../src/types/backend.ts#L187) |
-| SimulateRouteTraceStep | InterfaceDeclaration |  | [190](../../src/types/backend.ts#L190) |
-| stage | PropertySignature | SimulateRouteTraceStep | [191](../../src/types/backend.ts#L191) |
-| id | PropertySignature | SimulateRouteTraceStep | [192](../../src/types/backend.ts#L192) |
-| matched | PropertySignature | SimulateRouteTraceStep | [193](../../src/types/backend.ts#L193) |
-| detail | PropertySignature | SimulateRouteTraceStep | [194](../../src/types/backend.ts#L194) |
-| SimulateGatewayRouteResult | InterfaceDeclaration |  | [197](../../src/types/backend.ts#L197) |
-| estimatedTokens | PropertySignature | SimulateGatewayRouteResult | [198](../../src/types/backend.ts#L198) |
-| decision | PropertySignature | SimulateGatewayRouteResult | [199](../../src/types/backend.ts#L199) |
-| requestedModel | PropertySignature | SimulateGatewayRouteResult.decision | [200](../../src/types/backend.ts#L200) |
-| normalizedModel | PropertySignature | SimulateGatewayRouteResult.decision | [201](../../src/types/backend.ts#L201) |
-| source | PropertySignature | SimulateGatewayRouteResult.decision | [202](../../src/types/backend.ts#L202) |
-| reason | PropertySignature | SimulateGatewayRouteResult.decision | [203](../../src/types/backend.ts#L203) |
-| profileId | PropertySignature | SimulateGatewayRouteResult.decision | [204](../../src/types/backend.ts#L204) |
-| upstreamId | PropertySignature | SimulateGatewayRouteResult.decision | [205](../../src/types/backend.ts#L205) |
-| diagnostics | PropertySignature | SimulateGatewayRouteResult.decision | [206](../../src/types/backend.ts#L206) |
-| modeId | PropertySignature | SimulateGatewayRouteResult.decision | [207](../../src/types/backend.ts#L207) |
-| upstreamModel | PropertySignature | SimulateGatewayRouteResult | [209](../../src/types/backend.ts#L209) |
-| providerId | PropertySignature | SimulateGatewayRouteResult | [210](../../src/types/backend.ts#L210) |
-| providerName | PropertySignature | SimulateGatewayRouteResult | [211](../../src/types/backend.ts#L211) |
-| signals | PropertySignature | SimulateGatewayRouteResult | [212](../../src/types/backend.ts#L212) |
-| tokenCount | PropertySignature | SimulateGatewayRouteResult.signals | [213](../../src/types/backend.ts#L213) |
-| hasWebSearch | PropertySignature | SimulateGatewayRouteResult.signals | [214](../../src/types/backend.ts#L214) |
-| hasVision | PropertySignature | SimulateGatewayRouteResult.signals | [215](../../src/types/backend.ts#L215) |
-| hasThinking | PropertySignature | SimulateGatewayRouteResult.signals | [216](../../src/types/backend.ts#L216) |
-| isSubagent | PropertySignature | SimulateGatewayRouteResult.signals | [217](../../src/types/backend.ts#L217) |
-| isImageGen | PropertySignature | SimulateGatewayRouteResult.signals | [218](../../src/types/backend.ts#L218) |
-| toolNames | PropertySignature | SimulateGatewayRouteResult.signals | [219](../../src/types/backend.ts#L219) |
-| recentWriteTool | PropertySignature | SimulateGatewayRouteResult.signals | [220](../../src/types/backend.ts#L220) |
-| path | PropertySignature | SimulateGatewayRouteResult.signals | [221](../../src/types/backend.ts#L221) |
-| target | PropertySignature | SimulateGatewayRouteResult.signals | [222](../../src/types/backend.ts#L222) |
-| steps | PropertySignature | SimulateGatewayRouteResult | [224](../../src/types/backend.ts#L224) |
-| GatewayProfilePatch | InterfaceDeclaration |  | [227](../../src/types/backend.ts#L227) |
-| name | PropertySignature | GatewayProfilePatch | [228](../../src/types/backend.ts#L228) |
-| defaultModel | PropertySignature | GatewayProfilePatch | [229](../../src/types/backend.ts#L229) |
-| planModel | PropertySignature | GatewayProfilePatch | [230](../../src/types/backend.ts#L230) |
-| executeModel | PropertySignature | GatewayProfilePatch | [231](../../src/types/backend.ts#L231) |
-| subagentModel | PropertySignature | GatewayProfilePatch | [232](../../src/types/backend.ts#L232) |
-| allowedUpstreamIds | PropertySignature | GatewayProfilePatch | [233](../../src/types/backend.ts#L233) |
-| roleRoutingEnabled | PropertySignature | GatewayProfilePatch | [234](../../src/types/backend.ts#L234) |
-| explicitFallbackEnabled | PropertySignature | GatewayProfilePatch | [235](../../src/types/backend.ts#L235) |
-| fallbackMode | PropertySignature | GatewayProfilePatch | [236](../../src/types/backend.ts#L236) |
-| fallbackModels | PropertySignature | GatewayProfilePatch | [237](../../src/types/backend.ts#L237) |
-| hideOfficial | PropertySignature | GatewayProfilePatch | [238](../../src/types/backend.ts#L238) |
-| planFallback | PropertySignature | GatewayProfilePatch | [239](../../src/types/backend.ts#L239) |
-| executeFallback | PropertySignature | GatewayProfilePatch | [240](../../src/types/backend.ts#L240) |
-| subagentFallback | PropertySignature | GatewayProfilePatch | [241](../../src/types/backend.ts#L241) |
-| longContextModel | PropertySignature | GatewayProfilePatch | [242](../../src/types/backend.ts#L242) |
-| longContextTokens | PropertySignature | GatewayProfilePatch | [243](../../src/types/backend.ts#L243) |
-| webSearchModel | PropertySignature | GatewayProfilePatch | [244](../../src/types/backend.ts#L244) |
-| GatewayCatalogModelOption | InterfaceDeclaration |  | [247](../../src/types/backend.ts#L247) |
-| publicId | PropertySignature | GatewayCatalogModelOption | [248](../../src/types/backend.ts#L248) |
-| displayName | PropertySignature | GatewayCatalogModelOption | [249](../../src/types/backend.ts#L249) |
-| providerName | PropertySignature | GatewayCatalogModelOption | [250](../../src/types/backend.ts#L250) |
-| sourceNames | PropertySignature | GatewayCatalogModelOption | [252](../../src/types/backend.ts#L252) |
-| contextWindow | PropertySignature | GatewayCatalogModelOption | [253](../../src/types/backend.ts#L253) |
-| webSearchEnabled | PropertySignature | GatewayCatalogModelOption | [254](../../src/types/backend.ts#L254) |
-| visionEnabled | PropertySignature | GatewayCatalogModelOption | [255](../../src/types/backend.ts#L255) |
-| reasoningLevels | PropertySignature | GatewayCatalogModelOption | [256](../../src/types/backend.ts#L256) |
-| ConnectionTestResult | InterfaceDeclaration |  | [267](../../src/types/backend.ts#L267) |
-| ok | PropertySignature | ConnectionTestResult | [268](../../src/types/backend.ts#L268) |
-| category | PropertySignature | ConnectionTestResult | [269](../../src/types/backend.ts#L269) |
+| lastCheckedAt | PropertySignature | GatewayUpstreamHealth | [137](../../src/types/backend.ts#L137) |
+| lastError | PropertySignature | GatewayUpstreamHealth | [138](../../src/types/backend.ts#L138) |
+| UpstreamLimitPolicy | InterfaceDeclaration |  | [141](../../src/types/backend.ts#L141) |
+| maxConcurrency | PropertySignature | UpstreamLimitPolicy | [142](../../src/types/backend.ts#L142) |
+| rpm | PropertySignature | UpstreamLimitPolicy | [143](../../src/types/backend.ts#L143) |
+| queueCapacity | PropertySignature | UpstreamLimitPolicy | [144](../../src/types/backend.ts#L144) |
+| queueTimeoutMs | PropertySignature | UpstreamLimitPolicy | [145](../../src/types/backend.ts#L145) |
+| firstOutputTimeoutMs | PropertySignature | UpstreamLimitPolicy | [146](../../src/types/backend.ts#L146) |
+| UpstreamLimitSnapshot | InterfaceDeclaration |  | [149](../../src/types/backend.ts#L149) |
+| upstreamId | PropertySignature | UpstreamLimitSnapshot | [150](../../src/types/backend.ts#L150) |
+| policy | PropertySignature | UpstreamLimitSnapshot | [151](../../src/types/backend.ts#L151) |
+| active | PropertySignature | UpstreamLimitSnapshot | [152](../../src/types/backend.ts#L152) |
+| queueLen | PropertySignature | UpstreamLimitSnapshot | [153](../../src/types/backend.ts#L153) |
+| currentRpm | PropertySignature | UpstreamLimitSnapshot | [154](../../src/types/backend.ts#L154) |
+| SmartGatewayInboundLimits | InterfaceDeclaration |  | [157](../../src/types/backend.ts#L157) |
+| maxConcurrency | PropertySignature | SmartGatewayInboundLimits | [158](../../src/types/backend.ts#L158) |
+| minIntervalMs | PropertySignature | SmartGatewayInboundLimits | [159](../../src/types/backend.ts#L159) |
+| rpm | PropertySignature | SmartGatewayInboundLimits | [160](../../src/types/backend.ts#L160) |
+| burst | PropertySignature | SmartGatewayInboundLimits | [161](../../src/types/backend.ts#L161) |
+| acquireTimeoutSecs | PropertySignature | SmartGatewayInboundLimits | [162](../../src/types/backend.ts#L162) |
+| SmartGatewayBudgetView | InterfaceDeclaration |  | [165](../../src/types/backend.ts#L165) |
+| dailyBudgetUsd | PropertySignature | SmartGatewayBudgetView | [166](../../src/types/backend.ts#L166) |
+| action | PropertySignature | SmartGatewayBudgetView | [167](../../src/types/backend.ts#L167) |
+| fallbackModel | PropertySignature | SmartGatewayBudgetView | [168](../../src/types/backend.ts#L168) |
+| todaySpendUsd | PropertySignature | SmartGatewayBudgetView | [169](../../src/types/backend.ts#L169) |
+| SmartGatewayBudgetSettings | InterfaceDeclaration |  | [172](../../src/types/backend.ts#L172) |
+| dailyBudgetUsd | PropertySignature | SmartGatewayBudgetSettings | [173](../../src/types/backend.ts#L173) |
+| action | PropertySignature | SmartGatewayBudgetSettings | [174](../../src/types/backend.ts#L174) |
+| fallbackModel | PropertySignature | SmartGatewayBudgetSettings | [175](../../src/types/backend.ts#L175) |
+| SimulateGatewayRouteInput | InterfaceDeclaration |  | [178](../../src/types/backend.ts#L178) |
+| requestedModel | PropertySignature | SimulateGatewayRouteInput | [179](../../src/types/backend.ts#L179) |
+| bodyJson | PropertySignature | SimulateGatewayRouteInput | [180](../../src/types/backend.ts#L180) |
+| tokenCount | PropertySignature | SimulateGatewayRouteInput | [181](../../src/types/backend.ts#L181) |
+| hasWebSearch | PropertySignature | SimulateGatewayRouteInput | [182](../../src/types/backend.ts#L182) |
+| hasVision | PropertySignature | SimulateGatewayRouteInput | [183](../../src/types/backend.ts#L183) |
+| hasThinking | PropertySignature | SimulateGatewayRouteInput | [184](../../src/types/backend.ts#L184) |
+| isSubagent | PropertySignature | SimulateGatewayRouteInput | [185](../../src/types/backend.ts#L185) |
+| isImageGen | PropertySignature | SimulateGatewayRouteInput | [186](../../src/types/backend.ts#L186) |
+| toolNames | PropertySignature | SimulateGatewayRouteInput | [187](../../src/types/backend.ts#L187) |
+| recentWriteTool | PropertySignature | SimulateGatewayRouteInput | [188](../../src/types/backend.ts#L188) |
+| path | PropertySignature | SimulateGatewayRouteInput | [189](../../src/types/backend.ts#L189) |
+| target | PropertySignature | SimulateGatewayRouteInput | [190](../../src/types/backend.ts#L190) |
+| profileId | PropertySignature | SimulateGatewayRouteInput | [191](../../src/types/backend.ts#L191) |
+| SimulateRouteTraceStep | InterfaceDeclaration |  | [194](../../src/types/backend.ts#L194) |
+| stage | PropertySignature | SimulateRouteTraceStep | [195](../../src/types/backend.ts#L195) |
+| id | PropertySignature | SimulateRouteTraceStep | [196](../../src/types/backend.ts#L196) |
+| matched | PropertySignature | SimulateRouteTraceStep | [197](../../src/types/backend.ts#L197) |
+| detail | PropertySignature | SimulateRouteTraceStep | [198](../../src/types/backend.ts#L198) |
+| SimulateGatewayRouteResult | InterfaceDeclaration |  | [201](../../src/types/backend.ts#L201) |
+| estimatedTokens | PropertySignature | SimulateGatewayRouteResult | [202](../../src/types/backend.ts#L202) |
+| decision | PropertySignature | SimulateGatewayRouteResult | [203](../../src/types/backend.ts#L203) |
+| requestedModel | PropertySignature | SimulateGatewayRouteResult.decision | [204](../../src/types/backend.ts#L204) |
+| normalizedModel | PropertySignature | SimulateGatewayRouteResult.decision | [205](../../src/types/backend.ts#L205) |
+| source | PropertySignature | SimulateGatewayRouteResult.decision | [206](../../src/types/backend.ts#L206) |
+| reason | PropertySignature | SimulateGatewayRouteResult.decision | [207](../../src/types/backend.ts#L207) |
+| profileId | PropertySignature | SimulateGatewayRouteResult.decision | [208](../../src/types/backend.ts#L208) |
+| upstreamId | PropertySignature | SimulateGatewayRouteResult.decision | [209](../../src/types/backend.ts#L209) |
+| diagnostics | PropertySignature | SimulateGatewayRouteResult.decision | [210](../../src/types/backend.ts#L210) |
+| modeId | PropertySignature | SimulateGatewayRouteResult.decision | [211](../../src/types/backend.ts#L211) |
+| upstreamModel | PropertySignature | SimulateGatewayRouteResult | [213](../../src/types/backend.ts#L213) |
+| providerId | PropertySignature | SimulateGatewayRouteResult | [214](../../src/types/backend.ts#L214) |
+| providerName | PropertySignature | SimulateGatewayRouteResult | [215](../../src/types/backend.ts#L215) |
+| signals | PropertySignature | SimulateGatewayRouteResult | [216](../../src/types/backend.ts#L216) |
+| tokenCount | PropertySignature | SimulateGatewayRouteResult.signals | [217](../../src/types/backend.ts#L217) |
+| hasWebSearch | PropertySignature | SimulateGatewayRouteResult.signals | [218](../../src/types/backend.ts#L218) |
+| hasVision | PropertySignature | SimulateGatewayRouteResult.signals | [219](../../src/types/backend.ts#L219) |
+| hasThinking | PropertySignature | SimulateGatewayRouteResult.signals | [220](../../src/types/backend.ts#L220) |
+| isSubagent | PropertySignature | SimulateGatewayRouteResult.signals | [221](../../src/types/backend.ts#L221) |
+| isImageGen | PropertySignature | SimulateGatewayRouteResult.signals | [222](../../src/types/backend.ts#L222) |
+| toolNames | PropertySignature | SimulateGatewayRouteResult.signals | [223](../../src/types/backend.ts#L223) |
+| recentWriteTool | PropertySignature | SimulateGatewayRouteResult.signals | [224](../../src/types/backend.ts#L224) |
+| path | PropertySignature | SimulateGatewayRouteResult.signals | [225](../../src/types/backend.ts#L225) |
+| target | PropertySignature | SimulateGatewayRouteResult.signals | [226](../../src/types/backend.ts#L226) |
+| steps | PropertySignature | SimulateGatewayRouteResult | [228](../../src/types/backend.ts#L228) |
+| GatewayProfilePatch | InterfaceDeclaration |  | [231](../../src/types/backend.ts#L231) |
+| name | PropertySignature | GatewayProfilePatch | [232](../../src/types/backend.ts#L232) |
+| defaultModel | PropertySignature | GatewayProfilePatch | [233](../../src/types/backend.ts#L233) |
+| planModel | PropertySignature | GatewayProfilePatch | [234](../../src/types/backend.ts#L234) |
+| executeModel | PropertySignature | GatewayProfilePatch | [235](../../src/types/backend.ts#L235) |
+| subagentModel | PropertySignature | GatewayProfilePatch | [236](../../src/types/backend.ts#L236) |
+| allowedUpstreamIds | PropertySignature | GatewayProfilePatch | [237](../../src/types/backend.ts#L237) |
+| roleRoutingEnabled | PropertySignature | GatewayProfilePatch | [238](../../src/types/backend.ts#L238) |
+| explicitFallbackEnabled | PropertySignature | GatewayProfilePatch | [239](../../src/types/backend.ts#L239) |
+| fallbackMode | PropertySignature | GatewayProfilePatch | [240](../../src/types/backend.ts#L240) |
+| fallbackModels | PropertySignature | GatewayProfilePatch | [241](../../src/types/backend.ts#L241) |
+| hideOfficial | PropertySignature | GatewayProfilePatch | [242](../../src/types/backend.ts#L242) |
+| planFallback | PropertySignature | GatewayProfilePatch | [243](../../src/types/backend.ts#L243) |
+| executeFallback | PropertySignature | GatewayProfilePatch | [244](../../src/types/backend.ts#L244) |
+| subagentFallback | PropertySignature | GatewayProfilePatch | [245](../../src/types/backend.ts#L245) |
+| longContextModel | PropertySignature | GatewayProfilePatch | [246](../../src/types/backend.ts#L246) |
+| longContextTokens | PropertySignature | GatewayProfilePatch | [247](../../src/types/backend.ts#L247) |
+| webSearchModel | PropertySignature | GatewayProfilePatch | [248](../../src/types/backend.ts#L248) |
+| GatewayCatalogModelOption | InterfaceDeclaration |  | [251](../../src/types/backend.ts#L251) |
+| publicId | PropertySignature | GatewayCatalogModelOption | [252](../../src/types/backend.ts#L252) |
+| displayName | PropertySignature | GatewayCatalogModelOption | [253](../../src/types/backend.ts#L253) |
+| providerName | PropertySignature | GatewayCatalogModelOption | [254](../../src/types/backend.ts#L254) |
+| sourceNames | PropertySignature | GatewayCatalogModelOption | [256](../../src/types/backend.ts#L256) |
+| contextWindow | PropertySignature | GatewayCatalogModelOption | [257](../../src/types/backend.ts#L257) |
+| webSearchEnabled | PropertySignature | GatewayCatalogModelOption | [258](../../src/types/backend.ts#L258) |
+| visionEnabled | PropertySignature | GatewayCatalogModelOption | [259](../../src/types/backend.ts#L259) |

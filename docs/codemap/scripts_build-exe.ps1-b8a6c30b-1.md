@@ -4,7 +4,7 @@
 
 [Module](scripts-root.md) · [Source](../../scripts/build-exe.ps1) · page 1/1
 
-Source SHA-256: d191f7ea08ff5e141ee8480573d215bbf5d7f0bc4f0ff0a24ca29de7425858e0
+Source SHA-256: 223cc4486a4aab692dcf5bf8f16982ccc7685245495baf61c82368de01669322
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

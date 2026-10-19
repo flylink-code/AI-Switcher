@@ -733,7 +733,7 @@ pub fn should_skip_claude_code_session_insert(
     cache_read_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<bool> {
-    if model.is_some_and(|m| crate::proxy::desktop_alias::is_desktop_alias(m)) {
+    if model.is_some_and(crate::proxy::desktop_alias::is_desktop_alias) {
         return Ok(true);
     }
     if should_skip_session_insert_for_target(

@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 use crate::error::{AppError, AppResult};
 
 const NPM_PACKAGE: &str = "@anthropic-ai/claude-code";
+#[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const CLI_PROBE_TIMEOUT: Duration = Duration::from_secs(12);
 #[cfg(not(windows))]
@@ -542,6 +543,7 @@ fn probe_native_installations() -> Probe {
     }
 }
 
+#[cfg(windows)]
 fn collect_child_output(mut child: Child, status: ExitStatus) -> io::Result<Output> {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
@@ -558,6 +560,7 @@ fn collect_child_output(mut child: Child, status: ExitStatus) -> io::Result<Outp
     })
 }
 
+#[cfg(windows)]
 fn run_with_timeout(command: &mut Command, timeout: Duration) -> io::Result<Output> {
     let mut child = command
         .stdout(Stdio::piped())
@@ -2075,6 +2078,7 @@ pub async fn get_opencode_desktop_status() -> AppResult<OpenCodeDesktopStatus> {
 
 // ---- Claude Desktop app (Ubuntu/Debian apt; other OS detect + download) ----
 
+#[cfg(not(target_os = "linux"))]
 const CLAUDE_DESKTOP_DOWNLOAD_URL: &str = "https://claude.ai/download";
 #[cfg(target_os = "linux")]
 const CLAUDE_DESKTOP_KEY_URL: &str = "https://downloads.claude.ai/claude-desktop/key.asc";
@@ -2409,7 +2413,7 @@ pub async fn run_claude_desktop_app_update() -> AppResult<String> {
     tokio::task::spawn_blocking(|| {
         #[cfg(target_os = "linux")]
         {
-            return run_claude_desktop_apt_install();
+            run_claude_desktop_apt_install()
         }
         #[cfg(not(target_os = "linux"))]
         Err(AppError::Config(format!(

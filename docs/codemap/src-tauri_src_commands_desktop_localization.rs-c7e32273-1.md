@@ -4,107 +4,107 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/desktop_localization.rs) · page 1/4
 
-Source SHA-256: 5a4ffdb2f22483ad2cea8783190d4dcb81326be94daf177512b12a5ed3b12e0c
+Source SHA-256: df81e586d08bad0fd21df1fe77bc537fe2d37a250603ea0361bb5dde48110f85
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| PACK_SETTING_KEY | const_item |  | [25](../../src-tauri/src/commands/desktop_localization.rs#L25) |
-| LOCALIZATION_LOCALE | const_item |  | [26](../../src-tauri/src/commands/desktop_localization.rs#L26) |
-| MAX_PACK_FILE_BYTES | const_item |  | [27](../../src-tauri/src/commands/desktop_localization.rs#L27) |
-| MAX_PACK_ARCHIVE_BYTES | const_item |  | [28](../../src-tauri/src/commands/desktop_localization.rs#L28) |
-| MAX_PACK_EXTRACTED_BYTES | const_item |  | [29](../../src-tauri/src/commands/desktop_localization.rs#L29) |
-| MAX_GITHUB_METADATA_BYTES | const_item |  | [30](../../src-tauri/src/commands/desktop_localization.rs#L30) |
-| MAX_HARDCODED_REPLACEMENTS | const_item |  | [31](../../src-tauri/src/commands/desktop_localization.rs#L31) |
-| BACKUPS_TO_KEEP | const_item |  | [32](../../src-tauri/src/commands/desktop_localization.rs#L32) |
-| UPSTREAM_REPOSITORY | const_item |  | [33](../../src-tauri/src/commands/desktop_localization.rs#L33) |
-| PACK_INFO_FILE | const_item |  | [34](../../src-tauri/src/commands/desktop_localization.rs#L34) |
-| MANIFEST_FILE | const_item |  | [35](../../src-tauri/src/commands/desktop_localization.rs#L35) |
-| RELEASE_FILE | const_item |  | [36](../../src-tauri/src/commands/desktop_localization.rs#L36) |
-| CREATE_NO_WINDOW | const_item |  | [38](../../src-tauri/src/commands/desktop_localization.rs#L38) |
-| FRONTEND_FILE | const_item |  | [40](../../src-tauri/src/commands/desktop_localization.rs#L40) |
-| DESKTOP_FILE | const_item |  | [41](../../src-tauri/src/commands/desktop_localization.rs#L41) |
-| STATSIG_FILE | const_item |  | [42](../../src-tauri/src/commands/desktop_localization.rs#L42) |
-| HARDCODED_FILE | const_item |  | [43](../../src-tauri/src/commands/desktop_localization.rs#L43) |
-| BASE_LANGUAGES | const_item |  | [45](../../src-tauri/src/commands/desktop_localization.rs#L45) |
-| DesktopLocalizationStatus | struct_item |  | [50](../../src-tauri/src/commands/desktop_localization.rs#L50) |
-| platform_supported | field_declaration | DesktopLocalizationStatus | [51](../../src-tauri/src/commands/desktop_localization.rs#L51) |
-| install_detected | field_declaration | DesktopLocalizationStatus | [52](../../src-tauri/src/commands/desktop_localization.rs#L52) |
-| install_kind | field_declaration | DesktopLocalizationStatus | [53](../../src-tauri/src/commands/desktop_localization.rs#L53) |
-| detection_source | field_declaration | DesktopLocalizationStatus | [54](../../src-tauri/src/commands/desktop_localization.rs#L54) |
-| checked_at | field_declaration | DesktopLocalizationStatus | [55](../../src-tauri/src/commands/desktop_localization.rs#L55) |
-| diagnostics | field_declaration | DesktopLocalizationStatus | [56](../../src-tauri/src/commands/desktop_localization.rs#L56) |
-| install_path | field_declaration | DesktopLocalizationStatus | [57](../../src-tauri/src/commands/desktop_localization.rs#L57) |
-| resources_path | field_declaration | DesktopLocalizationStatus | [58](../../src-tauri/src/commands/desktop_localization.rs#L58) |
-| claude_version | field_declaration | DesktopLocalizationStatus | [59](../../src-tauri/src/commands/desktop_localization.rs#L59) |
-| multiple_installs | field_declaration | DesktopLocalizationStatus | [60](../../src-tauri/src/commands/desktop_localization.rs#L60) |
-| state | field_declaration | DesktopLocalizationStatus | [61](../../src-tauri/src/commands/desktop_localization.rs#L61) |
-| configured_locale | field_declaration | DesktopLocalizationStatus | [62](../../src-tauri/src/commands/desktop_localization.rs#L62) |
-| pack_path | field_declaration | DesktopLocalizationStatus | [63](../../src-tauri/src/commands/desktop_localization.rs#L63) |
-| pack_valid | field_declaration | DesktopLocalizationStatus | [64](../../src-tauri/src/commands/desktop_localization.rs#L64) |
-| pack_source | field_declaration | DesktopLocalizationStatus | [65](../../src-tauri/src/commands/desktop_localization.rs#L65) |
-| pack_version | field_declaration | DesktopLocalizationStatus | [66](../../src-tauri/src/commands/desktop_localization.rs#L66) |
-| pack_revision | field_declaration | DesktopLocalizationStatus | [67](../../src-tauri/src/commands/desktop_localization.rs#L67) |
-| pack_fetched_at | field_declaration | DesktopLocalizationStatus | [68](../../src-tauri/src/commands/desktop_localization.rs#L68) |
-| backup_available | field_declaration | DesktopLocalizationStatus | [69](../../src-tauri/src/commands/desktop_localization.rs#L69) |
-| message | field_declaration | DesktopLocalizationStatus | [70](../../src-tauri/src/commands/desktop_localization.rs#L70) |
-| partial_reasons | field_declaration | DesktopLocalizationStatus | [72](../../src-tauri/src/commands/desktop_localization.rs#L72) |
-| patched_js_count | field_declaration | DesktopLocalizationStatus | [74](../../src-tauri/src/commands/desktop_localization.rs#L74) |
-| log_path | field_declaration | DesktopLocalizationStatus | [75](../../src-tauri/src/commands/desktop_localization.rs#L75) |
-| last_installed_at | field_declaration | DesktopLocalizationStatus | [76](../../src-tauri/src/commands/desktop_localization.rs#L76) |
-| dynamic_catalog_required | field_declaration | DesktopLocalizationStatus | [78](../../src-tauri/src/commands/desktop_localization.rs#L78) |
-| DesktopLocalizationPackInfo | struct_item |  | [83](../../src-tauri/src/commands/desktop_localization.rs#L83) |
-| source | field_declaration | DesktopLocalizationPackInfo | [84](../../src-tauri/src/commands/desktop_localization.rs#L84) |
-| version | field_declaration | DesktopLocalizationPackInfo | [85](../../src-tauri/src/commands/desktop_localization.rs#L85) |
-| revision | field_declaration | DesktopLocalizationPackInfo | [86](../../src-tauri/src/commands/desktop_localization.rs#L86) |
-| fetched_at | field_declaration | DesktopLocalizationPackInfo | [87](../../src-tauri/src/commands/desktop_localization.rs#L87) |
-| pack_path | field_declaration | DesktopLocalizationPackInfo | [88](../../src-tauri/src/commands/desktop_localization.rs#L88) |
-| valid | field_declaration | DesktopLocalizationPackInfo | [89](../../src-tauri/src/commands/desktop_localization.rs#L89) |
-| DesktopLocalizationPackValidation | struct_item |  | [94](../../src-tauri/src/commands/desktop_localization.rs#L94) |
-| valid | field_declaration | DesktopLocalizationPackValidation | [95](../../src-tauri/src/commands/desktop_localization.rs#L95) |
-| pack_path | field_declaration | DesktopLocalizationPackValidation | [96](../../src-tauri/src/commands/desktop_localization.rs#L96) |
-| message | field_declaration | DesktopLocalizationPackValidation | [97](../../src-tauri/src/commands/desktop_localization.rs#L97) |
-| DesktopLocalizationActionResult | struct_item |  | [102](../../src-tauri/src/commands/desktop_localization.rs#L102) |
-| ok | field_declaration | DesktopLocalizationActionResult | [103](../../src-tauri/src/commands/desktop_localization.rs#L103) |
-| changed_files | field_declaration | DesktopLocalizationActionResult | [104](../../src-tauri/src/commands/desktop_localization.rs#L104) |
-| message | field_declaration | DesktopLocalizationActionResult | [105](../../src-tauri/src/commands/desktop_localization.rs#L105) |
-| log_path | field_declaration | DesktopLocalizationActionResult | [106](../../src-tauri/src/commands/desktop_localization.rs#L106) |
-| claude_version | field_declaration | DesktopLocalizationActionResult | [108](../../src-tauri/src/commands/desktop_localization.rs#L108) |
-| patched_js_count | field_declaration | DesktopLocalizationActionResult | [110](../../src-tauri/src/commands/desktop_localization.rs#L110) |
-| restart | field_declaration | DesktopLocalizationActionResult | [113](../../src-tauri/src/commands/desktop_localization.rs#L113) |
-| restart_detail | field_declaration | DesktopLocalizationActionResult | [115](../../src-tauri/src/commands/desktop_localization.rs#L115) |
-| DesktopLocalizationActionResult | impl |  | [118](../../src-tauri/src/commands/desktop_localization.rs#L118) |
-| simple | function_item | DesktopLocalizationActionResult | [119](../../src-tauri/src/commands/desktop_localization.rs#L119) |
-| LocalizationInstall | struct_item |  | [135](../../src-tauri/src/commands/desktop_localization.rs#L135) |
-| kind | field_declaration | LocalizationInstall | [136](../../src-tauri/src/commands/desktop_localization.rs#L136) |
-| app_path | field_declaration | LocalizationInstall | [137](../../src-tauri/src/commands/desktop_localization.rs#L137) |
-| resources_path | field_declaration | LocalizationInstall | [138](../../src-tauri/src/commands/desktop_localization.rs#L138) |
-| exe_path | field_declaration | LocalizationInstall | [139](../../src-tauri/src/commands/desktop_localization.rs#L139) |
-| version | field_declaration | LocalizationInstall | [140](../../src-tauri/src/commands/desktop_localization.rs#L140) |
-| multiple_installs | field_declaration | LocalizationInstall | [141](../../src-tauri/src/commands/desktop_localization.rs#L141) |
-| InstallDetection | struct_item |  | [145](../../src-tauri/src/commands/desktop_localization.rs#L145) |
-| install | field_declaration | InstallDetection | [146](../../src-tauri/src/commands/desktop_localization.rs#L146) |
-| diagnostics | field_declaration | InstallDetection | [147](../../src-tauri/src/commands/desktop_localization.rs#L147) |
-| ValidatedPack | struct_item |  | [151](../../src-tauri/src/commands/desktop_localization.rs#L151) |
-| root | field_declaration | ValidatedPack | [152](../../src-tauri/src/commands/desktop_localization.rs#L152) |
-| resources | field_declaration | ValidatedPack | [153](../../src-tauri/src/commands/desktop_localization.rs#L153) |
-| LocalizationWorkerJob | struct_item |  | [158](../../src-tauri/src/commands/desktop_localization.rs#L158) |
-| action | field_declaration | LocalizationWorkerJob | [159](../../src-tauri/src/commands/desktop_localization.rs#L159) |
-| install | field_declaration | LocalizationWorkerJob | [160](../../src-tauri/src/commands/desktop_localization.rs#L160) |
-| pack_path | field_declaration | LocalizationWorkerJob | [161](../../src-tauri/src/commands/desktop_localization.rs#L161) |
-| locale_paths | field_declaration | LocalizationWorkerJob | [162](../../src-tauri/src/commands/desktop_localization.rs#L162) |
-| backup_root | field_declaration | LocalizationWorkerJob | [163](../../src-tauri/src/commands/desktop_localization.rs#L163) |
-| result_path | field_declaration | LocalizationWorkerJob | [164](../../src-tauri/src/commands/desktop_localization.rs#L164) |
-| log_path | field_declaration | LocalizationWorkerJob | [165](../../src-tauri/src/commands/desktop_localization.rs#L165) |
-| FileChange | struct_item |  | [169](../../src-tauri/src/commands/desktop_localization.rs#L169) |
-| target | field_declaration | FileChange | [170](../../src-tauri/src/commands/desktop_localization.rs#L170) |
-| bytes | field_declaration | FileChange | [171](../../src-tauri/src/commands/desktop_localization.rs#L171) |
-| LocalizationBackupManifest | struct_item |  | [176](../../src-tauri/src/commands/desktop_localization.rs#L176) |
-| version | field_declaration | LocalizationBackupManifest | [177](../../src-tauri/src/commands/desktop_localization.rs#L177) |
-| claude_version | field_declaration | LocalizationBackupManifest | [178](../../src-tauri/src/commands/desktop_localization.rs#L178) |
-| install_path | field_declaration | LocalizationBackupManifest | [179](../../src-tauri/src/commands/desktop_localization.rs#L179) |
-| created_at | field_declaration | LocalizationBackupManifest | [180](../../src-tauri/src/commands/desktop_localization.rs#L180) |
-| files | field_declaration | LocalizationBackupManifest | [181](../../src-tauri/src/commands/desktop_localization.rs#L181) |
-| LocalizationBackupFile | struct_item |  | [186](../../src-tauri/src/commands/desktop_localization.rs#L186) |
-| target | field_declaration | LocalizationBackupFile | [187](../../src-tauri/src/commands/desktop_localization.rs#L187) |
-| existed | field_declaration | LocalizationBackupFile | [188](../../src-tauri/src/commands/desktop_localization.rs#L188) |
-| backup_file | field_declaration | LocalizationBackupFile | [189](../../src-tauri/src/commands/desktop_localization.rs#L189) |
+| PACK_SETTING_KEY | const_item |  | [26](../../src-tauri/src/commands/desktop_localization.rs#L26) |
+| LOCALIZATION_LOCALE | const_item |  | [27](../../src-tauri/src/commands/desktop_localization.rs#L27) |
+| MAX_PACK_FILE_BYTES | const_item |  | [28](../../src-tauri/src/commands/desktop_localization.rs#L28) |
+| MAX_PACK_ARCHIVE_BYTES | const_item |  | [29](../../src-tauri/src/commands/desktop_localization.rs#L29) |
+| MAX_PACK_EXTRACTED_BYTES | const_item |  | [30](../../src-tauri/src/commands/desktop_localization.rs#L30) |
+| MAX_GITHUB_METADATA_BYTES | const_item |  | [31](../../src-tauri/src/commands/desktop_localization.rs#L31) |
+| MAX_HARDCODED_REPLACEMENTS | const_item |  | [32](../../src-tauri/src/commands/desktop_localization.rs#L32) |
+| BACKUPS_TO_KEEP | const_item |  | [33](../../src-tauri/src/commands/desktop_localization.rs#L33) |
+| UPSTREAM_REPOSITORY | const_item |  | [34](../../src-tauri/src/commands/desktop_localization.rs#L34) |
+| PACK_INFO_FILE | const_item |  | [35](../../src-tauri/src/commands/desktop_localization.rs#L35) |
+| MANIFEST_FILE | const_item |  | [36](../../src-tauri/src/commands/desktop_localization.rs#L36) |
+| RELEASE_FILE | const_item |  | [37](../../src-tauri/src/commands/desktop_localization.rs#L37) |
+| CREATE_NO_WINDOW | const_item |  | [39](../../src-tauri/src/commands/desktop_localization.rs#L39) |
+| FRONTEND_FILE | const_item |  | [41](../../src-tauri/src/commands/desktop_localization.rs#L41) |
+| DESKTOP_FILE | const_item |  | [42](../../src-tauri/src/commands/desktop_localization.rs#L42) |
+| STATSIG_FILE | const_item |  | [43](../../src-tauri/src/commands/desktop_localization.rs#L43) |
+| HARDCODED_FILE | const_item |  | [44](../../src-tauri/src/commands/desktop_localization.rs#L44) |
+| BASE_LANGUAGES | const_item |  | [46](../../src-tauri/src/commands/desktop_localization.rs#L46) |
+| DesktopLocalizationStatus | struct_item |  | [51](../../src-tauri/src/commands/desktop_localization.rs#L51) |
+| platform_supported | field_declaration | DesktopLocalizationStatus | [52](../../src-tauri/src/commands/desktop_localization.rs#L52) |
+| install_detected | field_declaration | DesktopLocalizationStatus | [53](../../src-tauri/src/commands/desktop_localization.rs#L53) |
+| install_kind | field_declaration | DesktopLocalizationStatus | [54](../../src-tauri/src/commands/desktop_localization.rs#L54) |
+| detection_source | field_declaration | DesktopLocalizationStatus | [55](../../src-tauri/src/commands/desktop_localization.rs#L55) |
+| checked_at | field_declaration | DesktopLocalizationStatus | [56](../../src-tauri/src/commands/desktop_localization.rs#L56) |
+| diagnostics | field_declaration | DesktopLocalizationStatus | [57](../../src-tauri/src/commands/desktop_localization.rs#L57) |
+| install_path | field_declaration | DesktopLocalizationStatus | [58](../../src-tauri/src/commands/desktop_localization.rs#L58) |
+| resources_path | field_declaration | DesktopLocalizationStatus | [59](../../src-tauri/src/commands/desktop_localization.rs#L59) |
+| claude_version | field_declaration | DesktopLocalizationStatus | [60](../../src-tauri/src/commands/desktop_localization.rs#L60) |
+| multiple_installs | field_declaration | DesktopLocalizationStatus | [61](../../src-tauri/src/commands/desktop_localization.rs#L61) |
+| state | field_declaration | DesktopLocalizationStatus | [62](../../src-tauri/src/commands/desktop_localization.rs#L62) |
+| configured_locale | field_declaration | DesktopLocalizationStatus | [63](../../src-tauri/src/commands/desktop_localization.rs#L63) |
+| pack_path | field_declaration | DesktopLocalizationStatus | [64](../../src-tauri/src/commands/desktop_localization.rs#L64) |
+| pack_valid | field_declaration | DesktopLocalizationStatus | [65](../../src-tauri/src/commands/desktop_localization.rs#L65) |
+| pack_source | field_declaration | DesktopLocalizationStatus | [66](../../src-tauri/src/commands/desktop_localization.rs#L66) |
+| pack_version | field_declaration | DesktopLocalizationStatus | [67](../../src-tauri/src/commands/desktop_localization.rs#L67) |
+| pack_revision | field_declaration | DesktopLocalizationStatus | [68](../../src-tauri/src/commands/desktop_localization.rs#L68) |
+| pack_fetched_at | field_declaration | DesktopLocalizationStatus | [69](../../src-tauri/src/commands/desktop_localization.rs#L69) |
+| backup_available | field_declaration | DesktopLocalizationStatus | [70](../../src-tauri/src/commands/desktop_localization.rs#L70) |
+| message | field_declaration | DesktopLocalizationStatus | [71](../../src-tauri/src/commands/desktop_localization.rs#L71) |
+| partial_reasons | field_declaration | DesktopLocalizationStatus | [73](../../src-tauri/src/commands/desktop_localization.rs#L73) |
+| patched_js_count | field_declaration | DesktopLocalizationStatus | [75](../../src-tauri/src/commands/desktop_localization.rs#L75) |
+| log_path | field_declaration | DesktopLocalizationStatus | [76](../../src-tauri/src/commands/desktop_localization.rs#L76) |
+| last_installed_at | field_declaration | DesktopLocalizationStatus | [77](../../src-tauri/src/commands/desktop_localization.rs#L77) |
+| dynamic_catalog_required | field_declaration | DesktopLocalizationStatus | [79](../../src-tauri/src/commands/desktop_localization.rs#L79) |
+| DesktopLocalizationPackInfo | struct_item |  | [84](../../src-tauri/src/commands/desktop_localization.rs#L84) |
+| source | field_declaration | DesktopLocalizationPackInfo | [85](../../src-tauri/src/commands/desktop_localization.rs#L85) |
+| version | field_declaration | DesktopLocalizationPackInfo | [86](../../src-tauri/src/commands/desktop_localization.rs#L86) |
+| revision | field_declaration | DesktopLocalizationPackInfo | [87](../../src-tauri/src/commands/desktop_localization.rs#L87) |
+| fetched_at | field_declaration | DesktopLocalizationPackInfo | [88](../../src-tauri/src/commands/desktop_localization.rs#L88) |
+| pack_path | field_declaration | DesktopLocalizationPackInfo | [89](../../src-tauri/src/commands/desktop_localization.rs#L89) |
+| valid | field_declaration | DesktopLocalizationPackInfo | [90](../../src-tauri/src/commands/desktop_localization.rs#L90) |
+| DesktopLocalizationPackValidation | struct_item |  | [95](../../src-tauri/src/commands/desktop_localization.rs#L95) |
+| valid | field_declaration | DesktopLocalizationPackValidation | [96](../../src-tauri/src/commands/desktop_localization.rs#L96) |
+| pack_path | field_declaration | DesktopLocalizationPackValidation | [97](../../src-tauri/src/commands/desktop_localization.rs#L97) |
+| message | field_declaration | DesktopLocalizationPackValidation | [98](../../src-tauri/src/commands/desktop_localization.rs#L98) |
+| DesktopLocalizationActionResult | struct_item |  | [103](../../src-tauri/src/commands/desktop_localization.rs#L103) |
+| ok | field_declaration | DesktopLocalizationActionResult | [104](../../src-tauri/src/commands/desktop_localization.rs#L104) |
+| changed_files | field_declaration | DesktopLocalizationActionResult | [105](../../src-tauri/src/commands/desktop_localization.rs#L105) |
+| message | field_declaration | DesktopLocalizationActionResult | [106](../../src-tauri/src/commands/desktop_localization.rs#L106) |
+| log_path | field_declaration | DesktopLocalizationActionResult | [107](../../src-tauri/src/commands/desktop_localization.rs#L107) |
+| claude_version | field_declaration | DesktopLocalizationActionResult | [109](../../src-tauri/src/commands/desktop_localization.rs#L109) |
+| patched_js_count | field_declaration | DesktopLocalizationActionResult | [111](../../src-tauri/src/commands/desktop_localization.rs#L111) |
+| restart | field_declaration | DesktopLocalizationActionResult | [114](../../src-tauri/src/commands/desktop_localization.rs#L114) |
+| restart_detail | field_declaration | DesktopLocalizationActionResult | [116](../../src-tauri/src/commands/desktop_localization.rs#L116) |
+| DesktopLocalizationActionResult | impl |  | [119](../../src-tauri/src/commands/desktop_localization.rs#L119) |
+| simple | function_item | DesktopLocalizationActionResult | [120](../../src-tauri/src/commands/desktop_localization.rs#L120) |
+| LocalizationInstall | struct_item |  | [136](../../src-tauri/src/commands/desktop_localization.rs#L136) |
+| kind | field_declaration | LocalizationInstall | [137](../../src-tauri/src/commands/desktop_localization.rs#L137) |
+| app_path | field_declaration | LocalizationInstall | [138](../../src-tauri/src/commands/desktop_localization.rs#L138) |
+| resources_path | field_declaration | LocalizationInstall | [139](../../src-tauri/src/commands/desktop_localization.rs#L139) |
+| exe_path | field_declaration | LocalizationInstall | [140](../../src-tauri/src/commands/desktop_localization.rs#L140) |
+| version | field_declaration | LocalizationInstall | [141](../../src-tauri/src/commands/desktop_localization.rs#L141) |
+| multiple_installs | field_declaration | LocalizationInstall | [142](../../src-tauri/src/commands/desktop_localization.rs#L142) |
+| InstallDetection | struct_item |  | [146](../../src-tauri/src/commands/desktop_localization.rs#L146) |
+| install | field_declaration | InstallDetection | [147](../../src-tauri/src/commands/desktop_localization.rs#L147) |
+| diagnostics | field_declaration | InstallDetection | [148](../../src-tauri/src/commands/desktop_localization.rs#L148) |
+| ValidatedPack | struct_item |  | [152](../../src-tauri/src/commands/desktop_localization.rs#L152) |
+| root | field_declaration | ValidatedPack | [153](../../src-tauri/src/commands/desktop_localization.rs#L153) |
+| resources | field_declaration | ValidatedPack | [154](../../src-tauri/src/commands/desktop_localization.rs#L154) |
+| LocalizationWorkerJob | struct_item |  | [159](../../src-tauri/src/commands/desktop_localization.rs#L159) |
+| action | field_declaration | LocalizationWorkerJob | [160](../../src-tauri/src/commands/desktop_localization.rs#L160) |
+| install | field_declaration | LocalizationWorkerJob | [161](../../src-tauri/src/commands/desktop_localization.rs#L161) |
+| pack_path | field_declaration | LocalizationWorkerJob | [162](../../src-tauri/src/commands/desktop_localization.rs#L162) |
+| locale_paths | field_declaration | LocalizationWorkerJob | [163](../../src-tauri/src/commands/desktop_localization.rs#L163) |
+| backup_root | field_declaration | LocalizationWorkerJob | [164](../../src-tauri/src/commands/desktop_localization.rs#L164) |
+| result_path | field_declaration | LocalizationWorkerJob | [165](../../src-tauri/src/commands/desktop_localization.rs#L165) |
+| log_path | field_declaration | LocalizationWorkerJob | [166](../../src-tauri/src/commands/desktop_localization.rs#L166) |
+| FileChange | struct_item |  | [170](../../src-tauri/src/commands/desktop_localization.rs#L170) |
+| target | field_declaration | FileChange | [171](../../src-tauri/src/commands/desktop_localization.rs#L171) |
+| bytes | field_declaration | FileChange | [172](../../src-tauri/src/commands/desktop_localization.rs#L172) |
+| LocalizationBackupManifest | struct_item |  | [177](../../src-tauri/src/commands/desktop_localization.rs#L177) |
+| version | field_declaration | LocalizationBackupManifest | [178](../../src-tauri/src/commands/desktop_localization.rs#L178) |
+| claude_version | field_declaration | LocalizationBackupManifest | [179](../../src-tauri/src/commands/desktop_localization.rs#L179) |
+| install_path | field_declaration | LocalizationBackupManifest | [180](../../src-tauri/src/commands/desktop_localization.rs#L180) |
+| created_at | field_declaration | LocalizationBackupManifest | [181](../../src-tauri/src/commands/desktop_localization.rs#L181) |
+| files | field_declaration | LocalizationBackupManifest | [182](../../src-tauri/src/commands/desktop_localization.rs#L182) |
+| LocalizationBackupFile | struct_item |  | [187](../../src-tauri/src/commands/desktop_localization.rs#L187) |
+| target | field_declaration | LocalizationBackupFile | [188](../../src-tauri/src/commands/desktop_localization.rs#L188) |
+| existed | field_declaration | LocalizationBackupFile | [189](../../src-tauri/src/commands/desktop_localization.rs#L189) |
+| backup_file | field_declaration | LocalizationBackupFile | [190](../../src-tauri/src/commands/desktop_localization.rs#L190) |

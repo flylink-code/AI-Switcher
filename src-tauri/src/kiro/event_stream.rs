@@ -234,18 +234,16 @@ impl FrameDecoder {
                     if !frames.is_empty() {
                         // Try skipping a corrupt frame boundary if we already have valid frames
                         let skip = match err {
-                            FrameError::BadHeaders | FrameError::MessageCrc => {
-                                if self.buffer.len() >= 4 {
-                                    let len = u32::from_be_bytes([
-                                        self.buffer[0],
-                                        self.buffer[1],
-                                        self.buffer[2],
-                                        self.buffer[3],
-                                    ]) as usize;
-                                    len.clamp(1, self.buffer.len())
-                                } else {
-                                    1
-                                }
+                            FrameError::BadHeaders | FrameError::MessageCrc
+                                if self.buffer.len() >= 4 =>
+                            {
+                                let len = u32::from_be_bytes([
+                                    self.buffer[0],
+                                    self.buffer[1],
+                                    self.buffer[2],
+                                    self.buffer[3],
+                                ]) as usize;
+                                len.clamp(1, self.buffer.len())
                             }
                             _ => 1,
                         };

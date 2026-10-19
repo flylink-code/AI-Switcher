@@ -7,9 +7,9 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | Module | Files | Symbols | Map |
 | --- | ---: | ---: | --- |
 | rust-antigravity | 30 | 3339 | [open](docs/codemap/rust-antigravity.md) |
-| rust-coding | 9 | 186 | [open](docs/codemap/rust-coding.md) |
-| rust-commands | 48 | 3306 | [open](docs/codemap/rust-commands.md) |
-| rust-config | 11 | 1333 | [open](docs/codemap/rust-config.md) |
+| rust-coding | 9 | 187 | [open](docs/codemap/rust-coding.md) |
+| rust-commands | 48 | 3319 | [open](docs/codemap/rust-commands.md) |
+| rust-config | 11 | 1407 | [open](docs/codemap/rust-config.md) |
 | rust-database | 10 | 1585 | [open](docs/codemap/rust-database.md) |
 | rust-deeplink | 1 | 94 | [open](docs/codemap/rust-deeplink.md) |
 | rust-gateway | 10 | 861 | [open](docs/codemap/rust-gateway.md) |
@@ -29,9 +29,9 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | web-root | 3 | 120 | [open](docs/codemap/web-root.md) |
 | web-services | 15 | 499 | [open](docs/codemap/web-services.md) |
 | web-stores | 5 | 183 | [open](docs/codemap/web-stores.md) |
-| web-types | 2 | 1210 | [open](docs/codemap/web-types.md) |
+| web-types | 2 | 1215 | [open](docs/codemap/web-types.md) |
 | web-utils | 5 | 88 | [open](docs/codemap/web-utils.md) |
 
-Total: 412 source files, 25875 extracted symbols, 0 parser diagnostics.
+Total: 412 source files, 25968 extracted symbols, 0 parser diagnostics.
 
 Scope includes local declarations; excludes imports, parameters, runtime/macro-generated symbols. PowerShell/BAT use lexical navigation only.

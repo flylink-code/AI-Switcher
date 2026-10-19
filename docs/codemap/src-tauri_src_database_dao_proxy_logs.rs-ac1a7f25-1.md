@@ -4,7 +4,7 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/proxy_logs.rs) · page 1/6
 
-Source SHA-256: 385daf1502675872a54b4331ae755de317c95461a728fc022f4e0e091d0c7ddb
+Source SHA-256: 82f4210368a29fd31eee77ff819fc41865d5aa4eadaf5948de2466790f60ffa1
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

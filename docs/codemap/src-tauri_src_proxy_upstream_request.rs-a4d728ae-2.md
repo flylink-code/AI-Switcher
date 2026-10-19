@@ -4,11 +4,11 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/upstream_request.rs) · page 2/2
 
-Source SHA-256: c3dc23e38e5bf40860967dd727348ec8e1f85c374612b09dd56d3878d4764ac3
+Source SHA-256: f67a3b0ea5454a09c0b43a3d9b2958c15204af55e2670337521f45498143fe2c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
+| assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1834](../../src-tauri/src/proxy/upstream_request.rs#L1834) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1835](../../src-tauri/src/proxy/upstream_request.rs#L1835) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1836](../../src-tauri/src/proxy/upstream_request.rs#L1836) |
 | assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1837](../../src-tauri/src/proxy/upstream_request.rs#L1837) |
-| assert | macro invocation (unexpanded) | probe_tests::passthrough_replaces_error_event_and_closes_open_block | [1838](../../src-tauri/src/proxy/upstream_request.rs#L1838) |

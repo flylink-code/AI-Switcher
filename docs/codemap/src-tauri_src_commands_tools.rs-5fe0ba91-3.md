@@ -4,107 +4,107 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/tools.rs) · page 3/4
 
-Source SHA-256: 3fee7b3aac2b3d03fac2637f19e288b7ae52ecc632061499d5152accd366d962
+Source SHA-256: 1ff388f9f286efdc54abb2f7a70615968dcdfb3163d28bbcc5e8a605455527ca
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| environment | field_declaration | OpenCodeCliVersionInfo | [1700](../../src-tauri/src/commands/tools.rs#L1700) |
-| installed_but_broken | field_declaration | OpenCodeCliVersionInfo | [1701](../../src-tauri/src/commands/tools.rs#L1701) |
-| opencode_channel_from_version | function_item |  | [1705](../../src-tauri/src/commands/tools.rs#L1705) |
-| opencode_install_command | function_item |  | [1714](../../src-tauri/src/commands/tools.rs#L1714) |
-| format | macro invocation (unexpanded) | opencode_install_command | [1715](../../src-tauri/src/commands/tools.rs#L1715) |
-| opencode_executable_candidates | function_item |  | [1718](../../src-tauri/src/commands/tools.rs#L1718) |
-| vec | macro invocation (unexpanded) | opencode_executable_candidates | [1721](../../src-tauri/src/commands/tools.rs#L1721) |
-| vec | macro invocation (unexpanded) | opencode_executable_candidates | [1730](../../src-tauri/src/commands/tools.rs#L1730) |
-| opencode_candidate_dirs | function_item |  | [1734](../../src-tauri/src/commands/tools.rs#L1734) |
-| push_unique_front | function_item |  | [1749](../../src-tauri/src/commands/tools.rs#L1749) |
-| probe_opencode_installation | function_item |  | [1756](../../src-tauri/src/commands/tools.rs#L1756) |
-| cfg | macro invocation (unexpanded) | probe_opencode_installation | [1772](../../src-tauri/src/commands/tools.rs#L1772) |
-| fetch_npm_package_latest | function_item |  | [1811](../../src-tauri/src/commands/tools.rs#L1811) |
-| format | macro invocation (unexpanded) | fetch_npm_package_latest | [1816](../../src-tauri/src/commands/tools.rs#L1816) |
-| opencode_update_command_for | function_item |  | [1832](../../src-tauri/src/commands/tools.rs#L1832) |
-| format | macro invocation (unexpanded) | opencode_update_command_for | [1837](../../src-tauri/src/commands/tools.rs#L1837) |
-| install_opencode_with_npmjs_retry | function_item |  | [1843](../../src-tauri/src/commands/tools.rs#L1843) |
-| format | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1844](../../src-tauri/src/commands/tools.rs#L1844) |
-| format | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1846](../../src-tauri/src/commands/tools.rs#L1846) |
-| log::warn | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1851](../../src-tauri/src/commands/tools.rs#L1851) |
-| format | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1857](../../src-tauri/src/commands/tools.rs#L1857) |
-| run_opencode_install_or_update | function_item |  | [1862](../../src-tauri/src/commands/tools.rs#L1862) |
-| format | macro invocation (unexpanded) | run_opencode_install_or_update | [1888](../../src-tauri/src/commands/tools.rs#L1888) |
-| get_opencode_cli_version | function_item |  | [1897](../../src-tauri/src/commands/tools.rs#L1897) |
-| tokio::join | macro invocation (unexpanded) | get_opencode_cli_version | [1902](../../src-tauri/src/commands/tools.rs#L1902) |
-| format | macro invocation (unexpanded) | get_opencode_cli_version | [1910](../../src-tauri/src/commands/tools.rs#L1910) |
-| cfg | macro invocation (unexpanded) | get_opencode_cli_version | [1948](../../src-tauri/src/commands/tools.rs#L1948) |
-| run_opencode_cli_update | function_item |  | [1954](../../src-tauri/src/commands/tools.rs#L1954) |
-| format | macro invocation (unexpanded) | run_opencode_cli_update | [1957](../../src-tauri/src/commands/tools.rs#L1957) |
-| OpenCodeDesktopStatus | struct_item |  | [1978](../../src-tauri/src/commands/tools.rs#L1978) |
-| installed | field_declaration | OpenCodeDesktopStatus | [1979](../../src-tauri/src/commands/tools.rs#L1979) |
-| version | field_declaration | OpenCodeDesktopStatus | [1980](../../src-tauri/src/commands/tools.rs#L1980) |
-| install_path | field_declaration | OpenCodeDesktopStatus | [1981](../../src-tauri/src/commands/tools.rs#L1981) |
-| source | field_declaration | OpenCodeDesktopStatus | [1982](../../src-tauri/src/commands/tools.rs#L1982) |
-| detect_opencode_desktop | function_item |  | [1987](../../src-tauri/src/commands/tools.rs#L1987) |
-| detect_opencode_desktop | function_item |  | [2048](../../src-tauri/src/commands/tools.rs#L2048) |
-| get_opencode_desktop_status | function_item |  | [2070](../../src-tauri/src/commands/tools.rs#L2070) |
-| format | macro invocation (unexpanded) | get_opencode_desktop_status | [2073](../../src-tauri/src/commands/tools.rs#L2073) |
-| CLAUDE_DESKTOP_DOWNLOAD_URL | const_item |  | [2078](../../src-tauri/src/commands/tools.rs#L2078) |
-| CLAUDE_DESKTOP_KEY_URL | const_item |  | [2080](../../src-tauri/src/commands/tools.rs#L2080) |
-| CLAUDE_DESKTOP_APT_LINE | const_item |  | [2082](../../src-tauri/src/commands/tools.rs#L2082) |
-| CLAUDE_DESKTOP_APT_TIMEOUT | const_item |  | [2084](../../src-tauri/src/commands/tools.rs#L2084) |
-| ClaudeDesktopAppInfo | struct_item |  | [2088](../../src-tauri/src/commands/tools.rs#L2088) |
-| installed | field_declaration | ClaudeDesktopAppInfo | [2089](../../src-tauri/src/commands/tools.rs#L2089) |
-| current_version | field_declaration | ClaudeDesktopAppInfo | [2090](../../src-tauri/src/commands/tools.rs#L2090) |
-| latest_version | field_declaration | ClaudeDesktopAppInfo | [2091](../../src-tauri/src/commands/tools.rs#L2091) |
-| update_available | field_declaration | ClaudeDesktopAppInfo | [2092](../../src-tauri/src/commands/tools.rs#L2092) |
-| install_command | field_declaration | ClaudeDesktopAppInfo | [2093](../../src-tauri/src/commands/tools.rs#L2093) |
-| update_command | field_declaration | ClaudeDesktopAppInfo | [2094](../../src-tauri/src/commands/tools.rs#L2094) |
-| error | field_declaration | ClaudeDesktopAppInfo | [2095](../../src-tauri/src/commands/tools.rs#L2095) |
-| executable_path | field_declaration | ClaudeDesktopAppInfo | [2096](../../src-tauri/src/commands/tools.rs#L2096) |
-| source | field_declaration | ClaudeDesktopAppInfo | [2097](../../src-tauri/src/commands/tools.rs#L2097) |
-| environment | field_declaration | ClaudeDesktopAppInfo | [2098](../../src-tauri/src/commands/tools.rs#L2098) |
-| installed_but_broken | field_declaration | ClaudeDesktopAppInfo | [2099](../../src-tauri/src/commands/tools.rs#L2099) |
-| can_install_in_app | field_declaration | ClaudeDesktopAppInfo | [2100](../../src-tauri/src/commands/tools.rs#L2100) |
-| claude_desktop_environment | function_item |  | [2103](../../src-tauri/src/commands/tools.rs#L2103) |
-| cfg | macro invocation (unexpanded) | claude_desktop_environment | [2104](../../src-tauri/src/commands/tools.rs#L2104) |
-| cfg | macro invocation (unexpanded) | claude_desktop_environment | [2106](../../src-tauri/src/commands/tools.rs#L2106) |
-| claude_desktop_manual_command | function_item |  | [2113](../../src-tauri/src/commands/tools.rs#L2113) |
-| format | macro invocation (unexpanded) | claude_desktop_manual_command | [2116](../../src-tauri/src/commands/tools.rs#L2116) |
-| linux_has_apt | function_item |  | [2127](../../src-tauri/src/commands/tools.rs#L2127) |
-| parse_apt_policy_field | function_item |  | [2131](../../src-tauri/src/commands/tools.rs#L2131) |
-| format | macro invocation (unexpanded) | parse_apt_policy_field | [2132](../../src-tauri/src/commands/tools.rs#L2132) |
-| run_quick_command | function_item |  | [2148](../../src-tauri/src/commands/tools.rs#L2148) |
-| probe_claude_desktop_linux | function_item |  | [2155](../../src-tauri/src/commands/tools.rs#L2155) |
-| format | macro invocation (unexpanded) | probe_claude_desktop_linux | [2224](../../src-tauri/src/commands/tools.rs#L2224) |
-| probe_claude_desktop_app | function_item |  | [2249](../../src-tauri/src/commands/tools.rs#L2249) |
-| probe_claude_desktop_app | function_item |  | [2254](../../src-tauri/src/commands/tools.rs#L2254) |
-| claude_desktop_install_script | function_item |  | [2313](../../src-tauri/src/commands/tools.rs#L2313) |
-| format | macro invocation (unexpanded) | claude_desktop_install_script | [2314](../../src-tauri/src/commands/tools.rs#L2314) |
-| run_claude_desktop_apt_install | function_item |  | [2335](../../src-tauri/src/commands/tools.rs#L2335) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2337](../../src-tauri/src/commands/tools.rs#L2337) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2348](../../src-tauri/src/commands/tools.rs#L2348) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2354](../../src-tauri/src/commands/tools.rs#L2354) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2359](../../src-tauri/src/commands/tools.rs#L2359) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2364](../../src-tauri/src/commands/tools.rs#L2364) |
+| environment | field_declaration | OpenCodeCliVersionInfo | [1703](../../src-tauri/src/commands/tools.rs#L1703) |
+| installed_but_broken | field_declaration | OpenCodeCliVersionInfo | [1704](../../src-tauri/src/commands/tools.rs#L1704) |
+| opencode_channel_from_version | function_item |  | [1708](../../src-tauri/src/commands/tools.rs#L1708) |
+| opencode_install_command | function_item |  | [1717](../../src-tauri/src/commands/tools.rs#L1717) |
+| format | macro invocation (unexpanded) | opencode_install_command | [1718](../../src-tauri/src/commands/tools.rs#L1718) |
+| opencode_executable_candidates | function_item |  | [1721](../../src-tauri/src/commands/tools.rs#L1721) |
+| vec | macro invocation (unexpanded) | opencode_executable_candidates | [1724](../../src-tauri/src/commands/tools.rs#L1724) |
+| vec | macro invocation (unexpanded) | opencode_executable_candidates | [1733](../../src-tauri/src/commands/tools.rs#L1733) |
+| opencode_candidate_dirs | function_item |  | [1737](../../src-tauri/src/commands/tools.rs#L1737) |
+| push_unique_front | function_item |  | [1752](../../src-tauri/src/commands/tools.rs#L1752) |
+| probe_opencode_installation | function_item |  | [1759](../../src-tauri/src/commands/tools.rs#L1759) |
+| cfg | macro invocation (unexpanded) | probe_opencode_installation | [1775](../../src-tauri/src/commands/tools.rs#L1775) |
+| fetch_npm_package_latest | function_item |  | [1814](../../src-tauri/src/commands/tools.rs#L1814) |
+| format | macro invocation (unexpanded) | fetch_npm_package_latest | [1819](../../src-tauri/src/commands/tools.rs#L1819) |
+| opencode_update_command_for | function_item |  | [1835](../../src-tauri/src/commands/tools.rs#L1835) |
+| format | macro invocation (unexpanded) | opencode_update_command_for | [1840](../../src-tauri/src/commands/tools.rs#L1840) |
+| install_opencode_with_npmjs_retry | function_item |  | [1846](../../src-tauri/src/commands/tools.rs#L1846) |
+| format | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1847](../../src-tauri/src/commands/tools.rs#L1847) |
+| format | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1849](../../src-tauri/src/commands/tools.rs#L1849) |
+| log::warn | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1854](../../src-tauri/src/commands/tools.rs#L1854) |
+| format | macro invocation (unexpanded) | install_opencode_with_npmjs_retry | [1860](../../src-tauri/src/commands/tools.rs#L1860) |
+| run_opencode_install_or_update | function_item |  | [1865](../../src-tauri/src/commands/tools.rs#L1865) |
+| format | macro invocation (unexpanded) | run_opencode_install_or_update | [1891](../../src-tauri/src/commands/tools.rs#L1891) |
+| get_opencode_cli_version | function_item |  | [1900](../../src-tauri/src/commands/tools.rs#L1900) |
+| tokio::join | macro invocation (unexpanded) | get_opencode_cli_version | [1905](../../src-tauri/src/commands/tools.rs#L1905) |
+| format | macro invocation (unexpanded) | get_opencode_cli_version | [1913](../../src-tauri/src/commands/tools.rs#L1913) |
+| cfg | macro invocation (unexpanded) | get_opencode_cli_version | [1951](../../src-tauri/src/commands/tools.rs#L1951) |
+| run_opencode_cli_update | function_item |  | [1957](../../src-tauri/src/commands/tools.rs#L1957) |
+| format | macro invocation (unexpanded) | run_opencode_cli_update | [1960](../../src-tauri/src/commands/tools.rs#L1960) |
+| OpenCodeDesktopStatus | struct_item |  | [1981](../../src-tauri/src/commands/tools.rs#L1981) |
+| installed | field_declaration | OpenCodeDesktopStatus | [1982](../../src-tauri/src/commands/tools.rs#L1982) |
+| version | field_declaration | OpenCodeDesktopStatus | [1983](../../src-tauri/src/commands/tools.rs#L1983) |
+| install_path | field_declaration | OpenCodeDesktopStatus | [1984](../../src-tauri/src/commands/tools.rs#L1984) |
+| source | field_declaration | OpenCodeDesktopStatus | [1985](../../src-tauri/src/commands/tools.rs#L1985) |
+| detect_opencode_desktop | function_item |  | [1990](../../src-tauri/src/commands/tools.rs#L1990) |
+| detect_opencode_desktop | function_item |  | [2051](../../src-tauri/src/commands/tools.rs#L2051) |
+| get_opencode_desktop_status | function_item |  | [2073](../../src-tauri/src/commands/tools.rs#L2073) |
+| format | macro invocation (unexpanded) | get_opencode_desktop_status | [2076](../../src-tauri/src/commands/tools.rs#L2076) |
+| CLAUDE_DESKTOP_DOWNLOAD_URL | const_item |  | [2082](../../src-tauri/src/commands/tools.rs#L2082) |
+| CLAUDE_DESKTOP_KEY_URL | const_item |  | [2084](../../src-tauri/src/commands/tools.rs#L2084) |
+| CLAUDE_DESKTOP_APT_LINE | const_item |  | [2086](../../src-tauri/src/commands/tools.rs#L2086) |
+| CLAUDE_DESKTOP_APT_TIMEOUT | const_item |  | [2088](../../src-tauri/src/commands/tools.rs#L2088) |
+| ClaudeDesktopAppInfo | struct_item |  | [2092](../../src-tauri/src/commands/tools.rs#L2092) |
+| installed | field_declaration | ClaudeDesktopAppInfo | [2093](../../src-tauri/src/commands/tools.rs#L2093) |
+| current_version | field_declaration | ClaudeDesktopAppInfo | [2094](../../src-tauri/src/commands/tools.rs#L2094) |
+| latest_version | field_declaration | ClaudeDesktopAppInfo | [2095](../../src-tauri/src/commands/tools.rs#L2095) |
+| update_available | field_declaration | ClaudeDesktopAppInfo | [2096](../../src-tauri/src/commands/tools.rs#L2096) |
+| install_command | field_declaration | ClaudeDesktopAppInfo | [2097](../../src-tauri/src/commands/tools.rs#L2097) |
+| update_command | field_declaration | ClaudeDesktopAppInfo | [2098](../../src-tauri/src/commands/tools.rs#L2098) |
+| error | field_declaration | ClaudeDesktopAppInfo | [2099](../../src-tauri/src/commands/tools.rs#L2099) |
+| executable_path | field_declaration | ClaudeDesktopAppInfo | [2100](../../src-tauri/src/commands/tools.rs#L2100) |
+| source | field_declaration | ClaudeDesktopAppInfo | [2101](../../src-tauri/src/commands/tools.rs#L2101) |
+| environment | field_declaration | ClaudeDesktopAppInfo | [2102](../../src-tauri/src/commands/tools.rs#L2102) |
+| installed_but_broken | field_declaration | ClaudeDesktopAppInfo | [2103](../../src-tauri/src/commands/tools.rs#L2103) |
+| can_install_in_app | field_declaration | ClaudeDesktopAppInfo | [2104](../../src-tauri/src/commands/tools.rs#L2104) |
+| claude_desktop_environment | function_item |  | [2107](../../src-tauri/src/commands/tools.rs#L2107) |
+| cfg | macro invocation (unexpanded) | claude_desktop_environment | [2108](../../src-tauri/src/commands/tools.rs#L2108) |
+| cfg | macro invocation (unexpanded) | claude_desktop_environment | [2110](../../src-tauri/src/commands/tools.rs#L2110) |
+| claude_desktop_manual_command | function_item |  | [2117](../../src-tauri/src/commands/tools.rs#L2117) |
+| format | macro invocation (unexpanded) | claude_desktop_manual_command | [2120](../../src-tauri/src/commands/tools.rs#L2120) |
+| linux_has_apt | function_item |  | [2131](../../src-tauri/src/commands/tools.rs#L2131) |
+| parse_apt_policy_field | function_item |  | [2135](../../src-tauri/src/commands/tools.rs#L2135) |
+| format | macro invocation (unexpanded) | parse_apt_policy_field | [2136](../../src-tauri/src/commands/tools.rs#L2136) |
+| run_quick_command | function_item |  | [2152](../../src-tauri/src/commands/tools.rs#L2152) |
+| probe_claude_desktop_linux | function_item |  | [2159](../../src-tauri/src/commands/tools.rs#L2159) |
+| format | macro invocation (unexpanded) | probe_claude_desktop_linux | [2228](../../src-tauri/src/commands/tools.rs#L2228) |
+| probe_claude_desktop_app | function_item |  | [2253](../../src-tauri/src/commands/tools.rs#L2253) |
+| probe_claude_desktop_app | function_item |  | [2258](../../src-tauri/src/commands/tools.rs#L2258) |
+| claude_desktop_install_script | function_item |  | [2317](../../src-tauri/src/commands/tools.rs#L2317) |
+| format | macro invocation (unexpanded) | claude_desktop_install_script | [2318](../../src-tauri/src/commands/tools.rs#L2318) |
+| run_claude_desktop_apt_install | function_item |  | [2339](../../src-tauri/src/commands/tools.rs#L2339) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2341](../../src-tauri/src/commands/tools.rs#L2341) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2352](../../src-tauri/src/commands/tools.rs#L2352) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2358](../../src-tauri/src/commands/tools.rs#L2358) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2363](../../src-tauri/src/commands/tools.rs#L2363) |
 | format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2368](../../src-tauri/src/commands/tools.rs#L2368) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2387](../../src-tauri/src/commands/tools.rs#L2387) |
-| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2392](../../src-tauri/src/commands/tools.rs#L2392) |
-| get_claude_desktop_app_status | function_item |  | [2401](../../src-tauri/src/commands/tools.rs#L2401) |
-| format | macro invocation (unexpanded) | get_claude_desktop_app_status | [2404](../../src-tauri/src/commands/tools.rs#L2404) |
-| run_claude_desktop_app_update | function_item |  | [2408](../../src-tauri/src/commands/tools.rs#L2408) |
-| format | macro invocation (unexpanded) | run_claude_desktop_app_update | [2415](../../src-tauri/src/commands/tools.rs#L2415) |
-| format | macro invocation (unexpanded) | run_claude_desktop_app_update | [2420](../../src-tauri/src/commands/tools.rs#L2420) |
-| DSH_NPM_PACKAGE | const_item |  | [2425](../../src-tauri/src/commands/tools.rs#L2425) |
-| DshCliVersionInfo | struct_item |  | [2429](../../src-tauri/src/commands/tools.rs#L2429) |
-| installed | field_declaration | DshCliVersionInfo | [2430](../../src-tauri/src/commands/tools.rs#L2430) |
-| current_version | field_declaration | DshCliVersionInfo | [2431](../../src-tauri/src/commands/tools.rs#L2431) |
-| latest_version | field_declaration | DshCliVersionInfo | [2432](../../src-tauri/src/commands/tools.rs#L2432) |
-| update_available | field_declaration | DshCliVersionInfo | [2433](../../src-tauri/src/commands/tools.rs#L2433) |
-| install_command | field_declaration | DshCliVersionInfo | [2434](../../src-tauri/src/commands/tools.rs#L2434) |
-| update_command | field_declaration | DshCliVersionInfo | [2435](../../src-tauri/src/commands/tools.rs#L2435) |
-| error | field_declaration | DshCliVersionInfo | [2436](../../src-tauri/src/commands/tools.rs#L2436) |
-| executable_path | field_declaration | DshCliVersionInfo | [2437](../../src-tauri/src/commands/tools.rs#L2437) |
-| source | field_declaration | DshCliVersionInfo | [2438](../../src-tauri/src/commands/tools.rs#L2438) |
-| environment | field_declaration | DshCliVersionInfo | [2439](../../src-tauri/src/commands/tools.rs#L2439) |
-| installed_but_broken | field_declaration | DshCliVersionInfo | [2440](../../src-tauri/src/commands/tools.rs#L2440) |
-| dsh_install_command | function_item |  | [2443](../../src-tauri/src/commands/tools.rs#L2443) |
-| format | macro invocation (unexpanded) | dsh_install_command | [2444](../../src-tauri/src/commands/tools.rs#L2444) |
-| dsh_executable_candidates | function_item |  | [2447](../../src-tauri/src/commands/tools.rs#L2447) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2372](../../src-tauri/src/commands/tools.rs#L2372) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2391](../../src-tauri/src/commands/tools.rs#L2391) |
+| format | macro invocation (unexpanded) | run_claude_desktop_apt_install | [2396](../../src-tauri/src/commands/tools.rs#L2396) |
+| get_claude_desktop_app_status | function_item |  | [2405](../../src-tauri/src/commands/tools.rs#L2405) |
+| format | macro invocation (unexpanded) | get_claude_desktop_app_status | [2408](../../src-tauri/src/commands/tools.rs#L2408) |
+| run_claude_desktop_app_update | function_item |  | [2412](../../src-tauri/src/commands/tools.rs#L2412) |
+| format | macro invocation (unexpanded) | run_claude_desktop_app_update | [2419](../../src-tauri/src/commands/tools.rs#L2419) |
+| format | macro invocation (unexpanded) | run_claude_desktop_app_update | [2424](../../src-tauri/src/commands/tools.rs#L2424) |
+| DSH_NPM_PACKAGE | const_item |  | [2429](../../src-tauri/src/commands/tools.rs#L2429) |
+| DshCliVersionInfo | struct_item |  | [2433](../../src-tauri/src/commands/tools.rs#L2433) |
+| installed | field_declaration | DshCliVersionInfo | [2434](../../src-tauri/src/commands/tools.rs#L2434) |
+| current_version | field_declaration | DshCliVersionInfo | [2435](../../src-tauri/src/commands/tools.rs#L2435) |
+| latest_version | field_declaration | DshCliVersionInfo | [2436](../../src-tauri/src/commands/tools.rs#L2436) |
+| update_available | field_declaration | DshCliVersionInfo | [2437](../../src-tauri/src/commands/tools.rs#L2437) |
+| install_command | field_declaration | DshCliVersionInfo | [2438](../../src-tauri/src/commands/tools.rs#L2438) |
+| update_command | field_declaration | DshCliVersionInfo | [2439](../../src-tauri/src/commands/tools.rs#L2439) |
+| error | field_declaration | DshCliVersionInfo | [2440](../../src-tauri/src/commands/tools.rs#L2440) |
+| executable_path | field_declaration | DshCliVersionInfo | [2441](../../src-tauri/src/commands/tools.rs#L2441) |
+| source | field_declaration | DshCliVersionInfo | [2442](../../src-tauri/src/commands/tools.rs#L2442) |
+| environment | field_declaration | DshCliVersionInfo | [2443](../../src-tauri/src/commands/tools.rs#L2443) |
+| installed_but_broken | field_declaration | DshCliVersionInfo | [2444](../../src-tauri/src/commands/tools.rs#L2444) |
+| dsh_install_command | function_item |  | [2447](../../src-tauri/src/commands/tools.rs#L2447) |
+| format | macro invocation (unexpanded) | dsh_install_command | [2448](../../src-tauri/src/commands/tools.rs#L2448) |
+| dsh_executable_candidates | function_item |  | [2451](../../src-tauri/src/commands/tools.rs#L2451) |

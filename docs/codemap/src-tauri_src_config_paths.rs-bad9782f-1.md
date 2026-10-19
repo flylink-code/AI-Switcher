@@ -4,7 +4,7 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/paths.rs) · page 1/2
 
-Source SHA-256: 96fb78e97097a9feb6eecb405189fcbe6ff6f9ba411d0f75a77838cc703e6be6
+Source SHA-256: cf4cabb74aedd1a12b8d6caf81494f34dda7a2117be679fa6583097fd36ff257
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -38,73 +38,73 @@ Source SHA-256: 96fb78e97097a9feb6eecb405189fcbe6ff6f9ba411d0f75a77838cc703e6be6
 | home_override_lock | function_item |  | [126](../../src-tauri/src/config/paths.rs#L126) |
 | LOCK | static_item | home_override_lock | [128](../../src-tauri/src/config/paths.rs#L128) |
 | enter_isolated_home | function_item |  | [134](../../src-tauri/src/config/paths.rs#L134) |
-| with_isolated_home | function_item |  | [179](../../src-tauri/src/config/paths.rs#L179) |
-| get_claude_config_dir | function_item |  | [185](../../src-tauri/src/config/paths.rs#L185) |
-| get_claude_settings_path | function_item |  | [190](../../src-tauri/src/config/paths.rs#L190) |
-| get_claude_json_path | function_item |  | [195](../../src-tauri/src/config/paths.rs#L195) |
-| get_app_config_dir | function_item |  | [200](../../src-tauri/src/config/paths.rs#L200) |
-| get_legacy_app_config_dir | function_item |  | [207](../../src-tauri/src/config/paths.rs#L207) |
-| data_root_config_path | function_item |  | [211](../../src-tauri/src/config/paths.rs#L211) |
-| configured_data_root | function_item |  | [215](../../src-tauri/src/config/paths.rs#L215) |
-| looks_like_windows_abspath | function_item |  | [227](../../src-tauri/src/config/paths.rs#L227) |
-| looks_like_unix_abspath | function_item |  | [243](../../src-tauri/src/config/paths.rs#L243) |
-| strip_windows_verbatim_prefix | function_item |  | [248](../../src-tauri/src/config/paths.rs#L248) |
-| usable_local_absolute_path | function_item |  | [260](../../src-tauri/src/config/paths.rs#L260) |
-| cfg | macro invocation (unexpanded) | usable_local_absolute_path | [265](../../src-tauri/src/config/paths.rs#L265) |
-| cfg | macro invocation (unexpanded) | usable_local_absolute_path | [268](../../src-tauri/src/config/paths.rs#L268) |
-| write_data_root_config | function_item |  | [275](../../src-tauri/src/config/paths.rs#L275) |
-| get_app_db_path | function_item |  | [286](../../src-tauri/src/config/paths.rs#L286) |
-| get_backup_dir | function_item |  | [291](../../src-tauri/src/config/paths.rs#L291) |
-| get_claude_skills_dir | function_item |  | [296](../../src-tauri/src/config/paths.rs#L296) |
-| get_claude_agents_dir | function_item |  | [301](../../src-tauri/src/config/paths.rs#L301) |
-| get_claude_plugins_dir | function_item |  | [306](../../src-tauri/src/config/paths.rs#L306) |
-| get_claude_plugins_cache_dir | function_item |  | [311](../../src-tauri/src/config/paths.rs#L311) |
-| get_claude_installed_plugins_path | function_item |  | [316](../../src-tauri/src/config/paths.rs#L316) |
-| get_claude_known_marketplaces_path | function_item |  | [321](../../src-tauri/src/config/paths.rs#L321) |
-| get_claude_marketplaces_dir | function_item |  | [326](../../src-tauri/src/config/paths.rs#L326) |
-| get_codex_config_dir | function_item |  | [332](../../src-tauri/src/config/paths.rs#L332) |
-| with_isolated_codex_home | function_item |  | [343](../../src-tauri/src/config/paths.rs#L343) |
-| LOCK | static_item | with_isolated_codex_home | [345](../../src-tauri/src/config/paths.rs#L345) |
-| Reset | struct_item | with_isolated_codex_home | [348](../../src-tauri/src/config/paths.rs#L348) |
-| Drop for Reset | impl | with_isolated_codex_home | [349](../../src-tauri/src/config/paths.rs#L349) |
-| drop | function_item | Drop for Reset | [350](../../src-tauri/src/config/paths.rs#L350) |
-| get_codex_config_path | function_item |  | [358](../../src-tauri/src/config/paths.rs#L358) |
-| get_codex_auth_path | function_item |  | [362](../../src-tauri/src/config/paths.rs#L362) |
-| get_codex_skills_dir | function_item |  | [366](../../src-tauri/src/config/paths.rs#L366) |
-| get_codex_plugins_cache_dir | function_item |  | [370](../../src-tauri/src/config/paths.rs#L370) |
-| get_opencode_config_dir | function_item |  | [375](../../src-tauri/src/config/paths.rs#L375) |
-| get_opencode_config_path | function_item |  | [383](../../src-tauri/src/config/paths.rs#L383) |
-| pick_newer_opencode_config | function_item |  | [414](../../src-tauri/src/config/paths.rs#L414) |
-| opencode_file_has_user_providers | function_item |  | [424](../../src-tauri/src/config/paths.rs#L424) |
-| is_managed_opencode_provider_id | function_item |  | [439](../../src-tauri/src/config/paths.rs#L439) |
-| opencode_provider_entry_has_base_url | function_item |  | [443](../../src-tauri/src/config/paths.rs#L443) |
-| get_opencode_legacy_config_path | function_item |  | [452](../../src-tauri/src/config/paths.rs#L452) |
-| get_opencode_auth_path | function_item |  | [457](../../src-tauri/src/config/paths.rs#L457) |
-| get_opencode_data_dir | function_item |  | [463](../../src-tauri/src/config/paths.rs#L463) |
-| get_opencode_db_path | function_item |  | [471](../../src-tauri/src/config/paths.rs#L471) |
-| get_dsh_config_dir | function_item |  | [483](../../src-tauri/src/config/paths.rs#L483) |
-| get_dsh_settings_path | function_item |  | [494](../../src-tauri/src/config/paths.rs#L494) |
-| get_dsh_credentials_path | function_item |  | [499](../../src-tauri/src/config/paths.rs#L499) |
-| tests | mod_item |  | [504](../../src-tauri/src/config/paths.rs#L504) |
-| app_paths_are_nested_under_home | function_item | tests | [508](../../src-tauri/src/config/paths.rs#L508) |
-| assert_eq | macro invocation (unexpanded) | tests::app_paths_are_nested_under_home | [513](../../src-tauri/src/config/paths.rs#L513) |
-| assert_eq | macro invocation (unexpanded) | tests::app_paths_are_nested_under_home | [514](../../src-tauri/src/config/paths.rs#L514) |
-| assert_eq | macro invocation (unexpanded) | tests::app_paths_are_nested_under_home | [515](../../src-tauri/src/config/paths.rs#L515) |
-| isolated_test_home_rewrites_app_and_claude_paths | function_item | tests | [522](../../src-tauri/src/config/paths.rs#L522) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [525](../../src-tauri/src/config/paths.rs#L525) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [526](../../src-tauri/src/config/paths.rs#L526) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [527](../../src-tauri/src/config/paths.rs#L527) |
+| with_isolated_home | function_item |  | [184](../../src-tauri/src/config/paths.rs#L184) |
+| get_claude_config_dir | function_item |  | [190](../../src-tauri/src/config/paths.rs#L190) |
+| get_claude_settings_path | function_item |  | [195](../../src-tauri/src/config/paths.rs#L195) |
+| get_claude_json_path | function_item |  | [200](../../src-tauri/src/config/paths.rs#L200) |
+| get_app_config_dir | function_item |  | [205](../../src-tauri/src/config/paths.rs#L205) |
+| get_legacy_app_config_dir | function_item |  | [212](../../src-tauri/src/config/paths.rs#L212) |
+| data_root_config_path | function_item |  | [216](../../src-tauri/src/config/paths.rs#L216) |
+| configured_data_root | function_item |  | [220](../../src-tauri/src/config/paths.rs#L220) |
+| looks_like_windows_abspath | function_item |  | [232](../../src-tauri/src/config/paths.rs#L232) |
+| looks_like_unix_abspath | function_item |  | [248](../../src-tauri/src/config/paths.rs#L248) |
+| strip_windows_verbatim_prefix | function_item |  | [253](../../src-tauri/src/config/paths.rs#L253) |
+| usable_local_absolute_path | function_item |  | [265](../../src-tauri/src/config/paths.rs#L265) |
+| cfg | macro invocation (unexpanded) | usable_local_absolute_path | [270](../../src-tauri/src/config/paths.rs#L270) |
+| cfg | macro invocation (unexpanded) | usable_local_absolute_path | [273](../../src-tauri/src/config/paths.rs#L273) |
+| write_data_root_config | function_item |  | [280](../../src-tauri/src/config/paths.rs#L280) |
+| get_app_db_path | function_item |  | [291](../../src-tauri/src/config/paths.rs#L291) |
+| get_backup_dir | function_item |  | [296](../../src-tauri/src/config/paths.rs#L296) |
+| get_claude_skills_dir | function_item |  | [301](../../src-tauri/src/config/paths.rs#L301) |
+| get_claude_agents_dir | function_item |  | [306](../../src-tauri/src/config/paths.rs#L306) |
+| get_claude_plugins_dir | function_item |  | [311](../../src-tauri/src/config/paths.rs#L311) |
+| get_claude_plugins_cache_dir | function_item |  | [316](../../src-tauri/src/config/paths.rs#L316) |
+| get_claude_installed_plugins_path | function_item |  | [321](../../src-tauri/src/config/paths.rs#L321) |
+| get_claude_known_marketplaces_path | function_item |  | [326](../../src-tauri/src/config/paths.rs#L326) |
+| get_claude_marketplaces_dir | function_item |  | [331](../../src-tauri/src/config/paths.rs#L331) |
+| get_codex_config_dir | function_item |  | [337](../../src-tauri/src/config/paths.rs#L337) |
+| with_isolated_codex_home | function_item |  | [348](../../src-tauri/src/config/paths.rs#L348) |
+| LOCK | static_item | with_isolated_codex_home | [350](../../src-tauri/src/config/paths.rs#L350) |
+| Reset | struct_item | with_isolated_codex_home | [353](../../src-tauri/src/config/paths.rs#L353) |
+| Drop for Reset | impl | with_isolated_codex_home | [354](../../src-tauri/src/config/paths.rs#L354) |
+| drop | function_item | Drop for Reset | [355](../../src-tauri/src/config/paths.rs#L355) |
+| get_codex_config_path | function_item |  | [363](../../src-tauri/src/config/paths.rs#L363) |
+| get_codex_auth_path | function_item |  | [367](../../src-tauri/src/config/paths.rs#L367) |
+| get_codex_skills_dir | function_item |  | [371](../../src-tauri/src/config/paths.rs#L371) |
+| get_codex_plugins_cache_dir | function_item |  | [375](../../src-tauri/src/config/paths.rs#L375) |
+| get_opencode_config_dir | function_item |  | [380](../../src-tauri/src/config/paths.rs#L380) |
+| get_opencode_config_path | function_item |  | [388](../../src-tauri/src/config/paths.rs#L388) |
+| pick_newer_opencode_config | function_item |  | [419](../../src-tauri/src/config/paths.rs#L419) |
+| opencode_file_has_user_providers | function_item |  | [429](../../src-tauri/src/config/paths.rs#L429) |
+| is_managed_opencode_provider_id | function_item |  | [444](../../src-tauri/src/config/paths.rs#L444) |
+| opencode_provider_entry_has_base_url | function_item |  | [448](../../src-tauri/src/config/paths.rs#L448) |
+| get_opencode_legacy_config_path | function_item |  | [457](../../src-tauri/src/config/paths.rs#L457) |
+| get_opencode_auth_path | function_item |  | [462](../../src-tauri/src/config/paths.rs#L462) |
+| get_opencode_data_dir | function_item |  | [468](../../src-tauri/src/config/paths.rs#L468) |
+| get_opencode_db_path | function_item |  | [476](../../src-tauri/src/config/paths.rs#L476) |
+| get_dsh_config_dir | function_item |  | [488](../../src-tauri/src/config/paths.rs#L488) |
+| get_dsh_settings_path | function_item |  | [499](../../src-tauri/src/config/paths.rs#L499) |
+| get_dsh_credentials_path | function_item |  | [504](../../src-tauri/src/config/paths.rs#L504) |
+| tests | mod_item |  | [509](../../src-tauri/src/config/paths.rs#L509) |
+| app_paths_are_nested_under_home | function_item | tests | [513](../../src-tauri/src/config/paths.rs#L513) |
+| assert_eq | macro invocation (unexpanded) | tests::app_paths_are_nested_under_home | [518](../../src-tauri/src/config/paths.rs#L518) |
+| assert_eq | macro invocation (unexpanded) | tests::app_paths_are_nested_under_home | [519](../../src-tauri/src/config/paths.rs#L519) |
+| assert_eq | macro invocation (unexpanded) | tests::app_paths_are_nested_under_home | [520](../../src-tauri/src/config/paths.rs#L520) |
+| isolated_test_home_rewrites_app_and_claude_paths | function_item | tests | [527](../../src-tauri/src/config/paths.rs#L527) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [530](../../src-tauri/src/config/paths.rs#L530) |
 | assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [531](../../src-tauri/src/config/paths.rs#L531) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [535](../../src-tauri/src/config/paths.rs#L535) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [532](../../src-tauri/src/config/paths.rs#L532) |
 | assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [536](../../src-tauri/src/config/paths.rs#L536) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [543](../../src-tauri/src/config/paths.rs#L543) |
-| isolated_home_ignores_external_data_root | function_item | tests | [548](../../src-tauri/src/config/paths.rs#L548) |
-| assert | macro invocation (unexpanded) | tests::isolated_home_ignores_external_data_root | [553](../../src-tauri/src/config/paths.rs#L553) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_home_ignores_external_data_root | [554](../../src-tauri/src/config/paths.rs#L554) |
-| isolated_port_env_requires_allow_flag_outside_override_helpers | function_item | tests | [562](../../src-tauri/src/config/paths.rs#L562) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_port_env_requires_allow_flag_outside_override_helpers | [565](../../src-tauri/src/config/paths.rs#L565) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_port_env_requires_allow_flag_outside_override_helpers | [567](../../src-tauri/src/config/paths.rs#L567) |
-| opencode_config_path_prefers_jsonc_when_json_has_no_providers | function_item | tests | [576](../../src-tauri/src/config/paths.rs#L576) |
-| assert | macro invocation (unexpanded) | tests::opencode_config_path_prefers_jsonc_when_json_has_no_providers | [597](../../src-tauri/src/config/paths.rs#L597) |
-| assert | macro invocation (unexpanded) | tests::opencode_config_path_prefers_jsonc_when_json_has_no_providers | [598](../../src-tauri/src/config/paths.rs#L598) |
-| windows_drive_and_unc_paths_are_detected | function_item | tests | [602](../../src-tauri/src/config/paths.rs#L602) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [540](../../src-tauri/src/config/paths.rs#L540) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [541](../../src-tauri/src/config/paths.rs#L541) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_test_home_rewrites_app_and_claude_paths | [548](../../src-tauri/src/config/paths.rs#L548) |
+| isolated_home_ignores_external_data_root | function_item | tests | [553](../../src-tauri/src/config/paths.rs#L553) |
+| assert | macro invocation (unexpanded) | tests::isolated_home_ignores_external_data_root | [558](../../src-tauri/src/config/paths.rs#L558) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_home_ignores_external_data_root | [559](../../src-tauri/src/config/paths.rs#L559) |
+| isolated_port_env_requires_allow_flag_outside_override_helpers | function_item | tests | [567](../../src-tauri/src/config/paths.rs#L567) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_port_env_requires_allow_flag_outside_override_helpers | [570](../../src-tauri/src/config/paths.rs#L570) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_port_env_requires_allow_flag_outside_override_helpers | [572](../../src-tauri/src/config/paths.rs#L572) |
+| opencode_config_path_prefers_jsonc_when_json_has_no_providers | function_item | tests | [581](../../src-tauri/src/config/paths.rs#L581) |
+| assert | macro invocation (unexpanded) | tests::opencode_config_path_prefers_jsonc_when_json_has_no_providers | [602](../../src-tauri/src/config/paths.rs#L602) |
+| assert | macro invocation (unexpanded) | tests::opencode_config_path_prefers_jsonc_when_json_has_no_providers | [603](../../src-tauri/src/config/paths.rs#L603) |
+| windows_drive_and_unc_paths_are_detected | function_item | tests | [607](../../src-tauri/src/config/paths.rs#L607) |

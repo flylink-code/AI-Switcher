@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 8/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| plugins | PropertySignature | ClaudePluginCatalog | [958](../../src/types/backend.ts#L958) |
-| marketplacesDir | PropertySignature | ClaudePluginCatalog | [959](../../src/types/backend.ts#L959) |
-| ClaudePluginUpdateStatus | InterfaceDeclaration |  | [962](../../src/types/backend.ts#L962) |
-| pluginId | PropertySignature | ClaudePluginUpdateStatus | [963](../../src/types/backend.ts#L963) |
-| status | PropertySignature | ClaudePluginUpdateStatus | [964](../../src/types/backend.ts#L964) |
-| message | PropertySignature | ClaudePluginUpdateStatus | [965](../../src/types/backend.ts#L965) |
-| localVersion | PropertySignature | ClaudePluginUpdateStatus | [966](../../src/types/backend.ts#L966) |
-| remoteVersion | PropertySignature | ClaudePluginUpdateStatus | [967](../../src/types/backend.ts#L967) |
-| CodexWebSearchMode | TypeAliasDeclaration |  | [970](../../src/types/backend.ts#L970) |
-| CodexWebSearchSnapshot | InterfaceDeclaration |  | [972](../../src/types/backend.ts#L972) |
-| mode | PropertySignature | CodexWebSearchSnapshot | [973](../../src/types/backend.ts#L973) |
-| configPath | PropertySignature | CodexWebSearchSnapshot | [974](../../src/types/backend.ts#L974) |
-| setInConfig | PropertySignature | CodexWebSearchSnapshot | [975](../../src/types/backend.ts#L975) |
-| CodexOutputProfile | TypeAliasDeclaration |  | [978](../../src/types/backend.ts#L978) |
-| CodexOutputProfileSnapshot | InterfaceDeclaration |  | [980](../../src/types/backend.ts#L980) |
-| profile | PropertySignature | CodexOutputProfileSnapshot | [981](../../src/types/backend.ts#L981) |
-| showRawReasoning | PropertySignature | CodexOutputProfileSnapshot | [982](../../src/types/backend.ts#L982) |
-| configPath | PropertySignature | CodexOutputProfileSnapshot | [983](../../src/types/backend.ts#L983) |
-| setInConfig | PropertySignature | CodexOutputProfileSnapshot | [984](../../src/types/backend.ts#L984) |
-| EndpointSpeedtestResult | InterfaceDeclaration |  | [987](../../src/types/backend.ts#L987) |
-| ok | PropertySignature | EndpointSpeedtestResult | [988](../../src/types/backend.ts#L988) |
-| latencyMs | PropertySignature | EndpointSpeedtestResult | [989](../../src/types/backend.ts#L989) |
-| message | PropertySignature | EndpointSpeedtestResult | [990](../../src/types/backend.ts#L990) |
-| checkedAt | PropertySignature | EndpointSpeedtestResult | [991](../../src/types/backend.ts#L991) |
-| url | PropertySignature | EndpointSpeedtestResult | [992](../../src/types/backend.ts#L992) |
-| BatchSpeedtestItemResult | InterfaceDeclaration |  | [995](../../src/types/backend.ts#L995) |
-| id | PropertySignature | BatchSpeedtestItemResult | [996](../../src/types/backend.ts#L996) |
-| name | PropertySignature | BatchSpeedtestItemResult | [997](../../src/types/backend.ts#L997) |
-| result | PropertySignature | BatchSpeedtestItemResult | [998](../../src/types/backend.ts#L998) |
-| cancelled | PropertySignature | BatchSpeedtestItemResult | [999](../../src/types/backend.ts#L999) |
-| BatchSpeedtestResult | InterfaceDeclaration |  | [1002](../../src/types/backend.ts#L1002) |
-| batchId | PropertySignature | BatchSpeedtestResult | [1003](../../src/types/backend.ts#L1003) |
-| total | PropertySignature | BatchSpeedtestResult | [1004](../../src/types/backend.ts#L1004) |
-| completed | PropertySignature | BatchSpeedtestResult | [1005](../../src/types/backend.ts#L1005) |
-| cancelled | PropertySignature | BatchSpeedtestResult | [1006](../../src/types/backend.ts#L1006) |
-| items | PropertySignature | BatchSpeedtestResult | [1007](../../src/types/backend.ts#L1007) |
-| InstalledSkillSource | InterfaceDeclaration |  | [1010](../../src/types/backend.ts#L1010) |
-| kind | PropertySignature | InstalledSkillSource | [1011](../../src/types/backend.ts#L1011) |
-| sourceUrl | PropertySignature | InstalledSkillSource | [1012](../../src/types/backend.ts#L1012) |
-| revision | PropertySignature | InstalledSkillSource | [1013](../../src/types/backend.ts#L1013) |
-| repositoryPath | PropertySignature | InstalledSkillSource | [1014](../../src/types/backend.ts#L1014) |
-| installedAt | PropertySignature | InstalledSkillSource | [1015](../../src/types/backend.ts#L1015) |
-| contentSha256 | PropertySignature | InstalledSkillSource | [1016](../../src/types/backend.ts#L1016) |
-| SkillUpdateStatus | InterfaceDeclaration |  | [1019](../../src/types/backend.ts#L1019) |
-| name | PropertySignature | SkillUpdateStatus | [1020](../../src/types/backend.ts#L1020) |
-| status | PropertySignature | SkillUpdateStatus | [1021](../../src/types/backend.ts#L1021) |
-| message | PropertySignature | SkillUpdateStatus | [1022](../../src/types/backend.ts#L1022) |
-| localModified | PropertySignature | SkillUpdateStatus | [1023](../../src/types/backend.ts#L1023) |
-| localRevision | PropertySignature | SkillUpdateStatus | [1024](../../src/types/backend.ts#L1024) |
-| remoteRevision | PropertySignature | SkillUpdateStatus | [1025](../../src/types/backend.ts#L1025) |
-| RepositorySkill | InterfaceDeclaration |  | [1028](../../src/types/backend.ts#L1028) |
-| name | PropertySignature | RepositorySkill | [1029](../../src/types/backend.ts#L1029) |
-| path | PropertySignature | RepositorySkill | [1030](../../src/types/backend.ts#L1030) |
-| description | PropertySignature | RepositorySkill | [1031](../../src/types/backend.ts#L1031) |
-| SkillRepositorySnapshot | InterfaceDeclaration |  | [1034](../../src/types/backend.ts#L1034) |
-| repositoryUrl | PropertySignature | SkillRepositorySnapshot | [1035](../../src/types/backend.ts#L1035) |
-| fetchedAt | PropertySignature | SkillRepositorySnapshot | [1036](../../src/types/backend.ts#L1036) |
-| revision | PropertySignature | SkillRepositorySnapshot | [1037](../../src/types/backend.ts#L1037) |
-| skills | PropertySignature | SkillRepositorySnapshot | [1038](../../src/types/backend.ts#L1038) |
-| UsageDashboard | InterfaceDeclaration |  | [1049](../../src/types/backend.ts#L1049) |
-| summary | PropertySignature | UsageDashboard | [1050](../../src/types/backend.ts#L1050) |
-| byProvider | PropertySignature | UsageDashboard | [1051](../../src/types/backend.ts#L1051) |
-| byModel | PropertySignature | UsageDashboard | [1052](../../src/types/backend.ts#L1052) |
-| trend | PropertySignature | UsageDashboard | [1053](../../src/types/backend.ts#L1053) |
-| trendGranularity | PropertySignature | UsageDashboard | [1054](../../src/types/backend.ts#L1054) |
-| localCodex | PropertySignature | UsageDashboard | [1055](../../src/types/backend.ts#L1055) |
-| localClaudeCode | PropertySignature | UsageDashboard | [1056](../../src/types/backend.ts#L1056) |
-| LocalCodexUsage | InterfaceDeclaration |  | [1059](../../src/types/backend.ts#L1059) |
-| available | PropertySignature | LocalCodexUsage | [1060](../../src/types/backend.ts#L1060) |
-| sessionCount | PropertySignature | LocalCodexUsage | [1061](../../src/types/backend.ts#L1061) |
-| eventCount | PropertySignature | LocalCodexUsage | [1062](../../src/types/backend.ts#L1062) |
-| message | PropertySignature | LocalCodexUsage | [1063](../../src/types/backend.ts#L1063) |
-| ModelPricingInput | InterfaceDeclaration |  | [1068](../../src/types/backend.ts#L1068) |
-| model | PropertySignature | ModelPricingInput | [1069](../../src/types/backend.ts#L1069) |
-| provider | PropertySignature | ModelPricingInput | [1070](../../src/types/backend.ts#L1070) |
-| inputPricePerMillion | PropertySignature | ModelPricingInput | [1071](../../src/types/backend.ts#L1071) |
-| cacheReadPricePerMillion | PropertySignature | ModelPricingInput | [1072](../../src/types/backend.ts#L1072) |
-| cacheWritePricePerMillion | PropertySignature | ModelPricingInput | [1073](../../src/types/backend.ts#L1073) |
-| outputPricePerMillion | PropertySignature | ModelPricingInput | [1074](../../src/types/backend.ts#L1074) |
-| batchInputPricePerMillion | PropertySignature | ModelPricingInput | [1075](../../src/types/backend.ts#L1075) |
-| batchOutputPricePerMillion | PropertySignature | ModelPricingInput | [1076](../../src/types/backend.ts#L1076) |
-| currency | PropertySignature | ModelPricingInput | [1077](../../src/types/backend.ts#L1077) |
-| UpdateMirrorSettings | InterfaceDeclaration |  | [1080](../../src/types/backend.ts#L1080) |
-| useMirror | PropertySignature | UpdateMirrorSettings | [1081](../../src/types/backend.ts#L1081) |
-| mirrorBase | PropertySignature | UpdateMirrorSettings | [1082](../../src/types/backend.ts#L1082) |
-| AppUpdateInfo | InterfaceDeclaration |  | [1085](../../src/types/backend.ts#L1085) |
-| version | PropertySignature | AppUpdateInfo | [1086](../../src/types/backend.ts#L1086) |
-| PricingImportPreview | InterfaceDeclaration |  | [1089](../../src/types/backend.ts#L1089) |
-| newModels | PropertySignature | PricingImportPreview | [1090](../../src/types/backend.ts#L1090) |
-| updatedModels | PropertySignature | PricingImportPreview | [1091](../../src/types/backend.ts#L1091) |
-| errors | PropertySignature | PricingImportPreview | [1092](../../src/types/backend.ts#L1092) |
-| validRows | PropertySignature | PricingImportPreview | [1093](../../src/types/backend.ts#L1093) |
-| PricingCatalog | InterfaceDeclaration |  | [1096](../../src/types/backend.ts#L1096) |
-| version | PropertySignature | PricingCatalog | [1097](../../src/types/backend.ts#L1097) |
-| entries | PropertySignature | PricingCatalog | [1098](../../src/types/backend.ts#L1098) |
-| SyncTargetKind | TypeAliasDeclaration |  | [1101](../../src/types/backend.ts#L1101) |
-| SyncItem | TypeAliasDeclaration |  | [1102](../../src/types/backend.ts#L1102) |
-| PathMapping | InterfaceDeclaration |  | [1104](../../src/types/backend.ts#L1104) |
-| windowsPath | PropertySignature | PathMapping | [1105](../../src/types/backend.ts#L1105) |
-| remotePath | PropertySignature | PathMapping | [1106](../../src/types/backend.ts#L1106) |
+| marketplace | PropertySignature | ClaudeCatalogPlugin | [957](../../src/types/backend.ts#L957) |
+| description | PropertySignature | ClaudeCatalogPlugin | [958](../../src/types/backend.ts#L958) |
+| category | PropertySignature | ClaudeCatalogPlugin | [959](../../src/types/backend.ts#L959) |
+| version | PropertySignature | ClaudeCatalogPlugin | [960](../../src/types/backend.ts#L960) |
+| ClaudePluginCatalog | InterfaceDeclaration |  | [963](../../src/types/backend.ts#L963) |
+| plugins | PropertySignature | ClaudePluginCatalog | [964](../../src/types/backend.ts#L964) |
+| marketplacesDir | PropertySignature | ClaudePluginCatalog | [965](../../src/types/backend.ts#L965) |
+| ClaudePluginUpdateStatus | InterfaceDeclaration |  | [968](../../src/types/backend.ts#L968) |
+| pluginId | PropertySignature | ClaudePluginUpdateStatus | [969](../../src/types/backend.ts#L969) |
+| status | PropertySignature | ClaudePluginUpdateStatus | [970](../../src/types/backend.ts#L970) |
+| message | PropertySignature | ClaudePluginUpdateStatus | [971](../../src/types/backend.ts#L971) |
+| localVersion | PropertySignature | ClaudePluginUpdateStatus | [972](../../src/types/backend.ts#L972) |
+| remoteVersion | PropertySignature | ClaudePluginUpdateStatus | [973](../../src/types/backend.ts#L973) |
+| CodexWebSearchMode | TypeAliasDeclaration |  | [976](../../src/types/backend.ts#L976) |
+| CodexWebSearchSnapshot | InterfaceDeclaration |  | [978](../../src/types/backend.ts#L978) |
+| mode | PropertySignature | CodexWebSearchSnapshot | [979](../../src/types/backend.ts#L979) |
+| configPath | PropertySignature | CodexWebSearchSnapshot | [980](../../src/types/backend.ts#L980) |
+| setInConfig | PropertySignature | CodexWebSearchSnapshot | [981](../../src/types/backend.ts#L981) |
+| CodexOutputProfile | TypeAliasDeclaration |  | [984](../../src/types/backend.ts#L984) |
+| CodexOutputProfileSnapshot | InterfaceDeclaration |  | [986](../../src/types/backend.ts#L986) |
+| profile | PropertySignature | CodexOutputProfileSnapshot | [987](../../src/types/backend.ts#L987) |
+| showRawReasoning | PropertySignature | CodexOutputProfileSnapshot | [988](../../src/types/backend.ts#L988) |
+| configPath | PropertySignature | CodexOutputProfileSnapshot | [989](../../src/types/backend.ts#L989) |
+| setInConfig | PropertySignature | CodexOutputProfileSnapshot | [990](../../src/types/backend.ts#L990) |
+| EndpointSpeedtestResult | InterfaceDeclaration |  | [993](../../src/types/backend.ts#L993) |
+| ok | PropertySignature | EndpointSpeedtestResult | [994](../../src/types/backend.ts#L994) |
+| latencyMs | PropertySignature | EndpointSpeedtestResult | [995](../../src/types/backend.ts#L995) |
+| message | PropertySignature | EndpointSpeedtestResult | [996](../../src/types/backend.ts#L996) |
+| checkedAt | PropertySignature | EndpointSpeedtestResult | [997](../../src/types/backend.ts#L997) |
+| url | PropertySignature | EndpointSpeedtestResult | [998](../../src/types/backend.ts#L998) |
+| BatchSpeedtestItemResult | InterfaceDeclaration |  | [1001](../../src/types/backend.ts#L1001) |
+| id | PropertySignature | BatchSpeedtestItemResult | [1002](../../src/types/backend.ts#L1002) |
+| name | PropertySignature | BatchSpeedtestItemResult | [1003](../../src/types/backend.ts#L1003) |
+| result | PropertySignature | BatchSpeedtestItemResult | [1004](../../src/types/backend.ts#L1004) |
+| cancelled | PropertySignature | BatchSpeedtestItemResult | [1005](../../src/types/backend.ts#L1005) |
+| BatchSpeedtestResult | InterfaceDeclaration |  | [1008](../../src/types/backend.ts#L1008) |
+| batchId | PropertySignature | BatchSpeedtestResult | [1009](../../src/types/backend.ts#L1009) |
+| total | PropertySignature | BatchSpeedtestResult | [1010](../../src/types/backend.ts#L1010) |
+| completed | PropertySignature | BatchSpeedtestResult | [1011](../../src/types/backend.ts#L1011) |
+| cancelled | PropertySignature | BatchSpeedtestResult | [1012](../../src/types/backend.ts#L1012) |
+| items | PropertySignature | BatchSpeedtestResult | [1013](../../src/types/backend.ts#L1013) |
+| InstalledSkillSource | InterfaceDeclaration |  | [1016](../../src/types/backend.ts#L1016) |
+| kind | PropertySignature | InstalledSkillSource | [1017](../../src/types/backend.ts#L1017) |
+| sourceUrl | PropertySignature | InstalledSkillSource | [1018](../../src/types/backend.ts#L1018) |
+| revision | PropertySignature | InstalledSkillSource | [1019](../../src/types/backend.ts#L1019) |
+| repositoryPath | PropertySignature | InstalledSkillSource | [1020](../../src/types/backend.ts#L1020) |
+| installedAt | PropertySignature | InstalledSkillSource | [1021](../../src/types/backend.ts#L1021) |
+| contentSha256 | PropertySignature | InstalledSkillSource | [1022](../../src/types/backend.ts#L1022) |
+| SkillUpdateStatus | InterfaceDeclaration |  | [1025](../../src/types/backend.ts#L1025) |
+| name | PropertySignature | SkillUpdateStatus | [1026](../../src/types/backend.ts#L1026) |
+| status | PropertySignature | SkillUpdateStatus | [1027](../../src/types/backend.ts#L1027) |
+| message | PropertySignature | SkillUpdateStatus | [1028](../../src/types/backend.ts#L1028) |
+| localModified | PropertySignature | SkillUpdateStatus | [1029](../../src/types/backend.ts#L1029) |
+| localRevision | PropertySignature | SkillUpdateStatus | [1030](../../src/types/backend.ts#L1030) |
+| remoteRevision | PropertySignature | SkillUpdateStatus | [1031](../../src/types/backend.ts#L1031) |
+| RepositorySkill | InterfaceDeclaration |  | [1034](../../src/types/backend.ts#L1034) |
+| name | PropertySignature | RepositorySkill | [1035](../../src/types/backend.ts#L1035) |
+| path | PropertySignature | RepositorySkill | [1036](../../src/types/backend.ts#L1036) |
+| description | PropertySignature | RepositorySkill | [1037](../../src/types/backend.ts#L1037) |
+| SkillRepositorySnapshot | InterfaceDeclaration |  | [1040](../../src/types/backend.ts#L1040) |
+| repositoryUrl | PropertySignature | SkillRepositorySnapshot | [1041](../../src/types/backend.ts#L1041) |
+| fetchedAt | PropertySignature | SkillRepositorySnapshot | [1042](../../src/types/backend.ts#L1042) |
+| revision | PropertySignature | SkillRepositorySnapshot | [1043](../../src/types/backend.ts#L1043) |
+| skills | PropertySignature | SkillRepositorySnapshot | [1044](../../src/types/backend.ts#L1044) |
+| UsageDashboard | InterfaceDeclaration |  | [1055](../../src/types/backend.ts#L1055) |
+| summary | PropertySignature | UsageDashboard | [1056](../../src/types/backend.ts#L1056) |
+| byProvider | PropertySignature | UsageDashboard | [1057](../../src/types/backend.ts#L1057) |
+| byModel | PropertySignature | UsageDashboard | [1058](../../src/types/backend.ts#L1058) |
+| trend | PropertySignature | UsageDashboard | [1059](../../src/types/backend.ts#L1059) |
+| trendGranularity | PropertySignature | UsageDashboard | [1060](../../src/types/backend.ts#L1060) |
+| localCodex | PropertySignature | UsageDashboard | [1061](../../src/types/backend.ts#L1061) |
+| localClaudeCode | PropertySignature | UsageDashboard | [1062](../../src/types/backend.ts#L1062) |
+| LocalCodexUsage | InterfaceDeclaration |  | [1065](../../src/types/backend.ts#L1065) |
+| available | PropertySignature | LocalCodexUsage | [1066](../../src/types/backend.ts#L1066) |
+| sessionCount | PropertySignature | LocalCodexUsage | [1067](../../src/types/backend.ts#L1067) |
+| eventCount | PropertySignature | LocalCodexUsage | [1068](../../src/types/backend.ts#L1068) |
+| message | PropertySignature | LocalCodexUsage | [1069](../../src/types/backend.ts#L1069) |
+| ModelPricingInput | InterfaceDeclaration |  | [1074](../../src/types/backend.ts#L1074) |
+| model | PropertySignature | ModelPricingInput | [1075](../../src/types/backend.ts#L1075) |
+| provider | PropertySignature | ModelPricingInput | [1076](../../src/types/backend.ts#L1076) |
+| inputPricePerMillion | PropertySignature | ModelPricingInput | [1077](../../src/types/backend.ts#L1077) |
+| cacheReadPricePerMillion | PropertySignature | ModelPricingInput | [1078](../../src/types/backend.ts#L1078) |
+| cacheWritePricePerMillion | PropertySignature | ModelPricingInput | [1079](../../src/types/backend.ts#L1079) |
+| outputPricePerMillion | PropertySignature | ModelPricingInput | [1080](../../src/types/backend.ts#L1080) |
+| batchInputPricePerMillion | PropertySignature | ModelPricingInput | [1081](../../src/types/backend.ts#L1081) |
+| batchOutputPricePerMillion | PropertySignature | ModelPricingInput | [1082](../../src/types/backend.ts#L1082) |
+| currency | PropertySignature | ModelPricingInput | [1083](../../src/types/backend.ts#L1083) |
+| UpdateMirrorSettings | InterfaceDeclaration |  | [1086](../../src/types/backend.ts#L1086) |
+| useMirror | PropertySignature | UpdateMirrorSettings | [1087](../../src/types/backend.ts#L1087) |
+| mirrorBase | PropertySignature | UpdateMirrorSettings | [1088](../../src/types/backend.ts#L1088) |
+| AppUpdateInfo | InterfaceDeclaration |  | [1091](../../src/types/backend.ts#L1091) |
+| version | PropertySignature | AppUpdateInfo | [1092](../../src/types/backend.ts#L1092) |
+| PricingImportPreview | InterfaceDeclaration |  | [1095](../../src/types/backend.ts#L1095) |
+| newModels | PropertySignature | PricingImportPreview | [1096](../../src/types/backend.ts#L1096) |
+| updatedModels | PropertySignature | PricingImportPreview | [1097](../../src/types/backend.ts#L1097) |
+| errors | PropertySignature | PricingImportPreview | [1098](../../src/types/backend.ts#L1098) |
+| validRows | PropertySignature | PricingImportPreview | [1099](../../src/types/backend.ts#L1099) |
+| PricingCatalog | InterfaceDeclaration |  | [1102](../../src/types/backend.ts#L1102) |
+| version | PropertySignature | PricingCatalog | [1103](../../src/types/backend.ts#L1103) |
+| entries | PropertySignature | PricingCatalog | [1104](../../src/types/backend.ts#L1104) |

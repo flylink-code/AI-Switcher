@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 11/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| filename | PropertySignature | SessionBackupArchiveInfo | [1367](../../src/types/backend.ts#L1367) |
-| provider | PropertySignature | SessionBackupArchiveInfo | [1368](../../src/types/backend.ts#L1368) |
-| sessionCount | PropertySignature | SessionBackupArchiveInfo | [1369](../../src/types/backend.ts#L1369) |
-| createdAt | PropertySignature | SessionBackupArchiveInfo | [1370](../../src/types/backend.ts#L1370) |
-| fileSize | PropertySignature | SessionBackupArchiveInfo | [1371](../../src/types/backend.ts#L1371) |
-| isBatch | PropertySignature | SessionBackupArchiveInfo | [1372](../../src/types/backend.ts#L1372) |
-| isAuto | PropertySignature | SessionBackupArchiveInfo | [1373](../../src/types/backend.ts#L1373) |
-| SessionAutoBackupSettings | InterfaceDeclaration |  | [1376](../../src/types/backend.ts#L1376) |
-| scheduleEnabled | PropertySignature | SessionAutoBackupSettings | [1377](../../src/types/backend.ts#L1377) |
-| intervalMinutes | PropertySignature | SessionAutoBackupSettings | [1378](../../src/types/backend.ts#L1378) |
-| keepAuto | PropertySignature | SessionAutoBackupSettings | [1379](../../src/types/backend.ts#L1379) |
-| mirrorEnabled | PropertySignature | SessionAutoBackupSettings | [1380](../../src/types/backend.ts#L1380) |
-| activeDays | PropertySignature | SessionAutoBackupSettings | [1381](../../src/types/backend.ts#L1381) |
-| SessionBatchRestoreResult | InterfaceDeclaration |  | [1384](../../src/types/backend.ts#L1384) |
-| restoredCount | PropertySignature | SessionBatchRestoreResult | [1385](../../src/types/backend.ts#L1385) |
-| skippedCount | PropertySignature | SessionBatchRestoreResult | [1386](../../src/types/backend.ts#L1386) |
-| totalCount | PropertySignature | SessionBatchRestoreResult | [1387](../../src/types/backend.ts#L1387) |
-| message | PropertySignature | SessionBatchRestoreResult | [1388](../../src/types/backend.ts#L1388) |
-| ProfileScopePayload | InterfaceDeclaration |  | [1391](../../src/types/backend.ts#L1391) |
-| providerId | PropertySignature | ProfileScopePayload | [1392](../../src/types/backend.ts#L1392) |
-| mcpIds | PropertySignature | ProfileScopePayload | [1393](../../src/types/backend.ts#L1393) |
-| skillIds | PropertySignature | ProfileScopePayload | [1394](../../src/types/backend.ts#L1394) |
-| agentIds | PropertySignature | ProfileScopePayload | [1395](../../src/types/backend.ts#L1395) |
-| promptId | PropertySignature | ProfileScopePayload | [1396](../../src/types/backend.ts#L1396) |
-| ProfilePayload | InterfaceDeclaration |  | [1399](../../src/types/backend.ts#L1399) |
-| claudeCode | PropertySignature | ProfilePayload | [1400](../../src/types/backend.ts#L1400) |
-| claudeDesktop | PropertySignature | ProfilePayload | [1401](../../src/types/backend.ts#L1401) |
-| codex | PropertySignature | ProfilePayload | [1402](../../src/types/backend.ts#L1402) |
-| Profile | InterfaceDeclaration |  | [1405](../../src/types/backend.ts#L1405) |
-| id | PropertySignature | Profile | [1406](../../src/types/backend.ts#L1406) |
-| name | PropertySignature | Profile | [1407](../../src/types/backend.ts#L1407) |
-| payload | PropertySignature | Profile | [1408](../../src/types/backend.ts#L1408) |
-| sortOrder | PropertySignature | Profile | [1409](../../src/types/backend.ts#L1409) |
-| createdAt | PropertySignature | Profile | [1410](../../src/types/backend.ts#L1410) |
-| updatedAt | PropertySignature | Profile | [1411](../../src/types/backend.ts#L1411) |
-| ProfileSnapshotScopes | InterfaceDeclaration |  | [1414](../../src/types/backend.ts#L1414) |
-| claudeCode | PropertySignature | ProfileSnapshotScopes | [1415](../../src/types/backend.ts#L1415) |
-| claudeDesktop | PropertySignature | ProfileSnapshotScopes | [1416](../../src/types/backend.ts#L1416) |
-| codex | PropertySignature | ProfileSnapshotScopes | [1417](../../src/types/backend.ts#L1417) |
-| ApplyProfileResult | InterfaceDeclaration |  | [1420](../../src/types/backend.ts#L1420) |
-| profile | PropertySignature | ApplyProfileResult | [1421](../../src/types/backend.ts#L1421) |
-| warnings | PropertySignature | ApplyProfileResult | [1422](../../src/types/backend.ts#L1422) |
-| AntigravityQuotaBucket | InterfaceDeclaration |  | [1427](../../src/types/backend.ts#L1427) |
-| bucketId | PropertySignature | AntigravityQuotaBucket | [1428](../../src/types/backend.ts#L1428) |
-| window | PropertySignature | AntigravityQuotaBucket | [1429](../../src/types/backend.ts#L1429) |
-| remainingFraction | PropertySignature | AntigravityQuotaBucket | [1430](../../src/types/backend.ts#L1430) |
-| resetTime | PropertySignature | AntigravityQuotaBucket | [1431](../../src/types/backend.ts#L1431) |
-| displayName | PropertySignature | AntigravityQuotaBucket | [1432](../../src/types/backend.ts#L1432) |
-| AntigravityQuotaGroup | InterfaceDeclaration |  | [1435](../../src/types/backend.ts#L1435) |
-| displayName | PropertySignature | AntigravityQuotaGroup | [1436](../../src/types/backend.ts#L1436) |
-| buckets | PropertySignature | AntigravityQuotaGroup | [1437](../../src/types/backend.ts#L1437) |
-| AntigravityModelQuota | InterfaceDeclaration |  | [1440](../../src/types/backend.ts#L1440) |
-| name | PropertySignature | AntigravityModelQuota | [1441](../../src/types/backend.ts#L1441) |
-| percentage | PropertySignature | AntigravityModelQuota | [1442](../../src/types/backend.ts#L1442) |
-| resetTime | PropertySignature | AntigravityModelQuota | [1443](../../src/types/backend.ts#L1443) |
-| displayName | PropertySignature | AntigravityModelQuota | [1444](../../src/types/backend.ts#L1444) |
-| AntigravityQuotaSnapshot | InterfaceDeclaration |  | [1447](../../src/types/backend.ts#L1447) |
-| models | PropertySignature | AntigravityQuotaSnapshot | [1448](../../src/types/backend.ts#L1448) |
-| groups | PropertySignature | AntigravityQuotaSnapshot | [1449](../../src/types/backend.ts#L1449) |
-| lastUpdated | PropertySignature | AntigravityQuotaSnapshot | [1450](../../src/types/backend.ts#L1450) |
-| isForbidden | PropertySignature | AntigravityQuotaSnapshot | [1451](../../src/types/backend.ts#L1451) |
-| forbiddenReason | PropertySignature | AntigravityQuotaSnapshot | [1452](../../src/types/backend.ts#L1452) |
-| subscriptionTier | PropertySignature | AntigravityQuotaSnapshot | [1453](../../src/types/backend.ts#L1453) |
-| AntigravityAccountTestCategory | TypeAliasDeclaration |  | [1456](../../src/types/backend.ts#L1456) |
-| AntigravityAccountTestResult | InterfaceDeclaration |  | [1464](../../src/types/backend.ts#L1464) |
-| ok | PropertySignature | AntigravityAccountTestResult | [1465](../../src/types/backend.ts#L1465) |
-| category | PropertySignature | AntigravityAccountTestResult | [1466](../../src/types/backend.ts#L1466) |
-| status | PropertySignature | AntigravityAccountTestResult | [1467](../../src/types/backend.ts#L1467) |
-| model | PropertySignature | AntigravityAccountTestResult | [1468](../../src/types/backend.ts#L1468) |
-| latencyMs | PropertySignature | AntigravityAccountTestResult | [1469](../../src/types/backend.ts#L1469) |
-| reply | PropertySignature | AntigravityAccountTestResult | [1470](../../src/types/backend.ts#L1470) |
-| error | PropertySignature | AntigravityAccountTestResult | [1471](../../src/types/backend.ts#L1471) |
-| AntigravityAccountPublic | InterfaceDeclaration |  | [1474](../../src/types/backend.ts#L1474) |
-| id | PropertySignature | AntigravityAccountPublic | [1475](../../src/types/backend.ts#L1475) |
-| email | PropertySignature | AntigravityAccountPublic | [1476](../../src/types/backend.ts#L1476) |
-| name | PropertySignature | AntigravityAccountPublic | [1477](../../src/types/backend.ts#L1477) |
-| modelAccessMode | PropertySignature | AntigravityAccountPublic | [1478](../../src/types/backend.ts#L1478) |
-| allowedModelPatterns | PropertySignature | AntigravityAccountPublic | [1479](../../src/types/backend.ts#L1479) |
-| effectiveModelPatterns | PropertySignature | AntigravityAccountPublic | [1480](../../src/types/backend.ts#L1480) |
-| disabled | PropertySignature | AntigravityAccountPublic | [1481](../../src/types/backend.ts#L1481) |
-| disabledReason | PropertySignature | AntigravityAccountPublic | [1482](../../src/types/backend.ts#L1482) |
-| isActive | PropertySignature | AntigravityAccountPublic | [1483](../../src/types/backend.ts#L1483) |
-| createdAt | PropertySignature | AntigravityAccountPublic | [1484](../../src/types/backend.ts#L1484) |
-| lastUsed | PropertySignature | AntigravityAccountPublic | [1485](../../src/types/backend.ts#L1485) |
-| healthScore | PropertySignature | AntigravityAccountPublic | [1486](../../src/types/backend.ts#L1486) |
-| cooldownUntil | PropertySignature | AntigravityAccountPublic | [1487](../../src/types/backend.ts#L1487) |
-| remainingQuota | PropertySignature | AntigravityAccountPublic | [1488](../../src/types/backend.ts#L1488) |
-| hasProjectId | PropertySignature | AntigravityAccountPublic | [1489](../../src/types/backend.ts#L1489) |
-| tokenExpiresAt | PropertySignature | AntigravityAccountPublic | [1490](../../src/types/backend.ts#L1490) |
-| subscriptionTier | PropertySignature | AntigravityAccountPublic | [1491](../../src/types/backend.ts#L1491) |
-| quota5hPercent | PropertySignature | AntigravityAccountPublic | [1492](../../src/types/backend.ts#L1492) |
-| quotaWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1493](../../src/types/backend.ts#L1493) |
-| quotaGemini5hPercent | PropertySignature | AntigravityAccountPublic | [1494](../../src/types/backend.ts#L1494) |
-| quotaGeminiWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1495](../../src/types/backend.ts#L1495) |
-| quotaClaude5hPercent | PropertySignature | AntigravityAccountPublic | [1496](../../src/types/backend.ts#L1496) |
-| quotaClaudeWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1497](../../src/types/backend.ts#L1497) |
-| quotaUpdatedAt | PropertySignature | AntigravityAccountPublic | [1498](../../src/types/backend.ts#L1498) |
-| quotaForbidden | PropertySignature | AntigravityAccountPublic | [1499](../../src/types/backend.ts#L1499) |
-| quota | PropertySignature | AntigravityAccountPublic | [1500](../../src/types/backend.ts#L1500) |
-| AntigravityGatewayStatus | InterfaceDeclaration |  | [1503](../../src/types/backend.ts#L1503) |
+| archivePath | PropertySignature | SessionBatchExportInfo | [1366](../../src/types/backend.ts#L1366) |
+| sessionCount | PropertySignature | SessionBatchExportInfo | [1367](../../src/types/backend.ts#L1367) |
+| createdAt | PropertySignature | SessionBatchExportInfo | [1368](../../src/types/backend.ts#L1368) |
+| SessionBackupArchiveInfo | InterfaceDeclaration |  | [1371](../../src/types/backend.ts#L1371) |
+| archivePath | PropertySignature | SessionBackupArchiveInfo | [1372](../../src/types/backend.ts#L1372) |
+| filename | PropertySignature | SessionBackupArchiveInfo | [1373](../../src/types/backend.ts#L1373) |
+| provider | PropertySignature | SessionBackupArchiveInfo | [1374](../../src/types/backend.ts#L1374) |
+| sessionCount | PropertySignature | SessionBackupArchiveInfo | [1375](../../src/types/backend.ts#L1375) |
+| createdAt | PropertySignature | SessionBackupArchiveInfo | [1376](../../src/types/backend.ts#L1376) |
+| fileSize | PropertySignature | SessionBackupArchiveInfo | [1377](../../src/types/backend.ts#L1377) |
+| isBatch | PropertySignature | SessionBackupArchiveInfo | [1378](../../src/types/backend.ts#L1378) |
+| isAuto | PropertySignature | SessionBackupArchiveInfo | [1379](../../src/types/backend.ts#L1379) |
+| SessionAutoBackupSettings | InterfaceDeclaration |  | [1382](../../src/types/backend.ts#L1382) |
+| scheduleEnabled | PropertySignature | SessionAutoBackupSettings | [1383](../../src/types/backend.ts#L1383) |
+| intervalMinutes | PropertySignature | SessionAutoBackupSettings | [1384](../../src/types/backend.ts#L1384) |
+| keepAuto | PropertySignature | SessionAutoBackupSettings | [1385](../../src/types/backend.ts#L1385) |
+| mirrorEnabled | PropertySignature | SessionAutoBackupSettings | [1386](../../src/types/backend.ts#L1386) |
+| activeDays | PropertySignature | SessionAutoBackupSettings | [1387](../../src/types/backend.ts#L1387) |
+| SessionBatchRestoreResult | InterfaceDeclaration |  | [1390](../../src/types/backend.ts#L1390) |
+| restoredCount | PropertySignature | SessionBatchRestoreResult | [1391](../../src/types/backend.ts#L1391) |
+| skippedCount | PropertySignature | SessionBatchRestoreResult | [1392](../../src/types/backend.ts#L1392) |
+| totalCount | PropertySignature | SessionBatchRestoreResult | [1393](../../src/types/backend.ts#L1393) |
+| message | PropertySignature | SessionBatchRestoreResult | [1394](../../src/types/backend.ts#L1394) |
+| ProfileScopePayload | InterfaceDeclaration |  | [1397](../../src/types/backend.ts#L1397) |
+| providerId | PropertySignature | ProfileScopePayload | [1398](../../src/types/backend.ts#L1398) |
+| mcpIds | PropertySignature | ProfileScopePayload | [1399](../../src/types/backend.ts#L1399) |
+| skillIds | PropertySignature | ProfileScopePayload | [1400](../../src/types/backend.ts#L1400) |
+| agentIds | PropertySignature | ProfileScopePayload | [1401](../../src/types/backend.ts#L1401) |
+| promptId | PropertySignature | ProfileScopePayload | [1402](../../src/types/backend.ts#L1402) |
+| ProfilePayload | InterfaceDeclaration |  | [1405](../../src/types/backend.ts#L1405) |
+| claudeCode | PropertySignature | ProfilePayload | [1406](../../src/types/backend.ts#L1406) |
+| claudeDesktop | PropertySignature | ProfilePayload | [1407](../../src/types/backend.ts#L1407) |
+| codex | PropertySignature | ProfilePayload | [1408](../../src/types/backend.ts#L1408) |
+| Profile | InterfaceDeclaration |  | [1411](../../src/types/backend.ts#L1411) |
+| id | PropertySignature | Profile | [1412](../../src/types/backend.ts#L1412) |
+| name | PropertySignature | Profile | [1413](../../src/types/backend.ts#L1413) |
+| payload | PropertySignature | Profile | [1414](../../src/types/backend.ts#L1414) |
+| sortOrder | PropertySignature | Profile | [1415](../../src/types/backend.ts#L1415) |
+| createdAt | PropertySignature | Profile | [1416](../../src/types/backend.ts#L1416) |
+| updatedAt | PropertySignature | Profile | [1417](../../src/types/backend.ts#L1417) |
+| ProfileSnapshotScopes | InterfaceDeclaration |  | [1420](../../src/types/backend.ts#L1420) |
+| claudeCode | PropertySignature | ProfileSnapshotScopes | [1421](../../src/types/backend.ts#L1421) |
+| claudeDesktop | PropertySignature | ProfileSnapshotScopes | [1422](../../src/types/backend.ts#L1422) |
+| codex | PropertySignature | ProfileSnapshotScopes | [1423](../../src/types/backend.ts#L1423) |
+| ApplyProfileResult | InterfaceDeclaration |  | [1426](../../src/types/backend.ts#L1426) |
+| profile | PropertySignature | ApplyProfileResult | [1427](../../src/types/backend.ts#L1427) |
+| warnings | PropertySignature | ApplyProfileResult | [1428](../../src/types/backend.ts#L1428) |
+| AntigravityQuotaBucket | InterfaceDeclaration |  | [1433](../../src/types/backend.ts#L1433) |
+| bucketId | PropertySignature | AntigravityQuotaBucket | [1434](../../src/types/backend.ts#L1434) |
+| window | PropertySignature | AntigravityQuotaBucket | [1435](../../src/types/backend.ts#L1435) |
+| remainingFraction | PropertySignature | AntigravityQuotaBucket | [1436](../../src/types/backend.ts#L1436) |
+| resetTime | PropertySignature | AntigravityQuotaBucket | [1437](../../src/types/backend.ts#L1437) |
+| displayName | PropertySignature | AntigravityQuotaBucket | [1438](../../src/types/backend.ts#L1438) |
+| AntigravityQuotaGroup | InterfaceDeclaration |  | [1441](../../src/types/backend.ts#L1441) |
+| displayName | PropertySignature | AntigravityQuotaGroup | [1442](../../src/types/backend.ts#L1442) |
+| buckets | PropertySignature | AntigravityQuotaGroup | [1443](../../src/types/backend.ts#L1443) |
+| AntigravityModelQuota | InterfaceDeclaration |  | [1446](../../src/types/backend.ts#L1446) |
+| name | PropertySignature | AntigravityModelQuota | [1447](../../src/types/backend.ts#L1447) |
+| percentage | PropertySignature | AntigravityModelQuota | [1448](../../src/types/backend.ts#L1448) |
+| resetTime | PropertySignature | AntigravityModelQuota | [1449](../../src/types/backend.ts#L1449) |
+| displayName | PropertySignature | AntigravityModelQuota | [1450](../../src/types/backend.ts#L1450) |
+| AntigravityQuotaSnapshot | InterfaceDeclaration |  | [1453](../../src/types/backend.ts#L1453) |
+| models | PropertySignature | AntigravityQuotaSnapshot | [1454](../../src/types/backend.ts#L1454) |
+| groups | PropertySignature | AntigravityQuotaSnapshot | [1455](../../src/types/backend.ts#L1455) |
+| lastUpdated | PropertySignature | AntigravityQuotaSnapshot | [1456](../../src/types/backend.ts#L1456) |
+| isForbidden | PropertySignature | AntigravityQuotaSnapshot | [1457](../../src/types/backend.ts#L1457) |
+| forbiddenReason | PropertySignature | AntigravityQuotaSnapshot | [1458](../../src/types/backend.ts#L1458) |
+| subscriptionTier | PropertySignature | AntigravityQuotaSnapshot | [1459](../../src/types/backend.ts#L1459) |
+| AntigravityAccountTestCategory | TypeAliasDeclaration |  | [1462](../../src/types/backend.ts#L1462) |
+| AntigravityAccountTestResult | InterfaceDeclaration |  | [1470](../../src/types/backend.ts#L1470) |
+| ok | PropertySignature | AntigravityAccountTestResult | [1471](../../src/types/backend.ts#L1471) |
+| category | PropertySignature | AntigravityAccountTestResult | [1472](../../src/types/backend.ts#L1472) |
+| status | PropertySignature | AntigravityAccountTestResult | [1473](../../src/types/backend.ts#L1473) |
+| model | PropertySignature | AntigravityAccountTestResult | [1474](../../src/types/backend.ts#L1474) |
+| latencyMs | PropertySignature | AntigravityAccountTestResult | [1475](../../src/types/backend.ts#L1475) |
+| reply | PropertySignature | AntigravityAccountTestResult | [1476](../../src/types/backend.ts#L1476) |
+| error | PropertySignature | AntigravityAccountTestResult | [1477](../../src/types/backend.ts#L1477) |
+| AntigravityAccountPublic | InterfaceDeclaration |  | [1480](../../src/types/backend.ts#L1480) |
+| id | PropertySignature | AntigravityAccountPublic | [1481](../../src/types/backend.ts#L1481) |
+| email | PropertySignature | AntigravityAccountPublic | [1482](../../src/types/backend.ts#L1482) |
+| name | PropertySignature | AntigravityAccountPublic | [1483](../../src/types/backend.ts#L1483) |
+| modelAccessMode | PropertySignature | AntigravityAccountPublic | [1484](../../src/types/backend.ts#L1484) |
+| allowedModelPatterns | PropertySignature | AntigravityAccountPublic | [1485](../../src/types/backend.ts#L1485) |
+| effectiveModelPatterns | PropertySignature | AntigravityAccountPublic | [1486](../../src/types/backend.ts#L1486) |
+| disabled | PropertySignature | AntigravityAccountPublic | [1487](../../src/types/backend.ts#L1487) |
+| disabledReason | PropertySignature | AntigravityAccountPublic | [1488](../../src/types/backend.ts#L1488) |
+| isActive | PropertySignature | AntigravityAccountPublic | [1489](../../src/types/backend.ts#L1489) |
+| createdAt | PropertySignature | AntigravityAccountPublic | [1490](../../src/types/backend.ts#L1490) |
+| lastUsed | PropertySignature | AntigravityAccountPublic | [1491](../../src/types/backend.ts#L1491) |
+| healthScore | PropertySignature | AntigravityAccountPublic | [1492](../../src/types/backend.ts#L1492) |
+| cooldownUntil | PropertySignature | AntigravityAccountPublic | [1493](../../src/types/backend.ts#L1493) |
+| remainingQuota | PropertySignature | AntigravityAccountPublic | [1494](../../src/types/backend.ts#L1494) |
+| hasProjectId | PropertySignature | AntigravityAccountPublic | [1495](../../src/types/backend.ts#L1495) |
+| tokenExpiresAt | PropertySignature | AntigravityAccountPublic | [1496](../../src/types/backend.ts#L1496) |
+| subscriptionTier | PropertySignature | AntigravityAccountPublic | [1497](../../src/types/backend.ts#L1497) |
+| quota5hPercent | PropertySignature | AntigravityAccountPublic | [1498](../../src/types/backend.ts#L1498) |
+| quotaWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1499](../../src/types/backend.ts#L1499) |
+| quotaGemini5hPercent | PropertySignature | AntigravityAccountPublic | [1500](../../src/types/backend.ts#L1500) |
+| quotaGeminiWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1501](../../src/types/backend.ts#L1501) |
+| quotaClaude5hPercent | PropertySignature | AntigravityAccountPublic | [1502](../../src/types/backend.ts#L1502) |

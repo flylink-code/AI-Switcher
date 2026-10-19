@@ -4,46 +4,46 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/localization.rs) · page 3/3
 
-Source SHA-256: 3df9a513a5a3c10062ba37ddbbccaebb6fb36fb9fef406a324e779a1c566f8dd
+Source SHA-256: 3b2e971145982c0659b52f5ec81ca564b08ed1512b1530ea8a46c0fa030600d7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1388](../../src-tauri/src/commands/localization.rs#L1388) |
-| assert_eq | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1389](../../src-tauri/src/commands/localization.rs#L1389) |
-| assert | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1390](../../src-tauri/src/commands/localization.rs#L1390) |
-| assert | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1391](../../src-tauri/src/commands/localization.rs#L1391) |
-| picks_safe_helper_vsix_and_rejects_paths | function_item | tests | [1395](../../src-tauri/src/commands/localization.rs#L1395) |
-| vec | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1396](../../src-tauri/src/commands/localization.rs#L1396) |
-| assert_eq | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1414](../../src-tauri/src/commands/localization.rs#L1414) |
-| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1415](../../src-tauri/src/commands/localization.rs#L1415) |
-| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1416](../../src-tauri/src/commands/localization.rs#L1416) |
-| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1419](../../src-tauri/src/commands/localization.rs#L1419) |
-| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1420](../../src-tauri/src/commands/localization.rs#L1420) |
-| helper_download_allows_github_cdn_and_configured_mirrors | function_item | tests | [1424](../../src-tauri/src/commands/localization.rs#L1424) |
-| vec | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1425](../../src-tauri/src/commands/localization.rs#L1425) |
-| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1440](../../src-tauri/src/commands/localization.rs#L1440) |
-| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1441](../../src-tauri/src/commands/localization.rs#L1441) |
-| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1442](../../src-tauri/src/commands/localization.rs#L1442) |
-| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1443](../../src-tauri/src/commands/localization.rs#L1443) |
-| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1444](../../src-tauri/src/commands/localization.rs#L1444) |
-| github_asset_urls_use_configured_mirror_first | function_item | tests | [1448](../../src-tauri/src/commands/localization.rs#L1448) |
-| assert_eq | macro invocation (unexpanded) | tests::github_asset_urls_use_configured_mirror_first | [1457](../../src-tauri/src/commands/localization.rs#L1457) |
-| assert_eq | macro invocation (unexpanded) | tests::github_asset_urls_use_configured_mirror_first | [1461](../../src-tauri/src/commands/localization.rs#L1461) |
-| assert_eq | macro invocation (unexpanded) | tests::github_asset_urls_use_configured_mirror_first | [1474](../../src-tauri/src/commands/localization.rs#L1474) |
-| github_latest_api_urls_use_configured_mirror_first | function_item | tests | [1480](../../src-tauri/src/commands/localization.rs#L1480) |
-| assert_eq | macro invocation (unexpanded) | tests::github_latest_api_urls_use_configured_mirror_first | [1487](../../src-tauri/src/commands/localization.rs#L1487) |
-| assert_eq | macro invocation (unexpanded) | tests::github_latest_api_urls_use_configured_mirror_first | [1491](../../src-tauri/src/commands/localization.rs#L1491) |
-| assert_eq | macro invocation (unexpanded) | tests::github_latest_api_urls_use_configured_mirror_first | [1500](../../src-tauri/src/commands/localization.rs#L1500) |
-| strips_node_deprecation_noise_from_cli_output | function_item | tests | [1507](../../src-tauri/src/commands/localization.rs#L1507) |
-| assert_eq | macro invocation (unexpanded) | tests::strips_node_deprecation_noise_from_cli_output | [1511](../../src-tauri/src/commands/localization.rs#L1511) |
-| helper_version_prefers_package_json_then_directory_suffix | function_item | tests | [1518](../../src-tauri/src/commands/localization.rs#L1518) |
-| assert_eq | macro invocation (unexpanded) | tests::helper_version_prefers_package_json_then_directory_suffix | [1524](../../src-tauri/src/commands/localization.rs#L1524) |
-| assert_eq | macro invocation (unexpanded) | tests::helper_version_prefers_package_json_then_directory_suffix | [1530](../../src-tauri/src/commands/localization.rs#L1530) |
-| strips_universal_suffix_from_helper_folder | function_item | tests | [1534](../../src-tauri/src/commands/localization.rs#L1534) |
-| assert_eq | macro invocation (unexpanded) | tests::strips_universal_suffix_from_helper_folder | [1540](../../src-tauri/src/commands/localization.rs#L1540) |
-| removes_only_chinese_language_key | function_item | tests | [1544](../../src-tauri/src/commands/localization.rs#L1544) |
-| assert | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1548](../../src-tauri/src/commands/localization.rs#L1548) |
-| assert | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1549](../../src-tauri/src/commands/localization.rs#L1549) |
-| assert_eq | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1550](../../src-tauri/src/commands/localization.rs#L1550) |
-| assert | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1557](../../src-tauri/src/commands/localization.rs#L1557) |
-| assert_eq | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1558](../../src-tauri/src/commands/localization.rs#L1558) |
+| assert_eq | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1445](../../src-tauri/src/commands/localization.rs#L1445) |
+| assert_eq | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1446](../../src-tauri/src/commands/localization.rs#L1446) |
+| assert | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1447](../../src-tauri/src/commands/localization.rs#L1447) |
+| assert | macro invocation (unexpanded) | tests::normalize_release_tag_removes_v_prefix_and_rejects_paths | [1448](../../src-tauri/src/commands/localization.rs#L1448) |
+| picks_safe_helper_vsix_and_rejects_paths | function_item | tests | [1452](../../src-tauri/src/commands/localization.rs#L1452) |
+| vec | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1453](../../src-tauri/src/commands/localization.rs#L1453) |
+| assert_eq | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1471](../../src-tauri/src/commands/localization.rs#L1471) |
+| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1472](../../src-tauri/src/commands/localization.rs#L1472) |
+| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1473](../../src-tauri/src/commands/localization.rs#L1473) |
+| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1476](../../src-tauri/src/commands/localization.rs#L1476) |
+| assert | macro invocation (unexpanded) | tests::picks_safe_helper_vsix_and_rejects_paths | [1477](../../src-tauri/src/commands/localization.rs#L1477) |
+| helper_download_allows_github_cdn_and_configured_mirrors | function_item | tests | [1481](../../src-tauri/src/commands/localization.rs#L1481) |
+| vec | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1482](../../src-tauri/src/commands/localization.rs#L1482) |
+| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1497](../../src-tauri/src/commands/localization.rs#L1497) |
+| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1498](../../src-tauri/src/commands/localization.rs#L1498) |
+| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1499](../../src-tauri/src/commands/localization.rs#L1499) |
+| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1500](../../src-tauri/src/commands/localization.rs#L1500) |
+| assert | macro invocation (unexpanded) | tests::helper_download_allows_github_cdn_and_configured_mirrors | [1501](../../src-tauri/src/commands/localization.rs#L1501) |
+| github_asset_urls_use_configured_mirror_first | function_item | tests | [1505](../../src-tauri/src/commands/localization.rs#L1505) |
+| assert_eq | macro invocation (unexpanded) | tests::github_asset_urls_use_configured_mirror_first | [1514](../../src-tauri/src/commands/localization.rs#L1514) |
+| assert_eq | macro invocation (unexpanded) | tests::github_asset_urls_use_configured_mirror_first | [1518](../../src-tauri/src/commands/localization.rs#L1518) |
+| assert_eq | macro invocation (unexpanded) | tests::github_asset_urls_use_configured_mirror_first | [1531](../../src-tauri/src/commands/localization.rs#L1531) |
+| github_latest_api_urls_use_configured_mirror_first | function_item | tests | [1537](../../src-tauri/src/commands/localization.rs#L1537) |
+| assert_eq | macro invocation (unexpanded) | tests::github_latest_api_urls_use_configured_mirror_first | [1544](../../src-tauri/src/commands/localization.rs#L1544) |
+| assert_eq | macro invocation (unexpanded) | tests::github_latest_api_urls_use_configured_mirror_first | [1548](../../src-tauri/src/commands/localization.rs#L1548) |
+| assert_eq | macro invocation (unexpanded) | tests::github_latest_api_urls_use_configured_mirror_first | [1557](../../src-tauri/src/commands/localization.rs#L1557) |
+| strips_node_deprecation_noise_from_cli_output | function_item | tests | [1564](../../src-tauri/src/commands/localization.rs#L1564) |
+| assert_eq | macro invocation (unexpanded) | tests::strips_node_deprecation_noise_from_cli_output | [1568](../../src-tauri/src/commands/localization.rs#L1568) |
+| helper_version_prefers_package_json_then_directory_suffix | function_item | tests | [1575](../../src-tauri/src/commands/localization.rs#L1575) |
+| assert_eq | macro invocation (unexpanded) | tests::helper_version_prefers_package_json_then_directory_suffix | [1581](../../src-tauri/src/commands/localization.rs#L1581) |
+| assert_eq | macro invocation (unexpanded) | tests::helper_version_prefers_package_json_then_directory_suffix | [1587](../../src-tauri/src/commands/localization.rs#L1587) |
+| strips_universal_suffix_from_helper_folder | function_item | tests | [1591](../../src-tauri/src/commands/localization.rs#L1591) |
+| assert_eq | macro invocation (unexpanded) | tests::strips_universal_suffix_from_helper_folder | [1597](../../src-tauri/src/commands/localization.rs#L1597) |
+| removes_only_chinese_language_key | function_item | tests | [1601](../../src-tauri/src/commands/localization.rs#L1601) |
+| assert | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1605](../../src-tauri/src/commands/localization.rs#L1605) |
+| assert | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1606](../../src-tauri/src/commands/localization.rs#L1606) |
+| assert_eq | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1607](../../src-tauri/src/commands/localization.rs#L1607) |
+| assert | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1614](../../src-tauri/src/commands/localization.rs#L1614) |
+| assert_eq | macro invocation (unexpanded) | tests::removes_only_chinese_language_key | [1615](../../src-tauri/src/commands/localization.rs#L1615) |

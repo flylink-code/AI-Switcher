@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::config::vscode_copilot::{
-    apply_managed_at, chat_language_models_path, diff_managed, managed_entry, read_managed_at,
-    remove_managed_at, CopilotModel, DriftField,
+    apply_managed_at, chat_language_models_path, detect_vscode_installation, diff_managed,
+    heal_secondary_managed_at, managed_entry, read_managed_at, remove_managed_at, CopilotModel,
+    DriftField,
 };
 use crate::database::dao::gateway as gw;
 use crate::error::{AppError, AppResult};
@@ -30,6 +31,10 @@ pub struct VscodeCopilotStatus {
     pub model_count: usize,
     pub gateway_running: bool,
     pub drift: Vec<DriftField>,
+    pub vscode_installed: bool,
+    pub vscode_version: Option<String>,
+    pub vscode_path: Option<String>,
+    pub copilot_extension_installed: bool,
 }
 
 fn gateway_base_url(state: &AppState) -> String {
@@ -325,13 +330,15 @@ fn status_at(state: &AppState, path: &Path) -> AppResult<VscodeCopilotStatus> {
     let current = read_managed_at(path)?;
     let (drift, model_count) = if bound {
         let (expected, count) = expected_entry(state)?;
-        (
-            diff_managed(&expected, current.as_ref()),
-            if current.is_some() { count } else { 0 },
-        )
+        let drift = diff_managed(&expected, current.as_ref());
+        if current.is_some() && drift.is_empty() {
+            heal_secondary_managed_at(path, &expected);
+        }
+        (drift, if current.is_some() { count } else { 0 })
     } else {
         (Vec::new(), 0)
     };
+    let install_info = detect_vscode_installation();
     Ok(VscodeCopilotStatus {
         config_path: path.display().to_string(),
         file_exists: path.exists(),
@@ -342,6 +349,10 @@ fn status_at(state: &AppState, path: &Path) -> AppResult<VscodeCopilotStatus> {
         model_count,
         gateway_running: crate::gateway::service::current_status().running,
         drift,
+        vscode_installed: install_info.vscode_installed || path.exists(),
+        vscode_version: install_info.vscode_version,
+        vscode_path: install_info.vscode_path,
+        copilot_extension_installed: install_info.copilot_extension_installed,
     })
 }
 

@@ -34,26 +34,28 @@ pub async fn detect_pi_cli(include_latest: Option<bool>) -> AppResult<PiCliVersi
 
 #[tauri::command]
 pub async fn install_pi_cli() -> AppResult<String> {
-    let mut cmd = if cfg!(windows) {
-        let mut c = Command::new("cmd");
-        c.args([
-            "/C",
-            "npm",
-            "install",
-            "-g",
-            "@earendil-works/pi-coding-agent@latest",
-        ]);
-        c
+    let pkg = "@earendil-works/pi-coding-agent@latest";
+    let output = if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+        crate::commands::node_runtime::run_anchored_npm_global_install(
+            &runtime.npm_path,
+            &runtime.node_path,
+            pkg,
+        )
+        .map_err(|e| AppError::Io(format!("执行 npm install -g 失败: {e}")))?
     } else {
-        let mut c = Command::new("npm");
-        c.args(["install", "-g", "@earendil-works/pi-coding-agent@latest"]);
-        c
+        let mut cmd = if cfg!(windows) {
+            let mut c = Command::new("cmd");
+            c.args(["/C", "npm", "install", "-g", pkg]);
+            c
+        } else {
+            let mut c = Command::new("npm");
+            c.args(["install", "-g", pkg]);
+            c
+        };
+        apply_no_window(&mut cmd);
+        cmd.output()
+            .map_err(|e| AppError::Io(format!("执行 npm install -g 失败: {e}")))?
     };
-    apply_no_window(&mut cmd);
-
-    let output = cmd
-        .output()
-        .map_err(|e| AppError::Io(format!("执行 npm install -g 失败: {e}")))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();

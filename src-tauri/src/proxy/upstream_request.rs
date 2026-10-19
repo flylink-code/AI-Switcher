@@ -683,15 +683,14 @@ async fn proxy_handler_inner(
                         }
                         let wait_started = Instant::now();
                         let heartbeat = Duration::from_secs(5);
-                        let next = loop {
-                            let elapsed = wait_started.elapsed();
-                            if elapsed >= idle {
-                                break Err(());
-                            }
+                        let elapsed = wait_started.elapsed();
+                        let next = if elapsed >= idle {
+                            Err(())
+                        } else {
                             let remaining = idle.saturating_sub(elapsed);
                             let step = remaining.min(heartbeat);
                             match tokio::time::timeout(step, upstream_stream.next()).await {
-                                Ok(item) => break Ok(item),
+                                Ok(item) => Ok(item),
                                 Err(_) => {
                                     if wait_started.elapsed() < idle {
                                         return Some((
@@ -707,7 +706,7 @@ async fn proxy_handler_inner(
                                             ),
                                         ));
                                     }
-                                    break Err(());
+                                    Err(())
                                 }
                             }
                         };

@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/localization.rs) · page 2/3
 
-Source SHA-256: 3df9a513a5a3c10062ba37ddbbccaebb6fb36fb9fef406a324e779a1c566f8dd
+Source SHA-256: 3b2e971145982c0659b52f5ec81ca564b08ed1512b1530ea8a46c0fa030600d7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -53,58 +53,58 @@ Source SHA-256: 3df9a513a5a3c10062ba37ddbbccaebb6fb36fb9fef406a324e779a1c566f8dd
 | run_command | function_item |  | [834](../../src-tauri/src/commands/localization.rs#L834) |
 | format | macro invocation (unexpanded) | run_command | [854](../../src-tauri/src/commands/localization.rs#L854) |
 | format | macro invocation (unexpanded) | run_command | [861](../../src-tauri/src/commands/localization.rs#L861) |
-| format_cmd_script_line | function_item |  | [866](../../src-tauri/src/commands/localization.rs#L866) |
-| format | macro invocation (unexpanded) | format_cmd_script_line | [867](../../src-tauri/src/commands/localization.rs#L867) |
-| quote_cmd_arg | function_item |  | [875](../../src-tauri/src/commands/localization.rs#L875) |
-| format | macro invocation (unexpanded) | quote_cmd_arg | [882](../../src-tauri/src/commands/localization.rs#L882) |
-| requires_command_shell | function_item |  | [885](../../src-tauri/src/commands/localization.rs#L885) |
-| command_detail | function_item |  | [894](../../src-tauri/src/commands/localization.rs#L894) |
-| format | macro invocation (unexpanded) | command_detail | [903](../../src-tauri/src/commands/localization.rs#L903) |
-| strip_cli_noise | function_item |  | [909](../../src-tauri/src/commands/localization.rs#L909) |
-| editor_definitions | function_item |  | [922](../../src-tauri/src/commands/localization.rs#L922) |
-| vec | macro invocation (unexpanded) | editor_definitions | [925](../../src-tauri/src/commands/localization.rs#L925) |
-| editor_status | function_item |  | [982](../../src-tauri/src/commands/localization.rs#L982) |
-| format | macro invocation (unexpanded) | editor_status | [992](../../src-tauri/src/commands/localization.rs#L992) |
-| format | macro invocation (unexpanded) | editor_status | [996](../../src-tauri/src/commands/localization.rs#L996) |
-| resolve_editor_cli | function_item |  | [1019](../../src-tauri/src/commands/localization.rs#L1019) |
-| find_cli_from_install_roots | function_item |  | [1029](../../src-tauri/src/commands/localization.rs#L1029) |
-| cli_paths_for_install_root | function_item |  | [1040](../../src-tauri/src/commands/localization.rs#L1040) |
-| vec | macro invocation (unexpanded) | cli_paths_for_install_root | [1042](../../src-tauri/src/commands/localization.rs#L1042) |
-| vec | macro invocation (unexpanded) | cli_paths_for_install_root | [1046](../../src-tauri/src/commands/localization.rs#L1046) |
-| editor_install_roots | function_item |  | [1069](../../src-tauri/src/commands/localization.rs#L1069) |
-| editor_install_roots | function_item |  | [1118](../../src-tauri/src/commands/localization.rs#L1118) |
-| find_command_on_path | function_item |  | [1123](../../src-tauri/src/commands/localization.rs#L1123) |
-| format | macro invocation (unexpanded) | find_command_on_path | [1129](../../src-tauri/src/commands/localization.rs#L1129) |
-| find_command_in_env_path | function_item |  | [1156](../../src-tauri/src/commands/localization.rs#L1156) |
-| format | macro invocation (unexpanded) | find_command_in_env_path | [1163](../../src-tauri/src/commands/localization.rs#L1163) |
-| format | macro invocation (unexpanded) | find_command_in_env_path | [1164](../../src-tauri/src/commands/localization.rs#L1164) |
-| format | macro invocation (unexpanded) | find_command_in_env_path | [1165](../../src-tauri/src/commands/localization.rs#L1165) |
-| windows_user_path_dirs | function_item |  | [1187](../../src-tauri/src/commands/localization.rs#L1187) |
-| expand_windows_env | function_item |  | [1200](../../src-tauri/src/commands/localization.rs#L1200) |
-| find_command_on_path | function_item |  | [1226](../../src-tauri/src/commands/localization.rs#L1226) |
-| find_extension | function_item |  | [1230](../../src-tauri/src/commands/localization.rs#L1230) |
-| helper_version_from_path | function_item |  | [1247](../../src-tauri/src/commands/localization.rs#L1247) |
-| read_package_json_version | function_item |  | [1258](../../src-tauri/src/commands/localization.rs#L1258) |
-| tests | mod_item |  | [1269](../../src-tauri/src/commands/localization.rs#L1269) |
-| command_shell_is_only_used_for_command_scripts | function_item | tests | [1273](../../src-tauri/src/commands/localization.rs#L1273) |
-| assert | macro invocation (unexpanded) | tests::command_shell_is_only_used_for_command_scripts | [1274](../../src-tauri/src/commands/localization.rs#L1274) |
-| assert | macro invocation (unexpanded) | tests::command_shell_is_only_used_for_command_scripts | [1275](../../src-tauri/src/commands/localization.rs#L1275) |
-| assert | macro invocation (unexpanded) | tests::command_shell_is_only_used_for_command_scripts | [1276](../../src-tauri/src/commands/localization.rs#L1276) |
-| formats_cmd_script_line_with_quoted_spaces | function_item | tests | [1280](../../src-tauri/src/commands/localization.rs#L1280) |
-| assert_eq | macro invocation (unexpanded) | tests::formats_cmd_script_line_with_quoted_spaces | [1288](../../src-tauri/src/commands/localization.rs#L1288) |
-| builds_cli_paths_under_install_root | function_item | tests | [1295](../../src-tauri/src/commands/localization.rs#L1295) |
-| assert | macro invocation (unexpanded) | tests::builds_cli_paths_under_install_root | [1298](../../src-tauri/src/commands/localization.rs#L1298) |
-| assert | macro invocation (unexpanded) | tests::builds_cli_paths_under_install_root | [1306](../../src-tauri/src/commands/localization.rs#L1306) |
-| resolves_local_editor_cli_when_installed | function_item | tests | [1313](../../src-tauri/src/commands/localization.rs#L1313) |
-| assert | macro invocation (unexpanded) | tests::resolves_local_editor_cli_when_installed | [1322](../../src-tauri/src/commands/localization.rs#L1322) |
-| assert | macro invocation (unexpanded) | tests::resolves_local_editor_cli_when_installed | [1327](../../src-tauri/src/commands/localization.rs#L1327) |
-| finds_only_expected_extension_prefix | function_item | tests | [1335](../../src-tauri/src/commands/localization.rs#L1335) |
-| assert | macro invocation (unexpanded) | tests::finds_only_expected_extension_prefix | [1340](../../src-tauri/src/commands/localization.rs#L1340) |
-| normalizes_bare_spinner_verbs_array_to_object | function_item | tests | [1344](../../src-tauri/src/commands/localization.rs#L1344) |
-| vec | macro invocation (unexpanded) | tests::normalizes_bare_spinner_verbs_array_to_object | [1348](../../src-tauri/src/commands/localization.rs#L1348) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_bare_spinner_verbs_array_to_object | [1359](../../src-tauri/src/commands/localization.rs#L1359) |
-| assert_eq | macro invocation (unexpanded) | tests::normalizes_bare_spinner_verbs_array_to_object | [1360](../../src-tauri/src/commands/localization.rs#L1360) |
-| leaves_valid_spinner_verbs_object_untouched | function_item | tests | [1367](../../src-tauri/src/commands/localization.rs#L1367) |
-| serde_json::json | macro invocation (unexpanded) | tests::leaves_valid_spinner_verbs_object_untouched | [1371](../../src-tauri/src/commands/localization.rs#L1371) |
-| assert_eq | macro invocation (unexpanded) | tests::leaves_valid_spinner_verbs_object_untouched | [1377](../../src-tauri/src/commands/localization.rs#L1377) |
-| normalize_release_tag_removes_v_prefix_and_rejects_paths | function_item | tests | [1387](../../src-tauri/src/commands/localization.rs#L1387) |
+| format_cmd_script_line | function_item |  | [867](../../src-tauri/src/commands/localization.rs#L867) |
+| format | macro invocation (unexpanded) | format_cmd_script_line | [868](../../src-tauri/src/commands/localization.rs#L868) |
+| quote_cmd_arg | function_item |  | [877](../../src-tauri/src/commands/localization.rs#L877) |
+| format | macro invocation (unexpanded) | quote_cmd_arg | [884](../../src-tauri/src/commands/localization.rs#L884) |
+| requires_command_shell | function_item |  | [888](../../src-tauri/src/commands/localization.rs#L888) |
+| command_detail | function_item |  | [897](../../src-tauri/src/commands/localization.rs#L897) |
+| format | macro invocation (unexpanded) | command_detail | [906](../../src-tauri/src/commands/localization.rs#L906) |
+| strip_cli_noise | function_item |  | [912](../../src-tauri/src/commands/localization.rs#L912) |
+| editor_definitions | function_item |  | [925](../../src-tauri/src/commands/localization.rs#L925) |
+| vec | macro invocation (unexpanded) | editor_definitions | [953](../../src-tauri/src/commands/localization.rs#L953) |
+| editor_status | function_item |  | [1023](../../src-tauri/src/commands/localization.rs#L1023) |
+| format | macro invocation (unexpanded) | editor_status | [1033](../../src-tauri/src/commands/localization.rs#L1033) |
+| format | macro invocation (unexpanded) | editor_status | [1037](../../src-tauri/src/commands/localization.rs#L1037) |
+| resolve_editor_cli | function_item |  | [1060](../../src-tauri/src/commands/localization.rs#L1060) |
+| find_cli_from_install_roots | function_item |  | [1070](../../src-tauri/src/commands/localization.rs#L1070) |
+| cli_paths_for_install_root | function_item |  | [1081](../../src-tauri/src/commands/localization.rs#L1081) |
+| vec | macro invocation (unexpanded) | cli_paths_for_install_root | [1083](../../src-tauri/src/commands/localization.rs#L1083) |
+| vec | macro invocation (unexpanded) | cli_paths_for_install_root | [1087](../../src-tauri/src/commands/localization.rs#L1087) |
+| editor_install_roots | function_item |  | [1110](../../src-tauri/src/commands/localization.rs#L1110) |
+| editor_install_roots | function_item |  | [1159](../../src-tauri/src/commands/localization.rs#L1159) |
+| find_command_on_path | function_item |  | [1164](../../src-tauri/src/commands/localization.rs#L1164) |
+| format | macro invocation (unexpanded) | find_command_on_path | [1170](../../src-tauri/src/commands/localization.rs#L1170) |
+| find_command_in_env_path | function_item |  | [1197](../../src-tauri/src/commands/localization.rs#L1197) |
+| format | macro invocation (unexpanded) | find_command_in_env_path | [1204](../../src-tauri/src/commands/localization.rs#L1204) |
+| format | macro invocation (unexpanded) | find_command_in_env_path | [1205](../../src-tauri/src/commands/localization.rs#L1205) |
+| format | macro invocation (unexpanded) | find_command_in_env_path | [1206](../../src-tauri/src/commands/localization.rs#L1206) |
+| windows_user_path_dirs | function_item |  | [1228](../../src-tauri/src/commands/localization.rs#L1228) |
+| expand_windows_env | function_item |  | [1241](../../src-tauri/src/commands/localization.rs#L1241) |
+| find_command_on_path | function_item |  | [1267](../../src-tauri/src/commands/localization.rs#L1267) |
+| find_extension | function_item |  | [1287](../../src-tauri/src/commands/localization.rs#L1287) |
+| helper_version_from_path | function_item |  | [1304](../../src-tauri/src/commands/localization.rs#L1304) |
+| read_package_json_version | function_item |  | [1315](../../src-tauri/src/commands/localization.rs#L1315) |
+| tests | mod_item |  | [1326](../../src-tauri/src/commands/localization.rs#L1326) |
+| command_shell_is_only_used_for_command_scripts | function_item | tests | [1330](../../src-tauri/src/commands/localization.rs#L1330) |
+| assert | macro invocation (unexpanded) | tests::command_shell_is_only_used_for_command_scripts | [1331](../../src-tauri/src/commands/localization.rs#L1331) |
+| assert | macro invocation (unexpanded) | tests::command_shell_is_only_used_for_command_scripts | [1332](../../src-tauri/src/commands/localization.rs#L1332) |
+| assert | macro invocation (unexpanded) | tests::command_shell_is_only_used_for_command_scripts | [1333](../../src-tauri/src/commands/localization.rs#L1333) |
+| formats_cmd_script_line_with_quoted_spaces | function_item | tests | [1337](../../src-tauri/src/commands/localization.rs#L1337) |
+| assert_eq | macro invocation (unexpanded) | tests::formats_cmd_script_line_with_quoted_spaces | [1345](../../src-tauri/src/commands/localization.rs#L1345) |
+| builds_cli_paths_under_install_root | function_item | tests | [1352](../../src-tauri/src/commands/localization.rs#L1352) |
+| assert | macro invocation (unexpanded) | tests::builds_cli_paths_under_install_root | [1355](../../src-tauri/src/commands/localization.rs#L1355) |
+| assert | macro invocation (unexpanded) | tests::builds_cli_paths_under_install_root | [1363](../../src-tauri/src/commands/localization.rs#L1363) |
+| resolves_local_editor_cli_when_installed | function_item | tests | [1370](../../src-tauri/src/commands/localization.rs#L1370) |
+| assert | macro invocation (unexpanded) | tests::resolves_local_editor_cli_when_installed | [1379](../../src-tauri/src/commands/localization.rs#L1379) |
+| assert | macro invocation (unexpanded) | tests::resolves_local_editor_cli_when_installed | [1384](../../src-tauri/src/commands/localization.rs#L1384) |
+| finds_only_expected_extension_prefix | function_item | tests | [1392](../../src-tauri/src/commands/localization.rs#L1392) |
+| assert | macro invocation (unexpanded) | tests::finds_only_expected_extension_prefix | [1397](../../src-tauri/src/commands/localization.rs#L1397) |
+| normalizes_bare_spinner_verbs_array_to_object | function_item | tests | [1401](../../src-tauri/src/commands/localization.rs#L1401) |
+| vec | macro invocation (unexpanded) | tests::normalizes_bare_spinner_verbs_array_to_object | [1405](../../src-tauri/src/commands/localization.rs#L1405) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_bare_spinner_verbs_array_to_object | [1416](../../src-tauri/src/commands/localization.rs#L1416) |
+| assert_eq | macro invocation (unexpanded) | tests::normalizes_bare_spinner_verbs_array_to_object | [1417](../../src-tauri/src/commands/localization.rs#L1417) |
+| leaves_valid_spinner_verbs_object_untouched | function_item | tests | [1424](../../src-tauri/src/commands/localization.rs#L1424) |
+| serde_json::json | macro invocation (unexpanded) | tests::leaves_valid_spinner_verbs_object_untouched | [1428](../../src-tauri/src/commands/localization.rs#L1428) |
+| assert_eq | macro invocation (unexpanded) | tests::leaves_valid_spinner_verbs_object_untouched | [1434](../../src-tauri/src/commands/localization.rs#L1434) |
+| normalize_release_tag_removes_v_prefix_and_rejects_paths | function_item | tests | [1444](../../src-tauri/src/commands/localization.rs#L1444) |

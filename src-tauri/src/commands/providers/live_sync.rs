@@ -397,19 +397,22 @@ pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<(
         .with_conn(crate::database::dao::gateway::list_bindings)?;
     let mut first_error: Option<AppError> = None;
     for binding in bindings {
+        if binding.target_app == ProviderTarget::VscodeCopilot {
+            // Copilot 无论是网关模式还是单上游直连模式，都没有 live provider 副本，
+            // 直接刷新托管的 chatLanguageModels.json 条目即可。
+            if let Err(error) = crate::commands::vscode_copilot::sync_managed_config(state) {
+                log::warn!("同步 VS Code Copilot 托管配置失败: {error}");
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            }
+            continue;
+        }
         if binding.mode != "gateway" {
             continue;
         }
         match binding.target_app {
-            // Copilot 没有 live provider 副本：刷新托管的 chatLanguageModels.json 条目即可。
-            ProviderTarget::VscodeCopilot => {
-                if let Err(error) = crate::commands::vscode_copilot::sync_managed_config(state) {
-                    log::warn!("同步 VS Code Copilot 托管配置失败: {error}");
-                    if first_error.is_none() {
-                        first_error = Some(error);
-                    }
-                }
-            }
+            ProviderTarget::VscodeCopilot => {}
             ProviderTarget::OpenCode
             | ProviderTarget::Pi
             | ProviderTarget::Dsh

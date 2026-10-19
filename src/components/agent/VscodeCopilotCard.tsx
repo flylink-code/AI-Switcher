@@ -175,6 +175,27 @@ export function VscodeCopilotCard() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {usageSourceIcon("vscode_copilot", { size: 18 })}
         <Text strong>{t("copilot.title")}</Text>
+        {status?.vscodeInstalled !== undefined ? (
+          status.vscodeInstalled ? (
+            <>
+              {status.vscodeVersion ? (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {status.vscodeVersion}
+                </Text>
+              ) : null}
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <span aria-hidden style={{ color: "#34c759", marginRight: 4 }}>
+                  ●
+                </span>
+                {t("agentHub.installed", { defaultValue: "已安装" })}
+              </Text>
+            </>
+          ) : (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("copilot.vscodeNotDetected", { defaultValue: "未检测到 VS Code" })}
+            </Text>
+          )
+        ) : null}
         {status ? (
           isManaged ? (
             <>
@@ -340,6 +361,21 @@ export function VscodeCopilotCard() {
             {status ? (
               <Text type="secondary" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
                 {t("copilot.path")}：{status.configPath}
+              </Text>
+            ) : null}
+            {status?.vscodePath ? (
+              <Text type="secondary" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
+                {t("copilot.vscodePath", { defaultValue: "VS Code 路径" })}：{status.vscodePath}
+              </Text>
+            ) : null}
+            {status?.copilotExtensionInstalled !== undefined ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t("copilot.extensionStatus", { defaultValue: "Copilot 扩展" })}：
+                {status.copilotExtensionInstalled
+                  ? t("copilot.extensionInstalled", { defaultValue: "已安装" })
+                  : t("copilot.extensionMissing", {
+                      defaultValue: "未检测到 GitHub Copilot Chat 扩展（可在 VS Code 扩展市场安装）",
+                    })}
               </Text>
             ) : null}
             <Text type="secondary" style={{ fontSize: 12 }}>

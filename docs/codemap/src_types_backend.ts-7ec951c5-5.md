@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 5/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| available | PropertySignature | LocalizationUpstreamRelease | [539](../../src/types/backend.ts#L539) |
-| version | PropertySignature | LocalizationUpstreamRelease | [540](../../src/types/backend.ts#L540) |
-| publishedAt | PropertySignature | LocalizationUpstreamRelease | [541](../../src/types/backend.ts#L541) |
-| message | PropertySignature | LocalizationUpstreamRelease | [542](../../src/types/backend.ts#L542) |
-| LocalizationUpstreamStatus | InterfaceDeclaration |  | [545](../../src/types/backend.ts#L545) |
-| checkedAt | PropertySignature | LocalizationUpstreamStatus | [546](../../src/types/backend.ts#L546) |
-| claudeCode | PropertySignature | LocalizationUpstreamStatus | [547](../../src/types/backend.ts#L547) |
-| editor | PropertySignature | LocalizationUpstreamStatus | [548](../../src/types/backend.ts#L548) |
-| desktop | PropertySignature | LocalizationUpstreamStatus | [549](../../src/types/backend.ts#L549) |
-| PathsInfo | InterfaceDeclaration |  | [553](../../src/types/backend.ts#L553) |
-| home | PropertySignature | PathsInfo | [555](../../src/types/backend.ts#L555) |
-| claudeConfigDir | PropertySignature | PathsInfo | [557](../../src/types/backend.ts#L557) |
-| claudeSettingsPath | PropertySignature | PathsInfo | [559](../../src/types/backend.ts#L559) |
-| claudeJsonPath | PropertySignature | PathsInfo | [561](../../src/types/backend.ts#L561) |
-| claudeAgentsPath | PropertySignature | PathsInfo | [563](../../src/types/backend.ts#L563) |
-| codexConfigDir | PropertySignature | PathsInfo | [564](../../src/types/backend.ts#L564) |
-| codexConfigPath | PropertySignature | PathsInfo | [565](../../src/types/backend.ts#L565) |
-| codexAuthPath | PropertySignature | PathsInfo | [566](../../src/types/backend.ts#L566) |
-| codexSkillsDir | PropertySignature | PathsInfo | [567](../../src/types/backend.ts#L567) |
-| codexPluginsCacheDir | PropertySignature | PathsInfo | [568](../../src/types/backend.ts#L568) |
-| codexSessionsDir | PropertySignature | PathsInfo | [569](../../src/types/backend.ts#L569) |
-| codexAgentsPath | PropertySignature | PathsInfo | [570](../../src/types/backend.ts#L570) |
-| opencodeConfigDir | PropertySignature | PathsInfo | [572](../../src/types/backend.ts#L572) |
-| opencodeConfigPath | PropertySignature | PathsInfo | [574](../../src/types/backend.ts#L574) |
-| piConfigDir | PropertySignature | PathsInfo | [576](../../src/types/backend.ts#L576) |
-| piSettingsPath | PropertySignature | PathsInfo | [577](../../src/types/backend.ts#L577) |
-| piAuthPath | PropertySignature | PathsInfo | [578](../../src/types/backend.ts#L578) |
-| piModelsPath | PropertySignature | PathsInfo | [579](../../src/types/backend.ts#L579) |
-| piAgentsPath | PropertySignature | PathsInfo | [580](../../src/types/backend.ts#L580) |
-| piSkillsDir | PropertySignature | PathsInfo | [581](../../src/types/backend.ts#L581) |
-| piMcpPath | PropertySignature | PathsInfo | [582](../../src/types/backend.ts#L582) |
-| piSessionsDir | PropertySignature | PathsInfo | [583](../../src/types/backend.ts#L583) |
-| dshConfigDir | PropertySignature | PathsInfo | [584](../../src/types/backend.ts#L584) |
-| dshSettingsPath | PropertySignature | PathsInfo | [585](../../src/types/backend.ts#L585) |
-| dshCredentialsPath | PropertySignature | PathsInfo | [586](../../src/types/backend.ts#L586) |
-| appConfigDir | PropertySignature | PathsInfo | [588](../../src/types/backend.ts#L588) |
-| appDbPath | PropertySignature | PathsInfo | [590](../../src/types/backend.ts#L590) |
-| backupDir | PropertySignature | PathsInfo | [592](../../src/types/backend.ts#L592) |
-| claudeDesktopBase | PropertySignature | PathsInfo | [594](../../src/types/backend.ts#L594) |
-| claudeDesktopThreepBase | PropertySignature | PathsInfo | [596](../../src/types/backend.ts#L596) |
-| claudeDesktopConfigLibrary | PropertySignature | PathsInfo | [598](../../src/types/backend.ts#L598) |
-| claudeDesktopMetaPath | PropertySignature | PathsInfo | [600](../../src/types/backend.ts#L600) |
-| claudeDesktopNormalConfigPath | PropertySignature | PathsInfo | [602](../../src/types/backend.ts#L602) |
-| claudeDesktopThreepConfigPath | PropertySignature | PathsInfo | [604](../../src/types/backend.ts#L604) |
-| DataRootInfo | InterfaceDeclaration |  | [607](../../src/types/backend.ts#L607) |
-| activePath | PropertySignature | DataRootInfo | [608](../../src/types/backend.ts#L608) |
-| legacyPath | PropertySignature | DataRootInfo | [609](../../src/types/backend.ts#L609) |
-| migrated | PropertySignature | DataRootInfo | [610](../../src/types/backend.ts#L610) |
-| restartRequired | PropertySignature | DataRootInfo | [611](../../src/types/backend.ts#L611) |
-| DbInfo | InterfaceDeclaration |  | [615](../../src/types/backend.ts#L615) |
-| path | PropertySignature | DbInfo | [616](../../src/types/backend.ts#L616) |
-| schemaVersion | PropertySignature | DbInfo | [617](../../src/types/backend.ts#L617) |
-| providerCount | PropertySignature | DbInfo | [618](../../src/types/backend.ts#L618) |
-| DoctorCheck | InterfaceDeclaration |  | [621](../../src/types/backend.ts#L621) |
-| id | PropertySignature | DoctorCheck | [622](../../src/types/backend.ts#L622) |
-| label | PropertySignature | DoctorCheck | [623](../../src/types/backend.ts#L623) |
-| ok | PropertySignature | DoctorCheck | [624](../../src/types/backend.ts#L624) |
-| detail | PropertySignature | DoctorCheck | [625](../../src/types/backend.ts#L625) |
-| repairAction | PropertySignature | DoctorCheck | [626](../../src/types/backend.ts#L626) |
-| DoctorReport | InterfaceDeclaration |  | [629](../../src/types/backend.ts#L629) |
-| checks | PropertySignature | DoctorReport | [630](../../src/types/backend.ts#L630) |
-| VisibilityRepairResult | InterfaceDeclaration |  | [633](../../src/types/backend.ts#L633) |
-| codexProviderFiles | PropertySignature | VisibilityRepairResult | [634](../../src/types/backend.ts#L634) |
-| codexProviderRows | PropertySignature | VisibilityRepairResult | [635](../../src/types/backend.ts#L635) |
-| codexUsageInserted | PropertySignature | VisibilityRepairResult | [636](../../src/types/backend.ts#L636) |
-| claudeCodeUsageInserted | PropertySignature | VisibilityRepairResult | [637](../../src/types/backend.ts#L637) |
-| message | PropertySignature | VisibilityRepairResult | [638](../../src/types/backend.ts#L638) |
-| DoctorRepairResult | InterfaceDeclaration |  | [641](../../src/types/backend.ts#L641) |
-| id | PropertySignature | DoctorRepairResult | [642](../../src/types/backend.ts#L642) |
-| message | PropertySignature | DoctorRepairResult | [643](../../src/types/backend.ts#L643) |
-| ProxyStatus | InterfaceDeclaration |  | [647](../../src/types/backend.ts#L647) |
-| running | PropertySignature | ProxyStatus | [648](../../src/types/backend.ts#L648) |
-| port | PropertySignature | ProxyStatus | [649](../../src/types/backend.ts#L649) |
-| targetProvider | PropertySignature | ProxyStatus | [650](../../src/types/backend.ts#L650) |
-| phase | PropertySignature | ProxyStatus | [651](../../src/types/backend.ts#L651) |
-| lastError | PropertySignature | ProxyStatus | [652](../../src/types/backend.ts#L652) |
-| checkedAt | PropertySignature | ProxyStatus | [653](../../src/types/backend.ts#L653) |
-| ManagedAppRuntimeStatus | InterfaceDeclaration |  | [657](../../src/types/backend.ts#L657) |
-| claudeCode | PropertySignature | ManagedAppRuntimeStatus | [658](../../src/types/backend.ts#L658) |
-| claudeDesktop | PropertySignature | ManagedAppRuntimeStatus | [659](../../src/types/backend.ts#L659) |
-| codex | PropertySignature | ManagedAppRuntimeStatus | [660](../../src/types/backend.ts#L660) |
-| opencode | PropertySignature | ManagedAppRuntimeStatus | [661](../../src/types/backend.ts#L661) |
-| ProxyStatusUpdated | InterfaceDeclaration |  | [664](../../src/types/backend.ts#L664) |
-| target | PropertySignature | ProxyStatusUpdated | [665](../../src/types/backend.ts#L665) |
-| status | PropertySignature | ProxyStatusUpdated | [666](../../src/types/backend.ts#L666) |
-| AutostartMode | TypeAliasDeclaration |  | [669](../../src/types/backend.ts#L669) |
-| CloseBehavior | TypeAliasDeclaration |  | [670](../../src/types/backend.ts#L670) |
-| AutostartConfig | InterfaceDeclaration |  | [672](../../src/types/backend.ts#L672) |
-| enabled | PropertySignature | AutostartConfig | [673](../../src/types/backend.ts#L673) |
-| mode | PropertySignature | AutostartConfig | [674](../../src/types/backend.ts#L674) |
-| registryName | PropertySignature | AutostartConfig | [675](../../src/types/backend.ts#L675) |
-| command | PropertySignature | AutostartConfig | [676](../../src/types/backend.ts#L676) |
-| taskManagerDisabled | PropertySignature | AutostartConfig | [677](../../src/types/backend.ts#L677) |
-| McpServer | InterfaceDeclaration |  | [681](../../src/types/backend.ts#L681) |
-| id | PropertySignature | McpServer | [682](../../src/types/backend.ts#L682) |
-| name | PropertySignature | McpServer | [683](../../src/types/backend.ts#L683) |
-| serverConfig | PropertySignature | McpServer | [685](../../src/types/backend.ts#L685) |
-| enabledClaudeCode | PropertySignature | McpServer | [686](../../src/types/backend.ts#L686) |
-| enabledClaudeDesktop | PropertySignature | McpServer | [687](../../src/types/backend.ts#L687) |
-| enabledCodex | PropertySignature | McpServer | [688](../../src/types/backend.ts#L688) |
+| claudeCode | PropertySignature | LocalizationHubStatus | [537](../../src/types/backend.ts#L537) |
+| editors | PropertySignature | LocalizationHubStatus | [538](../../src/types/backend.ts#L538) |
+| LocalizationUpstreamRelease | InterfaceDeclaration |  | [541](../../src/types/backend.ts#L541) |
+| repository | PropertySignature | LocalizationUpstreamRelease | [542](../../src/types/backend.ts#L542) |
+| available | PropertySignature | LocalizationUpstreamRelease | [543](../../src/types/backend.ts#L543) |
+| version | PropertySignature | LocalizationUpstreamRelease | [544](../../src/types/backend.ts#L544) |
+| publishedAt | PropertySignature | LocalizationUpstreamRelease | [545](../../src/types/backend.ts#L545) |
+| message | PropertySignature | LocalizationUpstreamRelease | [546](../../src/types/backend.ts#L546) |
+| LocalizationUpstreamStatus | InterfaceDeclaration |  | [549](../../src/types/backend.ts#L549) |
+| checkedAt | PropertySignature | LocalizationUpstreamStatus | [550](../../src/types/backend.ts#L550) |
+| claudeCode | PropertySignature | LocalizationUpstreamStatus | [551](../../src/types/backend.ts#L551) |
+| editor | PropertySignature | LocalizationUpstreamStatus | [552](../../src/types/backend.ts#L552) |
+| desktop | PropertySignature | LocalizationUpstreamStatus | [553](../../src/types/backend.ts#L553) |
+| PathsInfo | InterfaceDeclaration |  | [557](../../src/types/backend.ts#L557) |
+| home | PropertySignature | PathsInfo | [559](../../src/types/backend.ts#L559) |
+| claudeConfigDir | PropertySignature | PathsInfo | [561](../../src/types/backend.ts#L561) |
+| claudeSettingsPath | PropertySignature | PathsInfo | [563](../../src/types/backend.ts#L563) |
+| claudeJsonPath | PropertySignature | PathsInfo | [565](../../src/types/backend.ts#L565) |
+| claudeAgentsPath | PropertySignature | PathsInfo | [567](../../src/types/backend.ts#L567) |
+| codexConfigDir | PropertySignature | PathsInfo | [568](../../src/types/backend.ts#L568) |
+| codexConfigPath | PropertySignature | PathsInfo | [569](../../src/types/backend.ts#L569) |
+| codexAuthPath | PropertySignature | PathsInfo | [570](../../src/types/backend.ts#L570) |
+| codexSkillsDir | PropertySignature | PathsInfo | [571](../../src/types/backend.ts#L571) |
+| codexPluginsCacheDir | PropertySignature | PathsInfo | [572](../../src/types/backend.ts#L572) |
+| codexSessionsDir | PropertySignature | PathsInfo | [573](../../src/types/backend.ts#L573) |
+| codexAgentsPath | PropertySignature | PathsInfo | [574](../../src/types/backend.ts#L574) |
+| opencodeConfigDir | PropertySignature | PathsInfo | [576](../../src/types/backend.ts#L576) |
+| opencodeConfigPath | PropertySignature | PathsInfo | [578](../../src/types/backend.ts#L578) |
+| piConfigDir | PropertySignature | PathsInfo | [580](../../src/types/backend.ts#L580) |
+| piSettingsPath | PropertySignature | PathsInfo | [581](../../src/types/backend.ts#L581) |
+| piAuthPath | PropertySignature | PathsInfo | [582](../../src/types/backend.ts#L582) |
+| piModelsPath | PropertySignature | PathsInfo | [583](../../src/types/backend.ts#L583) |
+| piAgentsPath | PropertySignature | PathsInfo | [584](../../src/types/backend.ts#L584) |
+| piSkillsDir | PropertySignature | PathsInfo | [585](../../src/types/backend.ts#L585) |
+| piMcpPath | PropertySignature | PathsInfo | [586](../../src/types/backend.ts#L586) |
+| piSessionsDir | PropertySignature | PathsInfo | [587](../../src/types/backend.ts#L587) |
+| dshConfigDir | PropertySignature | PathsInfo | [588](../../src/types/backend.ts#L588) |
+| dshSettingsPath | PropertySignature | PathsInfo | [589](../../src/types/backend.ts#L589) |
+| dshCredentialsPath | PropertySignature | PathsInfo | [590](../../src/types/backend.ts#L590) |
+| appConfigDir | PropertySignature | PathsInfo | [592](../../src/types/backend.ts#L592) |
+| appDbPath | PropertySignature | PathsInfo | [594](../../src/types/backend.ts#L594) |
+| backupDir | PropertySignature | PathsInfo | [596](../../src/types/backend.ts#L596) |
+| claudeDesktopBase | PropertySignature | PathsInfo | [598](../../src/types/backend.ts#L598) |
+| claudeDesktopThreepBase | PropertySignature | PathsInfo | [600](../../src/types/backend.ts#L600) |
+| claudeDesktopConfigLibrary | PropertySignature | PathsInfo | [602](../../src/types/backend.ts#L602) |
+| claudeDesktopMetaPath | PropertySignature | PathsInfo | [604](../../src/types/backend.ts#L604) |
+| claudeDesktopNormalConfigPath | PropertySignature | PathsInfo | [606](../../src/types/backend.ts#L606) |
+| claudeDesktopThreepConfigPath | PropertySignature | PathsInfo | [608](../../src/types/backend.ts#L608) |
+| vscodeCopilotConfigPath | PropertySignature | PathsInfo | [610](../../src/types/backend.ts#L610) |
+| DataRootInfo | InterfaceDeclaration |  | [613](../../src/types/backend.ts#L613) |
+| activePath | PropertySignature | DataRootInfo | [614](../../src/types/backend.ts#L614) |
+| legacyPath | PropertySignature | DataRootInfo | [615](../../src/types/backend.ts#L615) |
+| migrated | PropertySignature | DataRootInfo | [616](../../src/types/backend.ts#L616) |
+| restartRequired | PropertySignature | DataRootInfo | [617](../../src/types/backend.ts#L617) |
+| DbInfo | InterfaceDeclaration |  | [621](../../src/types/backend.ts#L621) |
+| path | PropertySignature | DbInfo | [622](../../src/types/backend.ts#L622) |
+| schemaVersion | PropertySignature | DbInfo | [623](../../src/types/backend.ts#L623) |
+| providerCount | PropertySignature | DbInfo | [624](../../src/types/backend.ts#L624) |
+| DoctorCheck | InterfaceDeclaration |  | [627](../../src/types/backend.ts#L627) |
+| id | PropertySignature | DoctorCheck | [628](../../src/types/backend.ts#L628) |
+| label | PropertySignature | DoctorCheck | [629](../../src/types/backend.ts#L629) |
+| ok | PropertySignature | DoctorCheck | [630](../../src/types/backend.ts#L630) |
+| detail | PropertySignature | DoctorCheck | [631](../../src/types/backend.ts#L631) |
+| repairAction | PropertySignature | DoctorCheck | [632](../../src/types/backend.ts#L632) |
+| DoctorReport | InterfaceDeclaration |  | [635](../../src/types/backend.ts#L635) |
+| checks | PropertySignature | DoctorReport | [636](../../src/types/backend.ts#L636) |
+| VisibilityRepairResult | InterfaceDeclaration |  | [639](../../src/types/backend.ts#L639) |
+| codexProviderFiles | PropertySignature | VisibilityRepairResult | [640](../../src/types/backend.ts#L640) |
+| codexProviderRows | PropertySignature | VisibilityRepairResult | [641](../../src/types/backend.ts#L641) |
+| codexUsageInserted | PropertySignature | VisibilityRepairResult | [642](../../src/types/backend.ts#L642) |
+| claudeCodeUsageInserted | PropertySignature | VisibilityRepairResult | [643](../../src/types/backend.ts#L643) |
+| message | PropertySignature | VisibilityRepairResult | [644](../../src/types/backend.ts#L644) |
+| DoctorRepairResult | InterfaceDeclaration |  | [647](../../src/types/backend.ts#L647) |
+| id | PropertySignature | DoctorRepairResult | [648](../../src/types/backend.ts#L648) |
+| message | PropertySignature | DoctorRepairResult | [649](../../src/types/backend.ts#L649) |
+| ProxyStatus | InterfaceDeclaration |  | [653](../../src/types/backend.ts#L653) |
+| running | PropertySignature | ProxyStatus | [654](../../src/types/backend.ts#L654) |
+| port | PropertySignature | ProxyStatus | [655](../../src/types/backend.ts#L655) |
+| targetProvider | PropertySignature | ProxyStatus | [656](../../src/types/backend.ts#L656) |
+| phase | PropertySignature | ProxyStatus | [657](../../src/types/backend.ts#L657) |
+| lastError | PropertySignature | ProxyStatus | [658](../../src/types/backend.ts#L658) |
+| checkedAt | PropertySignature | ProxyStatus | [659](../../src/types/backend.ts#L659) |
+| ManagedAppRuntimeStatus | InterfaceDeclaration |  | [663](../../src/types/backend.ts#L663) |
+| claudeCode | PropertySignature | ManagedAppRuntimeStatus | [664](../../src/types/backend.ts#L664) |
+| claudeDesktop | PropertySignature | ManagedAppRuntimeStatus | [665](../../src/types/backend.ts#L665) |
+| codex | PropertySignature | ManagedAppRuntimeStatus | [666](../../src/types/backend.ts#L666) |
+| opencode | PropertySignature | ManagedAppRuntimeStatus | [667](../../src/types/backend.ts#L667) |
+| ProxyStatusUpdated | InterfaceDeclaration |  | [670](../../src/types/backend.ts#L670) |
+| target | PropertySignature | ProxyStatusUpdated | [671](../../src/types/backend.ts#L671) |
+| status | PropertySignature | ProxyStatusUpdated | [672](../../src/types/backend.ts#L672) |
+| AutostartMode | TypeAliasDeclaration |  | [675](../../src/types/backend.ts#L675) |
+| CloseBehavior | TypeAliasDeclaration |  | [676](../../src/types/backend.ts#L676) |
+| AutostartConfig | InterfaceDeclaration |  | [678](../../src/types/backend.ts#L678) |
+| enabled | PropertySignature | AutostartConfig | [679](../../src/types/backend.ts#L679) |
+| mode | PropertySignature | AutostartConfig | [680](../../src/types/backend.ts#L680) |
+| registryName | PropertySignature | AutostartConfig | [681](../../src/types/backend.ts#L681) |
+| command | PropertySignature | AutostartConfig | [682](../../src/types/backend.ts#L682) |
+| taskManagerDisabled | PropertySignature | AutostartConfig | [683](../../src/types/backend.ts#L683) |
+| McpServer | InterfaceDeclaration |  | [687](../../src/types/backend.ts#L687) |
+| id | PropertySignature | McpServer | [688](../../src/types/backend.ts#L688) |

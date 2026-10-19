@@ -1051,6 +1051,15 @@ export default function EnvironmentPage() {
                 </Descriptions>
               </Card>
             )}
+            {paths.vscodeCopilotConfigPath ? (
+              <Card size="small" className="page-surface" title={t("env.sections.vscodeCopilot", { defaultValue: "VS Code Copilot 配置" })}>
+                <Descriptions column={1} size="small" bordered>
+                  <Descriptions.Item label={t("env.fields.vscodeCopilotConfigPath", { defaultValue: "chatLanguageModels.json" })}>
+                    <PathValue value={paths.vscodeCopilotConfigPath} />
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            ) : null}
             <Card size="small" className="page-surface" title={t("env.sections.app")}>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label={t("env.fields.appConfigDir")}>

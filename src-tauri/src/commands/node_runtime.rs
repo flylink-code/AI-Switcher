@@ -10,6 +10,7 @@ use std::time::Duration;
 use crate::error::{AppError, AppResult};
 
 const MINIMUM_NODE_MAJOR: u64 = 22;
+#[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// Node.js dist mirror used by fnm (same host as the CSDN Ubuntu install guide).
 pub const FNM_NODE_DIST_MIRROR: &str = "https://npmmirror.com/mirrors/node";

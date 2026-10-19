@@ -54,9 +54,10 @@ fn parse_codex_drift_fields(text: &str) -> AppResult<BTreeMap<String, Option<Val
         }
     };
     let mut fields = BTreeMap::new();
-    for key in ["model_provider"] {
-        fields.insert(key.to_string(), doc.get(key).map(field_value));
-    }
+    fields.insert(
+        "model_provider".to_string(),
+        doc.get("model_provider").map(field_value),
+    );
     let entry = doc.get("model_providers")
         .and_then(|item| item.get(codex::MANAGED_PROVIDER_ID));
     for key in ["base_url", "wire_api", "requires_openai_auth"] {

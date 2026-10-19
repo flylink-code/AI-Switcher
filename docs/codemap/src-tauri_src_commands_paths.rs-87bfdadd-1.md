@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/paths.rs) · page 1/1
 
-Source SHA-256: 7061c34772a3f3a48d659829360162cc21445a7371d9a5aa179eaafced6b4dc2
+Source SHA-256: 2bdb748af6f6b95aa720206b25d9fd2683e3cae151d3cc7406990e8e98677c6f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -43,5 +43,6 @@ Source SHA-256: 7061c34772a3f3a48d659829360162cc21445a7371d9a5aa179eaafced6b4dc2
 | claude_desktop_meta_path | field_declaration | PathsInfo | [53](../../src-tauri/src/commands/paths.rs#L53) |
 | claude_desktop_normal_config_path | field_declaration | PathsInfo | [54](../../src-tauri/src/commands/paths.rs#L54) |
 | claude_desktop_threep_config_path | field_declaration | PathsInfo | [55](../../src-tauri/src/commands/paths.rs#L55) |
-| s | function_item |  | [59](../../src-tauri/src/commands/paths.rs#L59) |
-| get_paths | function_item |  | [64](../../src-tauri/src/commands/paths.rs#L64) |
+| vscode_copilot_config_path | field_declaration | PathsInfo | [56](../../src-tauri/src/commands/paths.rs#L56) |
+| s | function_item |  | [60](../../src-tauri/src/commands/paths.rs#L60) |
+| get_paths | function_item |  | [65](../../src-tauri/src/commands/paths.rs#L65) |

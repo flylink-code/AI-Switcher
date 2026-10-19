@@ -147,8 +147,54 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
         codex_info.executable_path.as_deref(),
         codex_info.error.as_deref(),
     ));
+    checks.push(check_vscode_copilot_config());
 
     Ok(DoctorReport { checks })
+}
+
+fn check_vscode_copilot_config() -> DoctorCheck {
+    let install = crate::config::vscode_copilot::detect_vscode_installation();
+    let path = crate::config::vscode_copilot::chat_language_models_path();
+    let managed = match crate::config::vscode_copilot::read_managed_at(&path) {
+        Ok(val) => val,
+        Err(err) => {
+            return DoctorCheck::new(
+                "vscode_copilot",
+                "VS Code Copilot (chatLanguageModels.json)",
+                false,
+                format!("配置文件损坏 ({}): {err}", path.display()),
+            );
+        }
+    };
+    let model_count = managed
+        .as_ref()
+        .and_then(|v| v.get("models"))
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    let vscode_summary = match (install.vscode_installed, install.vscode_version.as_deref()) {
+        (true, Some(ver)) => format!("VS Code {ver}"),
+        (true, None) => "已检测到 VS Code".to_string(),
+        (false, _) => "未检测到 VS Code（可选）".to_string(),
+    };
+    let ext_summary = if install.copilot_extension_installed {
+        "已安装 Copilot 扩展"
+    } else {
+        "未检测到 Copilot 扩展"
+    };
+    let config_summary = if managed.is_some() {
+        format!("已写入 AI-Switcher 托管条目（{model_count} 个模型）@ {}", path.display())
+    } else if path.exists() {
+        format!("未托管（保留原配置）@ {}", path.display())
+    } else {
+        format!("未启用托管（目标路径 {}）", path.display())
+    };
+    DoctorCheck::new(
+        "vscode_copilot",
+        "VS Code Copilot",
+        true,
+        format!("{vscode_summary} · {ext_summary} · {config_summary}"),
+    )
 }
 
 /// Codex CLI 为可选依赖（仅装桌面版时配置写入与切换不受影响）：

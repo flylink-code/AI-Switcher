@@ -4,27 +4,27 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/live_sync.rs) · page 2/2
 
-Source SHA-256: ca42dfaa165d33a3edc8bb9f9315018557949fe9f44e44429abf98d9f48d06a9
+Source SHA-256: 66d229ae694e2e057f7e56e33b9f1edf9e659004508704024c73a6bed8b1d318
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| adopt_absent_key_drift | function_item |  | [1309](../../src-tauri/src/commands/providers/live_sync.rs#L1309) |
-| adopt_credential_key_migration | function_item |  | [1329](../../src-tauri/src/commands/providers/live_sync.rs#L1329) |
-| AUTH | const_item | adopt_credential_key_migration | [1333](../../src-tauri/src/commands/providers/live_sync.rs#L1333) |
-| API | const_item | adopt_credential_key_migration | [1334](../../src-tauri/src/commands/providers/live_sync.rs#L1334) |
-| reconcile_code_ownership | function_item |  | [1372](../../src-tauri/src/commands/providers/live_sync.rs#L1372) |
-| managed_fields_match | function_item |  | [1381](../../src-tauri/src/commands/providers/live_sync.rs#L1381) |
-| expected_code_fields | function_item |  | [1388](../../src-tauri/src/commands/providers/live_sync.rs#L1388) |
-| format | macro invocation (unexpanded) | expected_code_fields | [1404](../../src-tauri/src/commands/providers/live_sync.rs#L1404) |
-| upgrade_code_ownership_fields | function_item |  | [1498](../../src-tauri/src/commands/providers/live_sync.rs#L1498) |
-| prepare_code_ownership | function_item |  | [1518](../../src-tauri/src/commands/providers/live_sync.rs#L1518) |
-| log::warn | macro invocation (unexpanded) | prepare_code_ownership | [1535](../../src-tauri/src/commands/providers/live_sync.rs#L1535) |
-| commit_code_ownership | function_item |  | [1553](../../src-tauri/src/commands/providers/live_sync.rs#L1553) |
-| restore_code_ownership | function_item |  | [1559](../../src-tauri/src/commands/providers/live_sync.rs#L1559) |
-| log::warn | macro invocation (unexpanded) | restore_code_ownership | [1571](../../src-tauri/src/commands/providers/live_sync.rs#L1571) |
-| DESKTOP_OWNERSHIP_KEY | const_item |  | [1581](../../src-tauri/src/commands/providers/live_sync.rs#L1581) |
-| desktop_switch_original_applied_id | function_item |  | [1583](../../src-tauri/src/commands/providers/live_sync.rs#L1583) |
-| log::warn | macro invocation (unexpanded) | desktop_switch_original_applied_id | [1602](../../src-tauri/src/commands/providers/live_sync.rs#L1602) |
-| prepare_desktop_ownership | function_item |  | [1610](../../src-tauri/src/commands/providers/live_sync.rs#L1610) |
-| commit_desktop_ownership | function_item |  | [1623](../../src-tauri/src/commands/providers/live_sync.rs#L1623) |
-| restore_desktop_ownership | function_item |  | [1629](../../src-tauri/src/commands/providers/live_sync.rs#L1629) |
+| adopt_absent_key_drift | function_item |  | [1312](../../src-tauri/src/commands/providers/live_sync.rs#L1312) |
+| adopt_credential_key_migration | function_item |  | [1332](../../src-tauri/src/commands/providers/live_sync.rs#L1332) |
+| AUTH | const_item | adopt_credential_key_migration | [1336](../../src-tauri/src/commands/providers/live_sync.rs#L1336) |
+| API | const_item | adopt_credential_key_migration | [1337](../../src-tauri/src/commands/providers/live_sync.rs#L1337) |
+| reconcile_code_ownership | function_item |  | [1375](../../src-tauri/src/commands/providers/live_sync.rs#L1375) |
+| managed_fields_match | function_item |  | [1384](../../src-tauri/src/commands/providers/live_sync.rs#L1384) |
+| expected_code_fields | function_item |  | [1391](../../src-tauri/src/commands/providers/live_sync.rs#L1391) |
+| format | macro invocation (unexpanded) | expected_code_fields | [1407](../../src-tauri/src/commands/providers/live_sync.rs#L1407) |
+| upgrade_code_ownership_fields | function_item |  | [1501](../../src-tauri/src/commands/providers/live_sync.rs#L1501) |
+| prepare_code_ownership | function_item |  | [1521](../../src-tauri/src/commands/providers/live_sync.rs#L1521) |
+| log::warn | macro invocation (unexpanded) | prepare_code_ownership | [1538](../../src-tauri/src/commands/providers/live_sync.rs#L1538) |
+| commit_code_ownership | function_item |  | [1556](../../src-tauri/src/commands/providers/live_sync.rs#L1556) |
+| restore_code_ownership | function_item |  | [1562](../../src-tauri/src/commands/providers/live_sync.rs#L1562) |
+| log::warn | macro invocation (unexpanded) | restore_code_ownership | [1574](../../src-tauri/src/commands/providers/live_sync.rs#L1574) |
+| DESKTOP_OWNERSHIP_KEY | const_item |  | [1584](../../src-tauri/src/commands/providers/live_sync.rs#L1584) |
+| desktop_switch_original_applied_id | function_item |  | [1586](../../src-tauri/src/commands/providers/live_sync.rs#L1586) |
+| log::warn | macro invocation (unexpanded) | desktop_switch_original_applied_id | [1605](../../src-tauri/src/commands/providers/live_sync.rs#L1605) |
+| prepare_desktop_ownership | function_item |  | [1613](../../src-tauri/src/commands/providers/live_sync.rs#L1613) |
+| commit_desktop_ownership | function_item |  | [1626](../../src-tauri/src/commands/providers/live_sync.rs#L1626) |
+| restore_desktop_ownership | function_item |  | [1632](../../src-tauri/src/commands/providers/live_sync.rs#L1632) |

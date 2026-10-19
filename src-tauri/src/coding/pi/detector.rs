@@ -134,9 +134,72 @@ fn get_pi_candidates() -> Vec<PathBuf> {
         let base = PathBuf::from(home);
         candidates.push(base.join(".bun").join("bin").join("pi"));
         candidates.push(base.join(".local").join("bin").join("pi"));
+        candidates.push(base.join(".npm-global").join("bin").join("pi"));
+        candidates.push(base.join(".local").join("share").join("pnpm").join("pi"));
+        candidates.push(base.join(".volta").join("bin").join("pi"));
+        let nvm_versions = base.join(".nvm").join("versions").join("node");
+        if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+            for entry in entries.flatten().take(64) {
+                candidates.push(entry.path().join("bin").join("pi"));
+            }
+        }
     }
 
-    candidates
+    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+        #[cfg(windows)]
+        {
+            candidates.push(dir.join("pi.cmd"));
+            candidates.push(dir.join("pi.exe"));
+        }
+        candidates.push(dir.join("pi"));
+    }
+
+    if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+        for dir in crate::commands::node_runtime::npm_global_bin_dirs(
+            &runtime.npm_path,
+            &runtime.node_path,
+        ) {
+            #[cfg(windows)]
+            {
+                candidates.push(dir.join("pi.cmd"));
+                candidates.push(dir.join("pi.exe"));
+            }
+            candidates.push(dir.join("pi"));
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        candidates.push(PathBuf::from("/usr/local/bin/pi"));
+        candidates.push(PathBuf::from("/usr/bin/pi"));
+    }
+
+    let mut deduped = Vec::new();
+    for p in candidates {
+        if !deduped.contains(&p) {
+            deduped.push(p);
+        }
+    }
+    deduped
+}
+
+fn pi_probe_env_path(tool_path: &Path) -> Option<std::ffi::OsString> {
+    let mut dirs = Vec::new();
+    if let Some(parent) = tool_path.parent() {
+        dirs.push(parent.to_path_buf());
+    }
+    if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+        if let Some(parent) = runtime.node_path.parent() {
+            dirs.push(parent.to_path_buf());
+        }
+    }
+    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+        dirs.push(dir);
+    }
+    if let Some(existing) = env::var_os("PATH") {
+        dirs.extend(env::split_paths(&existing));
+    }
+    env::join_paths(dirs).ok()
 }
 
 fn empty_info(error: Option<String>) -> PiCliVersionInfo {
@@ -172,6 +235,9 @@ pub fn detect_pi_cli_sync() -> PiCliVersionInfo {
 
         let mut version_cmd = Command::new(&path);
         version_cmd.arg("--version");
+        if let Some(joined_path) = pi_probe_env_path(&path) {
+            version_cmd.env("PATH", joined_path);
+        }
         apply_no_window(&mut version_cmd);
 
         match version_cmd.output() {
@@ -235,6 +301,20 @@ pub fn detect_pi_cli_sync() -> PiCliVersionInfo {
 
 /// `npm view <pkg> version` — best-effort, returns None on failure.
 pub fn fetch_pi_npm_latest_sync() -> Option<String> {
+    if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+        if let Ok(output) = crate::commands::node_runtime::run_anchored_npm(
+            &runtime.npm_path,
+            &runtime.node_path,
+            &["view", PI_NPM_PACKAGE, "version"],
+        ) {
+            if output.status.success() {
+                let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !text.is_empty() {
+                    return Some(text);
+                }
+            }
+        }
+    }
     let mut cmd = if cfg!(windows) {
         let mut c = Command::new("cmd");
         c.args(["/C", "npm", "view", PI_NPM_PACKAGE, "version"]);

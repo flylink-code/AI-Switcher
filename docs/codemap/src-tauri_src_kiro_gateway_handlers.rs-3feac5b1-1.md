@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/gateway/handlers.rs) · page 1/1
 
-Source SHA-256: 4301881b49b10d3ff6266156b4a73f22b9e67301a5b74ef9da6741634d83c08f
+Source SHA-256: a45b1044ae4941b3e7fdb882b6618b49b1a4dd77ccb1f18ccd634809fa9b06af
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -67,7 +67,7 @@ Source SHA-256: 4301881b49b10d3ff6266156b4a73f22b9e67301a5b74ef9da6741634d83c08f
 | serde_json::json | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [980](../../src-tauri/src/kiro/gateway/handlers.rs#L980) |
 | println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1000](../../src-tauri/src/kiro/gateway/handlers.rs#L1000) |
 | panic | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1006](../../src-tauri/src/kiro/gateway/handlers.rs#L1006) |
-| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1034](../../src-tauri/src/kiro/gateway/handlers.rs#L1034) |
+| println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1035](../../src-tauri/src/kiro/gateway/handlers.rs#L1035) |
 | println | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1045](../../src-tauri/src/kiro/gateway/handlers.rs#L1045) |
 | assert | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1049](../../src-tauri/src/kiro/gateway/handlers.rs#L1049) |
 | assert | macro invocation (unexpanded) | tests::live_kiro_claude_sonnet_55_incremental_streaming_smoke | [1050](../../src-tauri/src/kiro/gateway/handlers.rs#L1050) |

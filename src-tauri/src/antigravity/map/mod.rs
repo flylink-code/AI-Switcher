@@ -308,11 +308,11 @@ fn enforce_gemini_context_budget(contents: &mut [Value]) {
     let contents_len = contents.len();
     let older_cutoff = contents_len.saturating_sub(2);
     // Pass 1: compact older functionResponse outputs and inlineData payloads.
-    for idx in 0..older_cutoff {
+    for (idx, item) in contents.iter_mut().enumerate().take(older_cutoff) {
         if total <= MAX_GEMINI_CONTEXT_CHARS {
             return;
         }
-        let Some(parts) = contents[idx].get_mut("parts").and_then(Value::as_array_mut) else {
+        let Some(parts) = item.get_mut("parts").and_then(Value::as_array_mut) else {
             continue;
         };
         for part in parts.iter_mut() {
@@ -338,11 +338,11 @@ fn enforce_gemini_context_budget(contents: &mut [Value]) {
     }
 
     // Pass 2: compact older text parts if still over budget.
-    for idx in 0..older_cutoff {
+    for item in contents.iter_mut().take(older_cutoff) {
         if total <= MAX_GEMINI_CONTEXT_CHARS {
             return;
         }
-        let Some(parts) = contents[idx].get_mut("parts").and_then(Value::as_array_mut) else {
+        let Some(parts) = item.get_mut("parts").and_then(Value::as_array_mut) else {
             continue;
         };
         for part in parts.iter_mut() {
@@ -364,11 +364,11 @@ fn enforce_gemini_context_budget(contents: &mut [Value]) {
     }
 
     // Pass 3: if recent turns alone exceed budget, cap individual giant parts in the tail turns.
-    for idx in older_cutoff..contents.len() {
+    for item in contents.iter_mut().skip(older_cutoff) {
         if total <= MAX_GEMINI_CONTEXT_CHARS {
             return;
         }
-        let Some(parts) = contents[idx].get_mut("parts").and_then(Value::as_array_mut) else {
+        let Some(parts) = item.get_mut("parts").and_then(Value::as_array_mut) else {
             continue;
         };
         for part in parts.iter_mut() {

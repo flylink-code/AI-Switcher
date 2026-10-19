@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/localization.rs) · page 1/3
 
-Source SHA-256: 3df9a513a5a3c10062ba37ddbbccaebb6fb36fb9fef406a324e779a1c566f8dd
+Source SHA-256: 3b2e971145982c0659b52f5ec81ca564b08ed1512b1530ea8a46c0fa030600d7
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

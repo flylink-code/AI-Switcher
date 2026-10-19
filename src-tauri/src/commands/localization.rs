@@ -863,6 +863,7 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
 }
 
 /// Build `call "program" arg1 arg2` for cmd.exe /C.
+#[cfg(any(windows, test))]
 fn format_cmd_script_line(program: &Path, args: &[&str]) -> String {
     let mut line = format!("call {}", quote_cmd_arg(&program.to_string_lossy()));
     for arg in args {
@@ -872,6 +873,7 @@ fn format_cmd_script_line(program: &Path, args: &[&str]) -> String {
     line
 }
 
+#[cfg(any(windows, test))]
 fn quote_cmd_arg(value: &str) -> String {
     if value.is_empty() {
         return "\"\"".to_string();
@@ -882,6 +884,7 @@ fn quote_cmd_arg(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
+#[cfg(any(windows, test))]
 fn requires_command_shell(program: &Path) -> bool {
     program
         .extension()
@@ -922,11 +925,36 @@ fn strip_cli_noise(text: &str) -> String {
 fn editor_definitions() -> Vec<EditorDefinition> {
     let home = dirs::home_dir().unwrap_or_default();
     let local = dirs::data_local_dir().unwrap_or_default();
+    let vscode_ext_dir = {
+        let primary = home.join(".vscode").join("extensions");
+        let snap = home
+            .join("snap")
+            .join("code")
+            .join("current")
+            .join(".vscode")
+            .join("extensions");
+        let flatpak = home
+            .join(".var")
+            .join("app")
+            .join("com.visualstudio.code")
+            .join("data")
+            .join("vscode")
+            .join("extensions");
+        if primary.is_dir() {
+            primary
+        } else if snap.is_dir() {
+            snap
+        } else if flatpak.is_dir() {
+            flatpak
+        } else {
+            primary
+        }
+    };
     vec![
         EditorDefinition {
             id: "vscode",
             label: "VS Code",
-            extension_dir: home.join(".vscode").join("extensions"),
+            extension_dir: vscode_ext_dir,
             command_name: "code",
             cli_candidates: vec![
                 local
@@ -936,6 +964,13 @@ fn editor_definitions() -> Vec<EditorDefinition> {
                     .join("code.cmd"),
                 PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin\code.cmd"),
                 PathBuf::from(r"C:\Program Files (x86)\Microsoft VS Code\bin\code.cmd"),
+                PathBuf::from("/usr/bin/code"),
+                PathBuf::from("/snap/bin/code"),
+                PathBuf::from("/var/lib/snapd/snap/bin/code"),
+                PathBuf::from("/usr/share/code/bin/code"),
+                PathBuf::from("/usr/local/bin/code"),
+                PathBuf::from("/opt/vscode/bin/code"),
+                PathBuf::from("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"),
             ],
         },
         EditorDefinition {
@@ -974,6 +1009,12 @@ fn editor_definitions() -> Vec<EditorDefinition> {
                     .join("cursor.cmd"),
                 PathBuf::from(r"C:\Program Files\Cursor\resources\app\bin\cursor.cmd"),
                 PathBuf::from(r"C:\Program Files\cursor\resources\app\bin\cursor.cmd"),
+                PathBuf::from("/usr/bin/cursor"),
+                PathBuf::from("/usr/local/bin/cursor"),
+                PathBuf::from("/opt/Cursor/resources/app/bin/cursor"),
+                PathBuf::from("/opt/cursor/resources/app/bin/cursor"),
+                home.join(".local").join("bin").join("cursor"),
+                PathBuf::from("/Applications/Cursor.app/Contents/Resources/app/bin/cursor"),
             ],
         },
     ]
@@ -1223,7 +1264,23 @@ fn expand_windows_env(value: &str) -> String {
 }
 
 #[cfg(not(windows))]
-fn find_command_on_path(_command: &str) -> Option<PathBuf> {
+fn find_command_on_path(command: &str) -> Option<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(path) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+    dirs.push(PathBuf::from("/usr/local/bin"));
+    dirs.push(PathBuf::from("/usr/bin"));
+    dirs.push(PathBuf::from("/snap/bin"));
+    if let Some(home) = dirs::home_dir() {
+        dirs.push(home.join(".local").join("bin"));
+    }
+    for dir in dirs {
+        let candidate = dir.join(command);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
     None
 }
 

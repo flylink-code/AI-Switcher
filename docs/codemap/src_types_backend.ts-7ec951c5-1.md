@@ -4,7 +4,7 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 1/12
 
-Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
+Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -29,82 +29,82 @@ Source SHA-256: d460377cc3886d8567d6c167c8700aacba02a0e42b610f5534a345d810a99f71
 | field | PropertySignature | VscodeCopilotStatus.drift | [24](../../src/types/backend.ts#L24) |
 | currentPresent | PropertySignature | VscodeCopilotStatus.drift | [24](../../src/types/backend.ts#L24) |
 | appliedPresent | PropertySignature | VscodeCopilotStatus.drift | [24](../../src/types/backend.ts#L24) |
-| ProviderInput | InterfaceDeclaration |  | [44](../../src/types/backend.ts#L44) |
-| id | PropertySignature | ProviderInput | [45](../../src/types/backend.ts#L45) |
-| name | PropertySignature | ProviderInput | [46](../../src/types/backend.ts#L46) |
-| baseUrl | PropertySignature | ProviderInput | [47](../../src/types/backend.ts#L47) |
-| apiKey | PropertySignature | ProviderInput | [48](../../src/types/backend.ts#L48) |
-| clearApiKey | PropertySignature | ProviderInput | [49](../../src/types/backend.ts#L49) |
-| model | PropertySignature | ProviderInput | [50](../../src/types/backend.ts#L50) |
-| modelContextWindow | PropertySignature | ProviderInput | [51](../../src/types/backend.ts#L51) |
-| autoReviewModelOverride | PropertySignature | ProviderInput | [52](../../src/types/backend.ts#L52) |
-| webSearchEnabled | PropertySignature | ProviderInput | [53](../../src/types/backend.ts#L53) |
-| modelMapping | PropertySignature | ProviderInput | [54](../../src/types/backend.ts#L54) |
-| protocolType | PropertySignature | ProviderInput | [55](../../src/types/backend.ts#L55) |
-| providerKind | PropertySignature | ProviderInput | [56](../../src/types/backend.ts#L56) |
-| authBinding | PropertySignature | ProviderInput | [57](../../src/types/backend.ts#L57) |
-| targetApp | PropertySignature | ProviderInput | [58](../../src/types/backend.ts#L58) |
-| notes | PropertySignature | ProviderInput | [59](../../src/types/backend.ts#L59) |
-| failoverGroup | PropertySignature | ProviderInput | [60](../../src/types/backend.ts#L60) |
-| failoverModels | PropertySignature | ProviderInput | [61](../../src/types/backend.ts#L61) |
-| hiddenModels | PropertySignature | ProviderInput | [62](../../src/types/backend.ts#L62) |
-| thinkingConfig | PropertySignature | ProviderInput | [63](../../src/types/backend.ts#L63) |
-| customHeaders | PropertySignature | ProviderInput | [64](../../src/types/backend.ts#L64) |
-| GatewayProfile | InterfaceDeclaration |  | [67](../../src/types/backend.ts#L67) |
-| id | PropertySignature | GatewayProfile | [68](../../src/types/backend.ts#L68) |
-| name | PropertySignature | GatewayProfile | [69](../../src/types/backend.ts#L69) |
-| defaultModel | PropertySignature | GatewayProfile | [70](../../src/types/backend.ts#L70) |
-| fallbackMode | PropertySignature | GatewayProfile | [71](../../src/types/backend.ts#L71) |
-| fallbackModels | PropertySignature | GatewayProfile | [72](../../src/types/backend.ts#L72) |
-| explicitFallbackEnabled | PropertySignature | GatewayProfile | [73](../../src/types/backend.ts#L73) |
-| hideOfficial | PropertySignature | GatewayProfile | [74](../../src/types/backend.ts#L74) |
-| allowedUpstreamIds | PropertySignature | GatewayProfile | [75](../../src/types/backend.ts#L75) |
-| ConnectionType | TypeAliasDeclaration |  | [78](../../src/types/backend.ts#L78) |
-| AgentConnectionView | InterfaceDeclaration |  | [80](../../src/types/backend.ts#L80) |
-| target | PropertySignature | AgentConnectionView | [81](../../src/types/backend.ts#L81) |
-| connectionType | PropertySignature | AgentConnectionView | [82](../../src/types/backend.ts#L82) |
-| upstreamId | PropertySignature | AgentConnectionView | [83](../../src/types/backend.ts#L83) |
-| profile | PropertySignature | AgentConnectionView | [84](../../src/types/backend.ts#L84) |
-| GatewayRouteLogStatusFilter | TypeAliasDeclaration |  | [87](../../src/types/backend.ts#L87) |
-| GatewayRouteLogFilters | InterfaceDeclaration |  | [89](../../src/types/backend.ts#L89) |
-| target | PropertySignature | GatewayRouteLogFilters | [90](../../src/types/backend.ts#L90) |
-| status | PropertySignature | GatewayRouteLogFilters | [91](../../src/types/backend.ts#L91) |
-| mode | PropertySignature | GatewayRouteLogFilters | [92](../../src/types/backend.ts#L92) |
-| keyword | PropertySignature | GatewayRouteLogFilters | [93](../../src/types/backend.ts#L93) |
-| PaginatedGatewayRouteLogs | InterfaceDeclaration |  | [96](../../src/types/backend.ts#L96) |
-| data | PropertySignature | PaginatedGatewayRouteLogs | [97](../../src/types/backend.ts#L97) |
-| total | PropertySignature | PaginatedGatewayRouteLogs | [98](../../src/types/backend.ts#L98) |
-| page | PropertySignature | PaginatedGatewayRouteLogs | [99](../../src/types/backend.ts#L99) |
-| pageSize | PropertySignature | PaginatedGatewayRouteLogs | [100](../../src/types/backend.ts#L100) |
-| GatewayRouteLog | InterfaceDeclaration |  | [103](../../src/types/backend.ts#L103) |
-| id | PropertySignature | GatewayRouteLog | [104](../../src/types/backend.ts#L104) |
-| createdAt | PropertySignature | GatewayRouteLog | [105](../../src/types/backend.ts#L105) |
-| requestedModel | PropertySignature | GatewayRouteLog | [106](../../src/types/backend.ts#L106) |
-| model | PropertySignature | GatewayRouteLog | [107](../../src/types/backend.ts#L107) |
-| routeReason | PropertySignature | GatewayRouteLog | [108](../../src/types/backend.ts#L108) |
-| routeMode | PropertySignature | GatewayRouteLog | [109](../../src/types/backend.ts#L109) |
-| profileId | PropertySignature | GatewayRouteLog | [110](../../src/types/backend.ts#L110) |
-| upstreamId | PropertySignature | GatewayRouteLog | [111](../../src/types/backend.ts#L111) |
-| providerName | PropertySignature | GatewayRouteLog | [112](../../src/types/backend.ts#L112) |
-| attemptIndex | PropertySignature | GatewayRouteLog | [113](../../src/types/backend.ts#L113) |
-| statusCode | PropertySignature | GatewayRouteLog | [114](../../src/types/backend.ts#L114) |
-| durationMs | PropertySignature | GatewayRouteLog | [115](../../src/types/backend.ts#L115) |
-| inputTokens | PropertySignature | GatewayRouteLog | [116](../../src/types/backend.ts#L116) |
-| cacheReadInputTokens | PropertySignature | GatewayRouteLog | [117](../../src/types/backend.ts#L117) |
-| cacheCreationInputTokens | PropertySignature | GatewayRouteLog | [118](../../src/types/backend.ts#L118) |
-| outputTokens | PropertySignature | GatewayRouteLog | [119](../../src/types/backend.ts#L119) |
-| errorCategory | PropertySignature | GatewayRouteLog | [120](../../src/types/backend.ts#L120) |
-| streamOutcome | PropertySignature | GatewayRouteLog | [121](../../src/types/backend.ts#L121) |
-| estimatedCost | PropertySignature | GatewayRouteLog | [122](../../src/types/backend.ts#L122) |
-| attemptsJson | PropertySignature | GatewayRouteLog | [123](../../src/types/backend.ts#L123) |
-| reasoningEffort | PropertySignature | GatewayRouteLog | [124](../../src/types/backend.ts#L124) |
-| GatewayUpstreamHealth | InterfaceDeclaration |  | [127](../../src/types/backend.ts#L127) |
-| upstreamId | PropertySignature | GatewayUpstreamHealth | [128](../../src/types/backend.ts#L128) |
-| status | PropertySignature | GatewayUpstreamHealth | [129](../../src/types/backend.ts#L129) |
-| consecutiveFailures | PropertySignature | GatewayUpstreamHealth | [130](../../src/types/backend.ts#L130) |
-| cooldownRemainingMs | PropertySignature | GatewayUpstreamHealth | [131](../../src/types/backend.ts#L131) |
-| lastLatencyMs | PropertySignature | GatewayUpstreamHealth | [132](../../src/types/backend.ts#L132) |
-| lastCheckedAt | PropertySignature | GatewayUpstreamHealth | [133](../../src/types/backend.ts#L133) |
-| lastError | PropertySignature | GatewayUpstreamHealth | [134](../../src/types/backend.ts#L134) |
-| UpstreamLimitPolicy | InterfaceDeclaration |  | [137](../../src/types/backend.ts#L137) |
-| maxConcurrency | PropertySignature | UpstreamLimitPolicy | [138](../../src/types/backend.ts#L138) |
+| vscodeInstalled | PropertySignature | VscodeCopilotStatus | [25](../../src/types/backend.ts#L25) |
+| vscodeVersion | PropertySignature | VscodeCopilotStatus | [26](../../src/types/backend.ts#L26) |
+| vscodePath | PropertySignature | VscodeCopilotStatus | [27](../../src/types/backend.ts#L27) |
+| copilotExtensionInstalled | PropertySignature | VscodeCopilotStatus | [28](../../src/types/backend.ts#L28) |
+| ProviderInput | InterfaceDeclaration |  | [48](../../src/types/backend.ts#L48) |
+| id | PropertySignature | ProviderInput | [49](../../src/types/backend.ts#L49) |
+| name | PropertySignature | ProviderInput | [50](../../src/types/backend.ts#L50) |
+| baseUrl | PropertySignature | ProviderInput | [51](../../src/types/backend.ts#L51) |
+| apiKey | PropertySignature | ProviderInput | [52](../../src/types/backend.ts#L52) |
+| clearApiKey | PropertySignature | ProviderInput | [53](../../src/types/backend.ts#L53) |
+| model | PropertySignature | ProviderInput | [54](../../src/types/backend.ts#L54) |
+| modelContextWindow | PropertySignature | ProviderInput | [55](../../src/types/backend.ts#L55) |
+| autoReviewModelOverride | PropertySignature | ProviderInput | [56](../../src/types/backend.ts#L56) |
+| webSearchEnabled | PropertySignature | ProviderInput | [57](../../src/types/backend.ts#L57) |
+| modelMapping | PropertySignature | ProviderInput | [58](../../src/types/backend.ts#L58) |
+| protocolType | PropertySignature | ProviderInput | [59](../../src/types/backend.ts#L59) |
+| providerKind | PropertySignature | ProviderInput | [60](../../src/types/backend.ts#L60) |
+| authBinding | PropertySignature | ProviderInput | [61](../../src/types/backend.ts#L61) |
+| targetApp | PropertySignature | ProviderInput | [62](../../src/types/backend.ts#L62) |
+| notes | PropertySignature | ProviderInput | [63](../../src/types/backend.ts#L63) |
+| failoverGroup | PropertySignature | ProviderInput | [64](../../src/types/backend.ts#L64) |
+| failoverModels | PropertySignature | ProviderInput | [65](../../src/types/backend.ts#L65) |
+| hiddenModels | PropertySignature | ProviderInput | [66](../../src/types/backend.ts#L66) |
+| thinkingConfig | PropertySignature | ProviderInput | [67](../../src/types/backend.ts#L67) |
+| customHeaders | PropertySignature | ProviderInput | [68](../../src/types/backend.ts#L68) |
+| GatewayProfile | InterfaceDeclaration |  | [71](../../src/types/backend.ts#L71) |
+| id | PropertySignature | GatewayProfile | [72](../../src/types/backend.ts#L72) |
+| name | PropertySignature | GatewayProfile | [73](../../src/types/backend.ts#L73) |
+| defaultModel | PropertySignature | GatewayProfile | [74](../../src/types/backend.ts#L74) |
+| fallbackMode | PropertySignature | GatewayProfile | [75](../../src/types/backend.ts#L75) |
+| fallbackModels | PropertySignature | GatewayProfile | [76](../../src/types/backend.ts#L76) |
+| explicitFallbackEnabled | PropertySignature | GatewayProfile | [77](../../src/types/backend.ts#L77) |
+| hideOfficial | PropertySignature | GatewayProfile | [78](../../src/types/backend.ts#L78) |
+| allowedUpstreamIds | PropertySignature | GatewayProfile | [79](../../src/types/backend.ts#L79) |
+| ConnectionType | TypeAliasDeclaration |  | [82](../../src/types/backend.ts#L82) |
+| AgentConnectionView | InterfaceDeclaration |  | [84](../../src/types/backend.ts#L84) |
+| target | PropertySignature | AgentConnectionView | [85](../../src/types/backend.ts#L85) |
+| connectionType | PropertySignature | AgentConnectionView | [86](../../src/types/backend.ts#L86) |
+| upstreamId | PropertySignature | AgentConnectionView | [87](../../src/types/backend.ts#L87) |
+| profile | PropertySignature | AgentConnectionView | [88](../../src/types/backend.ts#L88) |
+| GatewayRouteLogStatusFilter | TypeAliasDeclaration |  | [91](../../src/types/backend.ts#L91) |
+| GatewayRouteLogFilters | InterfaceDeclaration |  | [93](../../src/types/backend.ts#L93) |
+| target | PropertySignature | GatewayRouteLogFilters | [94](../../src/types/backend.ts#L94) |
+| status | PropertySignature | GatewayRouteLogFilters | [95](../../src/types/backend.ts#L95) |
+| mode | PropertySignature | GatewayRouteLogFilters | [96](../../src/types/backend.ts#L96) |
+| keyword | PropertySignature | GatewayRouteLogFilters | [97](../../src/types/backend.ts#L97) |
+| PaginatedGatewayRouteLogs | InterfaceDeclaration |  | [100](../../src/types/backend.ts#L100) |
+| data | PropertySignature | PaginatedGatewayRouteLogs | [101](../../src/types/backend.ts#L101) |
+| total | PropertySignature | PaginatedGatewayRouteLogs | [102](../../src/types/backend.ts#L102) |
+| page | PropertySignature | PaginatedGatewayRouteLogs | [103](../../src/types/backend.ts#L103) |
+| pageSize | PropertySignature | PaginatedGatewayRouteLogs | [104](../../src/types/backend.ts#L104) |
+| GatewayRouteLog | InterfaceDeclaration |  | [107](../../src/types/backend.ts#L107) |
+| id | PropertySignature | GatewayRouteLog | [108](../../src/types/backend.ts#L108) |
+| createdAt | PropertySignature | GatewayRouteLog | [109](../../src/types/backend.ts#L109) |
+| requestedModel | PropertySignature | GatewayRouteLog | [110](../../src/types/backend.ts#L110) |
+| model | PropertySignature | GatewayRouteLog | [111](../../src/types/backend.ts#L111) |
+| routeReason | PropertySignature | GatewayRouteLog | [112](../../src/types/backend.ts#L112) |
+| routeMode | PropertySignature | GatewayRouteLog | [113](../../src/types/backend.ts#L113) |
+| profileId | PropertySignature | GatewayRouteLog | [114](../../src/types/backend.ts#L114) |
+| upstreamId | PropertySignature | GatewayRouteLog | [115](../../src/types/backend.ts#L115) |
+| providerName | PropertySignature | GatewayRouteLog | [116](../../src/types/backend.ts#L116) |
+| attemptIndex | PropertySignature | GatewayRouteLog | [117](../../src/types/backend.ts#L117) |
+| statusCode | PropertySignature | GatewayRouteLog | [118](../../src/types/backend.ts#L118) |
+| durationMs | PropertySignature | GatewayRouteLog | [119](../../src/types/backend.ts#L119) |
+| inputTokens | PropertySignature | GatewayRouteLog | [120](../../src/types/backend.ts#L120) |
+| cacheReadInputTokens | PropertySignature | GatewayRouteLog | [121](../../src/types/backend.ts#L121) |
+| cacheCreationInputTokens | PropertySignature | GatewayRouteLog | [122](../../src/types/backend.ts#L122) |
+| outputTokens | PropertySignature | GatewayRouteLog | [123](../../src/types/backend.ts#L123) |
+| errorCategory | PropertySignature | GatewayRouteLog | [124](../../src/types/backend.ts#L124) |
+| streamOutcome | PropertySignature | GatewayRouteLog | [125](../../src/types/backend.ts#L125) |
+| estimatedCost | PropertySignature | GatewayRouteLog | [126](../../src/types/backend.ts#L126) |
+| attemptsJson | PropertySignature | GatewayRouteLog | [127](../../src/types/backend.ts#L127) |
+| reasoningEffort | PropertySignature | GatewayRouteLog | [128](../../src/types/backend.ts#L128) |
+| GatewayUpstreamHealth | InterfaceDeclaration |  | [131](../../src/types/backend.ts#L131) |
+| upstreamId | PropertySignature | GatewayUpstreamHealth | [132](../../src/types/backend.ts#L132) |
+| status | PropertySignature | GatewayUpstreamHealth | [133](../../src/types/backend.ts#L133) |
+| consecutiveFailures | PropertySignature | GatewayUpstreamHealth | [134](../../src/types/backend.ts#L134) |
+| cooldownRemainingMs | PropertySignature | GatewayUpstreamHealth | [135](../../src/types/backend.ts#L135) |
+| lastLatencyMs | PropertySignature | GatewayUpstreamHealth | [136](../../src/types/backend.ts#L136) |

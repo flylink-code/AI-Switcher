@@ -4,37 +4,37 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/node_runtime.rs) · page 2/2
 
-Source SHA-256: 2d4a12cc634f5a801f4af7589d5cbf393bbfd56716f4f750ff5a1956bb7896ee
+Source SHA-256: d74da873619699f96725ddfc5cc88201932d7ef49d8937fa21732c01ad0b69ff
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| format | macro invocation (unexpanded) | install_node_22_via_fnm | [992](../../src-tauri/src/commands/node_runtime.rs#L992) |
-| ensure_node_runtime_via_fnm_sync_with_mirror | function_item |  | [1001](../../src-tauri/src/commands/node_runtime.rs#L1001) |
-| format | macro invocation (unexpanded) | ensure_node_runtime_via_fnm_sync_with_mirror | [1022](../../src-tauri/src/commands/node_runtime.rs#L1022) |
-| get_node_runtime_status | function_item |  | [1031](../../src-tauri/src/commands/node_runtime.rs#L1031) |
-| format | macro invocation (unexpanded) | get_node_runtime_status | [1034](../../src-tauri/src/commands/node_runtime.rs#L1034) |
-| ensure_node_runtime_via_fnm | function_item |  | [1038](../../src-tauri/src/commands/node_runtime.rs#L1038) |
-| format | macro invocation (unexpanded) | ensure_node_runtime_via_fnm | [1049](../../src-tauri/src/commands/node_runtime.rs#L1049) |
-| tests | mod_item |  | [1053](../../src-tauri/src/commands/node_runtime.rs#L1053) |
-| parses_node_version_strings | function_item | tests | [1057](../../src-tauri/src/commands/node_runtime.rs#L1057) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_node_version_strings | [1058](../../src-tauri/src/commands/node_runtime.rs#L1058) |
+| format | macro invocation (unexpanded) | install_node_22_via_fnm | [993](../../src-tauri/src/commands/node_runtime.rs#L993) |
+| ensure_node_runtime_via_fnm_sync_with_mirror | function_item |  | [1002](../../src-tauri/src/commands/node_runtime.rs#L1002) |
+| format | macro invocation (unexpanded) | ensure_node_runtime_via_fnm_sync_with_mirror | [1023](../../src-tauri/src/commands/node_runtime.rs#L1023) |
+| get_node_runtime_status | function_item |  | [1032](../../src-tauri/src/commands/node_runtime.rs#L1032) |
+| format | macro invocation (unexpanded) | get_node_runtime_status | [1035](../../src-tauri/src/commands/node_runtime.rs#L1035) |
+| ensure_node_runtime_via_fnm | function_item |  | [1039](../../src-tauri/src/commands/node_runtime.rs#L1039) |
+| format | macro invocation (unexpanded) | ensure_node_runtime_via_fnm | [1050](../../src-tauri/src/commands/node_runtime.rs#L1050) |
+| tests | mod_item |  | [1054](../../src-tauri/src/commands/node_runtime.rs#L1054) |
+| parses_node_version_strings | function_item | tests | [1058](../../src-tauri/src/commands/node_runtime.rs#L1058) |
 | assert_eq | macro invocation (unexpanded) | tests::parses_node_version_strings | [1059](../../src-tauri/src/commands/node_runtime.rs#L1059) |
 | assert_eq | macro invocation (unexpanded) | tests::parses_node_version_strings | [1060](../../src-tauri/src/commands/node_runtime.rs#L1060) |
-| meets_minimum_major | function_item | tests | [1064](../../src-tauri/src/commands/node_runtime.rs#L1064) |
-| assert | macro invocation (unexpanded) | tests::meets_minimum_major | [1065](../../src-tauri/src/commands/node_runtime.rs#L1065) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_node_version_strings | [1061](../../src-tauri/src/commands/node_runtime.rs#L1061) |
+| meets_minimum_major | function_item | tests | [1065](../../src-tauri/src/commands/node_runtime.rs#L1065) |
 | assert | macro invocation (unexpanded) | tests::meets_minimum_major | [1066](../../src-tauri/src/commands/node_runtime.rs#L1066) |
 | assert | macro invocation (unexpanded) | tests::meets_minimum_major | [1067](../../src-tauri/src/commands/node_runtime.rs#L1067) |
 | assert | macro invocation (unexpanded) | tests::meets_minimum_major | [1068](../../src-tauri/src/commands/node_runtime.rs#L1068) |
-| maps_missing_npm_errors | function_item | tests | [1072](../../src-tauri/src/commands/node_runtime.rs#L1072) |
-| assert | macro invocation (unexpanded) | tests::maps_missing_npm_errors | [1074](../../src-tauri/src/commands/node_runtime.rs#L1074) |
-| maps_ebadengine_errors | function_item | tests | [1078](../../src-tauri/src/commands/node_runtime.rs#L1078) |
-| assert | macro invocation (unexpanded) | tests::maps_ebadengine_errors | [1080](../../src-tauri/src/commands/node_runtime.rs#L1080) |
-| maps_network_registry_errors | function_item | tests | [1084](../../src-tauri/src/commands/node_runtime.rs#L1084) |
-| assert | macro invocation (unexpanded) | tests::maps_network_registry_errors | [1086](../../src-tauri/src/commands/node_runtime.rs#L1086) |
-| github_candidates_include_mirror | function_item | tests | [1090](../../src-tauri/src/commands/node_runtime.rs#L1090) |
-| assert_eq | macro invocation (unexpanded) | tests::github_candidates_include_mirror | [1095](../../src-tauri/src/commands/node_runtime.rs#L1095) |
-| assert | macro invocation (unexpanded) | tests::github_candidates_include_mirror | [1099](../../src-tauri/src/commands/node_runtime.rs#L1099) |
-| npm_global_bin_dirs_includes_user_npm_prefix | function_item | tests | [1105](../../src-tauri/src/commands/node_runtime.rs#L1105) |
-| assert | macro invocation (unexpanded) | tests::npm_global_bin_dirs_includes_user_npm_prefix | [1114](../../src-tauri/src/commands/node_runtime.rs#L1114) |
-| cfg | macro invocation (unexpanded) | tests::npm_global_bin_dirs_includes_user_npm_prefix | [1119](../../src-tauri/src/commands/node_runtime.rs#L1119) |
-| assert | macro invocation (unexpanded) | tests::npm_global_bin_dirs_includes_user_npm_prefix | [1121](../../src-tauri/src/commands/node_runtime.rs#L1121) |
+| assert | macro invocation (unexpanded) | tests::meets_minimum_major | [1069](../../src-tauri/src/commands/node_runtime.rs#L1069) |
+| maps_missing_npm_errors | function_item | tests | [1073](../../src-tauri/src/commands/node_runtime.rs#L1073) |
+| assert | macro invocation (unexpanded) | tests::maps_missing_npm_errors | [1075](../../src-tauri/src/commands/node_runtime.rs#L1075) |
+| maps_ebadengine_errors | function_item | tests | [1079](../../src-tauri/src/commands/node_runtime.rs#L1079) |
+| assert | macro invocation (unexpanded) | tests::maps_ebadengine_errors | [1081](../../src-tauri/src/commands/node_runtime.rs#L1081) |
+| maps_network_registry_errors | function_item | tests | [1085](../../src-tauri/src/commands/node_runtime.rs#L1085) |
+| assert | macro invocation (unexpanded) | tests::maps_network_registry_errors | [1087](../../src-tauri/src/commands/node_runtime.rs#L1087) |
+| github_candidates_include_mirror | function_item | tests | [1091](../../src-tauri/src/commands/node_runtime.rs#L1091) |
+| assert_eq | macro invocation (unexpanded) | tests::github_candidates_include_mirror | [1096](../../src-tauri/src/commands/node_runtime.rs#L1096) |
+| assert | macro invocation (unexpanded) | tests::github_candidates_include_mirror | [1100](../../src-tauri/src/commands/node_runtime.rs#L1100) |
+| npm_global_bin_dirs_includes_user_npm_prefix | function_item | tests | [1106](../../src-tauri/src/commands/node_runtime.rs#L1106) |
+| assert | macro invocation (unexpanded) | tests::npm_global_bin_dirs_includes_user_npm_prefix | [1115](../../src-tauri/src/commands/node_runtime.rs#L1115) |
+| cfg | macro invocation (unexpanded) | tests::npm_global_bin_dirs_includes_user_npm_prefix | [1120](../../src-tauri/src/commands/node_runtime.rs#L1120) |
+| assert | macro invocation (unexpanded) | tests::npm_global_bin_dirs_includes_user_npm_prefix | [1122](../../src-tauri/src/commands/node_runtime.rs#L1122) |

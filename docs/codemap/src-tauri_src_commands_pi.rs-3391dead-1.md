@@ -4,25 +4,26 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/pi.rs) · page 1/1
 
-Source SHA-256: 2b1116437291bbaefc584a716a644111fcd66e94e88bf0eb97d73f05b5565c07
+Source SHA-256: a37e1c3e07fe534266c4bc986ebe3da3e8b25ca387df93818075dc42a4040cb6
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | detect_pi_cli | function_item |  | [20](../../src-tauri/src/commands/pi.rs#L20) |
 | format | macro invocation (unexpanded) | detect_pi_cli | [24](../../src-tauri/src/commands/pi.rs#L24) |
 | install_pi_cli | function_item |  | [36](../../src-tauri/src/commands/pi.rs#L36) |
-| cfg | macro invocation (unexpanded) | install_pi_cli | [37](../../src-tauri/src/commands/pi.rs#L37) |
-| format | macro invocation (unexpanded) | install_pi_cli | [56](../../src-tauri/src/commands/pi.rs#L56) |
-| format | macro invocation (unexpanded) | install_pi_cli | [62](../../src-tauri/src/commands/pi.rs#L62) |
+| format | macro invocation (unexpanded) | install_pi_cli | [44](../../src-tauri/src/commands/pi.rs#L44) |
+| cfg | macro invocation (unexpanded) | install_pi_cli | [46](../../src-tauri/src/commands/pi.rs#L46) |
+| format | macro invocation (unexpanded) | install_pi_cli | [57](../../src-tauri/src/commands/pi.rs#L57) |
 | format | macro invocation (unexpanded) | install_pi_cli | [64](../../src-tauri/src/commands/pi.rs#L64) |
-| get_pi_settings | function_item |  | [69](../../src-tauri/src/commands/pi.rs#L69) |
-| update_pi_settings | function_item |  | [74](../../src-tauri/src/commands/pi.rs#L74) |
-| get_workspace_pi_prompt | function_item |  | [89](../../src-tauri/src/commands/pi.rs#L89) |
-| save_workspace_pi_prompt | function_item |  | [94](../../src-tauri/src/commands/pi.rs#L94) |
-| list_pi_prompt_templates | function_item |  | [103](../../src-tauri/src/commands/pi.rs#L103) |
-| read_pi_prompt_template | function_item |  | [123](../../src-tauri/src/commands/pi.rs#L123) |
-| format | macro invocation (unexpanded) | read_pi_prompt_template | [128](../../src-tauri/src/commands/pi.rs#L128) |
-| save_pi_prompt_template | function_item |  | [134](../../src-tauri/src/commands/pi.rs#L134) |
-| delete_pi_prompt_template | function_item |  | [144](../../src-tauri/src/commands/pi.rs#L144) |
-| list_pi_sessions | function_item |  | [155](../../src-tauri/src/commands/pi.rs#L155) |
-| read_pi_session_detail | function_item |  | [160](../../src-tauri/src/commands/pi.rs#L160) |
+| format | macro invocation (unexpanded) | install_pi_cli | [66](../../src-tauri/src/commands/pi.rs#L66) |
+| get_pi_settings | function_item |  | [71](../../src-tauri/src/commands/pi.rs#L71) |
+| update_pi_settings | function_item |  | [76](../../src-tauri/src/commands/pi.rs#L76) |
+| get_workspace_pi_prompt | function_item |  | [91](../../src-tauri/src/commands/pi.rs#L91) |
+| save_workspace_pi_prompt | function_item |  | [96](../../src-tauri/src/commands/pi.rs#L96) |
+| list_pi_prompt_templates | function_item |  | [105](../../src-tauri/src/commands/pi.rs#L105) |
+| read_pi_prompt_template | function_item |  | [125](../../src-tauri/src/commands/pi.rs#L125) |
+| format | macro invocation (unexpanded) | read_pi_prompt_template | [130](../../src-tauri/src/commands/pi.rs#L130) |
+| save_pi_prompt_template | function_item |  | [136](../../src-tauri/src/commands/pi.rs#L136) |
+| delete_pi_prompt_template | function_item |  | [146](../../src-tauri/src/commands/pi.rs#L146) |
+| list_pi_sessions | function_item |  | [157](../../src-tauri/src/commands/pi.rs#L157) |
+| read_pi_session_detail | function_item |  | [162](../../src-tauri/src/commands/pi.rs#L162) |

@@ -1022,20 +1022,20 @@ mod tests {
                 let frames = decoder.push(&bytes).expect("decode frames");
                 for frame in &frames {
                     let out = streamer.push_frame(frame);
-                    if !out.is_empty() {
-                        if out.contains("text_delta") || out.contains("thinking_delta") {
-                            let ms = t0.elapsed().as_millis();
-                            if first_delta_ms.is_none() {
-                                first_delta_ms = Some(ms);
-                            }
-                            last_delta_ms = ms;
-                            delta_chunks += 1;
-                            if delta_chunks <= 8 {
-                                println!(
-                                    "[Round {round}] [+{ms}ms] chunk #{delta_chunks}: {}",
-                                    out.lines().find(|l| l.starts_with("data:")).unwrap_or("")
-                                );
-                            }
+                    if !out.is_empty()
+                        && (out.contains("text_delta") || out.contains("thinking_delta"))
+                    {
+                        let ms = t0.elapsed().as_millis();
+                        if first_delta_ms.is_none() {
+                            first_delta_ms = Some(ms);
+                        }
+                        last_delta_ms = ms;
+                        delta_chunks += 1;
+                        if delta_chunks <= 8 {
+                            println!(
+                                "[Round {round}] [+{ms}ms] chunk #{delta_chunks}: {}",
+                                out.lines().find(|l| l.starts_with("data:")).unwrap_or("")
+                            );
                         }
                     }
                 }

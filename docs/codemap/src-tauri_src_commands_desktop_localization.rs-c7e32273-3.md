@@ -4,107 +4,107 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/desktop_localization.rs) · page 3/4
 
-Source SHA-256: 5a4ffdb2f22483ad2cea8783190d4dcb81326be94daf177512b12a5ed3b12e0c
+Source SHA-256: df81e586d08bad0fd21df1fe77bc537fe2d37a250603ea0361bb5dde48110f85
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| include | macro invocation (unexpanded) |  | [1416](../../src-tauri/src/commands/desktop_localization.rs#L1416) |
 | include | macro invocation (unexpanded) |  | [1417](../../src-tauri/src/commands/desktop_localization.rs#L1417) |
 | include | macro invocation (unexpanded) |  | [1418](../../src-tauri/src/commands/desktop_localization.rs#L1418) |
 | include | macro invocation (unexpanded) |  | [1419](../../src-tauri/src/commands/desktop_localization.rs#L1419) |
-| create_backup | function_item |  | [1421](../../src-tauri/src/commands/desktop_localization.rs#L1421) |
-| format | macro invocation (unexpanded) | create_backup | [1434](../../src-tauri/src/commands/desktop_localization.rs#L1434) |
-| copy_backup_contents | function_item |  | [1468](../../src-tauri/src/commands/desktop_localization.rs#L1468) |
-| format | macro invocation (unexpanded) | copy_backup_contents | [1470](../../src-tauri/src/commands/desktop_localization.rs#L1470) |
-| format | macro invocation (unexpanded) | copy_backup_contents | [1476](../../src-tauri/src/commands/desktop_localization.rs#L1476) |
-| restore_latest_backup | function_item |  | [1483](../../src-tauri/src/commands/desktop_localization.rs#L1483) |
-| format | macro invocation (unexpanded) | restore_latest_backup | [1514](../../src-tauri/src/commands/desktop_localization.rs#L1514) |
-| restore_backup_dir | function_item |  | [1530](../../src-tauri/src/commands/desktop_localization.rs#L1530) |
-| restore_backup_targets | function_item |  | [1543](../../src-tauri/src/commands/desktop_localization.rs#L1543) |
-| restore_backup_dir_filtered | function_item |  | [1552](../../src-tauri/src/commands/desktop_localization.rs#L1552) |
-| latest_backup_dir | function_item |  | [1586](../../src-tauri/src/commands/desktop_localization.rs#L1586) |
-| validate_backup_manifest | function_item |  | [1613](../../src-tauri/src/commands/desktop_localization.rs#L1613) |
-| validate_restore_target | function_item |  | [1628](../../src-tauri/src/commands/desktop_localization.rs#L1628) |
-| format | macro invocation (unexpanded) | validate_restore_target | [1661](../../src-tauri/src/commands/desktop_localization.rs#L1661) |
-| prune_backups | function_item |  | [1668](../../src-tauri/src/commands/desktop_localization.rs#L1668) |
-| log::warn | macro invocation (unexpanded) | prune_backups | [1686](../../src-tauri/src/commands/desktop_localization.rs#L1686) |
-| sha256_file | function_item |  | [1692](../../src-tauri/src/commands/desktop_localization.rs#L1692) |
-| safe_component | function_item |  | [1697](../../src-tauri/src/commands/desktop_localization.rs#L1697) |
-| matches | macro invocation (unexpanded) | safe_component | [1701](../../src-tauri/src/commands/desktop_localization.rs#L1701) |
-| ensure_write_access | function_item |  | [1715](../../src-tauri/src/commands/desktop_localization.rs#L1715) |
-| format | macro invocation (unexpanded) | ensure_write_access | [1723](../../src-tauri/src/commands/desktop_localization.rs#L1723) |
-| format | macro invocation (unexpanded) | ensure_write_access | [1738](../../src-tauri/src/commands/desktop_localization.rs#L1738) |
-| verify_write_access | function_item |  | [1751](../../src-tauri/src/commands/desktop_localization.rs#L1751) |
-| format | macro invocation (unexpanded) | verify_write_access | [1762](../../src-tauri/src/commands/desktop_localization.rs#L1762) |
-| format | macro invocation (unexpanded) | verify_write_access | [1771](../../src-tauri/src/commands/desktop_localization.rs#L1771) |
-| format | macro invocation (unexpanded) | verify_write_access | [1778](../../src-tauri/src/commands/desktop_localization.rs#L1778) |
-| command_failure_summary | function_item |  | [1788](../../src-tauri/src/commands/desktop_localization.rs#L1788) |
-| format | macro invocation (unexpanded) | command_failure_summary | [1791](../../src-tauri/src/commands/desktop_localization.rs#L1791) |
-| format | macro invocation (unexpanded) | command_failure_summary | [1796](../../src-tauri/src/commands/desktop_localization.rs#L1796) |
-| windows_system_executable | function_item |  | [1803](../../src-tauri/src/commands/desktop_localization.rs#L1803) |
-| windows_powershell | function_item |  | [1812](../../src-tauri/src/commands/desktop_localization.rs#L1812) |
-| hide_console_window | function_item |  | [1819](../../src-tauri/src/commands/desktop_localization.rs#L1819) |
-| Drop for LocalizationMutex | impl |  | [1825](../../src-tauri/src/commands/desktop_localization.rs#L1825) |
-| drop | function_item | Drop for LocalizationMutex | [1826](../../src-tauri/src/commands/desktop_localization.rs#L1826) |
-| tests | mod_item |  | [1834](../../src-tauri/src/commands/desktop_localization.rs#L1834) |
-| pack_archive | function_item | tests | [1840](../../src-tauri/src/commands/desktop_localization.rs#L1840) |
-| language_registration_is_idempotent | function_item | tests | [1871](../../src-tauri/src/commands/desktop_localization.rs#L1871) |
-| format | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1872](../../src-tauri/src/commands/desktop_localization.rs#L1872) |
-| assert_eq | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1874](../../src-tauri/src/commands/desktop_localization.rs#L1874) |
-| assert | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1875](../../src-tauri/src/commands/desktop_localization.rs#L1875) |
-| assert_eq | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1877](../../src-tauri/src/commands/desktop_localization.rs#L1877) |
+| include | macro invocation (unexpanded) |  | [1420](../../src-tauri/src/commands/desktop_localization.rs#L1420) |
+| create_backup | function_item |  | [1422](../../src-tauri/src/commands/desktop_localization.rs#L1422) |
+| format | macro invocation (unexpanded) | create_backup | [1435](../../src-tauri/src/commands/desktop_localization.rs#L1435) |
+| copy_backup_contents | function_item |  | [1469](../../src-tauri/src/commands/desktop_localization.rs#L1469) |
+| format | macro invocation (unexpanded) | copy_backup_contents | [1471](../../src-tauri/src/commands/desktop_localization.rs#L1471) |
+| format | macro invocation (unexpanded) | copy_backup_contents | [1477](../../src-tauri/src/commands/desktop_localization.rs#L1477) |
+| restore_latest_backup | function_item |  | [1484](../../src-tauri/src/commands/desktop_localization.rs#L1484) |
+| format | macro invocation (unexpanded) | restore_latest_backup | [1515](../../src-tauri/src/commands/desktop_localization.rs#L1515) |
+| restore_backup_dir | function_item |  | [1531](../../src-tauri/src/commands/desktop_localization.rs#L1531) |
+| restore_backup_targets | function_item |  | [1544](../../src-tauri/src/commands/desktop_localization.rs#L1544) |
+| restore_backup_dir_filtered | function_item |  | [1553](../../src-tauri/src/commands/desktop_localization.rs#L1553) |
+| latest_backup_dir | function_item |  | [1587](../../src-tauri/src/commands/desktop_localization.rs#L1587) |
+| validate_backup_manifest | function_item |  | [1614](../../src-tauri/src/commands/desktop_localization.rs#L1614) |
+| validate_restore_target | function_item |  | [1629](../../src-tauri/src/commands/desktop_localization.rs#L1629) |
+| format | macro invocation (unexpanded) | validate_restore_target | [1662](../../src-tauri/src/commands/desktop_localization.rs#L1662) |
+| prune_backups | function_item |  | [1669](../../src-tauri/src/commands/desktop_localization.rs#L1669) |
+| log::warn | macro invocation (unexpanded) | prune_backups | [1687](../../src-tauri/src/commands/desktop_localization.rs#L1687) |
+| sha256_file | function_item |  | [1693](../../src-tauri/src/commands/desktop_localization.rs#L1693) |
+| safe_component | function_item |  | [1698](../../src-tauri/src/commands/desktop_localization.rs#L1698) |
+| matches | macro invocation (unexpanded) | safe_component | [1702](../../src-tauri/src/commands/desktop_localization.rs#L1702) |
+| ensure_write_access | function_item |  | [1716](../../src-tauri/src/commands/desktop_localization.rs#L1716) |
+| format | macro invocation (unexpanded) | ensure_write_access | [1724](../../src-tauri/src/commands/desktop_localization.rs#L1724) |
+| format | macro invocation (unexpanded) | ensure_write_access | [1739](../../src-tauri/src/commands/desktop_localization.rs#L1739) |
+| verify_write_access | function_item |  | [1752](../../src-tauri/src/commands/desktop_localization.rs#L1752) |
+| format | macro invocation (unexpanded) | verify_write_access | [1763](../../src-tauri/src/commands/desktop_localization.rs#L1763) |
+| format | macro invocation (unexpanded) | verify_write_access | [1772](../../src-tauri/src/commands/desktop_localization.rs#L1772) |
+| format | macro invocation (unexpanded) | verify_write_access | [1779](../../src-tauri/src/commands/desktop_localization.rs#L1779) |
+| command_failure_summary | function_item |  | [1789](../../src-tauri/src/commands/desktop_localization.rs#L1789) |
+| format | macro invocation (unexpanded) | command_failure_summary | [1792](../../src-tauri/src/commands/desktop_localization.rs#L1792) |
+| format | macro invocation (unexpanded) | command_failure_summary | [1797](../../src-tauri/src/commands/desktop_localization.rs#L1797) |
+| windows_system_executable | function_item |  | [1804](../../src-tauri/src/commands/desktop_localization.rs#L1804) |
+| windows_powershell | function_item |  | [1813](../../src-tauri/src/commands/desktop_localization.rs#L1813) |
+| hide_console_window | function_item |  | [1820](../../src-tauri/src/commands/desktop_localization.rs#L1820) |
+| Drop for LocalizationMutex | impl |  | [1826](../../src-tauri/src/commands/desktop_localization.rs#L1826) |
+| drop | function_item | Drop for LocalizationMutex | [1827](../../src-tauri/src/commands/desktop_localization.rs#L1827) |
+| tests | mod_item |  | [1835](../../src-tauri/src/commands/desktop_localization.rs#L1835) |
+| pack_archive | function_item | tests | [1841](../../src-tauri/src/commands/desktop_localization.rs#L1841) |
+| language_registration_is_idempotent | function_item | tests | [1872](../../src-tauri/src/commands/desktop_localization.rs#L1872) |
+| format | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1873](../../src-tauri/src/commands/desktop_localization.rs#L1873) |
+| assert_eq | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1875](../../src-tauri/src/commands/desktop_localization.rs#L1875) |
+| assert | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1876](../../src-tauri/src/commands/desktop_localization.rs#L1876) |
 | assert_eq | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1878](../../src-tauri/src/commands/desktop_localization.rs#L1878) |
 | assert_eq | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1879](../../src-tauri/src/commands/desktop_localization.rs#L1879) |
-| safe_component_removes_path_characters | function_item | tests | [1883](../../src-tauri/src/commands/desktop_localization.rs#L1883) |
-| assert_eq | macro invocation (unexpanded) | tests::safe_component_removes_path_characters | [1884](../../src-tauri/src/commands/desktop_localization.rs#L1884) |
-| upstream_revision_accepts_release_tags_and_commit_shas | function_item | tests | [1888](../../src-tauri/src/commands/desktop_localization.rs#L1888) |
-| assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1889](../../src-tauri/src/commands/desktop_localization.rs#L1889) |
+| assert_eq | macro invocation (unexpanded) | tests::language_registration_is_idempotent | [1880](../../src-tauri/src/commands/desktop_localization.rs#L1880) |
+| safe_component_removes_path_characters | function_item | tests | [1884](../../src-tauri/src/commands/desktop_localization.rs#L1884) |
+| assert_eq | macro invocation (unexpanded) | tests::safe_component_removes_path_characters | [1885](../../src-tauri/src/commands/desktop_localization.rs#L1885) |
+| upstream_revision_accepts_release_tags_and_commit_shas | function_item | tests | [1889](../../src-tauri/src/commands/desktop_localization.rs#L1889) |
 | assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1890](../../src-tauri/src/commands/desktop_localization.rs#L1890) |
-| assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1893](../../src-tauri/src/commands/desktop_localization.rs#L1893) |
+| assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1891](../../src-tauri/src/commands/desktop_localization.rs#L1891) |
 | assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1894](../../src-tauri/src/commands/desktop_localization.rs#L1894) |
 | assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1895](../../src-tauri/src/commands/desktop_localization.rs#L1895) |
-| appx_layout_prefers_nested_app_resources | function_item | tests | [1899](../../src-tauri/src/commands/desktop_localization.rs#L1899) |
-| assert_eq | macro invocation (unexpanded) | tests::appx_layout_prefers_nested_app_resources | [1908](../../src-tauri/src/commands/desktop_localization.rs#L1908) |
-| assert_eq | macro invocation (unexpanded) | tests::appx_layout_prefers_nested_app_resources | [1912](../../src-tauri/src/commands/desktop_localization.rs#L1912) |
-| appx_layout_keeps_legacy_root_resources_compatible | function_item | tests | [1916](../../src-tauri/src/commands/desktop_localization.rs#L1916) |
-| assert_eq | macro invocation (unexpanded) | tests::appx_layout_keeps_legacy_root_resources_compatible | [1924](../../src-tauri/src/commands/desktop_localization.rs#L1924) |
-| assert | macro invocation (unexpanded) | tests::appx_layout_keeps_legacy_root_resources_compatible | [1925](../../src-tauri/src/commands/desktop_localization.rs#L1925) |
-| backup_restore_roundtrip_restores_and_removes_created_files | function_item | tests | [1929](../../src-tauri/src/commands/desktop_localization.rs#L1929) |
-| vec | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1954](../../src-tauri/src/commands/desktop_localization.rs#L1954) |
-| assert_eq | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1974](../../src-tauri/src/commands/desktop_localization.rs#L1974) |
-| assert | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1975](../../src-tauri/src/commands/desktop_localization.rs#L1975) |
+| assert | macro invocation (unexpanded) | tests::upstream_revision_accepts_release_tags_and_commit_shas | [1896](../../src-tauri/src/commands/desktop_localization.rs#L1896) |
+| appx_layout_prefers_nested_app_resources | function_item | tests | [1900](../../src-tauri/src/commands/desktop_localization.rs#L1900) |
+| assert_eq | macro invocation (unexpanded) | tests::appx_layout_prefers_nested_app_resources | [1909](../../src-tauri/src/commands/desktop_localization.rs#L1909) |
+| assert_eq | macro invocation (unexpanded) | tests::appx_layout_prefers_nested_app_resources | [1913](../../src-tauri/src/commands/desktop_localization.rs#L1913) |
+| appx_layout_keeps_legacy_root_resources_compatible | function_item | tests | [1917](../../src-tauri/src/commands/desktop_localization.rs#L1917) |
+| assert_eq | macro invocation (unexpanded) | tests::appx_layout_keeps_legacy_root_resources_compatible | [1925](../../src-tauri/src/commands/desktop_localization.rs#L1925) |
+| assert | macro invocation (unexpanded) | tests::appx_layout_keeps_legacy_root_resources_compatible | [1926](../../src-tauri/src/commands/desktop_localization.rs#L1926) |
+| backup_restore_roundtrip_restores_and_removes_created_files | function_item | tests | [1930](../../src-tauri/src/commands/desktop_localization.rs#L1930) |
+| vec | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1955](../../src-tauri/src/commands/desktop_localization.rs#L1955) |
+| assert_eq | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1975](../../src-tauri/src/commands/desktop_localization.rs#L1975) |
 | assert | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1976](../../src-tauri/src/commands/desktop_localization.rs#L1976) |
-| rollback_restores_only_files_written_before_failure | function_item | tests | [1980](../../src-tauri/src/commands/desktop_localization.rs#L1980) |
-| vec | macro invocation (unexpanded) | tests::rollback_restores_only_files_written_before_failure | [1998](../../src-tauri/src/commands/desktop_localization.rs#L1998) |
-| assert_eq | macro invocation (unexpanded) | tests::rollback_restores_only_files_written_before_failure | [2015](../../src-tauri/src/commands/desktop_localization.rs#L2015) |
+| assert | macro invocation (unexpanded) | tests::backup_restore_roundtrip_restores_and_removes_created_files | [1977](../../src-tauri/src/commands/desktop_localization.rs#L1977) |
+| rollback_restores_only_files_written_before_failure | function_item | tests | [1981](../../src-tauri/src/commands/desktop_localization.rs#L1981) |
+| vec | macro invocation (unexpanded) | tests::rollback_restores_only_files_written_before_failure | [1999](../../src-tauri/src/commands/desktop_localization.rs#L1999) |
 | assert_eq | macro invocation (unexpanded) | tests::rollback_restores_only_files_written_before_failure | [2016](../../src-tauri/src/commands/desktop_localization.rs#L2016) |
 | assert_eq | macro invocation (unexpanded) | tests::rollback_restores_only_files_written_before_failure | [2017](../../src-tauri/src/commands/desktop_localization.rs#L2017) |
-| backup_copy_writes_contents_without_source_file_attributes | function_item | tests | [2022](../../src-tauri/src/commands/desktop_localization.rs#L2022) |
-| assert_eq | macro invocation (unexpanded) | tests::backup_copy_writes_contents_without_source_file_attributes | [2033](../../src-tauri/src/commands/desktop_localization.rs#L2033) |
-| assert | macro invocation (unexpanded) | tests::backup_copy_writes_contents_without_source_file_attributes | [2034](../../src-tauri/src/commands/desktop_localization.rs#L2034) |
-| failed_backup_removes_incomplete_backup_directory | function_item | tests | [2041](../../src-tauri/src/commands/desktop_localization.rs#L2041) |
-| vec | macro invocation (unexpanded) | tests::failed_backup_removes_incomplete_backup_directory | [2057](../../src-tauri/src/commands/desktop_localization.rs#L2057) |
-| assert | macro invocation (unexpanded) | tests::failed_backup_removes_incomplete_backup_directory | [2069](../../src-tauri/src/commands/desktop_localization.rs#L2069) |
-| assert_eq | macro invocation (unexpanded) | tests::failed_backup_removes_incomplete_backup_directory | [2073](../../src-tauri/src/commands/desktop_localization.rs#L2073) |
-| downloaded_archive_extracts_only_allowlisted_resource_files | function_item | tests | [2077](../../src-tauri/src/commands/desktop_localization.rs#L2077) |
-| assert | macro invocation (unexpanded) | tests::downloaded_archive_extracts_only_allowlisted_resource_files | [2086](../../src-tauri/src/commands/desktop_localization.rs#L2086) |
+| assert_eq | macro invocation (unexpanded) | tests::rollback_restores_only_files_written_before_failure | [2018](../../src-tauri/src/commands/desktop_localization.rs#L2018) |
+| backup_copy_writes_contents_without_source_file_attributes | function_item | tests | [2023](../../src-tauri/src/commands/desktop_localization.rs#L2023) |
+| assert_eq | macro invocation (unexpanded) | tests::backup_copy_writes_contents_without_source_file_attributes | [2034](../../src-tauri/src/commands/desktop_localization.rs#L2034) |
+| assert | macro invocation (unexpanded) | tests::backup_copy_writes_contents_without_source_file_attributes | [2035](../../src-tauri/src/commands/desktop_localization.rs#L2035) |
+| failed_backup_removes_incomplete_backup_directory | function_item | tests | [2042](../../src-tauri/src/commands/desktop_localization.rs#L2042) |
+| vec | macro invocation (unexpanded) | tests::failed_backup_removes_incomplete_backup_directory | [2058](../../src-tauri/src/commands/desktop_localization.rs#L2058) |
+| assert | macro invocation (unexpanded) | tests::failed_backup_removes_incomplete_backup_directory | [2070](../../src-tauri/src/commands/desktop_localization.rs#L2070) |
+| assert_eq | macro invocation (unexpanded) | tests::failed_backup_removes_incomplete_backup_directory | [2074](../../src-tauri/src/commands/desktop_localization.rs#L2074) |
+| downloaded_archive_extracts_only_allowlisted_resource_files | function_item | tests | [2078](../../src-tauri/src/commands/desktop_localization.rs#L2078) |
 | assert | macro invocation (unexpanded) | tests::downloaded_archive_extracts_only_allowlisted_resource_files | [2087](../../src-tauri/src/commands/desktop_localization.rs#L2087) |
 | assert | macro invocation (unexpanded) | tests::downloaded_archive_extracts_only_allowlisted_resource_files | [2088](../../src-tauri/src/commands/desktop_localization.rs#L2088) |
-| assert_eq | macro invocation (unexpanded) | tests::downloaded_archive_extracts_only_allowlisted_resource_files | [2089](../../src-tauri/src/commands/desktop_localization.rs#L2089) |
-| downloaded_archive_rejects_unsafe_paths | function_item | tests | [2094](../../src-tauri/src/commands/desktop_localization.rs#L2094) |
-| assert | macro invocation (unexpanded) | tests::downloaded_archive_rejects_unsafe_paths | [2100](../../src-tauri/src/commands/desktop_localization.rs#L2100) |
-| downloaded_archive_requires_every_metadata_file | function_item | tests | [2104](../../src-tauri/src/commands/desktop_localization.rs#L2104) |
-| assert | macro invocation (unexpanded) | tests::downloaded_archive_requires_every_metadata_file | [2119](../../src-tauri/src/commands/desktop_localization.rs#L2119) |
-| downloaded_metadata_rejects_wrong_repository | function_item | tests | [2123](../../src-tauri/src/commands/desktop_localization.rs#L2123) |
-| assert | macro invocation (unexpanded) | tests::downloaded_metadata_rejects_wrong_repository | [2135](../../src-tauri/src/commands/desktop_localization.rs#L2135) |
-| downloaded_pack_promotion_replaces_existing_cache | function_item | tests | [2139](../../src-tauri/src/commands/desktop_localization.rs#L2139) |
-| assert | macro invocation (unexpanded) | tests::downloaded_pack_promotion_replaces_existing_cache | [2150](../../src-tauri/src/commands/desktop_localization.rs#L2150) |
+| assert | macro invocation (unexpanded) | tests::downloaded_archive_extracts_only_allowlisted_resource_files | [2089](../../src-tauri/src/commands/desktop_localization.rs#L2089) |
+| assert_eq | macro invocation (unexpanded) | tests::downloaded_archive_extracts_only_allowlisted_resource_files | [2090](../../src-tauri/src/commands/desktop_localization.rs#L2090) |
+| downloaded_archive_rejects_unsafe_paths | function_item | tests | [2095](../../src-tauri/src/commands/desktop_localization.rs#L2095) |
+| assert | macro invocation (unexpanded) | tests::downloaded_archive_rejects_unsafe_paths | [2101](../../src-tauri/src/commands/desktop_localization.rs#L2101) |
+| downloaded_archive_requires_every_metadata_file | function_item | tests | [2105](../../src-tauri/src/commands/desktop_localization.rs#L2105) |
+| assert | macro invocation (unexpanded) | tests::downloaded_archive_requires_every_metadata_file | [2120](../../src-tauri/src/commands/desktop_localization.rs#L2120) |
+| downloaded_metadata_rejects_wrong_repository | function_item | tests | [2124](../../src-tauri/src/commands/desktop_localization.rs#L2124) |
+| assert | macro invocation (unexpanded) | tests::downloaded_metadata_rejects_wrong_repository | [2136](../../src-tauri/src/commands/desktop_localization.rs#L2136) |
+| downloaded_pack_promotion_replaces_existing_cache | function_item | tests | [2140](../../src-tauri/src/commands/desktop_localization.rs#L2140) |
 | assert | macro invocation (unexpanded) | tests::downloaded_pack_promotion_replaces_existing_cache | [2151](../../src-tauri/src/commands/desktop_localization.rs#L2151) |
 | assert | macro invocation (unexpanded) | tests::downloaded_pack_promotion_replaces_existing_cache | [2152](../../src-tauri/src/commands/desktop_localization.rs#L2152) |
-| upstream_download_allows_only_expected_https_hosts | function_item | tests | [2156](../../src-tauri/src/commands/desktop_localization.rs#L2156) |
-| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2157](../../src-tauri/src/commands/desktop_localization.rs#L2157) |
-| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2160](../../src-tauri/src/commands/desktop_localization.rs#L2160) |
-| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2163](../../src-tauri/src/commands/desktop_localization.rs#L2163) |
-| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2166](../../src-tauri/src/commands/desktop_localization.rs#L2166) |
-| invalid_download_metadata_falls_back_to_local_source | function_item | tests | [2172](../../src-tauri/src/commands/desktop_localization.rs#L2172) |
-| assert_eq | macro invocation (unexpanded) | tests::invalid_download_metadata_falls_back_to_local_source | [2178](../../src-tauri/src/commands/desktop_localization.rs#L2178) |
+| assert | macro invocation (unexpanded) | tests::downloaded_pack_promotion_replaces_existing_cache | [2153](../../src-tauri/src/commands/desktop_localization.rs#L2153) |
+| upstream_download_allows_only_expected_https_hosts | function_item | tests | [2157](../../src-tauri/src/commands/desktop_localization.rs#L2157) |
+| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2158](../../src-tauri/src/commands/desktop_localization.rs#L2158) |
+| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2161](../../src-tauri/src/commands/desktop_localization.rs#L2161) |
+| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2164](../../src-tauri/src/commands/desktop_localization.rs#L2164) |
+| assert | macro invocation (unexpanded) | tests::upstream_download_allows_only_expected_https_hosts | [2167](../../src-tauri/src/commands/desktop_localization.rs#L2167) |
+| invalid_download_metadata_falls_back_to_local_source | function_item | tests | [2173](../../src-tauri/src/commands/desktop_localization.rs#L2173) |
+| assert_eq | macro invocation (unexpanded) | tests::invalid_download_metadata_falls_back_to_local_source | [2179](../../src-tauri/src/commands/desktop_localization.rs#L2179) |

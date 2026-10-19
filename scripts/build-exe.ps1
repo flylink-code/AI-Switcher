@@ -160,10 +160,17 @@ if (-not $SkipTests) {
     Write-Host ""
 }
 
+$tempBundleConfig = $null
 $tauriArgs = if ($Debug) {
     @("build", "--debug", "--no-bundle", "--ci")
 } elseif ($Bundle) {
-    @("build", "--ci")
+    if ($env:TAURI_SIGNING_PRIVATE_KEY) {
+        @("build", "--ci")
+    } else {
+        $tempBundleConfig = Join-Path ([System.IO.Path]::GetTempPath()) "aisw-tauri-bundle-$PID.json"
+        [System.IO.File]::WriteAllText($tempBundleConfig, '{"bundle":{"createUpdaterArtifacts":false}}')
+        @("build", "--ci", "-c", $tempBundleConfig)
+    }
 } else {
     @("build", "--no-bundle", "--ci")
 }
@@ -172,9 +179,15 @@ Write-Host "[build-exe] Running: pnpm exec tauri $($tauriArgs -join ' ')"
 Write-Host ""
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-& $packageManagerPath @packageManagerPrefix exec tauri @tauriArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "Build failed (exit $LASTEXITCODE)."
+try {
+    & $packageManagerPath @packageManagerPrefix exec tauri @tauriArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Build failed (exit $LASTEXITCODE)."
+    }
+} finally {
+    if ($tempBundleConfig -and (Test-Path -LiteralPath $tempBundleConfig)) {
+        Remove-Item -LiteralPath $tempBundleConfig -Force -ErrorAction SilentlyContinue
+    }
 }
 $sw.Stop()
 
@@ -257,5 +270,12 @@ if ($Bundle) {
     Write-Host ""
     Write-Host "Installers:"
     Get-ChildItem -Path (Join-Path $root "src-tauri\target\release\bundle") -Recurse -Include *.exe, *.msi -ErrorAction SilentlyContinue |
-        ForEach-Object { Write-Host "  $($_.FullName)" }
+        ForEach-Object {
+            $dstInstaller = Join-Path $releaseDir $_.Name
+            Copy-Item -LiteralPath $_.FullName -Destination $dstInstaller -Force -ErrorAction SilentlyContinue
+            Write-Host "  $($_.FullName)"
+            if (Test-Path -LiteralPath $dstInstaller) {
+                Write-Host "  -> Copied: $dstInstaller"
+            }
+        }
 }
