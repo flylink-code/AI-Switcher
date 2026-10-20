@@ -2126,6 +2126,10 @@
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
       "1_6_4": [
+        "Fixed requests retaining the old model after an in-session switch, and restored complete text, image, and tool history for incremental Responses conversations so Kiro retains context and the original task after tool calls.",
+        "Improved Gemini tool-turn normalization, Argon account capability filtering, Kiro image requests, and streaming error envelopes to address related 400/404 responses and client error parsing failures.",
+        "Fixed Claude CLI server-side web search execution and streamed result delivery, preserving source links and domain restrictions and reusing system/environment proxies. Network failures and verification challenges are reported explicitly instead of appearing as empty results.",
+        "Fixed insufficient balance being misclassified as an authentication failure and prolonged local cooldown after a top-up. Quota failures now allow a single recovery probe after a default 60 seconds while respecting upstream Retry-After.",
         "Added local VS Code and Copilot extension detection, including version and path details in the Agent card, environment paths, and environment diagnostics.",
         "Improved managed Copilot model synchronization across user Profiles while preserving user model settings; provider updates now refresh both gateway and direct Copilot catalogs.",
         "Added a compatibility patch for the Claude Agent SDK native-model vision declaration in recognized VS Code builds, using exact matching, a backup, and an atomic write. Unknown builds and integrity-checked files are left unchanged. Fully restart VS Code after applying; image understanding still depends on the selected model and attachment-reading tools. This does not fix subagent startup errors.",

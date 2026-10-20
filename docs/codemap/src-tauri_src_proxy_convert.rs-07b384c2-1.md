@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/convert.rs) · page 1/5
 
-Source SHA-256: 120375a25de03c2b704e79b214fd92fab87e04f3e74e00e53bf26a9543f84d69
+Source SHA-256: 6de4c5ee1009da39a66399b111106c07f5836681038aa5f0f82f54227172a9f8
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -104,7 +104,7 @@ Source SHA-256: 120375a25de03c2b704e79b214fd92fab87e04f3e74e00e53bf26a9543f84d69
 | json | macro invocation (unexpanded) | OpenAiSseConverter::push_chat_event | [995](../../src-tauri/src/proxy/convert.rs#L995) |
 | json | macro invocation (unexpanded) | OpenAiSseConverter::push_chat_event | [1033](../../src-tauri/src/proxy/convert.rs#L1033) |
 | push_responses_event | function_item | OpenAiSseConverter | [1050](../../src-tauri/src/proxy/convert.rs#L1050) |
-| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1061](../../src-tauri/src/proxy/convert.rs#L1061) |
-| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1088](../../src-tauri/src/proxy/convert.rs#L1088) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1104](../../src-tauri/src/proxy/convert.rs#L1104) |
-| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1112](../../src-tauri/src/proxy/convert.rs#L1112) |
+| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1062](../../src-tauri/src/proxy/convert.rs#L1062) |
+| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1089](../../src-tauri/src/proxy/convert.rs#L1089) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1105](../../src-tauri/src/proxy/convert.rs#L1105) |
+| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1113](../../src-tauri/src/proxy/convert.rs#L1113) |

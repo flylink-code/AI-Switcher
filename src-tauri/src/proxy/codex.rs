@@ -92,6 +92,71 @@ pub async fn codex_proxy_handler(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
+    let request = if uri.path().ends_with("/responses") {
+        serde_json::from_slice::<Value>(&body).ok()
+    } else {
+        None
+    };
+    let history = Arc::clone(&state.codex_history);
+    let response = codex_proxy_handler_inner(State(state), uri, method, headers, body).await;
+    let Some(request) = request.filter(|_| response.status().is_success()) else {
+        return response;
+    };
+    cache_responses_exchange(response, history, request).await
+}
+
+async fn cache_responses_exchange(
+    response: Response,
+    history: Arc<super::codex_history::CodexHistoryStore>,
+    request: Value,
+) -> Response {
+    let is_sse = response.headers().get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("text/event-stream"));
+    let (parts, body) = response.into_parts();
+    if !is_sse {
+        return match axum::body::to_bytes(body, usize::MAX).await {
+            Ok(bytes) => {
+                if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
+                    history.record_exchange(&request, &value);
+                }
+                Response::from_parts(parts, Body::from(bytes))
+            }
+            Err(error) => json_error(StatusCode::BAD_GATEWAY, format!("读取响应失败: {error}")),
+        };
+    }
+    let mut buffer = Vec::new();
+    let stream = body.into_data_stream().map(move |chunk| {
+        if let Ok(bytes) = &chunk {
+            buffer.extend_from_slice(bytes);
+            while let Some(block) = super::codex_history::take_sse_block(&mut buffer) {
+                if let Ok(text) = std::str::from_utf8(&block) {
+                    if let Some(data) = parse_chat_sse_data(text) {
+                        if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                            if matches!(value.get("type").and_then(Value::as_str),
+                                Some("response.completed" | "response.incomplete"))
+                            {
+                                if let Some(response) = value.get("response") {
+                                    history.record_exchange(&request, response);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        chunk
+    });
+    Response::from_parts(parts, Body::from_stream(stream))
+}
+
+async fn codex_proxy_handler_inner(
+    State(state): State<ProxyState>,
+    uri: Uri,
+    method: Method,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
     let started = Instant::now();
     let route = uri.path().to_string();
     if method != Method::POST {
@@ -462,14 +527,92 @@ pub async fn codex_proxy_handler(
         && !codex_compact::is_responses_compact_route(&route)
         && !route.contains("chat/completions")
         && status == StatusCode::BAD_REQUEST;
+    let retry_without_prev_id = !is_chat_bridge
+        && !is_anthropic_upstream
+        && compact_fallback.is_none()
+        && !codex_compact::is_responses_compact_route(&route)
+        && !route.contains("chat/completions")
+        && status == StatusCode::BAD_REQUEST
+        && request_has_previous_response_id(&original_body);
     let mut upstream = Some(upstream);
-    if retry_chat {
+    if retry_chat || retry_without_prev_id {
         let Some(current) = upstream.take() else {
             return json_error(StatusCode::BAD_GATEWAY, "Codex 上游响应丢失");
         };
         match current.bytes().await {
             Ok(error_bytes) => {
-                if is_unsupported_content_type_error(&error_bytes) {
+                if retry_without_prev_id && is_previous_response_id_error(&error_bytes) {
+                    let mut restored: Value = serde_json::from_slice(&original_body).unwrap_or(Value::Null);
+                    if let Err(error) = state.codex_history.restore_conversation(&mut restored) {
+                        return json_error(StatusCode::BAD_REQUEST, error);
+                    }
+                    let stripped_body = Bytes::from(serde_json::to_vec(&restored).unwrap_or_default());
+                    match prepare_codex_upstream(
+                        &state,
+                        &provider,
+                        &route,
+                        &headers,
+                        &stripped_body,
+                        false,
+                        is_catalog_subagent,
+                    ) {
+                        Ok(retry_prepared) => {
+                            let retry_start = Instant::now();
+                            note_gateway_inflight(
+                                &state,
+                                &provider,
+                                &current_upstream_model,
+                                is_stream,
+                                route_decision.as_ref(),
+                                &attempts,
+                            );
+                            let (retry_result, queue_wait_ms) =
+                                super::upstream_health::send_observed_upstream_with_timing(
+                                    retry_prepared.request.body(retry_prepared.request_body),
+                                    &provider,
+                                    Some(&state),
+                                    is_stream,
+                                )
+                                .await;
+                            let retry_duration = retry_start.elapsed().as_millis() as i64;
+                            attempts.push(
+                                super::upstream_health::build_request_attempt(
+                                    attempts.len(),
+                                    &provider,
+                                    &current_upstream_model,
+                                    retry_duration,
+                                    &retry_result,
+                                )
+                                .with_queue_wait_ms(queue_wait_ms)
+                                .with_reasoning_effort(
+                                    crate::database::dao::proxy_logs::extract_request_reasoning_effort(
+                                        &incoming,
+                                        Some(&current_upstream_model),
+                                        provider.thinking_config.as_ref(),
+                                    ),
+                                ),
+                            );
+                            match retry_result {
+                                Ok(response) => {
+                                    failover_trace.push(format!(
+                                        "{}({}) 上游拒绝 previous_response_id，去掉后重试",
+                                        provider.name, provider.id
+                                    ));
+                                    is_stream = retry_prepared.is_stream;
+                                    status = StatusCode::from_u16(response.status().as_u16())
+                                        .unwrap_or(StatusCode::BAD_GATEWAY);
+                                    upstream = Some(response);
+                                }
+                                Err(_) => {
+                                    prefetched_bytes = Some(error_bytes);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            prefetched_bytes = Some(error_bytes);
+                        }
+                    }
+                } else if retry_chat && is_unsupported_content_type_error(&error_bytes) {
                     match prepare_codex_upstream(
                         &state,
                         &provider,
@@ -956,6 +1099,24 @@ enum CompactFallback {
     Responses,
 }
 
+fn request_has_previous_response_id(body: &[u8]) -> bool {
+    serde_json::from_slice::<Value>(body)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("previous_response_id")
+                .and_then(Value::as_str)
+                .map(|id| !id.trim().is_empty())
+        })
+        .unwrap_or(false)
+}
+
+fn is_previous_response_id_error(body: &[u8]) -> bool {
+    String::from_utf8_lossy(body)
+        .to_ascii_lowercase()
+        .contains("previous_response_id")
+}
+
 fn should_bridge_responses_to_chat(protocol: ProtocolType, route: &str, force_chat: bool) -> bool {
     if codex_compact::is_responses_compact_route(route) || route.contains("chat/completions") {
         return false;
@@ -1043,6 +1204,8 @@ fn prepare_codex_upstream(
             return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
         }
         if needs_history_enrich {
+            state.codex_history.restore_conversation(&mut parsed)
+                .map_err(|error| json_error(StatusCode::BAD_REQUEST, error))?;
             let _ = state.codex_history.enrich_request(&mut parsed);
         }
         let requested_model = parsed
@@ -1135,6 +1298,8 @@ fn prepare_codex_upstream(
                 }
             };
         } else {
+            state.codex_history.restore_conversation(&mut parsed)
+                .map_err(|error| json_error(StatusCode::BAD_REQUEST, error))?;
             let _ = state.codex_history.enrich_request(&mut parsed);
         }
         let anthropic_body =
@@ -1209,6 +1374,8 @@ fn prepare_codex_upstream(
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
+        state.codex_history.restore_conversation(&mut parsed)
+            .map_err(|error| json_error(StatusCode::BAD_REQUEST, error))?;
         let _ = state.codex_history.enrich_request(&mut parsed);
         let mut chat = match responses_to_chat_completions_body(&parsed) {
             Ok(value) => value,
@@ -3478,4 +3645,5 @@ mod tests {
             "Host is up."
         );
     }
+    include!("codex_context_tests.rs");
 }

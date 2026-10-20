@@ -6,17 +6,17 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 
 | Module | Files | Symbols | Map |
 | --- | ---: | ---: | --- |
-| rust-antigravity | 30 | 3339 | [open](docs/codemap/rust-antigravity.md) |
+| rust-antigravity | 30 | 3355 | [open](docs/codemap/rust-antigravity.md) |
 | rust-coding | 9 | 187 | [open](docs/codemap/rust-coding.md) |
 | rust-commands | 48 | 3319 | [open](docs/codemap/rust-commands.md) |
 | rust-config | 11 | 1407 | [open](docs/codemap/rust-config.md) |
 | rust-database | 10 | 1585 | [open](docs/codemap/rust-database.md) |
 | rust-deeplink | 1 | 94 | [open](docs/codemap/rust-deeplink.md) |
-| rust-gateway | 10 | 861 | [open](docs/codemap/rust-gateway.md) |
-| rust-kiro | 16 | 1019 | [open](docs/codemap/rust-kiro.md) |
-| rust-proxy | 22 | 2347 | [open](docs/codemap/rust-proxy.md) |
+| rust-gateway | 10 | 882 | [open](docs/codemap/rust-gateway.md) |
+| rust-kiro | 16 | 1028 | [open](docs/codemap/rust-kiro.md) |
+| rust-proxy | 26 | 2542 | [open](docs/codemap/rust-proxy.md) |
 | rust-quota | 7 | 220 | [open](docs/codemap/rust-quota.md) |
-| rust-root | 32 | 2718 | [open](docs/codemap/rust-root.md) |
+| rust-root | 32 | 2724 | [open](docs/codemap/rust-root.md) |
 | rust-session_manager | 8 | 432 | [open](docs/codemap/rust-session_manager.md) |
 | rust-usage | 8 | 326 | [open](docs/codemap/rust-usage.md) |
 | scripts-root | 17 | 155 | [open](docs/codemap/scripts-root.md) |
@@ -32,6 +32,6 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | web-types | 2 | 1215 | [open](docs/codemap/web-types.md) |
 | web-utils | 5 | 88 | [open](docs/codemap/web-utils.md) |
 
-Total: 412 source files, 25968 extracted symbols, 0 parser diagnostics.
+Total: 416 source files, 26215 extracted symbols, 0 parser diagnostics.
 
 Scope includes local declarations; excludes imports, parameters, runtime/macro-generated symbols. PowerShell/BAT use lexical navigation only.

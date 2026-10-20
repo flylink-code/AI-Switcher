@@ -1,11 +1,29 @@
+# Agent：代码维护工程师
+职责：基于现有代码修复BUG、新增功能
+
+## 硬性规则（不可违背）
+1. 禁止绕过原有逻辑：不允许整体重构、更换算法、替换架构规避问题。BUG必须在现有代码结构内原地修复；新增功能复用现有调用关系、数据结构，不推翻原有实现。禁止直接重写整套代码。
+2. 禁止过度防御编程：仅添加业务场景真实会触发的边界判断、异常处理。不会实际发生的异常不额外添加；禁止无脑批量判空、try-catch、断言、参数校验。只保留本次需求相关的必要防护。
+3. 最小改动原则：仅修改和BUG/新功能相关代码片段。无关代码原样保留，不随意调整格式、变量命名、注释风格，不优化无关逻辑。
+4. 新增功能约束：新增代码贴合原有代码风格；优先复用现有函数/结构体，不引入不必要新依赖、新库。新增逻辑与原有代码兼容，不破坏原有正常业务流程。
+
+## 固定输出格式，严格按顺序
+① 需求梳理：总结本次要修复的bug 和/或 需要新增的功能点
+② 改动分析：
+  - 修bug：写出根因，解释原代码出错原因
+  - 新增功能：说明新增逻辑实现思路，如何和原有代码融合
+③ 改动清单：列出修改/新增的代码片段位置
+④ 完整结果代码：输出修改后的全部代码，改动部分做标记
+⑤ 校验说明：验证改动满足需求；同时说明没有添加多余防御代码，没有更换底层方案
+
+## 兜底提醒
+如果发现改动属于绕开原始问题、添加冗余防御代码，需要回退，回到原始代码，只做最小改动，删除不必要边界检查，重新修改。
+
 # AI-Switcher — 项目交接
 
 > 跨会话**唯一**交接源。只写仍有效的结构、硬约束摘要、未决事项；不堆已归档进度。
 > 会话结束时只修订仍成立的条目；已落地细节进代码/文档，不要再开 `CLAUDE.md`。
 > 功能对照以 `README.md` / `README_en.md` 为准。
-
-## 用户要求
-对话中文回复
 
 ## 文档索引
 
@@ -31,7 +49,7 @@
 
 - **AI-Switcher**（原 Claude Switcher）：Windows 优先桌面端，统一配置各 Agent 的供应商、智能网关、Antigravity 反代、本地代理、MCP、会话、用量。
 - 仓库 `flylink-code/AI-Switcher`。Tauri 2 + Rust + React + Vite；Corepack **pnpm**。
-- 版本 **1.6.4**（源码版本，尚未发布；`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` 必须对齐）。Schema **37**（`SCHEMA_VERSION`）。
+- 版本 **1.6.4**（`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` 必须对齐；MSI 数字版本 `1.6.4.4`，高于 beta.3 的 `1.6.4.3`）。Schema **37**（`SCHEMA_VERSION`）。
 - 后续开发走 **main**。1.4.xx 热修走 `release/1.4.x`（Schema 28），禁止把 Schema 33 回写进 1.4 线。
 - 不要把 `release/`、`src-tauri/target/`、`dist/` 纳入提交。本地 `bug.md` / `task.md` 不提交。不要安装或替换本机正式程序。
 
@@ -84,8 +102,10 @@
 
 ## 未做 / 未决
 
+- 用户已安装 beta.3。普通上游余额不足恢复的分类/冷却/半开及 HTTP 模拟回归通过，未对真实账号制造欠费验证：`INSUFFICIENT_BALANCE` 按额度不足处理，默认 60 秒后由真实请求半开探测；遵循上游明确的 `Retry-After`。不靠目录探测清除额度冷却。证据见 `bug.md` 第 7 项。
 - 未做：Hermes / Grok Build / Muse、WSL 内 `wsl --exec` CLI、Skills/插件 WSL 元数据改写、额度阶段 2（火山/自定义脚本）、前端 EnvironmentPage / UsagePage 拆分、ts-rs 后续批次。
 - Codex 新 CLI 顶层 `token_usage_record` 故意不解析。流式 UI 认 `cancelled`，但客户端断开目前未打该标记。
+- Responses 转 Anthropic/Chat 的续聊历史复用 `CodexHistoryStore`，仅内存保存，512 条 / 64 MiB 序列化历史上限；重启或淘汰后需新建对话。用户此前确认 VS Code 原问题修复；beta.3 安装版真实 CLI 暗号、切模、文件/图片工具续聊、Responses 增量续聊和 Gemini/Kiro 工具轮次均通过。联网 CLI 配置有效进程代理后，WebFetch 读取/续聊及安装版 WebSearch 来源/续聊通过，未修改应用环境或系统代理。站点人机验证仍可能发生，不要将模型记忆回答或验证页计为联网成功。最新证据见 `test.md` 和 `src-tauri/target/beta3-review/review.md`。
 - 从 live 导入全局上游支持 Code / Codex / OpenCode；Pi / Cline 暂不支持。DSH 保留旧写回行为。
 - 统一供应商验证缺口：隔离 L2 / DOM 场景已覆盖档案保存、连接保护、Code/Codex 配置漂移与双布局矩阵；完整视觉/键盘验收、真实 AG/Kiro 启动及供应商出网联调仍未验证。回滚仅后端导出 IPC，无 UI。
 - AG / Kiro 反代外置：`gateway_runtime_mode` 未设置时默认 `sidecar`（已存 `inproc` 保持进程内，重启生效；设置页「通用」有下拉和监督状态）。同一 exe 以 `--gateway-sidecar` 启动子进程；账号文件只由 sidecar 写入，主程序经 stdin JSON 行提交快照。不做一次性 Key / 独立 crate。详见 `docs/smart-gateway/sidecar-design.md`。

@@ -17,7 +17,7 @@ fn account_allows_model(account: &AntigravityAccount, requested_model: Option<&s
         .unwrap_or(true)
 }
 
-/// Claude 5.5 is entitlement-gated. A non-empty quota model list that omits the
+/// Claude 5.5 and Argon are entitlement-gated. A non-empty quota model list that omits the
 /// SKU means this account cannot serve it. An empty list is a cold start and
 /// still allowed; a later 404 quarantines that pair.
 fn account_offers_requested_model(
@@ -27,7 +27,7 @@ fn account_offers_requested_model(
     if !account_allows_model(account, requested_model) {
         return false;
     }
-    let Some(model) = requested_model.filter(|id| super::model_catalog::is_claude_55(id)) else {
+    let Some(model) = requested_model.filter(|id| is_ultra_exclusive_model(Some(id))) else {
         return true;
     };
     let Some(quota) = account.quota.as_ref() else {
@@ -39,7 +39,12 @@ fn account_offers_requested_model(
     quota
         .models
         .iter()
-        .any(|item| item.name.eq_ignore_ascii_case(model))
+        .any(|item| {
+            item.name.eq_ignore_ascii_case(model)
+                || (model.to_ascii_lowercase().starts_with("gemini-4-argon")
+                    && matches!(item.name.to_ascii_lowercase().as_str(),
+                        "gemini-4-argon" | "gemini-4-argon-high" | "gemini-4-argon-medium" | "gemini-4-argon-low"))
+        })
 }
 
 pub(crate) fn failure_cools_whole_account(status: u16) -> bool {
@@ -1359,6 +1364,29 @@ mod tests {
             &gemini_5h_empty,
             Some(QuotaFamily::ClaudeGpt)
         ));
+    }
+
+    #[test]
+    fn argon_skips_disabled_or_missing_entitlements_but_accepts_sibling_levels() {
+        let mut account = sample("argon", None);
+        account.model_access_mode = "custom".into();
+        account.allowed_model_patterns = vec!["gemini-*".into()];
+        for (listed, expected) in [
+            ("gemini-4-argon-disabled", false),
+            ("gemini-3.8-flash-high", false),
+            ("gemini-4-argon-high", true),
+        ] {
+            account.quota = Some(QuotaSnapshot {
+                models: vec![ModelQuota {
+                    name: listed.into(), percentage: 80,
+                    reset_time: String::new(), display_name: None,
+                }],
+                ..QuotaSnapshot::default()
+            });
+            assert_eq!(account_offers_requested_model(&account, Some("gemini-4-argon-medium")), expected, "{listed}");
+        }
+        account.quota = None;
+        assert!(account_offers_requested_model(&account, Some("gemini-4-argon-high")));
     }
 
     #[test]

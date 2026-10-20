@@ -4,7 +4,7 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health.rs) · page 1/1
 
-Source SHA-256: 3d895d4c0fdb3ee821f68c73929f1eeb82f82bfbcf0cf3cd84cb365c73bfa236
+Source SHA-256: 0648e8d5d2fac358a2744f821cfa775fe825203699d4377c13d2734959c07030
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -62,49 +62,49 @@ Source SHA-256: 3d895d4c0fdb3ee821f68c73929f1eeb82f82bfbcf0cf3cd84cb365c73bfa236
 | apply_model_cooldown | function_item |  | [140](../../src-tauri/src/gateway/health.rs#L140) |
 | record_http_failure | function_item |  | [150](../../src-tauri/src/gateway/health.rs#L150) |
 | record_failure_classification | function_item |  | [162](../../src-tauri/src/gateway/health.rs#L162) |
-| record_success | function_item |  | [241](../../src-tauri/src/gateway/health.rs#L241) |
-| record_model_success | function_item |  | [245](../../src-tauri/src/gateway/health.rs#L245) |
-| record_success_scope | function_item |  | [249](../../src-tauri/src/gateway/health.rs#L249) |
-| record_failure | function_item |  | [284](../../src-tauri/src/gateway/health.rs#L284) |
-| record_failure_scope | function_item |  | [288](../../src-tauri/src/gateway/health.rs#L288) |
-| record_probe_failure | function_item |  | [300](../../src-tauri/src/gateway/health.rs#L300) |
-| record_probe_http_status | function_item |  | [309](../../src-tauri/src/gateway/health.rs#L309) |
-| clear_auth_failure | function_item |  | [374](../../src-tauri/src/gateway/health.rs#L374) |
-| is_available | function_item |  | [391](../../src-tauri/src/gateway/health.rs#L391) |
-| CircuitPermit | struct_item |  | [429](../../src-tauri/src/gateway/health.rs#L429) |
-| upstream_id | field_declaration | CircuitPermit | [430](../../src-tauri/src/gateway/health.rs#L430) |
-| model | field_declaration | CircuitPermit | [431](../../src-tauri/src/gateway/health.rs#L431) |
-| is_upstream_half_open | field_declaration | CircuitPermit | [432](../../src-tauri/src/gateway/health.rs#L432) |
-| is_model_half_open | field_declaration | CircuitPermit | [433](../../src-tauri/src/gateway/health.rs#L433) |
-| completed | field_declaration | CircuitPermit | [434](../../src-tauri/src/gateway/health.rs#L434) |
-| CircuitPermit | impl |  | [437](../../src-tauri/src/gateway/health.rs#L437) |
-| upstream_id | function_item | CircuitPermit | [439](../../src-tauri/src/gateway/health.rs#L439) |
-| model | function_item | CircuitPermit | [444](../../src-tauri/src/gateway/health.rs#L444) |
-| is_half_open | function_item | CircuitPermit | [448](../../src-tauri/src/gateway/health.rs#L448) |
-| disarm | function_item | CircuitPermit | [453](../../src-tauri/src/gateway/health.rs#L453) |
-| record_success | function_item | CircuitPermit | [458](../../src-tauri/src/gateway/health.rs#L458) |
-| record_http_failure | function_item | CircuitPermit | [464](../../src-tauri/src/gateway/health.rs#L464) |
-| record_failure | function_item | CircuitPermit | [483](../../src-tauri/src/gateway/health.rs#L483) |
-| release_permit_scope | function_item | CircuitPermit | [489](../../src-tauri/src/gateway/health.rs#L489) |
-| Drop for CircuitPermit | impl |  | [510](../../src-tauri/src/gateway/health.rs#L510) |
-| drop | function_item | Drop for CircuitPermit | [511](../../src-tauri/src/gateway/health.rs#L511) |
-| acquire_permit | function_item |  | [516](../../src-tauri/src/gateway/health.rs#L516) |
-| min_cooldown_remaining | function_item |  | [574](../../src-tauri/src/gateway/health.rs#L574) |
-| min_cooldown_remaining_secs | function_item |  | [598](../../src-tauri/src/gateway/health.rs#L598) |
-| min_cooldown_for_candidates | function_item |  | [603](../../src-tauri/src/gateway/health.rs#L603) |
-| snapshot | function_item |  | [618](../../src-tauri/src/gateway/health.rs#L618) |
-| list_for_upstreams | function_item |  | [627](../../src-tauri/src/gateway/health.rs#L627) |
-| lookup | function_item |  | [648](../../src-tauri/src/gateway/health.rs#L648) |
-| to_public | function_item |  | [656](../../src-tauri/src/gateway/health.rs#L656) |
-| rank_for_failover | function_item |  | [692](../../src-tauri/src/gateway/health.rs#L692) |
-| rank_for_failover_model | function_item |  | [696](../../src-tauri/src/gateway/health.rs#L696) |
-| persist_probe_interval | function_item |  | [722](../../src-tauri/src/gateway/health.rs#L722) |
-| probe_interval_secs | function_item |  | [732](../../src-tauri/src/gateway/health.rs#L732) |
-| probe_loop | function_item |  | [740](../../src-tauri/src/gateway/health.rs#L740) |
-| url_targets_loopback | function_item |  | [752](../../src-tauri/src/gateway/health.rs#L752) |
-| probe_http_client | function_item |  | [757](../../src-tauri/src/gateway/health.rs#L757) |
-| classify_probe_status | function_item |  | [765](../../src-tauri/src/gateway/health.rs#L765) |
-| probe_provider | function_item |  | [769](../../src-tauri/src/gateway/health.rs#L769) |
-| format | macro invocation (unexpanded) | probe_provider | [791](../../src-tauri/src/gateway/health.rs#L791) |
-| probe_once | function_item |  | [814](../../src-tauri/src/gateway/health.rs#L814) |
-| include | macro invocation (unexpanded) |  | [823](../../src-tauri/src/gateway/health.rs#L823) |
+| record_success | function_item |  | [242](../../src-tauri/src/gateway/health.rs#L242) |
+| record_model_success | function_item |  | [246](../../src-tauri/src/gateway/health.rs#L246) |
+| record_success_scope | function_item |  | [250](../../src-tauri/src/gateway/health.rs#L250) |
+| record_failure | function_item |  | [285](../../src-tauri/src/gateway/health.rs#L285) |
+| record_failure_scope | function_item |  | [289](../../src-tauri/src/gateway/health.rs#L289) |
+| record_probe_failure | function_item |  | [301](../../src-tauri/src/gateway/health.rs#L301) |
+| record_probe_http_status | function_item |  | [310](../../src-tauri/src/gateway/health.rs#L310) |
+| clear_auth_failure | function_item |  | [375](../../src-tauri/src/gateway/health.rs#L375) |
+| is_available | function_item |  | [392](../../src-tauri/src/gateway/health.rs#L392) |
+| CircuitPermit | struct_item |  | [430](../../src-tauri/src/gateway/health.rs#L430) |
+| upstream_id | field_declaration | CircuitPermit | [431](../../src-tauri/src/gateway/health.rs#L431) |
+| model | field_declaration | CircuitPermit | [432](../../src-tauri/src/gateway/health.rs#L432) |
+| is_upstream_half_open | field_declaration | CircuitPermit | [433](../../src-tauri/src/gateway/health.rs#L433) |
+| is_model_half_open | field_declaration | CircuitPermit | [434](../../src-tauri/src/gateway/health.rs#L434) |
+| completed | field_declaration | CircuitPermit | [435](../../src-tauri/src/gateway/health.rs#L435) |
+| CircuitPermit | impl |  | [438](../../src-tauri/src/gateway/health.rs#L438) |
+| upstream_id | function_item | CircuitPermit | [440](../../src-tauri/src/gateway/health.rs#L440) |
+| model | function_item | CircuitPermit | [445](../../src-tauri/src/gateway/health.rs#L445) |
+| is_half_open | function_item | CircuitPermit | [449](../../src-tauri/src/gateway/health.rs#L449) |
+| disarm | function_item | CircuitPermit | [454](../../src-tauri/src/gateway/health.rs#L454) |
+| record_success | function_item | CircuitPermit | [459](../../src-tauri/src/gateway/health.rs#L459) |
+| record_http_failure | function_item | CircuitPermit | [465](../../src-tauri/src/gateway/health.rs#L465) |
+| record_failure | function_item | CircuitPermit | [484](../../src-tauri/src/gateway/health.rs#L484) |
+| release_permit_scope | function_item | CircuitPermit | [490](../../src-tauri/src/gateway/health.rs#L490) |
+| Drop for CircuitPermit | impl |  | [511](../../src-tauri/src/gateway/health.rs#L511) |
+| drop | function_item | Drop for CircuitPermit | [512](../../src-tauri/src/gateway/health.rs#L512) |
+| acquire_permit | function_item |  | [517](../../src-tauri/src/gateway/health.rs#L517) |
+| min_cooldown_remaining | function_item |  | [575](../../src-tauri/src/gateway/health.rs#L575) |
+| min_cooldown_remaining_secs | function_item |  | [599](../../src-tauri/src/gateway/health.rs#L599) |
+| min_cooldown_for_candidates | function_item |  | [604](../../src-tauri/src/gateway/health.rs#L604) |
+| snapshot | function_item |  | [619](../../src-tauri/src/gateway/health.rs#L619) |
+| list_for_upstreams | function_item |  | [628](../../src-tauri/src/gateway/health.rs#L628) |
+| lookup | function_item |  | [649](../../src-tauri/src/gateway/health.rs#L649) |
+| to_public | function_item |  | [657](../../src-tauri/src/gateway/health.rs#L657) |
+| rank_for_failover | function_item |  | [693](../../src-tauri/src/gateway/health.rs#L693) |
+| rank_for_failover_model | function_item |  | [697](../../src-tauri/src/gateway/health.rs#L697) |
+| persist_probe_interval | function_item |  | [723](../../src-tauri/src/gateway/health.rs#L723) |
+| probe_interval_secs | function_item |  | [733](../../src-tauri/src/gateway/health.rs#L733) |
+| probe_loop | function_item |  | [741](../../src-tauri/src/gateway/health.rs#L741) |
+| url_targets_loopback | function_item |  | [753](../../src-tauri/src/gateway/health.rs#L753) |
+| probe_http_client | function_item |  | [758](../../src-tauri/src/gateway/health.rs#L758) |
+| classify_probe_status | function_item |  | [766](../../src-tauri/src/gateway/health.rs#L766) |
+| probe_provider | function_item |  | [770](../../src-tauri/src/gateway/health.rs#L770) |
+| format | macro invocation (unexpanded) | probe_provider | [792](../../src-tauri/src/gateway/health.rs#L792) |
+| probe_once | function_item |  | [815](../../src-tauri/src/gateway/health.rs#L815) |
+| include | macro invocation (unexpanded) |  | [824](../../src-tauri/src/gateway/health.rs#L824) |

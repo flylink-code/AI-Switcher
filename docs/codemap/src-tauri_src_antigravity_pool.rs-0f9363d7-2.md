@@ -4,86 +4,92 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/pool.rs) · page 2/2
 
-Source SHA-256: fbf28de94284316811e7a3eefd4826e5791111955740c27cb433ec5b76b6c881
+Source SHA-256: 69e66232a4ea9c66f8e122e9290e005cb61e613f24fc19b8a07d401cdffe0765
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| vec | macro invocation (unexpanded) | tests::active_under_pressure_yields_best_alternative | [1109](../../src-tauri/src/antigravity/pool.rs#L1109) |
-| assert_eq | macro invocation (unexpanded) | tests::active_under_pressure_yields_best_alternative | [1112](../../src-tauri/src/antigravity/pool.rs#L1112) |
-| assert_eq | macro invocation (unexpanded) | tests::active_under_pressure_yields_best_alternative | [1113](../../src-tauri/src/antigravity/pool.rs#L1113) |
-| sticky_used_when_active_is_not_schedulable | function_item | tests | [1117](../../src-tauri/src/antigravity/pool.rs#L1117) |
-| vec | macro invocation (unexpanded) | tests::sticky_used_when_active_is_not_schedulable | [1122](../../src-tauri/src/antigravity/pool.rs#L1122) |
-| assert_eq | macro invocation (unexpanded) | tests::sticky_used_when_active_is_not_schedulable | [1124](../../src-tauri/src/antigravity/pool.rs#L1124) |
-| assert_eq | macro invocation (unexpanded) | tests::sticky_used_when_active_is_not_schedulable | [1125](../../src-tauri/src/antigravity/pool.rs#L1125) |
-| preferred_beats_active | function_item | tests | [1129](../../src-tauri/src/antigravity/pool.rs#L1129) |
-| vec | macro invocation (unexpanded) | tests::preferred_beats_active | [1134](../../src-tauri/src/antigravity/pool.rs#L1134) |
-| assert_eq | macro invocation (unexpanded) | tests::preferred_beats_active | [1137](../../src-tauri/src/antigravity/pool.rs#L1137) |
-| candidate_scheduling_score_ranks_health_and_quota | function_item | tests | [1141](../../src-tauri/src/antigravity/pool.rs#L1141) |
-| assert | macro invocation (unexpanded) | tests::candidate_scheduling_score_ranks_health_and_quota | [1150](../../src-tauri/src/antigravity/pool.rs#L1150) |
-| rate_limit_429_does_not_rotate_when_quota_remains | function_item | tests | [1157](../../src-tauri/src/antigravity/pool.rs#L1157) |
-| assert | macro invocation (unexpanded) | tests::rate_limit_429_does_not_rotate_when_quota_remains | [1159](../../src-tauri/src/antigravity/pool.rs#L1159) |
+| active_under_pressure_yields_best_alternative | function_item | tests | [1105](../../src-tauri/src/antigravity/pool.rs#L1105) |
+| vec | macro invocation (unexpanded) | tests::active_under_pressure_yields_best_alternative | [1114](../../src-tauri/src/antigravity/pool.rs#L1114) |
+| assert_eq | macro invocation (unexpanded) | tests::active_under_pressure_yields_best_alternative | [1117](../../src-tauri/src/antigravity/pool.rs#L1117) |
+| assert_eq | macro invocation (unexpanded) | tests::active_under_pressure_yields_best_alternative | [1118](../../src-tauri/src/antigravity/pool.rs#L1118) |
+| sticky_used_when_active_is_not_schedulable | function_item | tests | [1122](../../src-tauri/src/antigravity/pool.rs#L1122) |
+| vec | macro invocation (unexpanded) | tests::sticky_used_when_active_is_not_schedulable | [1127](../../src-tauri/src/antigravity/pool.rs#L1127) |
+| assert_eq | macro invocation (unexpanded) | tests::sticky_used_when_active_is_not_schedulable | [1129](../../src-tauri/src/antigravity/pool.rs#L1129) |
+| assert_eq | macro invocation (unexpanded) | tests::sticky_used_when_active_is_not_schedulable | [1130](../../src-tauri/src/antigravity/pool.rs#L1130) |
+| preferred_beats_active | function_item | tests | [1134](../../src-tauri/src/antigravity/pool.rs#L1134) |
+| vec | macro invocation (unexpanded) | tests::preferred_beats_active | [1139](../../src-tauri/src/antigravity/pool.rs#L1139) |
+| assert_eq | macro invocation (unexpanded) | tests::preferred_beats_active | [1142](../../src-tauri/src/antigravity/pool.rs#L1142) |
+| candidate_scheduling_score_ranks_health_and_quota | function_item | tests | [1146](../../src-tauri/src/antigravity/pool.rs#L1146) |
+| assert | macro invocation (unexpanded) | tests::candidate_scheduling_score_ranks_health_and_quota | [1155](../../src-tauri/src/antigravity/pool.rs#L1155) |
+| rate_limit_429_does_not_rotate_when_quota_remains | function_item | tests | [1162](../../src-tauri/src/antigravity/pool.rs#L1162) |
 | assert | macro invocation (unexpanded) | tests::rate_limit_429_does_not_rotate_when_quota_remains | [1164](../../src-tauri/src/antigravity/pool.rs#L1164) |
-| rate_limit_cooldown_caps_huge_retry_after | function_item | tests | [1168](../../src-tauri/src/antigravity/pool.rs#L1168) |
-| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1169](../../src-tauri/src/antigravity/pool.rs#L1169) |
-| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1170](../../src-tauri/src/antigravity/pool.rs#L1170) |
-| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1171](../../src-tauri/src/antigravity/pool.rs#L1171) |
-| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1172](../../src-tauri/src/antigravity/pool.rs#L1172) |
-| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1173](../../src-tauri/src/antigravity/pool.rs#L1173) |
+| assert | macro invocation (unexpanded) | tests::rate_limit_429_does_not_rotate_when_quota_remains | [1169](../../src-tauri/src/antigravity/pool.rs#L1169) |
+| rate_limit_cooldown_caps_huge_retry_after | function_item | tests | [1173](../../src-tauri/src/antigravity/pool.rs#L1173) |
 | assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1174](../../src-tauri/src/antigravity/pool.rs#L1174) |
-| family_quota | function_item | tests | [1177](../../src-tauri/src/antigravity/pool.rs#L1177) |
-| vec | macro invocation (unexpanded) | tests::family_quota | [1185](../../src-tauri/src/antigravity/pool.rs#L1185) |
-| pick_for_model | function_item | tests | [1229](../../src-tauri/src/antigravity/pool.rs#L1229) |
-| gemini_request_skips_account_with_only_claude_remaining | function_item | tests | [1242](../../src-tauri/src/antigravity/pool.rs#L1242) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_request_skips_account_with_only_claude_remaining | [1249](../../src-tauri/src/antigravity/pool.rs#L1249) |
-| claude_request_skips_account_with_only_gemini_remaining | function_item | tests | [1253](../../src-tauri/src/antigravity/pool.rs#L1253) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_request_skips_account_with_only_gemini_remaining | [1260](../../src-tauri/src/antigravity/pool.rs#L1260) |
-| active_account_skipped_when_requested_family_is_empty | function_item | tests | [1264](../../src-tauri/src/antigravity/pool.rs#L1264) |
-| vec | macro invocation (unexpanded) | tests::active_account_skipped_when_requested_family_is_empty | [1272](../../src-tauri/src/antigravity/pool.rs#L1272) |
-| assert_eq | macro invocation (unexpanded) | tests::active_account_skipped_when_requested_family_is_empty | [1274](../../src-tauri/src/antigravity/pool.rs#L1274) |
-| assert_eq | macro invocation (unexpanded) | tests::active_account_skipped_when_requested_family_is_empty | [1275](../../src-tauri/src/antigravity/pool.rs#L1275) |
-| rotate_on_429_when_requested_family_empty | function_item | tests | [1279](../../src-tauri/src/antigravity/pool.rs#L1279) |
-| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_requested_family_empty | [1282](../../src-tauri/src/antigravity/pool.rs#L1282) |
-| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_requested_family_empty | [1286](../../src-tauri/src/antigravity/pool.rs#L1286) |
-| gemini_five_hour_empty_skips_active_while_weekly_remains | function_item | tests | [1293](../../src-tauri/src/antigravity/pool.rs#L1293) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_five_hour_empty_skips_active_while_weekly_remains | [1300](../../src-tauri/src/antigravity/pool.rs#L1300) |
-| gemini_weekly_empty_skips_even_if_five_hour_remains | function_item | tests | [1304](../../src-tauri/src/antigravity/pool.rs#L1304) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_weekly_empty_skips_even_if_five_hour_remains | [1311](../../src-tauri/src/antigravity/pool.rs#L1311) |
-| recovered_five_hour_makes_active_schedulable_again | function_item | tests | [1315](../../src-tauri/src/antigravity/pool.rs#L1315) |
-| assert_eq | macro invocation (unexpanded) | tests::recovered_five_hour_makes_active_schedulable_again | [1322](../../src-tauri/src/antigravity/pool.rs#L1322) |
+| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1175](../../src-tauri/src/antigravity/pool.rs#L1175) |
+| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1176](../../src-tauri/src/antigravity/pool.rs#L1176) |
+| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1177](../../src-tauri/src/antigravity/pool.rs#L1177) |
+| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1178](../../src-tauri/src/antigravity/pool.rs#L1178) |
+| assert_eq | macro invocation (unexpanded) | tests::rate_limit_cooldown_caps_huge_retry_after | [1179](../../src-tauri/src/antigravity/pool.rs#L1179) |
+| family_quota | function_item | tests | [1182](../../src-tauri/src/antigravity/pool.rs#L1182) |
+| vec | macro invocation (unexpanded) | tests::family_quota | [1190](../../src-tauri/src/antigravity/pool.rs#L1190) |
+| pick_for_model | function_item | tests | [1234](../../src-tauri/src/antigravity/pool.rs#L1234) |
+| gemini_request_skips_account_with_only_claude_remaining | function_item | tests | [1247](../../src-tauri/src/antigravity/pool.rs#L1247) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_request_skips_account_with_only_claude_remaining | [1254](../../src-tauri/src/antigravity/pool.rs#L1254) |
+| claude_request_skips_account_with_only_gemini_remaining | function_item | tests | [1258](../../src-tauri/src/antigravity/pool.rs#L1258) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_request_skips_account_with_only_gemini_remaining | [1265](../../src-tauri/src/antigravity/pool.rs#L1265) |
+| active_account_skipped_when_requested_family_is_empty | function_item | tests | [1269](../../src-tauri/src/antigravity/pool.rs#L1269) |
+| vec | macro invocation (unexpanded) | tests::active_account_skipped_when_requested_family_is_empty | [1277](../../src-tauri/src/antigravity/pool.rs#L1277) |
+| assert_eq | macro invocation (unexpanded) | tests::active_account_skipped_when_requested_family_is_empty | [1279](../../src-tauri/src/antigravity/pool.rs#L1279) |
+| assert_eq | macro invocation (unexpanded) | tests::active_account_skipped_when_requested_family_is_empty | [1280](../../src-tauri/src/antigravity/pool.rs#L1280) |
+| rotate_on_429_when_requested_family_empty | function_item | tests | [1284](../../src-tauri/src/antigravity/pool.rs#L1284) |
+| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_requested_family_empty | [1287](../../src-tauri/src/antigravity/pool.rs#L1287) |
+| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_requested_family_empty | [1291](../../src-tauri/src/antigravity/pool.rs#L1291) |
+| gemini_five_hour_empty_skips_active_while_weekly_remains | function_item | tests | [1298](../../src-tauri/src/antigravity/pool.rs#L1298) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_five_hour_empty_skips_active_while_weekly_remains | [1305](../../src-tauri/src/antigravity/pool.rs#L1305) |
+| gemini_weekly_empty_skips_even_if_five_hour_remains | function_item | tests | [1309](../../src-tauri/src/antigravity/pool.rs#L1309) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_weekly_empty_skips_even_if_five_hour_remains | [1316](../../src-tauri/src/antigravity/pool.rs#L1316) |
+| recovered_five_hour_makes_active_schedulable_again | function_item | tests | [1320](../../src-tauri/src/antigravity/pool.rs#L1320) |
 | assert_eq | macro invocation (unexpanded) | tests::recovered_five_hour_makes_active_schedulable_again | [1327](../../src-tauri/src/antigravity/pool.rs#L1327) |
 | assert_eq | macro invocation (unexpanded) | tests::recovered_five_hour_makes_active_schedulable_again | [1332](../../src-tauri/src/antigravity/pool.rs#L1332) |
-| claude_request_still_uses_account_with_empty_gemini_five_hour | function_item | tests | [1336](../../src-tauri/src/antigravity/pool.rs#L1336) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_request_still_uses_account_with_empty_gemini_five_hour | [1343](../../src-tauri/src/antigravity/pool.rs#L1343) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_request_still_uses_account_with_empty_gemini_five_hour | [1347](../../src-tauri/src/antigravity/pool.rs#L1347) |
-| rotate_on_429_when_five_hour_empty_weekly_remains | function_item | tests | [1351](../../src-tauri/src/antigravity/pool.rs#L1351) |
-| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_five_hour_empty_weekly_remains | [1354](../../src-tauri/src/antigravity/pool.rs#L1354) |
-| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_five_hour_empty_weekly_remains | [1358](../../src-tauri/src/antigravity/pool.rs#L1358) |
-| claude_55_skips_account_whose_snapshot_lacks_the_sku | function_item | tests | [1365](../../src-tauri/src/antigravity/pool.rs#L1365) |
-| vec | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1369](../../src-tauri/src/antigravity/pool.rs#L1369) |
-| vec | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1379](../../src-tauri/src/antigravity/pool.rs#L1379) |
-| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1390](../../src-tauri/src/antigravity/pool.rs#L1390) |
-| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1396](../../src-tauri/src/antigravity/pool.rs#L1396) |
-| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1403](../../src-tauri/src/antigravity/pool.rs#L1403) |
-| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1407](../../src-tauri/src/antigravity/pool.rs#L1407) |
-| claude_55_404_quarantines_one_model_and_does_not_cool_the_account | function_item | tests | [1416](../../src-tauri/src/antigravity/pool.rs#L1416) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1417](../../src-tauri/src/antigravity/pool.rs#L1417) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1418](../../src-tauri/src/antigravity/pool.rs#L1418) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1419](../../src-tauri/src/antigravity/pool.rs#L1419) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1420](../../src-tauri/src/antigravity/pool.rs#L1420) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1424](../../src-tauri/src/antigravity/pool.rs#L1424) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1425](../../src-tauri/src/antigravity/pool.rs#L1425) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1426](../../src-tauri/src/antigravity/pool.rs#L1426) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1427](../../src-tauri/src/antigravity/pool.rs#L1427) |
-| vec | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1431](../../src-tauri/src/antigravity/pool.rs#L1431) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1435](../../src-tauri/src/antigravity/pool.rs#L1435) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1436](../../src-tauri/src/antigravity/pool.rs#L1436) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1437](../../src-tauri/src/antigravity/pool.rs#L1437) |
-| multi_agent_sessions_isolate_onto_distinct_accounts | function_item | tests | [1441](../../src-tauri/src/antigravity/pool.rs#L1441) |
-| vec | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1446](../../src-tauri/src/antigravity/pool.rs#L1446) |
-| vec | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1449](../../src-tauri/src/antigravity/pool.rs#L1449) |
-| assert_eq | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1460](../../src-tauri/src/antigravity/pool.rs#L1460) |
-| assert_eq | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1473](../../src-tauri/src/antigravity/pool.rs#L1473) |
-| standard_models_reserve_ultra_account_when_pro_account_is_idle | function_item | tests | [1477](../../src-tauri/src/antigravity/pool.rs#L1477) |
-| vec | macro invocation (unexpanded) | tests::standard_models_reserve_ultra_account_when_pro_account_is_idle | [1490](../../src-tauri/src/antigravity/pool.rs#L1490) |
-| assert_eq | macro invocation (unexpanded) | tests::standard_models_reserve_ultra_account_when_pro_account_is_idle | [1503](../../src-tauri/src/antigravity/pool.rs#L1503) |
-| assert_eq | macro invocation (unexpanded) | tests::standard_models_reserve_ultra_account_when_pro_account_is_idle | [1516](../../src-tauri/src/antigravity/pool.rs#L1516) |
+| assert_eq | macro invocation (unexpanded) | tests::recovered_five_hour_makes_active_schedulable_again | [1337](../../src-tauri/src/antigravity/pool.rs#L1337) |
+| claude_request_still_uses_account_with_empty_gemini_five_hour | function_item | tests | [1341](../../src-tauri/src/antigravity/pool.rs#L1341) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_request_still_uses_account_with_empty_gemini_five_hour | [1348](../../src-tauri/src/antigravity/pool.rs#L1348) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_request_still_uses_account_with_empty_gemini_five_hour | [1352](../../src-tauri/src/antigravity/pool.rs#L1352) |
+| rotate_on_429_when_five_hour_empty_weekly_remains | function_item | tests | [1356](../../src-tauri/src/antigravity/pool.rs#L1356) |
+| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_five_hour_empty_weekly_remains | [1359](../../src-tauri/src/antigravity/pool.rs#L1359) |
+| assert | macro invocation (unexpanded) | tests::rotate_on_429_when_five_hour_empty_weekly_remains | [1363](../../src-tauri/src/antigravity/pool.rs#L1363) |
+| argon_skips_disabled_or_missing_entitlements_but_accepts_sibling_levels | function_item | tests | [1370](../../src-tauri/src/antigravity/pool.rs#L1370) |
+| vec | macro invocation (unexpanded) | tests::argon_skips_disabled_or_missing_entitlements_but_accepts_sibling_levels | [1373](../../src-tauri/src/antigravity/pool.rs#L1373) |
+| vec | macro invocation (unexpanded) | tests::argon_skips_disabled_or_missing_entitlements_but_accepts_sibling_levels | [1380](../../src-tauri/src/antigravity/pool.rs#L1380) |
+| assert_eq | macro invocation (unexpanded) | tests::argon_skips_disabled_or_missing_entitlements_but_accepts_sibling_levels | [1386](../../src-tauri/src/antigravity/pool.rs#L1386) |
+| assert | macro invocation (unexpanded) | tests::argon_skips_disabled_or_missing_entitlements_but_accepts_sibling_levels | [1389](../../src-tauri/src/antigravity/pool.rs#L1389) |
+| claude_55_skips_account_whose_snapshot_lacks_the_sku | function_item | tests | [1393](../../src-tauri/src/antigravity/pool.rs#L1393) |
+| vec | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1397](../../src-tauri/src/antigravity/pool.rs#L1397) |
+| vec | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1407](../../src-tauri/src/antigravity/pool.rs#L1407) |
+| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1418](../../src-tauri/src/antigravity/pool.rs#L1418) |
+| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1424](../../src-tauri/src/antigravity/pool.rs#L1424) |
+| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1431](../../src-tauri/src/antigravity/pool.rs#L1431) |
+| assert | macro invocation (unexpanded) | tests::claude_55_skips_account_whose_snapshot_lacks_the_sku | [1435](../../src-tauri/src/antigravity/pool.rs#L1435) |
+| claude_55_404_quarantines_one_model_and_does_not_cool_the_account | function_item | tests | [1444](../../src-tauri/src/antigravity/pool.rs#L1444) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1445](../../src-tauri/src/antigravity/pool.rs#L1445) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1446](../../src-tauri/src/antigravity/pool.rs#L1446) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1447](../../src-tauri/src/antigravity/pool.rs#L1447) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1448](../../src-tauri/src/antigravity/pool.rs#L1448) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1452](../../src-tauri/src/antigravity/pool.rs#L1452) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1453](../../src-tauri/src/antigravity/pool.rs#L1453) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1454](../../src-tauri/src/antigravity/pool.rs#L1454) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1455](../../src-tauri/src/antigravity/pool.rs#L1455) |
+| vec | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1459](../../src-tauri/src/antigravity/pool.rs#L1459) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1463](../../src-tauri/src/antigravity/pool.rs#L1463) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1464](../../src-tauri/src/antigravity/pool.rs#L1464) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_quarantines_one_model_and_does_not_cool_the_account | [1465](../../src-tauri/src/antigravity/pool.rs#L1465) |
+| multi_agent_sessions_isolate_onto_distinct_accounts | function_item | tests | [1469](../../src-tauri/src/antigravity/pool.rs#L1469) |
+| vec | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1474](../../src-tauri/src/antigravity/pool.rs#L1474) |
+| vec | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1477](../../src-tauri/src/antigravity/pool.rs#L1477) |
+| assert_eq | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1488](../../src-tauri/src/antigravity/pool.rs#L1488) |
+| assert_eq | macro invocation (unexpanded) | tests::multi_agent_sessions_isolate_onto_distinct_accounts | [1501](../../src-tauri/src/antigravity/pool.rs#L1501) |
+| standard_models_reserve_ultra_account_when_pro_account_is_idle | function_item | tests | [1505](../../src-tauri/src/antigravity/pool.rs#L1505) |
+| vec | macro invocation (unexpanded) | tests::standard_models_reserve_ultra_account_when_pro_account_is_idle | [1518](../../src-tauri/src/antigravity/pool.rs#L1518) |
+| assert_eq | macro invocation (unexpanded) | tests::standard_models_reserve_ultra_account_when_pro_account_is_idle | [1531](../../src-tauri/src/antigravity/pool.rs#L1531) |
+| assert_eq | macro invocation (unexpanded) | tests::standard_models_reserve_ultra_account_when_pro_account_is_idle | [1544](../../src-tauri/src/antigravity/pool.rs#L1544) |

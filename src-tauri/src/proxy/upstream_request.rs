@@ -156,6 +156,7 @@ async fn proxy_handler_inner(
     };
     let incoming_stream = convert::wants_stream(&incoming);
     let mut incoming = incoming;
+    let server_web_tools = web_tools::server_web_tools(&incoming);
     web_tools::rewrite_server_tools(&mut incoming);
     let mut requested_model = incoming
         .get("model")
@@ -825,7 +826,7 @@ async fn proxy_handler_inner(
             if status.is_success() {
                 remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
             }
-            return Response::builder()
+            let response = Response::builder()
                 .status(status)
                 .header(header::CONTENT_TYPE, "text/event-stream")
                 .header(header::CACHE_CONTROL, "no-cache")
@@ -834,6 +835,7 @@ async fn proxy_handler_inner(
                     Body::from_stream(stream), Arc::clone(&state.db), log_id.clone(),
                 ))
                 .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "构造流式响应失败"));
+            return web_tools::materialize_stream(response, &server_web_tools).await;
         }
         let response_bytes = match upstream_resp.bytes().await {
             Ok(bytes) => bytes,
@@ -992,7 +994,7 @@ async fn proxy_handler_inner(
                                 client_model.trim(),
                             );
                             let mut anthropic = anthropic;
-                            let _ = web_tools::materialize_web_tool_uses(&mut anthropic);
+                            let _ = web_tools::materialize_web_tool_uses(&mut anthropic, &server_web_tools).await;
                             record_provider_success(&state, &provider.id);
                             remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
                             patch_completed_fallback_log(&state, log_id.as_deref(), &provider,
@@ -1045,7 +1047,7 @@ async fn proxy_handler_inner(
         }
         let anthropic = wire::client_anthropic_message(provider.protocol_type, &upstream, client_model.trim());
         let mut anthropic = anthropic;
-        let _ = web_tools::materialize_web_tool_uses(&mut anthropic);
+        let _ = web_tools::materialize_web_tool_uses(&mut anthropic, &server_web_tools).await;
         if let Some(id) = log_id.as_deref() {
             update_log_usage(
                 &state,
@@ -1100,7 +1102,7 @@ async fn proxy_handler_inner(
             }
         };
         let response_bytes = if let Ok(mut json) = serde_json::from_slice::<Value>(&response_bytes) {
-            let mut changed = web_tools::materialize_web_tool_uses(&mut json);
+            let mut changed = web_tools::materialize_web_tool_uses(&mut json, &server_web_tools).await;
             let trimmed_client_model = client_model.trim();
             if !trimmed_client_model.is_empty()
                 && json.get("type").and_then(Value::as_str) == Some("message")
@@ -1110,6 +1112,9 @@ async fn proxy_handler_inner(
                 changed = true;
             }
             if changed {
+                if let Some(headers) = resp_builder.headers_mut() {
+                    headers.remove(header::CONTENT_LENGTH);
+                }
                 Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| response_bytes.to_vec()))
             } else {
                 response_bytes
@@ -1266,9 +1271,10 @@ async fn proxy_handler_inner(
         remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
     }
 
-    resp_builder
+    let response = resp_builder
         .body(body)
-        .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")))
+        .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")));
+    web_tools::materialize_stream(response, &server_web_tools).await
 }
 
 #[derive(Debug, Default)]

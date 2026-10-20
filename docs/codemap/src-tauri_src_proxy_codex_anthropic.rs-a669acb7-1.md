@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex_anthropic.rs) · page 1/3
 
-Source SHA-256: 641353a101e565c7edce283338882906cbf6a4651b40de81704b3afee8232e39
+Source SHA-256: b0083f058c4efb1e7e39496214bc2d7b28809fc1a07edb7172f9892ab479e481
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

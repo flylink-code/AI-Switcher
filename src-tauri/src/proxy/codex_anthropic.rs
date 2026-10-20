@@ -1158,15 +1158,7 @@ impl AnthropicSseToResponsesConverter {
                     .pointer("/error/message")
                     .and_then(Value::as_str)
                     .unwrap_or("上游 Anthropic 流式响应错误");
-                push_responses_event(
-                    &mut output,
-                    "response.failed",
-                    json!({
-                        "type": "response.failed",
-                        "error": {"code": "api_error", "message": message},
-                    }),
-                );
-                self.completed = true;
+                output.push_str(&String::from_utf8_lossy(&self.error_event(message)));
             }
             _ => {}
         }
@@ -1395,7 +1387,14 @@ impl AnthropicSseToResponsesConverter {
             "response.failed",
             json!({
                 "type": "response.failed",
-                "error": {"code": "api_error", "message": message},
+                "response": {
+                    "id": self.response_id,
+                    "object": "response",
+                    "model": self.model,
+                    "status": "failed",
+                    "output": [],
+                    "error": {"code": "api_error", "message": message},
+                },
             }),
         );
         self.completed = true;
@@ -1621,6 +1620,27 @@ pub fn parse_anthropic_sse_frame(frame: &str) -> Option<(&str, Value)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_stream_has_response_error_envelope() {
+        let mut converter = AnthropicSseToResponsesConverter::new("test-model");
+        let output = String::from_utf8(converter.error_event("upstream failed")).unwrap();
+        let data = output.lines().find_map(|line| line.strip_prefix("data: ")).unwrap();
+        let event: Value = serde_json::from_str(data).unwrap();
+        assert_eq!(event["type"], "response.failed");
+        assert_eq!(event["response"]["status"], "failed");
+        assert_eq!(event["response"]["error"]["message"], "upstream failed");
+        assert_eq!(event["response"]["model"], "test-model");
+        assert!(converter.finish_stream().is_empty());
+        let mut converter = AnthropicSseToResponsesConverter::new("test-model");
+        let output = String::from_utf8(converter.push_event("error", &json!({
+            "error":{"message":"upstream failed"}
+        }))).unwrap();
+        let data = output.lines().find_map(|line| line.strip_prefix("data: ")).unwrap();
+        let event: Value = serde_json::from_str(data).unwrap();
+        assert_eq!(event["response"]["error"]["message"], "upstream failed");
+        assert!(converter.finish_stream().is_empty());
+    }
 
     const RESPONSES_REQUEST: &str = r#"{
         "model": "gpt-5",

@@ -415,6 +415,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn balance_recovery_sends_next_request_after_refill_without_restart() {
+        use axum::{routing::post, Router};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&calls);
+        let app = Router::new().route("/", post(move || {
+            let calls = Arc::clone(&observed);
+            async move {
+                if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                    Response::builder()
+                        .status(StatusCode::FORBIDDEN)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .header(header::RETRY_AFTER, "0")
+                        .body(Body::from(r#"{"error":{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}}"#))
+                        .unwrap()
+                } else {
+                    Response::builder().status(StatusCode::OK)
+                        .body(Body::from("refilled")).unwrap()
+                }
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
+        let client = Client::builder().no_proxy().build().unwrap();
+        let provider = test_provider("balance-refill-http", "sub2api", "model");
+        let (first, _) = send_observed_upstream_with_timing(
+            client.post(format!("http://{addr}/")), &provider, None, false,
+        ).await;
+        let first = first.unwrap();
+        assert_eq!(first.status(), StatusCode::FORBIDDEN);
+        assert_eq!(first.extensions().get::<ObservedFailure>().unwrap().0, FailureKind::Quota);
+        let (second, _) = send_observed_upstream_with_timing(
+            client.post(format!("http://{addr}/")), &provider, None, false,
+        ).await;
+        let second = second.unwrap();
+        assert_eq!(second.status(), StatusCode::OK);
+        assert_eq!(second.text().await.unwrap(), "refilled");
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert!(health::lookup(&provider.id).unwrap().last_error.is_none());
+        server.abort();
+    }
+
+    #[tokio::test]
     async fn admission_wait_is_preserved_on_local_rejection_and_network_error() {
         let db = Arc::new(Database::memory().unwrap());
         let provider = test_provider("queue-timing-isolated", "timing", "model");

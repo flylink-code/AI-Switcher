@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/upstream_health.rs) · page 1/1
 
-Source SHA-256: c7d0dc405353649fb637a9232bbe6628494929a6b44039352147bbc2bc9b2d80
+Source SHA-256: f3f130d24f850dae91ace3f05280187a3dffa7ffb87d8cd52a6ae8a311a4ce32
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -28,73 +28,82 @@ Source SHA-256: c7d0dc405353649fb637a9232bbe6628494929a6b44039352147bbc2bc9b2d80
 | test_provider | function_item | tests | [385](../../src-tauri/src/proxy/upstream_health.rs#L385) |
 | vec | macro invocation (unexpanded) | tests::test_provider | [400](../../src-tauri/src/proxy/upstream_health.rs#L400) |
 | vec | macro invocation (unexpanded) | tests::test_provider | [401](../../src-tauri/src/proxy/upstream_health.rs#L401) |
-| admission_wait_is_preserved_on_local_rejection_and_network_error | function_item | tests | [418](../../src-tauri/src/proxy/upstream_health.rs#L418) |
-| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [453](../../src-tauri/src/proxy/upstream_health.rs#L453) |
-| assert | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [457](../../src-tauri/src/proxy/upstream_health.rs#L457) |
-| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [460](../../src-tauri/src/proxy/upstream_health.rs#L460) |
-| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [464](../../src-tauri/src/proxy/upstream_health.rs#L464) |
-| assert | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [473](../../src-tauri/src/proxy/upstream_health.rs#L473) |
-| assert | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [474](../../src-tauri/src/proxy/upstream_health.rs#L474) |
-| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [477](../../src-tauri/src/proxy/upstream_health.rs#L477) |
-| smart_gateway_entry_card_is_not_cooled_by_one_models_429 | function_item | tests | [482](../../src-tauri/src/proxy/upstream_health.rs#L482) |
-| format | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [508](../../src-tauri/src/proxy/upstream_health.rs#L508) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [514](../../src-tauri/src/proxy/upstream_health.rs#L514) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [516](../../src-tauri/src/proxy/upstream_health.rs#L516) |
-| format | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [524](../../src-tauri/src/proxy/upstream_health.rs#L524) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [531](../../src-tauri/src/proxy/upstream_health.rs#L531) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [532](../../src-tauri/src/proxy/upstream_health.rs#L532) |
-| format | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [540](../../src-tauri/src/proxy/upstream_health.rs#L540) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [546](../../src-tauri/src/proxy/upstream_health.rs#L546) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [547](../../src-tauri/src/proxy/upstream_health.rs#L547) |
-| legacy_attempt_without_queue_wait_remains_readable | function_item | tests | [553](../../src-tauri/src/proxy/upstream_health.rs#L553) |
-| serde_json::json | macro invocation (unexpanded) | tests::legacy_attempt_without_queue_wait_remains_readable | [556](../../src-tauri/src/proxy/upstream_health.rs#L556) |
-| assert_eq | macro invocation (unexpanded) | tests::legacy_attempt_without_queue_wait_remains_readable | [561](../../src-tauri/src/proxy/upstream_health.rs#L561) |
-| first_output_loopback_replays_three_protocols_and_holds_permit | function_item | tests | [565](../../src-tauri/src/proxy/upstream_health.rs#L565) |
-| format | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [588](../../src-tauri/src/proxy/upstream_health.rs#L588) |
-| format | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [591](../../src-tauri/src/proxy/upstream_health.rs#L591) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [595](../../src-tauri/src/proxy/upstream_health.rs#L595) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [596](../../src-tauri/src/proxy/upstream_health.rs#L596) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [597](../../src-tauri/src/proxy/upstream_health.rs#L597) |
-| first_output_ignores_heartbeats_and_rejects_early_eof | function_item | tests | [603](../../src-tauri/src/proxy/upstream_health.rs#L603) |
-| assert | macro invocation (unexpanded) | tests::first_output_ignores_heartbeats_and_rejects_early_eof | [612](../../src-tauri/src/proxy/upstream_health.rs#L612) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_ignores_heartbeats_and_rejects_early_eof | [622](../../src-tauri/src/proxy/upstream_health.rs#L622) |
-| first_output_large_chunk_replays_tail_without_counting_it_as_prefetch | function_item | tests | [629](../../src-tauri/src/proxy/upstream_health.rs#L629) |
-| vec | macro invocation (unexpanded) | tests::first_output_large_chunk_replays_tail_without_counting_it_as_prefetch | [631](../../src-tauri/src/proxy/upstream_health.rs#L631) |
-| assert_eq | macro invocation (unexpanded) | tests::first_output_large_chunk_replays_tail_without_counting_it_as_prefetch | [635](../../src-tauri/src/proxy/upstream_health.rs#L635) |
-| build_request_attempt_records_success | function_item | tests | [646](../../src-tauri/src/proxy/upstream_health.rs#L646) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [656](../../src-tauri/src/proxy/upstream_health.rs#L656) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [657](../../src-tauri/src/proxy/upstream_health.rs#L657) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [658](../../src-tauri/src/proxy/upstream_health.rs#L658) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [659](../../src-tauri/src/proxy/upstream_health.rs#L659) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [660](../../src-tauri/src/proxy/upstream_health.rs#L660) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [661](../../src-tauri/src/proxy/upstream_health.rs#L661) |
-| assert | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [662](../../src-tauri/src/proxy/upstream_health.rs#L662) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [663](../../src-tauri/src/proxy/upstream_health.rs#L663) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [664](../../src-tauri/src/proxy/upstream_health.rs#L664) |
-| build_request_attempt_records_observed_failure | function_item | tests | [668](../../src-tauri/src/proxy/upstream_health.rs#L668) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [680](../../src-tauri/src/proxy/upstream_health.rs#L680) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [681](../../src-tauri/src/proxy/upstream_health.rs#L681) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [682](../../src-tauri/src/proxy/upstream_health.rs#L682) |
-| assert | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [683](../../src-tauri/src/proxy/upstream_health.rs#L683) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [684](../../src-tauri/src/proxy/upstream_health.rs#L684) |
-| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [685](../../src-tauri/src/proxy/upstream_health.rs#L685) |
-| loopback_failover_records_attempts_sequence | function_item | tests | [692](../../src-tauri/src/proxy/upstream_health.rs#L692) |
-| format | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [736](../../src-tauri/src/proxy/upstream_health.rs#L736) |
-| format | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [750](../../src-tauri/src/proxy/upstream_health.rs#L750) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [763](../../src-tauri/src/proxy/upstream_health.rs#L763) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [764](../../src-tauri/src/proxy/upstream_health.rs#L764) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [765](../../src-tauri/src/proxy/upstream_health.rs#L765) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [766](../../src-tauri/src/proxy/upstream_health.rs#L766) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [767](../../src-tauri/src/proxy/upstream_health.rs#L767) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [769](../../src-tauri/src/proxy/upstream_health.rs#L769) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [770](../../src-tauri/src/proxy/upstream_health.rs#L770) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [771](../../src-tauri/src/proxy/upstream_health.rs#L771) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [775](../../src-tauri/src/proxy/upstream_health.rs#L775) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [776](../../src-tauri/src/proxy/upstream_health.rs#L776) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [777](../../src-tauri/src/proxy/upstream_health.rs#L777) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [778](../../src-tauri/src/proxy/upstream_health.rs#L778) |
-| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [779](../../src-tauri/src/proxy/upstream_health.rs#L779) |
+| balance_recovery_sends_next_request_after_refill_without_restart | function_item | tests | [418](../../src-tauri/src/proxy/upstream_health.rs#L418) |
+| format | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [445](../../src-tauri/src/proxy/upstream_health.rs#L445) |
+| assert_eq | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [448](../../src-tauri/src/proxy/upstream_health.rs#L448) |
+| assert_eq | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [449](../../src-tauri/src/proxy/upstream_health.rs#L449) |
+| format | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [451](../../src-tauri/src/proxy/upstream_health.rs#L451) |
+| assert_eq | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [454](../../src-tauri/src/proxy/upstream_health.rs#L454) |
+| assert_eq | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [455](../../src-tauri/src/proxy/upstream_health.rs#L455) |
+| assert_eq | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [456](../../src-tauri/src/proxy/upstream_health.rs#L456) |
+| assert | macro invocation (unexpanded) | tests::balance_recovery_sends_next_request_after_refill_without_restart | [457](../../src-tauri/src/proxy/upstream_health.rs#L457) |
+| admission_wait_is_preserved_on_local_rejection_and_network_error | function_item | tests | [462](../../src-tauri/src/proxy/upstream_health.rs#L462) |
+| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [497](../../src-tauri/src/proxy/upstream_health.rs#L497) |
+| assert | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [501](../../src-tauri/src/proxy/upstream_health.rs#L501) |
+| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [504](../../src-tauri/src/proxy/upstream_health.rs#L504) |
+| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [508](../../src-tauri/src/proxy/upstream_health.rs#L508) |
+| assert | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [517](../../src-tauri/src/proxy/upstream_health.rs#L517) |
+| assert | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [518](../../src-tauri/src/proxy/upstream_health.rs#L518) |
+| assert_eq | macro invocation (unexpanded) | tests::admission_wait_is_preserved_on_local_rejection_and_network_error | [521](../../src-tauri/src/proxy/upstream_health.rs#L521) |
+| smart_gateway_entry_card_is_not_cooled_by_one_models_429 | function_item | tests | [526](../../src-tauri/src/proxy/upstream_health.rs#L526) |
+| format | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [552](../../src-tauri/src/proxy/upstream_health.rs#L552) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [558](../../src-tauri/src/proxy/upstream_health.rs#L558) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [560](../../src-tauri/src/proxy/upstream_health.rs#L560) |
+| format | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [568](../../src-tauri/src/proxy/upstream_health.rs#L568) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [575](../../src-tauri/src/proxy/upstream_health.rs#L575) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [576](../../src-tauri/src/proxy/upstream_health.rs#L576) |
+| format | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [584](../../src-tauri/src/proxy/upstream_health.rs#L584) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [590](../../src-tauri/src/proxy/upstream_health.rs#L590) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_entry_card_is_not_cooled_by_one_models_429 | [591](../../src-tauri/src/proxy/upstream_health.rs#L591) |
+| legacy_attempt_without_queue_wait_remains_readable | function_item | tests | [597](../../src-tauri/src/proxy/upstream_health.rs#L597) |
+| serde_json::json | macro invocation (unexpanded) | tests::legacy_attempt_without_queue_wait_remains_readable | [600](../../src-tauri/src/proxy/upstream_health.rs#L600) |
+| assert_eq | macro invocation (unexpanded) | tests::legacy_attempt_without_queue_wait_remains_readable | [605](../../src-tauri/src/proxy/upstream_health.rs#L605) |
+| first_output_loopback_replays_three_protocols_and_holds_permit | function_item | tests | [609](../../src-tauri/src/proxy/upstream_health.rs#L609) |
+| format | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [632](../../src-tauri/src/proxy/upstream_health.rs#L632) |
+| format | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [635](../../src-tauri/src/proxy/upstream_health.rs#L635) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [639](../../src-tauri/src/proxy/upstream_health.rs#L639) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [640](../../src-tauri/src/proxy/upstream_health.rs#L640) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_loopback_replays_three_protocols_and_holds_permit | [641](../../src-tauri/src/proxy/upstream_health.rs#L641) |
+| first_output_ignores_heartbeats_and_rejects_early_eof | function_item | tests | [647](../../src-tauri/src/proxy/upstream_health.rs#L647) |
+| assert | macro invocation (unexpanded) | tests::first_output_ignores_heartbeats_and_rejects_early_eof | [656](../../src-tauri/src/proxy/upstream_health.rs#L656) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_ignores_heartbeats_and_rejects_early_eof | [666](../../src-tauri/src/proxy/upstream_health.rs#L666) |
+| first_output_large_chunk_replays_tail_without_counting_it_as_prefetch | function_item | tests | [673](../../src-tauri/src/proxy/upstream_health.rs#L673) |
+| vec | macro invocation (unexpanded) | tests::first_output_large_chunk_replays_tail_without_counting_it_as_prefetch | [675](../../src-tauri/src/proxy/upstream_health.rs#L675) |
+| assert_eq | macro invocation (unexpanded) | tests::first_output_large_chunk_replays_tail_without_counting_it_as_prefetch | [679](../../src-tauri/src/proxy/upstream_health.rs#L679) |
+| build_request_attempt_records_success | function_item | tests | [690](../../src-tauri/src/proxy/upstream_health.rs#L690) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [700](../../src-tauri/src/proxy/upstream_health.rs#L700) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [701](../../src-tauri/src/proxy/upstream_health.rs#L701) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [702](../../src-tauri/src/proxy/upstream_health.rs#L702) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [703](../../src-tauri/src/proxy/upstream_health.rs#L703) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [704](../../src-tauri/src/proxy/upstream_health.rs#L704) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [705](../../src-tauri/src/proxy/upstream_health.rs#L705) |
+| assert | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [706](../../src-tauri/src/proxy/upstream_health.rs#L706) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [707](../../src-tauri/src/proxy/upstream_health.rs#L707) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_success | [708](../../src-tauri/src/proxy/upstream_health.rs#L708) |
+| build_request_attempt_records_observed_failure | function_item | tests | [712](../../src-tauri/src/proxy/upstream_health.rs#L712) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [724](../../src-tauri/src/proxy/upstream_health.rs#L724) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [725](../../src-tauri/src/proxy/upstream_health.rs#L725) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [726](../../src-tauri/src/proxy/upstream_health.rs#L726) |
+| assert | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [727](../../src-tauri/src/proxy/upstream_health.rs#L727) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [728](../../src-tauri/src/proxy/upstream_health.rs#L728) |
+| assert_eq | macro invocation (unexpanded) | tests::build_request_attempt_records_observed_failure | [729](../../src-tauri/src/proxy/upstream_health.rs#L729) |
+| loopback_failover_records_attempts_sequence | function_item | tests | [736](../../src-tauri/src/proxy/upstream_health.rs#L736) |
+| format | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [780](../../src-tauri/src/proxy/upstream_health.rs#L780) |
+| format | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [794](../../src-tauri/src/proxy/upstream_health.rs#L794) |
 | assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [807](../../src-tauri/src/proxy/upstream_health.rs#L807) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [808](../../src-tauri/src/proxy/upstream_health.rs#L808) |
 | assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [809](../../src-tauri/src/proxy/upstream_health.rs#L809) |
 | assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [810](../../src-tauri/src/proxy/upstream_health.rs#L810) |
-| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [811](../../src-tauri/src/proxy/upstream_health.rs#L811) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [811](../../src-tauri/src/proxy/upstream_health.rs#L811) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [813](../../src-tauri/src/proxy/upstream_health.rs#L813) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [814](../../src-tauri/src/proxy/upstream_health.rs#L814) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [815](../../src-tauri/src/proxy/upstream_health.rs#L815) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [819](../../src-tauri/src/proxy/upstream_health.rs#L819) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [820](../../src-tauri/src/proxy/upstream_health.rs#L820) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [821](../../src-tauri/src/proxy/upstream_health.rs#L821) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [822](../../src-tauri/src/proxy/upstream_health.rs#L822) |
+| assert | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [823](../../src-tauri/src/proxy/upstream_health.rs#L823) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [851](../../src-tauri/src/proxy/upstream_health.rs#L851) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [853](../../src-tauri/src/proxy/upstream_health.rs#L853) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [854](../../src-tauri/src/proxy/upstream_health.rs#L854) |
+| assert_eq | macro invocation (unexpanded) | tests::loopback_failover_records_attempts_sequence | [855](../../src-tauri/src/proxy/upstream_health.rs#L855) |

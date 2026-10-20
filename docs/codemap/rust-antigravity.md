@@ -19,7 +19,7 @@
 | [src-tauri/src/antigravity/map/args_fix.rs](../../src-tauri/src/antigravity/map/args_fix.rs) | 65 | [1](src-tauri_src_antigravity_map_args_fix.rs-ae858044-1.md) |
 | [src-tauri/src/antigravity/map/history_media.rs](../../src-tauri/src/antigravity/map/history_media.rs) | 33 | [1](src-tauri_src_antigravity_map_history_media.rs-6f930198-1.md) |
 | [src-tauri/src/antigravity/map/latex.rs](../../src-tauri/src/antigravity/map/latex.rs) | 124 | [1](src-tauri_src_antigravity_map_latex.rs-15d3d30d-1.md) [2](src-tauri_src_antigravity_map_latex.rs-15d3d30d-2.md) |
-| [src-tauri/src/antigravity/map/mod.rs](../../src-tauri/src/antigravity/map/mod.rs) | 43 | [1](src-tauri_src_antigravity_map_mod.rs-482a5901-1.md) |
+| [src-tauri/src/antigravity/map/mod.rs](../../src-tauri/src/antigravity/map/mod.rs) | 53 | [1](src-tauri_src_antigravity_map_mod.rs-482a5901-1.md) |
 | [src-tauri/src/antigravity/map/models.rs](../../src-tauri/src/antigravity/map/models.rs) | 41 | [1](src-tauri_src_antigravity_map_models.rs-60e79d6e-1.md) |
 | [src-tauri/src/antigravity/map/openai.rs](../../src-tauri/src/antigravity/map/openai.rs) | 162 | [1](src-tauri_src_antigravity_map_openai.rs-0eec48e4-1.md) [2](src-tauri_src_antigravity_map_openai.rs-0eec48e4-2.md) |
 | [src-tauri/src/antigravity/map/responses.rs](../../src-tauri/src/antigravity/map/responses.rs) | 142 | [1](src-tauri_src_antigravity_map_responses.rs-64c3f563-1.md) [2](src-tauri_src_antigravity_map_responses.rs-64c3f563-2.md) |
@@ -27,7 +27,7 @@
 | [src-tauri/src/antigravity/model_catalog.rs](../../src-tauri/src/antigravity/model_catalog.rs) | 190 | [1](src-tauri_src_antigravity_model_catalog.rs-d78a54c7-1.md) [2](src-tauri_src_antigravity_model_catalog.rs-d78a54c7-2.md) |
 | [src-tauri/src/antigravity/oauth.rs](../../src-tauri/src/antigravity/oauth.rs) | 38 | [1](src-tauri_src_antigravity_oauth.rs-022ae01c-1.md) |
 | [src-tauri/src/antigravity/outbound.rs](../../src-tauri/src/antigravity/outbound.rs) | 167 | [1](src-tauri_src_antigravity_outbound.rs-00ade915-1.md) [2](src-tauri_src_antigravity_outbound.rs-00ade915-2.md) |
-| [src-tauri/src/antigravity/pool.rs](../../src-tauri/src/antigravity/pool.rs) | 179 | [1](src-tauri_src_antigravity_pool.rs-0f9363d7-1.md) [2](src-tauri_src_antigravity_pool.rs-0f9363d7-2.md) |
+| [src-tauri/src/antigravity/pool.rs](../../src-tauri/src/antigravity/pool.rs) | 185 | [1](src-tauri_src_antigravity_pool.rs-0f9363d7-1.md) [2](src-tauri_src_antigravity_pool.rs-0f9363d7-2.md) |
 | [src-tauri/src/antigravity/quota.rs](../../src-tauri/src/antigravity/quota.rs) | 232 | [1](src-tauri_src_antigravity_quota.rs-06e8f2af-1.md) [2](src-tauri_src_antigravity_quota.rs-06e8f2af-2.md) [3](src-tauri_src_antigravity_quota.rs-06e8f2af-3.md) |
 | [src-tauri/src/antigravity/quota_sync.rs](../../src-tauri/src/antigravity/quota_sync.rs) | 25 | [1](src-tauri_src_antigravity_quota_sync.rs-dbf761b3-1.md) |
 | [src-tauri/src/antigravity/request_shape.rs](../../src-tauri/src/antigravity/request_shape.rs) | 17 | [1](src-tauri_src_antigravity_request_shape.rs-3864946d-1.md) |

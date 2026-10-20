@@ -14,6 +14,64 @@ fn unique_id(suffix: &str) -> String {
 }
 
 #[test]
+fn balance_recovery_classifies_observed_sub2api_error_as_quota() {
+    let result = classify_failure(403, None, Some(
+        r#"{"error":{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}}"#,
+    ));
+    assert_eq!(result.kind, FailureKind::Quota);
+    assert_eq!(result.cooldown, Some(Duration::from_secs(60)));
+    let message_only = classify_failure(403, None, Some(
+        r#"{"error":{"message":"Insufficient account balance"}}"#,
+    ));
+    assert_eq!(message_only.kind, FailureKind::Quota);
+}
+
+#[test]
+fn balance_recovery_preserves_explicit_retry_after() {
+    let id = unique_id("balance_retry_after");
+    let mut headers = http::HeaderMap::new();
+    headers.insert("retry-after", http::HeaderValue::from_static("120"));
+    assert_eq!(record_http_failure(&id, None, 429, Some(&headers),
+        Some(r#"{"error":{"code":"insufficient_quota"}}"#)), FailureKind::Quota);
+    let remaining = min_cooldown_remaining(&id, None).unwrap();
+    assert!(remaining <= Duration::from_secs(120));
+    assert!(remaining > Duration::from_secs(110));
+    headers.insert("retry-after", http::HeaderValue::from_static("3600"));
+    assert_eq!(classify_failure(429, Some(&headers),
+        Some(r#"{"error":{"code":"insufficient_quota"}}"#)).cooldown,
+        Some(Duration::from_secs(3600)));
+}
+
+#[test]
+fn balance_recovery_reopens_without_restart_and_keeps_single_probe() {
+    let id = unique_id("balance_refill");
+    record_http_failure(&id, Some("model-a"), 403, None, Some(
+        r#"{"error":{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}}"#,
+    ));
+    assert_eq!(lookup(&id).unwrap().last_error.as_deref(), Some(SAFE_ERR_QUOTA_EXHAUSTED));
+    assert!(acquire_permit(&id, Some("model-a")).is_none());
+    record_probe_http_status(&id, 200, Some(1));
+    assert!(acquire_permit(&id, Some("model-a")).is_none());
+    // Advance the stored deadline, without sleeping or clearing the health table.
+    lock_table().get_mut(&id).unwrap().open_until = Some(Instant::now() - Duration::from_secs(1));
+    let probe = acquire_permit(&id, Some("model-a")).expect("quota recovery probe");
+    assert!(probe.is_half_open());
+    assert!(acquire_permit(&id, Some("model-b")).is_none());
+    drop(probe);
+    let probe = acquire_permit(&id, Some("model-a")).expect("cancelled probe released");
+    probe.record_http_failure(429, None, Some(r#"{"error":{"code":"insufficient_quota"}}"#));
+    assert!(acquire_permit(&id, Some("model-a")).is_none());
+    assert!(min_cooldown_remaining(&id, None).unwrap() <= Duration::from_secs(60));
+    lock_table().get_mut(&id).unwrap().open_until = Some(Instant::now() - Duration::from_secs(1));
+    let probe = acquire_permit(&id, Some("model-a")).expect("refilled quota recovery probe");
+    probe.record_success(Some(10));
+    assert_eq!(min_cooldown_remaining(&id, None), None);
+    assert!(lookup(&id).unwrap().last_error.is_none());
+    assert!(!acquire_permit(&id, Some("model-a")).unwrap().is_half_open());
+    assert!(is_available(&id, Some("model-b")));
+}
+
+#[test]
 fn probe_failure_does_not_open_circuit() {
     let id = unique_id("probe");
     record_probe_failure(&id);
@@ -263,12 +321,12 @@ fn test_probe_429_cannot_clear_auth_or_overwrite_live_quota() {
         Some(r#"{"error":{"message":"Quota exceeded"}}"#),
     );
     let before_cooldown = lookup(&up_quota).unwrap().cooldown_remaining_ms;
-    assert!(before_cooldown > 3000 * 1000); // 1 hour quota cooldown
+    assert!(before_cooldown > 50 * 1000); // 1 minute quota cooldown
 
     record_probe_http_status(&up_quota, 429, Some(10));
     let after_cooldown = lookup(&up_quota).unwrap().cooldown_remaining_ms;
-    // Must remain 1h quota cooldown, not replaced by 5s rate limit!
-    assert!(after_cooldown > 3000 * 1000);
+    // Must retain quota cooldown, not replace it with a 5s rate limit!
+    assert!(after_cooldown > 50 * 1000);
 }
 
 #[test]

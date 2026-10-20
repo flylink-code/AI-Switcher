@@ -2,7 +2,7 @@
 // Included into gateway::health module via include!("health/classifier.rs").
 
 const COOLDOWN_AUTH_SECS: u64 = 30 * 60; // 30 minutes
-const COOLDOWN_QUOTA_SECS: u64 = 60 * 60; // 1 hour
+const COOLDOWN_QUOTA_SECS: u64 = 60; // Allow a half-open request to detect a top-up.
 const COOLDOWN_MODEL_SECS: u64 = 60 * 60; // 1 hour
 const COOLDOWN_RATE_LIMIT_BASE_SECS: u64 = 5;
 const COOLDOWN_RATE_LIMIT_MAX_SECS: u64 = 300; // 5 minutes
@@ -130,6 +130,7 @@ fn matches_quota_phrase(text: &str) -> bool {
         || lower.contains("lack of balance")
         || lower.contains("balance is insufficient")
         || lower.contains("insufficient balance")
+        || lower.contains("insufficient account balance")
         || lower.contains("account overdue")
         || text.contains("余额不足")
         || text.contains("额度不足")
@@ -153,6 +154,7 @@ fn is_quota_error(
             || c_lower == "quota_exceeded"
             || c_lower == "exceeded_quota"
             || c_lower == "insufficient_user_quota"
+            || c_lower == "insufficient_balance"
             || c_lower == "out_of_credit"
             || c_lower == "balance_exhausted"
             || c_lower == "account_overdue"
@@ -324,7 +326,11 @@ pub fn classify_failure(
     {
         return FailureClassification {
             kind: FailureKind::Quota,
-            cooldown: Some(Duration::from_secs(COOLDOWN_QUOTA_SECS)),
+            cooldown: Some(Duration::from_secs(headers
+                .and_then(|h| h.get("retry-after"))
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| parse_retry_after(value, chrono::Utc::now()))
+                .unwrap_or(COOLDOWN_QUOTA_SECS))),
             safe_description: Some(SAFE_ERR_QUOTA_EXHAUSTED.to_string()),
         };
     }

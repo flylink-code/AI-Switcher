@@ -71,3 +71,4 @@ docs/**
 # L2 failure dumps (keep the folder, not the contents)
 scripts/system-test/artifacts/*
 !scripts/system-test/artifacts/.gitignore
+test.md

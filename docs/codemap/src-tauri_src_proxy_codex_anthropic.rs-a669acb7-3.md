@@ -4,63 +4,71 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex_anthropic.rs) · page 3/3
 
-Source SHA-256: 641353a101e565c7edce283338882906cbf6a4651b40de81704b3afee8232e39
+Source SHA-256: b0083f058c4efb1e7e39496214bc2d7b28809fc1a07edb7172f9892ab479e481
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1730](../../src-tauri/src/proxy/codex_anthropic.rs#L1730) |
-| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1731](../../src-tauri/src/proxy/codex_anthropic.rs#L1731) |
-| responses_completed_without_total_tokens_is_filled | function_item | tests | [1735](../../src-tauri/src/proxy/codex_anthropic.rs#L1735) |
-| assert | macro invocation (unexpanded) | tests::responses_completed_without_total_tokens_is_filled | [1738](../../src-tauri/src/proxy/codex_anthropic.rs#L1738) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_completed_without_total_tokens_is_filled | [1740](../../src-tauri/src/proxy/codex_anthropic.rs#L1740) |
-| string_input_maps_to_single_user_message | function_item | tests | [1747](../../src-tauri/src/proxy/codex_anthropic.rs#L1747) |
-| json | macro invocation (unexpanded) | tests::string_input_maps_to_single_user_message | [1748](../../src-tauri/src/proxy/codex_anthropic.rs#L1748) |
-| assert_eq | macro invocation (unexpanded) | tests::string_input_maps_to_single_user_message | [1750](../../src-tauri/src/proxy/codex_anthropic.rs#L1750) |
-| responses_reasoning_effort_maps_to_anthropic_thinking | function_item | tests | [1757](../../src-tauri/src/proxy/codex_anthropic.rs#L1757) |
-| json | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1758](../../src-tauri/src/proxy/codex_anthropic.rs#L1758) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1765](../../src-tauri/src/proxy/codex_anthropic.rs#L1765) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1766](../../src-tauri/src/proxy/codex_anthropic.rs#L1766) |
-| assert | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1767](../../src-tauri/src/proxy/codex_anthropic.rs#L1767) |
-| sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | function_item | tests | [1771](../../src-tauri/src/proxy/codex_anthropic.rs#L1771) |
-| json | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1772](../../src-tauri/src/proxy/codex_anthropic.rs#L1772) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1785](../../src-tauri/src/proxy/codex_anthropic.rs#L1785) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1786](../../src-tauri/src/proxy/codex_anthropic.rs#L1786) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1788](../../src-tauri/src/proxy/codex_anthropic.rs#L1788) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1789](../../src-tauri/src/proxy/codex_anthropic.rs#L1789) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1790](../../src-tauri/src/proxy/codex_anthropic.rs#L1790) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1794](../../src-tauri/src/proxy/codex_anthropic.rs#L1794) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1795](../../src-tauri/src/proxy/codex_anthropic.rs#L1795) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1800](../../src-tauri/src/proxy/codex_anthropic.rs#L1800) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1802](../../src-tauri/src/proxy/codex_anthropic.rs#L1802) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1803](../../src-tauri/src/proxy/codex_anthropic.rs#L1803) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1807](../../src-tauri/src/proxy/codex_anthropic.rs#L1807) |
+| json | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1730](../../src-tauri/src/proxy/codex_anthropic.rs#L1730) |
+| json | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1737](../../src-tauri/src/proxy/codex_anthropic.rs#L1737) |
+| json | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1742](../../src-tauri/src/proxy/codex_anthropic.rs#L1742) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1745](../../src-tauri/src/proxy/codex_anthropic.rs#L1745) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1746](../../src-tauri/src/proxy/codex_anthropic.rs#L1746) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1747](../../src-tauri/src/proxy/codex_anthropic.rs#L1747) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1748](../../src-tauri/src/proxy/codex_anthropic.rs#L1748) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1749](../../src-tauri/src/proxy/codex_anthropic.rs#L1749) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1750](../../src-tauri/src/proxy/codex_anthropic.rs#L1750) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_text_stream_emits_responses_deltas | [1751](../../src-tauri/src/proxy/codex_anthropic.rs#L1751) |
+| responses_completed_without_total_tokens_is_filled | function_item | tests | [1755](../../src-tauri/src/proxy/codex_anthropic.rs#L1755) |
+| assert | macro invocation (unexpanded) | tests::responses_completed_without_total_tokens_is_filled | [1758](../../src-tauri/src/proxy/codex_anthropic.rs#L1758) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_completed_without_total_tokens_is_filled | [1760](../../src-tauri/src/proxy/codex_anthropic.rs#L1760) |
+| string_input_maps_to_single_user_message | function_item | tests | [1767](../../src-tauri/src/proxy/codex_anthropic.rs#L1767) |
+| json | macro invocation (unexpanded) | tests::string_input_maps_to_single_user_message | [1768](../../src-tauri/src/proxy/codex_anthropic.rs#L1768) |
+| assert_eq | macro invocation (unexpanded) | tests::string_input_maps_to_single_user_message | [1770](../../src-tauri/src/proxy/codex_anthropic.rs#L1770) |
+| responses_reasoning_effort_maps_to_anthropic_thinking | function_item | tests | [1777](../../src-tauri/src/proxy/codex_anthropic.rs#L1777) |
+| json | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1778](../../src-tauri/src/proxy/codex_anthropic.rs#L1778) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1785](../../src-tauri/src/proxy/codex_anthropic.rs#L1785) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1786](../../src-tauri/src/proxy/codex_anthropic.rs#L1786) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_effort_maps_to_anthropic_thinking | [1787](../../src-tauri/src/proxy/codex_anthropic.rs#L1787) |
+| sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | function_item | tests | [1791](../../src-tauri/src/proxy/codex_anthropic.rs#L1791) |
+| json | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1792](../../src-tauri/src/proxy/codex_anthropic.rs#L1792) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1805](../../src-tauri/src/proxy/codex_anthropic.rs#L1805) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1806](../../src-tauri/src/proxy/codex_anthropic.rs#L1806) |
 | assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1808](../../src-tauri/src/proxy/codex_anthropic.rs#L1808) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1812](../../src-tauri/src/proxy/codex_anthropic.rs#L1812) |
-| start_handshake_emits_reasoning_item_and_preserves_consistent_ids | function_item | tests | [1816](../../src-tauri/src/proxy/codex_anthropic.rs#L1816) |
-| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1819](../../src-tauri/src/proxy/codex_anthropic.rs#L1819) |
-| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1820](../../src-tauri/src/proxy/codex_anthropic.rs#L1820) |
-| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1821](../../src-tauri/src/proxy/codex_anthropic.rs#L1821) |
-| json | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1825](../../src-tauri/src/proxy/codex_anthropic.rs#L1825) |
-| json | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1830](../../src-tauri/src/proxy/codex_anthropic.rs#L1830) |
-| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1835](../../src-tauri/src/proxy/codex_anthropic.rs#L1835) |
-| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1836](../../src-tauri/src/proxy/codex_anthropic.rs#L1836) |
-| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1837](../../src-tauri/src/proxy/codex_anthropic.rs#L1837) |
-| thinking_only_stream_surfaces_reasoning_as_visible_message | function_item | tests | [1841](../../src-tauri/src/proxy/codex_anthropic.rs#L1841) |
-| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1845](../../src-tauri/src/proxy/codex_anthropic.rs#L1845) |
-| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1846](../../src-tauri/src/proxy/codex_anthropic.rs#L1846) |
-| json | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1850](../../src-tauri/src/proxy/codex_anthropic.rs#L1850) |
-| json | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1853](../../src-tauri/src/proxy/codex_anthropic.rs#L1853) |
-| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1856](../../src-tauri/src/proxy/codex_anthropic.rs#L1856) |
-| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1857](../../src-tauri/src/proxy/codex_anthropic.rs#L1857) |
-| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1858](../../src-tauri/src/proxy/codex_anthropic.rs#L1858) |
-| deepseek_tool_use_turns_receive_thinking_block | function_item | tests | [1862](../../src-tauri/src/proxy/codex_anthropic.rs#L1862) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1867](../../src-tauri/src/proxy/codex_anthropic.rs#L1867) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1868](../../src-tauri/src/proxy/codex_anthropic.rs#L1868) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1869](../../src-tauri/src/proxy/codex_anthropic.rs#L1869) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1874](../../src-tauri/src/proxy/codex_anthropic.rs#L1874) |
-| deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | function_item | tests | [1878](../../src-tauri/src/proxy/codex_anthropic.rs#L1878) |
-| json | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1879](../../src-tauri/src/proxy/codex_anthropic.rs#L1879) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1896](../../src-tauri/src/proxy/codex_anthropic.rs#L1896) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1897](../../src-tauri/src/proxy/codex_anthropic.rs#L1897) |
-| assert | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1899](../../src-tauri/src/proxy/codex_anthropic.rs#L1899) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1902](../../src-tauri/src/proxy/codex_anthropic.rs#L1902) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1809](../../src-tauri/src/proxy/codex_anthropic.rs#L1809) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1810](../../src-tauri/src/proxy/codex_anthropic.rs#L1810) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1814](../../src-tauri/src/proxy/codex_anthropic.rs#L1814) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1815](../../src-tauri/src/proxy/codex_anthropic.rs#L1815) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1820](../../src-tauri/src/proxy/codex_anthropic.rs#L1820) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1822](../../src-tauri/src/proxy/codex_anthropic.rs#L1822) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1823](../../src-tauri/src/proxy/codex_anthropic.rs#L1823) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1827](../../src-tauri/src/proxy/codex_anthropic.rs#L1827) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1828](../../src-tauri/src/proxy/codex_anthropic.rs#L1828) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitizes_parallel_tool_use_with_interleaved_user_and_missing_output | [1832](../../src-tauri/src/proxy/codex_anthropic.rs#L1832) |
+| start_handshake_emits_reasoning_item_and_preserves_consistent_ids | function_item | tests | [1836](../../src-tauri/src/proxy/codex_anthropic.rs#L1836) |
+| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1839](../../src-tauri/src/proxy/codex_anthropic.rs#L1839) |
+| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1840](../../src-tauri/src/proxy/codex_anthropic.rs#L1840) |
+| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1841](../../src-tauri/src/proxy/codex_anthropic.rs#L1841) |
+| json | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1845](../../src-tauri/src/proxy/codex_anthropic.rs#L1845) |
+| json | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1850](../../src-tauri/src/proxy/codex_anthropic.rs#L1850) |
+| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1855](../../src-tauri/src/proxy/codex_anthropic.rs#L1855) |
+| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1856](../../src-tauri/src/proxy/codex_anthropic.rs#L1856) |
+| assert | macro invocation (unexpanded) | tests::start_handshake_emits_reasoning_item_and_preserves_consistent_ids | [1857](../../src-tauri/src/proxy/codex_anthropic.rs#L1857) |
+| thinking_only_stream_surfaces_reasoning_as_visible_message | function_item | tests | [1861](../../src-tauri/src/proxy/codex_anthropic.rs#L1861) |
+| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1865](../../src-tauri/src/proxy/codex_anthropic.rs#L1865) |
+| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1866](../../src-tauri/src/proxy/codex_anthropic.rs#L1866) |
+| json | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1870](../../src-tauri/src/proxy/codex_anthropic.rs#L1870) |
+| json | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1873](../../src-tauri/src/proxy/codex_anthropic.rs#L1873) |
+| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1876](../../src-tauri/src/proxy/codex_anthropic.rs#L1876) |
+| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1877](../../src-tauri/src/proxy/codex_anthropic.rs#L1877) |
+| assert | macro invocation (unexpanded) | tests::thinking_only_stream_surfaces_reasoning_as_visible_message | [1878](../../src-tauri/src/proxy/codex_anthropic.rs#L1878) |
+| deepseek_tool_use_turns_receive_thinking_block | function_item | tests | [1882](../../src-tauri/src/proxy/codex_anthropic.rs#L1882) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1887](../../src-tauri/src/proxy/codex_anthropic.rs#L1887) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1888](../../src-tauri/src/proxy/codex_anthropic.rs#L1888) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1889](../../src-tauri/src/proxy/codex_anthropic.rs#L1889) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_tool_use_turns_receive_thinking_block | [1894](../../src-tauri/src/proxy/codex_anthropic.rs#L1894) |
+| deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | function_item | tests | [1898](../../src-tauri/src/proxy/codex_anthropic.rs#L1898) |
+| json | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1899](../../src-tauri/src/proxy/codex_anthropic.rs#L1899) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1916](../../src-tauri/src/proxy/codex_anthropic.rs#L1916) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1917](../../src-tauri/src/proxy/codex_anthropic.rs#L1917) |
+| assert | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1919](../../src-tauri/src/proxy/codex_anthropic.rs#L1919) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_downgrades_named_tool_choice_and_pads_small_max_tokens | [1922](../../src-tauri/src/proxy/codex_anthropic.rs#L1922) |

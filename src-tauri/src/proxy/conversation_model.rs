@@ -80,7 +80,7 @@ pub fn remember_for_target(target: ProviderTarget, session_key: Option<&str>, mo
     guard.last = Some(model.to_string());
 }
 
-/// Session entry first, then the most recent explicit model for this target.
+/// Known sessions stay isolated; headerless requests use this target's latest model.
 pub fn recall(session_key: Option<&str>) -> Option<String> {
     recall_for_target(ProviderTarget::ClaudeCode, session_key)
 }
@@ -89,9 +89,7 @@ pub fn recall_for_target(target: ProviderTarget, session_key: Option<&str>) -> O
     let guard = lock();
     if let Some(key) = session_key.map(str::trim).filter(|key| !key.is_empty()) {
         let scoped = format!("{}:{key}", target.as_str());
-        if let Some(model) = guard.sessions.get(&scoped) {
-            return Some(model.clone());
-        }
+        return guard.sessions.get(&scoped).cloned();
     }
     guard.last_by_target.get(&target).cloned()
 }
@@ -117,6 +115,7 @@ mod tests {
             recall(Some("conv-a")).as_deref(),
             Some("claude-sonnet-5-5-medium")
         );
+        assert_eq!(recall(Some("conv-new")), None);
         assert_eq!(
             recall(None).as_deref(),
             Some("gemini-3.8-flash-high")

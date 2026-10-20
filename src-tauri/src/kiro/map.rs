@@ -195,11 +195,12 @@ fn history_message(message: &Value, model: &str) -> Option<Value> {
     }
     let mut content = message_text(message);
     let tool_results = anthropic_tool_results(message.get("content"));
+    let images = anthropic_images(message.get("content"));
     if content.trim().is_empty() {
-        if tool_results.is_empty() {
+        if tool_results.is_empty() && images.is_empty() {
             return None;
         }
-        content = TOOL_TURN_PLACEHOLDER.to_string();
+        content = if tool_results.is_empty() { "image" } else { TOOL_TURN_PLACEHOLDER }.to_string();
     }
     let mut user = json!({
         "userInputMessage": {
@@ -212,20 +213,26 @@ fn history_message(message: &Value, model: &str) -> Option<Value> {
         user["userInputMessage"]["userInputMessageContext"]["toolResults"] =
             Value::Array(tool_results);
     }
+    if !images.is_empty() {
+        user["userInputMessage"]["images"] = Value::Array(images);
+    }
     Some(user)
 }
 
 fn current_from(message: &Value) -> CurrentTurn {
     let raw = message.get("content");
     let tool_results = anthropic_tool_results(raw);
+    let images = anthropic_images(raw);
     let mut content = message_text(message);
     if content.trim().is_empty() && !tool_results.is_empty() {
         content = TOOL_TURN_PLACEHOLDER.to_string();
+    } else if content.trim().is_empty() && !images.is_empty() {
+        content = "image".to_string();
     }
     CurrentTurn {
         content,
         tool_results,
-        images: anthropic_images(raw),
+        images,
     }
 }
 
@@ -1714,6 +1721,39 @@ mod tests {
             prepared.body["conversationState"]["currentMessage"]["userInputMessage"]["modelId"],
             "claude-sonnet-3.5"
         );
+    }
+
+    #[test]
+    fn images_survive_current_and_history_turns_in_all_protocols() {
+        let image = json!({"type":"image", "source":{
+            "type":"base64", "media_type":"image/png", "data":"aW1hZ2U="
+        }});
+        let chat_image = json!({"type":"image_url", "image_url":{"url":"data:image/png;base64,aW1hZ2U="}});
+        let responses_image = json!({"type":"input_image", "image_url":"data:image/png;base64,aW1hZ2U="});
+        for (protocol, incoming) in [
+            (WireProtocol::Anthropic, json!({"model":"claude-sonnet-5.5", "messages":[
+                {"role":"user", "content":[image.clone()]},
+                {"role":"assistant", "content":"seen"},
+                {"role":"user", "content":[image]}
+            ]})),
+            (WireProtocol::OpenAiChat, json!({"model":"claude-sonnet-5.5", "messages":[
+                {"role":"user", "content":[chat_image.clone()]},
+                {"role":"assistant", "content":"seen"},
+                {"role":"user", "content":[chat_image]}
+            ]})),
+            (WireProtocol::OpenAiResponses, json!({"model":"claude-sonnet-5.5", "input":[
+                {"role":"user", "content":[responses_image.clone()]},
+                {"role":"assistant", "content":[{"type":"output_text", "text":"seen"}]},
+                {"role":"user", "content":[responses_image]}
+            ]})),
+        ] {
+            let prepared = prepare(protocol, &incoming, &account()).unwrap();
+            let state = &prepared.body["conversationState"];
+            for user in [&state["history"][0]["userInputMessage"], &state["currentMessage"]["userInputMessage"]] {
+                assert_eq!(user["images"][0], json!({"format":"png", "source":{"bytes":"aW1hZ2U="}}), "{protocol:?}");
+                assert!(!user["content"].as_str().unwrap().is_empty());
+            }
+        }
     }
 
     #[test]

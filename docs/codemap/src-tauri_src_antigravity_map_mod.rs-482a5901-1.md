@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/map/mod.rs) · page 1/1
 
-Source SHA-256: c2c0fb043befb0584f67df37dce83a95e7558b888eb2696b98cf27826fb5ed25
+Source SHA-256: 33018015db7217a55d031edce4200dfcca599ce76aa33edd851bbe254da30a9f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -31,23 +31,33 @@ Source SHA-256: c2c0fb043befb0584f67df37dce83a95e7558b888eb2696b98cf27826fb5ed25
 | json | macro invocation (unexpanded) | normalize_gemini_contents | [189](../../src-tauri/src/antigravity/map/mod.rs#L189) |
 | json | macro invocation (unexpanded) | normalize_gemini_contents | [194](../../src-tauri/src/antigravity/map/mod.rs#L194) |
 | json | macro invocation (unexpanded) | normalize_gemini_contents | [196](../../src-tauri/src/antigravity/map/mod.rs#L196) |
-| MAX_GEMINI_CONTEXT_CHARS | const_item |  | [232](../../src-tauri/src/antigravity/map/mod.rs#L232) |
-| truncate_middle_chars | function_item |  | [234](../../src-tauri/src/antigravity/map/mod.rs#L234) |
-| format | macro invocation (unexpanded) | truncate_middle_chars | [257](../../src-tauri/src/antigravity/map/mod.rs#L257) |
-| estimate_part_chars | function_item |  | [260](../../src-tauri/src/antigravity/map/mod.rs#L260) |
-| estimate_contents_chars | function_item |  | [287](../../src-tauri/src/antigravity/map/mod.rs#L287) |
-| enforce_gemini_context_budget | function_item |  | [302](../../src-tauri/src/antigravity/map/mod.rs#L302) |
-| json | macro invocation (unexpanded) | enforce_gemini_context_budget | [334](../../src-tauri/src/antigravity/map/mod.rs#L334) |
-| tests | mod_item |  | [404](../../src-tauri/src/antigravity/map/mod.rs#L404) |
-| reminder_extracts_supported_text_without_rewriting_it | function_item | tests | [408](../../src-tauri/src/antigravity/map/mod.rs#L408) |
-| json | macro invocation (unexpanded) | tests::reminder_extracts_supported_text_without_rewriting_it | [409](../../src-tauri/src/antigravity/map/mod.rs#L409) |
-| assert_eq | macro invocation (unexpanded) | tests::reminder_extracts_supported_text_without_rewriting_it | [415](../../src-tauri/src/antigravity/map/mod.rs#L415) |
-| reminder_appends_only_to_adjacent_user_turn | function_item | tests | [422](../../src-tauri/src/antigravity/map/mod.rs#L422) |
-| vec | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [423](../../src-tauri/src/antigravity/map/mod.rs#L423) |
-| json | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [424](../../src-tauri/src/antigravity/map/mod.rs#L424) |
-| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [425](../../src-tauri/src/antigravity/map/mod.rs#L425) |
-| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [426](../../src-tauri/src/antigravity/map/mod.rs#L426) |
-| json | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [428](../../src-tauri/src/antigravity/map/mod.rs#L428) |
-| json | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [429](../../src-tauri/src/antigravity/map/mod.rs#L429) |
-| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [430](../../src-tauri/src/antigravity/map/mod.rs#L430) |
-| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [431](../../src-tauri/src/antigravity/map/mod.rs#L431) |
+| json | macro invocation (unexpanded) | normalize_gemini_contents | [258](../../src-tauri/src/antigravity/map/mod.rs#L258) |
+| MAX_GEMINI_CONTEXT_CHARS | const_item |  | [265](../../src-tauri/src/antigravity/map/mod.rs#L265) |
+| truncate_middle_chars | function_item |  | [267](../../src-tauri/src/antigravity/map/mod.rs#L267) |
+| format | macro invocation (unexpanded) | truncate_middle_chars | [290](../../src-tauri/src/antigravity/map/mod.rs#L290) |
+| estimate_part_chars | function_item |  | [293](../../src-tauri/src/antigravity/map/mod.rs#L293) |
+| estimate_contents_chars | function_item |  | [320](../../src-tauri/src/antigravity/map/mod.rs#L320) |
+| enforce_gemini_context_budget | function_item |  | [335](../../src-tauri/src/antigravity/map/mod.rs#L335) |
+| json | macro invocation (unexpanded) | enforce_gemini_context_budget | [367](../../src-tauri/src/antigravity/map/mod.rs#L367) |
+| tests | mod_item |  | [437](../../src-tauri/src/antigravity/map/mod.rs#L437) |
+| reminder_extracts_supported_text_without_rewriting_it | function_item | tests | [441](../../src-tauri/src/antigravity/map/mod.rs#L441) |
+| json | macro invocation (unexpanded) | tests::reminder_extracts_supported_text_without_rewriting_it | [442](../../src-tauri/src/antigravity/map/mod.rs#L442) |
+| assert_eq | macro invocation (unexpanded) | tests::reminder_extracts_supported_text_without_rewriting_it | [448](../../src-tauri/src/antigravity/map/mod.rs#L448) |
+| orphan_response_removal_does_not_leave_adjacent_model_turns | function_item | tests | [455](../../src-tauri/src/antigravity/map/mod.rs#L455) |
+| vec | macro invocation (unexpanded) | tests::orphan_response_removal_does_not_leave_adjacent_model_turns | [456](../../src-tauri/src/antigravity/map/mod.rs#L456) |
+| assert_eq | macro invocation (unexpanded) | tests::orphan_response_removal_does_not_leave_adjacent_model_turns | [468](../../src-tauri/src/antigravity/map/mod.rs#L468) |
+| assert | macro invocation (unexpanded) | tests::orphan_response_removal_does_not_leave_adjacent_model_turns | [469](../../src-tauri/src/antigravity/map/mod.rs#L469) |
+| leading_model_function_call_gets_a_user_turn | function_item | tests | [477](../../src-tauri/src/antigravity/map/mod.rs#L477) |
+| vec | macro invocation (unexpanded) | tests::leading_model_function_call_gets_a_user_turn | [478](../../src-tauri/src/antigravity/map/mod.rs#L478) |
+| assert_eq | macro invocation (unexpanded) | tests::leading_model_function_call_gets_a_user_turn | [483](../../src-tauri/src/antigravity/map/mod.rs#L483) |
+| assert_eq | macro invocation (unexpanded) | tests::leading_model_function_call_gets_a_user_turn | [484](../../src-tauri/src/antigravity/map/mod.rs#L484) |
+| assert_eq | macro invocation (unexpanded) | tests::leading_model_function_call_gets_a_user_turn | [485](../../src-tauri/src/antigravity/map/mod.rs#L485) |
+| reminder_appends_only_to_adjacent_user_turn | function_item | tests | [489](../../src-tauri/src/antigravity/map/mod.rs#L489) |
+| vec | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [490](../../src-tauri/src/antigravity/map/mod.rs#L490) |
+| json | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [491](../../src-tauri/src/antigravity/map/mod.rs#L491) |
+| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [492](../../src-tauri/src/antigravity/map/mod.rs#L492) |
+| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [493](../../src-tauri/src/antigravity/map/mod.rs#L493) |
+| json | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [495](../../src-tauri/src/antigravity/map/mod.rs#L495) |
+| json | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [496](../../src-tauri/src/antigravity/map/mod.rs#L496) |
+| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [497](../../src-tauri/src/antigravity/map/mod.rs#L497) |
+| assert_eq | macro invocation (unexpanded) | tests::reminder_appends_only_to_adjacent_user_turn | [498](../../src-tauri/src/antigravity/map/mod.rs#L498) |

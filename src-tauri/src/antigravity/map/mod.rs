@@ -225,6 +225,39 @@ pub(crate) fn normalize_gemini_contents(contents: &mut Vec<Value>) {
         i += 1;
     }
 
+    // 删除孤立 functionResponse 轮次后，前后的同角色轮次会相邻，需要再合并一次，
+    // 否则 Gemini 会报 "function call turn comes immediately after a user turn…"。
+    let mut remerged: Vec<Value> = Vec::with_capacity(merged.len());
+    for turn in merged.drain(..) {
+        let role = turn.get("role").and_then(Value::as_str).unwrap_or("user");
+        if let Some(last) = remerged
+            .last_mut()
+            .filter(|m| m.get("role").and_then(Value::as_str) == Some(role))
+        {
+            let extra = turn
+                .get("parts")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if let Some(existing) = last.get_mut("parts").and_then(Value::as_array_mut) {
+                existing.extend(extra);
+            }
+        } else {
+            remerged.push(turn);
+        }
+    }
+    merged = remerged;
+
+    // 历史被截断后以 model 轮次开头时，functionCall 前面没有 user 轮次。
+    if merged
+        .first()
+        .and_then(|m| m.get("role"))
+        .and_then(Value::as_str)
+        == Some("model")
+    {
+        merged.insert(0, json!({ "role": "user", "parts": [{ "text": "Continue." }] }));
+    }
+
     enforce_gemini_context_budget(&mut merged);
     *contents = merged;
 }
@@ -416,6 +449,40 @@ mod tests {
             system_reminder_text(&content).as_deref(),
             Some("<system-reminder>\nfirst\nsecond\n</system-reminder>")
         );
+    }
+
+    #[test]
+    fn orphan_response_removal_does_not_leave_adjacent_model_turns() {
+        let mut contents = vec![
+            json!({ "role": "user", "parts": [{ "text": "q" }] }),
+            json!({ "role": "model", "parts": [{ "text": "a" }] }),
+            json!({ "role": "user", "parts": [{ "functionResponse": { "name": "t", "id": "x", "response": { "result": "r" } } }] }),
+            json!({ "role": "model", "parts": [{ "functionCall": { "name": "t", "id": "y", "args": {} } }] }),
+            json!({ "role": "user", "parts": [{ "functionResponse": { "name": "t", "id": "y", "response": { "result": "r" } } }] }),
+        ];
+        normalize_gemini_contents(&mut contents);
+        let roles: Vec<&str> = contents
+            .iter()
+            .map(|c| c["role"].as_str().unwrap())
+            .collect();
+        assert_eq!(roles, ["user", "model", "user"]);
+        assert!(contents[1]["parts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p.get("functionCall").is_some()));
+    }
+
+    #[test]
+    fn leading_model_function_call_gets_a_user_turn() {
+        let mut contents = vec![
+            json!({ "role": "model", "parts": [{ "functionCall": { "name": "t", "id": "y", "args": {} } }] }),
+            json!({ "role": "user", "parts": [{ "functionResponse": { "name": "t", "id": "y", "response": { "result": "r" } } }] }),
+        ];
+        normalize_gemini_contents(&mut contents);
+        assert_eq!(contents[0]["role"], "user");
+        assert_eq!(contents[1]["role"], "model");
+        assert_eq!(contents[2]["role"], "user");
     }
 
     #[test]

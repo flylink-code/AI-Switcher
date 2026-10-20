@@ -4,57 +4,65 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex.rs) · page 2/2
 
-Source SHA-256: cdd8d7b52ea10d588ac46acf8b482c05ad14d4cc4ed2d4f8a6cb584adc506128
+Source SHA-256: cb78db124ca63e1b05d94fca51c2f62c161d53f3d02369f8c171220310aaf0a0
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3160](../../src-tauri/src/proxy/codex.rs#L3160) |
-| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3165](../../src-tauri/src/proxy/codex.rs#L3165) |
-| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3170](../../src-tauri/src/proxy/codex.rs#L3170) |
-| responses_input_array_converts_to_chat_completions_messages | function_item | tests | [3178](../../src-tauri/src/proxy/codex.rs#L3178) |
-| json | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3179](../../src-tauri/src/proxy/codex.rs#L3179) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3187](../../src-tauri/src/proxy/codex.rs#L3187) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3188](../../src-tauri/src/proxy/codex.rs#L3188) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3189](../../src-tauri/src/proxy/codex.rs#L3189) |
-| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3190](../../src-tauri/src/proxy/codex.rs#L3190) |
-| test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | function_item | tests | [3194](../../src-tauri/src/proxy/codex.rs#L3194) |
-| json | macro invocation (unexpanded) | tests::test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | [3196](../../src-tauri/src/proxy/codex.rs#L3196) |
-| assert_eq | macro invocation (unexpanded) | tests::test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | [3208](../../src-tauri/src/proxy/codex.rs#L3208) |
-| assert_ne | macro invocation (unexpanded) | tests::test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | [3209](../../src-tauri/src/proxy/codex.rs#L3209) |
-| test_explicit_chain_pinned_blocks_failover | function_item | tests | [3213](../../src-tauri/src/proxy/codex.rs#L3213) |
-| vec | macro invocation (unexpanded) | tests::test_explicit_chain_pinned_blocks_failover | [3215](../../src-tauri/src/proxy/codex.rs#L3215) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_chain_pinned_blocks_failover | [3233](../../src-tauri/src/proxy/codex.rs#L3233) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_chain_pinned_blocks_failover | [3244](../../src-tauri/src/proxy/codex.rs#L3244) |
-| test_explicit_chain_limits_attempts_to_three_total | function_item | tests | [3248](../../src-tauri/src/proxy/codex.rs#L3248) |
-| vec | macro invocation (unexpanded) | tests::test_explicit_chain_limits_attempts_to_three_total | [3250](../../src-tauri/src/proxy/codex.rs#L3250) |
-| assert_eq | macro invocation (unexpanded) | tests::test_explicit_chain_limits_attempts_to_three_total | [3285](../../src-tauri/src/proxy/codex.rs#L3285) |
-| assert_eq | macro invocation (unexpanded) | tests::test_explicit_chain_limits_attempts_to_three_total | [3286](../../src-tauri/src/proxy/codex.rs#L3286) |
-| test_provider | function_item | tests | [3289](../../src-tauri/src/proxy/codex.rs#L3289) |
-| test_explicit_vs_generic_failover_status_rules | function_item | tests | [3322](../../src-tauri/src/proxy/codex.rs#L3322) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3328](../../src-tauri/src/proxy/codex.rs#L3328) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3332](../../src-tauri/src/proxy/codex.rs#L3332) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3336](../../src-tauri/src/proxy/codex.rs#L3336) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3340](../../src-tauri/src/proxy/codex.rs#L3340) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3344](../../src-tauri/src/proxy/codex.rs#L3344) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3348](../../src-tauri/src/proxy/codex.rs#L3348) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3352](../../src-tauri/src/proxy/codex.rs#L3352) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3358](../../src-tauri/src/proxy/codex.rs#L3358) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3363](../../src-tauri/src/proxy/codex.rs#L3363) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3368](../../src-tauri/src/proxy/codex.rs#L3368) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3373](../../src-tauri/src/proxy/codex.rs#L3373) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3378](../../src-tauri/src/proxy/codex.rs#L3378) |
-| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3383](../../src-tauri/src/proxy/codex.rs#L3383) |
-| chat_completions_to_responses_bridge_converts_request_and_response | function_item | tests | [3391](../../src-tauri/src/proxy/codex.rs#L3391) |
-| serde_json::json | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3397](../../src-tauri/src/proxy/codex.rs#L3397) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3438](../../src-tauri/src/proxy/codex.rs#L3438) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3439](../../src-tauri/src/proxy/codex.rs#L3439) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3440](../../src-tauri/src/proxy/codex.rs#L3440) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3441](../../src-tauri/src/proxy/codex.rs#L3441) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3442](../../src-tauri/src/proxy/codex.rs#L3442) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3444](../../src-tauri/src/proxy/codex.rs#L3444) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3445](../../src-tauri/src/proxy/codex.rs#L3445) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3446](../../src-tauri/src/proxy/codex.rs#L3446) |
-| serde_json::json | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3448](../../src-tauri/src/proxy/codex.rs#L3448) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3471](../../src-tauri/src/proxy/codex.rs#L3471) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3472](../../src-tauri/src/proxy/codex.rs#L3472) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3476](../../src-tauri/src/proxy/codex.rs#L3476) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3272](../../src-tauri/src/proxy/codex.rs#L3272) |
+| assert | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3277](../../src-tauri/src/proxy/codex.rs#L3277) |
+| assert | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3292](../../src-tauri/src/proxy/codex.rs#L3292) |
+| openai_chat_responses_route_bridges_to_chat | function_item | tests | [3311](../../src-tauri/src/proxy/codex.rs#L3311) |
+| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3312](../../src-tauri/src/proxy/codex.rs#L3312) |
+| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3317](../../src-tauri/src/proxy/codex.rs#L3317) |
+| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3322](../../src-tauri/src/proxy/codex.rs#L3322) |
+| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3327](../../src-tauri/src/proxy/codex.rs#L3327) |
+| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3332](../../src-tauri/src/proxy/codex.rs#L3332) |
+| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3337](../../src-tauri/src/proxy/codex.rs#L3337) |
+| responses_input_array_converts_to_chat_completions_messages | function_item | tests | [3345](../../src-tauri/src/proxy/codex.rs#L3345) |
+| json | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3346](../../src-tauri/src/proxy/codex.rs#L3346) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3354](../../src-tauri/src/proxy/codex.rs#L3354) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3355](../../src-tauri/src/proxy/codex.rs#L3355) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3356](../../src-tauri/src/proxy/codex.rs#L3356) |
+| assert_eq | macro invocation (unexpanded) | tests::responses_input_array_converts_to_chat_completions_messages | [3357](../../src-tauri/src/proxy/codex.rs#L3357) |
+| test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | function_item | tests | [3361](../../src-tauri/src/proxy/codex.rs#L3361) |
+| json | macro invocation (unexpanded) | tests::test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | [3363](../../src-tauri/src/proxy/codex.rs#L3363) |
+| assert_eq | macro invocation (unexpanded) | tests::test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | [3375](../../src-tauri/src/proxy/codex.rs#L3375) |
+| assert_ne | macro invocation (unexpanded) | tests::test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id | [3376](../../src-tauri/src/proxy/codex.rs#L3376) |
+| test_explicit_chain_pinned_blocks_failover | function_item | tests | [3380](../../src-tauri/src/proxy/codex.rs#L3380) |
+| vec | macro invocation (unexpanded) | tests::test_explicit_chain_pinned_blocks_failover | [3382](../../src-tauri/src/proxy/codex.rs#L3382) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_chain_pinned_blocks_failover | [3400](../../src-tauri/src/proxy/codex.rs#L3400) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_chain_pinned_blocks_failover | [3411](../../src-tauri/src/proxy/codex.rs#L3411) |
+| test_explicit_chain_limits_attempts_to_three_total | function_item | tests | [3415](../../src-tauri/src/proxy/codex.rs#L3415) |
+| vec | macro invocation (unexpanded) | tests::test_explicit_chain_limits_attempts_to_three_total | [3417](../../src-tauri/src/proxy/codex.rs#L3417) |
+| assert_eq | macro invocation (unexpanded) | tests::test_explicit_chain_limits_attempts_to_three_total | [3452](../../src-tauri/src/proxy/codex.rs#L3452) |
+| assert_eq | macro invocation (unexpanded) | tests::test_explicit_chain_limits_attempts_to_three_total | [3453](../../src-tauri/src/proxy/codex.rs#L3453) |
+| test_provider | function_item | tests | [3456](../../src-tauri/src/proxy/codex.rs#L3456) |
+| test_explicit_vs_generic_failover_status_rules | function_item | tests | [3489](../../src-tauri/src/proxy/codex.rs#L3489) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3495](../../src-tauri/src/proxy/codex.rs#L3495) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3499](../../src-tauri/src/proxy/codex.rs#L3499) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3503](../../src-tauri/src/proxy/codex.rs#L3503) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3507](../../src-tauri/src/proxy/codex.rs#L3507) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3511](../../src-tauri/src/proxy/codex.rs#L3511) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3515](../../src-tauri/src/proxy/codex.rs#L3515) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3519](../../src-tauri/src/proxy/codex.rs#L3519) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3525](../../src-tauri/src/proxy/codex.rs#L3525) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3530](../../src-tauri/src/proxy/codex.rs#L3530) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3535](../../src-tauri/src/proxy/codex.rs#L3535) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3540](../../src-tauri/src/proxy/codex.rs#L3540) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3545](../../src-tauri/src/proxy/codex.rs#L3545) |
+| assert | macro invocation (unexpanded) | tests::test_explicit_vs_generic_failover_status_rules | [3550](../../src-tauri/src/proxy/codex.rs#L3550) |
+| chat_completions_to_responses_bridge_converts_request_and_response | function_item | tests | [3558](../../src-tauri/src/proxy/codex.rs#L3558) |
+| serde_json::json | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3564](../../src-tauri/src/proxy/codex.rs#L3564) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3605](../../src-tauri/src/proxy/codex.rs#L3605) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3606](../../src-tauri/src/proxy/codex.rs#L3606) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3607](../../src-tauri/src/proxy/codex.rs#L3607) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3608](../../src-tauri/src/proxy/codex.rs#L3608) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3609](../../src-tauri/src/proxy/codex.rs#L3609) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3611](../../src-tauri/src/proxy/codex.rs#L3611) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3612](../../src-tauri/src/proxy/codex.rs#L3612) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3613](../../src-tauri/src/proxy/codex.rs#L3613) |
+| serde_json::json | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3615](../../src-tauri/src/proxy/codex.rs#L3615) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3638](../../src-tauri/src/proxy/codex.rs#L3638) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3639](../../src-tauri/src/proxy/codex.rs#L3639) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_completions_to_responses_bridge_converts_request_and_response | [3643](../../src-tauri/src/proxy/codex.rs#L3643) |
+| include | macro invocation (unexpanded) | tests | [3648](../../src-tauri/src/proxy/codex.rs#L3648) |

@@ -8,25 +8,29 @@
 
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
-| [src-tauri/src/proxy/codex.rs](../../src-tauri/src/proxy/codex.rs) | 150 | [1](src-tauri_src_proxy_codex.rs-a82ee765-1.md) [2](src-tauri_src_proxy_codex.rs-a82ee765-2.md) |
-| [src-tauri/src/proxy/codex_anthropic.rs](../../src-tauri/src/proxy/codex_anthropic.rs) | 256 | [1](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-1.md) [2](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-2.md) [3](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-3.md) |
+| [src-tauri/src/proxy/codex.rs](../../src-tauri/src/proxy/codex.rs) | 158 | [1](src-tauri_src_proxy_codex.rs-a82ee765-1.md) [2](src-tauri_src_proxy_codex.rs-a82ee765-2.md) |
+| [src-tauri/src/proxy/codex_anthropic.rs](../../src-tauri/src/proxy/codex_anthropic.rs) | 264 | [1](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-1.md) [2](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-2.md) [3](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-3.md) |
 | [src-tauri/src/proxy/codex_auto_review.rs](../../src-tauri/src/proxy/codex_auto_review.rs) | 20 | [1](src-tauri_src_proxy_codex_auto_review.rs-e70a3df1-1.md) |
 | [src-tauri/src/proxy/codex_chat.rs](../../src-tauri/src/proxy/codex_chat.rs) | 196 | [1](src-tauri_src_proxy_codex_chat.rs-aa0fa258-1.md) [2](src-tauri_src_proxy_codex_chat.rs-aa0fa258-2.md) |
 | [src-tauri/src/proxy/codex_compact.rs](../../src-tauri/src/proxy/codex_compact.rs) | 53 | [1](src-tauri_src_proxy_codex_compact.rs-d9e6c50c-1.md) |
-| [src-tauri/src/proxy/codex_history.rs](../../src-tauri/src/proxy/codex_history.rs) | 59 | [1](src-tauri_src_proxy_codex_history.rs-e0396be7-1.md) |
+| [src-tauri/src/proxy/codex_context_tests.rs](../../src-tauri/src/proxy/codex_context_tests.rs) | 53 | [1](src-tauri_src_proxy_codex_context_tests.rs-0e2d1cef-1.md) |
+| [src-tauri/src/proxy/codex_history.rs](../../src-tauri/src/proxy/codex_history.rs) | 105 | [1](src-tauri_src_proxy_codex_history.rs-e0396be7-1.md) [2](src-tauri_src_proxy_codex_history.rs-e0396be7-2.md) |
 | [src-tauri/src/proxy/codex_moonshot_schema.rs](../../src-tauri/src/proxy/codex_moonshot_schema.rs) | 31 | [1](src-tauri_src_proxy_codex_moonshot_schema.rs-59a5eb94-1.md) |
-| [src-tauri/src/proxy/conversation_model.rs](../../src-tauri/src/proxy/conversation_model.rs) | 23 | [1](src-tauri_src_proxy_conversation_model.rs-860400e5-1.md) |
-| [src-tauri/src/proxy/convert.rs](../../src-tauri/src/proxy/convert.rs) | 434 | [1](src-tauri_src_proxy_convert.rs-07b384c2-1.md) [2](src-tauri_src_proxy_convert.rs-07b384c2-2.md) [3](src-tauri_src_proxy_convert.rs-07b384c2-3.md) [4](src-tauri_src_proxy_convert.rs-07b384c2-4.md) [5](src-tauri_src_proxy_convert.rs-07b384c2-5.md) |
+| [src-tauri/src/proxy/conversation_model.rs](../../src-tauri/src/proxy/conversation_model.rs) | 24 | [1](src-tauri_src_proxy_conversation_model.rs-860400e5-1.md) |
+| [src-tauri/src/proxy/convert.rs](../../src-tauri/src/proxy/convert.rs) | 439 | [1](src-tauri_src_proxy_convert.rs-07b384c2-1.md) [2](src-tauri_src_proxy_convert.rs-07b384c2-2.md) [3](src-tauri_src_proxy_convert.rs-07b384c2-3.md) [4](src-tauri_src_proxy_convert.rs-07b384c2-4.md) [5](src-tauri_src_proxy_convert.rs-07b384c2-5.md) |
 | [src-tauri/src/proxy/desktop_alias.rs](../../src-tauri/src/proxy/desktop_alias.rs) | 81 | [1](src-tauri_src_proxy_desktop_alias.rs-044bb086-1.md) |
 | [src-tauri/src/proxy/failover.rs](../../src-tauri/src/proxy/failover.rs) | 18 | [1](src-tauri_src_proxy_failover.rs-7e54a38e-1.md) |
 | [src-tauri/src/proxy/first_output.rs](../../src-tauri/src/proxy/first_output.rs) | 53 | [1](src-tauri_src_proxy_first_output.rs-cd9739a8-1.md) |
 | [src-tauri/src/proxy/logging.rs](../../src-tauri/src/proxy/logging.rs) | 224 | [1](src-tauri_src_proxy_logging.rs-c5874d85-1.md) [2](src-tauri_src_proxy_logging.rs-c5874d85-2.md) [3](src-tauri_src_proxy_logging.rs-c5874d85-3.md) |
 | [src-tauri/src/proxy/mod.rs](../../src-tauri/src/proxy/mod.rs) | 32 | [1](src-tauri_src_proxy_mod.rs-9dd36b88-1.md) |
 | [src-tauri/src/proxy/response_lifecycle.rs](../../src-tauri/src/proxy/response_lifecycle.rs) | 83 | [1](src-tauri_src_proxy_response_lifecycle.rs-f3e3b738-1.md) |
-| [src-tauri/src/proxy/route_select.rs](../../src-tauri/src/proxy/route_select.rs) | 66 | [1](src-tauri_src_proxy_route_select.rs-5294e7ec-1.md) |
+| [src-tauri/src/proxy/route_select.rs](../../src-tauri/src/proxy/route_select.rs) | 70 | [1](src-tauri_src_proxy_route_select.rs-5294e7ec-1.md) |
 | [src-tauri/src/proxy/state.rs](../../src-tauri/src/proxy/state.rs) | 90 | [1](src-tauri_src_proxy_state.rs-509d7fc9-1.md) |
-| [src-tauri/src/proxy/upstream_health.rs](../../src-tauri/src/proxy/upstream_health.rs) | 90 | [1](src-tauri_src_proxy_upstream_health.rs-a3f19f26-1.md) |
+| [src-tauri/src/proxy/upstream_health.rs](../../src-tauri/src/proxy/upstream_health.rs) | 99 | [1](src-tauri_src_proxy_upstream_health.rs-a3f19f26-1.md) |
 | [src-tauri/src/proxy/upstream_request.rs](../../src-tauri/src/proxy/upstream_request.rs) | 104 | [1](src-tauri_src_proxy_upstream_request.rs-a4d728ae-1.md) [2](src-tauri_src_proxy_upstream_request.rs-a4d728ae-2.md) |
-| [src-tauri/src/proxy/web_tools.rs](../../src-tauri/src/proxy/web_tools.rs) | 36 | [1](src-tauri_src_proxy_web_tools.rs-9ab3a6e3-1.md) |
+| [src-tauri/src/proxy/web_tools.rs](../../src-tauri/src/proxy/web_tools.rs) | 46 | [1](src-tauri_src_proxy_web_tools.rs-9ab3a6e3-1.md) |
+| [src-tauri/src/proxy/web_tools_results.rs](../../src-tauri/src/proxy/web_tools_results.rs) | 6 | [1](src-tauri_src_proxy_web_tools_results.rs-e35bc38f-1.md) |
+| [src-tauri/src/proxy/web_tools_stream.rs](../../src-tauri/src/proxy/web_tools_stream.rs) | 4 | [1](src-tauri_src_proxy_web_tools_stream.rs-1edf0884-1.md) |
+| [src-tauri/src/proxy/web_tools_tests.rs](../../src-tauri/src/proxy/web_tools_tests.rs) | 41 | [1](src-tauri_src_proxy_web_tools_tests.rs-769fb912-1.md) |
 | [src-tauri/src/proxy/wire/mod.rs](../../src-tauri/src/proxy/wire/mod.rs) | 224 | [1](src-tauri_src_proxy_wire_mod.rs-42e632aa-1.md) [2](src-tauri_src_proxy_wire_mod.rs-42e632aa-2.md) [3](src-tauri_src_proxy_wire_mod.rs-42e632aa-3.md) |
 | [src-tauri/src/proxy/wire/sse.rs](../../src-tauri/src/proxy/wire/sse.rs) | 24 | [1](src-tauri_src_proxy_wire_sse.rs-92ed0ef5-1.md) |

@@ -4,7 +4,7 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health/classifier.rs) · page 1/1
 
-Source SHA-256: adb327e6ceeaf0aaec506312d25671f1272c5173189926c066ed59f7e9ec4044
+Source SHA-256: bbd797c582cccb241448ebcd36fde4cc86789aba3559590eb6b9e063c0f1b7e6
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -23,9 +23,9 @@ Source SHA-256: adb327e6ceeaf0aaec506312d25671f1272c5173189926c066ed59f7e9ec4044
 | calculate_rate_limit_backoff | function_item |  | [62](../../src-tauri/src/gateway/health/classifier.rs#L62) |
 | extract_error_fields | function_item |  | [69](../../src-tauri/src/gateway/health/classifier.rs#L69) |
 | matches_quota_phrase | function_item |  | [121](../../src-tauri/src/gateway/health/classifier.rs#L121) |
-| is_quota_error | function_item |  | [142](../../src-tauri/src/gateway/health/classifier.rs#L142) |
-| is_auth_error | function_item |  | [190](../../src-tauri/src/gateway/health/classifier.rs#L190) |
-| is_rate_limit_error | function_item |  | [224](../../src-tauri/src/gateway/health/classifier.rs#L224) |
-| matches_model_not_found | function_item |  | [255](../../src-tauri/src/gateway/health/classifier.rs#L255) |
-| classify_failure | function_item |  | [306](../../src-tauri/src/gateway/health/classifier.rs#L306) |
-| is_relay_client_validation_error | function_item |  | [407](../../src-tauri/src/gateway/health/classifier.rs#L407) |
+| is_quota_error | function_item |  | [143](../../src-tauri/src/gateway/health/classifier.rs#L143) |
+| is_auth_error | function_item |  | [192](../../src-tauri/src/gateway/health/classifier.rs#L192) |
+| is_rate_limit_error | function_item |  | [226](../../src-tauri/src/gateway/health/classifier.rs#L226) |
+| matches_model_not_found | function_item |  | [257](../../src-tauri/src/gateway/health/classifier.rs#L257) |
+| classify_failure | function_item |  | [308](../../src-tauri/src/gateway/health/classifier.rs#L308) |
+| is_relay_client_validation_error | function_item |  | [413](../../src-tauri/src/gateway/health/classifier.rs#L413) |

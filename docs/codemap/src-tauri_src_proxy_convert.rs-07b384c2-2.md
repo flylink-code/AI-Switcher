@@ -4,107 +4,107 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/convert.rs) · page 2/5
 
-Source SHA-256: 120375a25de03c2b704e79b214fd92fab87e04f3e74e00e53bf26a9543f84d69
+Source SHA-256: 6de4c5ee1009da39a66399b111106c07f5836681038aa5f0f82f54227172a9f8
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1176](../../src-tauri/src/proxy/convert.rs#L1176) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1229](../../src-tauri/src/proxy/convert.rs#L1229) |
-| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1236](../../src-tauri/src/proxy/convert.rs#L1236) |
-| observe_response | function_item | OpenAiSseConverter | [1246](../../src-tauri/src/proxy/convert.rs#L1246) |
-| ensure_started | function_item | OpenAiSseConverter | [1290](../../src-tauri/src/proxy/convert.rs#L1290) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_started | [1297](../../src-tauri/src/proxy/convert.rs#L1297) |
-| ensure_thinking_block | function_item | OpenAiSseConverter | [1312](../../src-tauri/src/proxy/convert.rs#L1312) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_thinking_block | [1325](../../src-tauri/src/proxy/convert.rs#L1325) |
-| close_thinking_block | function_item | OpenAiSseConverter | [1333](../../src-tauri/src/proxy/convert.rs#L1333) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::close_thinking_block | [1339](../../src-tauri/src/proxy/convert.rs#L1339) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::close_thinking_block | [1352](../../src-tauri/src/proxy/convert.rs#L1352) |
-| emit_normalized_text_delta | function_item | OpenAiSseConverter | [1359](../../src-tauri/src/proxy/convert.rs#L1359) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::emit_normalized_text_delta | [1375](../../src-tauri/src/proxy/convert.rs#L1375) |
-| flush_all_text_carries | function_item | OpenAiSseConverter | [1383](../../src-tauri/src/proxy/convert.rs#L1383) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::flush_all_text_carries | [1393](../../src-tauri/src/proxy/convert.rs#L1393) |
-| ensure_text_block | function_item | OpenAiSseConverter | [1403](../../src-tauri/src/proxy/convert.rs#L1403) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_text_block | [1415](../../src-tauri/src/proxy/convert.rs#L1415) |
-| ensure_tool_block | function_item | OpenAiSseConverter | [1423](../../src-tauri/src/proxy/convert.rs#L1423) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_tool_block | [1441](../../src-tauri/src/proxy/convert.rs#L1441) |
-| finish | function_item | OpenAiSseConverter | [1452](../../src-tauri/src/proxy/convert.rs#L1452) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::finish | [1463](../../src-tauri/src/proxy/convert.rs#L1463) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::finish | [1469](../../src-tauri/src/proxy/convert.rs#L1469) |
-| json | macro invocation (unexpanded) | OpenAiSseConverter::finish | [1479](../../src-tauri/src/proxy/convert.rs#L1479) |
-| anthropic_sse_abort | function_item |  | [1488](../../src-tauri/src/proxy/convert.rs#L1488) |
-| json | macro invocation (unexpanded) | anthropic_sse_abort | [1506](../../src-tauri/src/proxy/convert.rs#L1506) |
-| json | macro invocation (unexpanded) | anthropic_sse_abort | [1525](../../src-tauri/src/proxy/convert.rs#L1525) |
-| json | macro invocation (unexpanded) | anthropic_sse_abort | [1541](../../src-tauri/src/proxy/convert.rs#L1541) |
-| json | macro invocation (unexpanded) | anthropic_sse_abort | [1547](../../src-tauri/src/proxy/convert.rs#L1547) |
-| push_error_text_block | function_item |  | [1551](../../src-tauri/src/proxy/convert.rs#L1551) |
-| json | macro invocation (unexpanded) | push_error_text_block | [1555](../../src-tauri/src/proxy/convert.rs#L1555) |
-| json | macro invocation (unexpanded) | push_error_text_block | [1564](../../src-tauri/src/proxy/convert.rs#L1564) |
-| json | macro invocation (unexpanded) | push_error_text_block | [1573](../../src-tauri/src/proxy/convert.rs#L1573) |
-| chat_upstream_error_message | function_item |  | [1577](../../src-tauri/src/proxy/convert.rs#L1577) |
-| anthropic_messages_to_responses_input | function_item |  | [1598](../../src-tauri/src/proxy/convert.rs#L1598) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1623](../../src-tauri/src/proxy/convert.rs#L1623) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1630](../../src-tauri/src/proxy/convert.rs#L1630) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1635](../../src-tauri/src/proxy/convert.rs#L1635) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1640](../../src-tauri/src/proxy/convert.rs#L1640) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1646](../../src-tauri/src/proxy/convert.rs#L1646) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1653](../../src-tauri/src/proxy/convert.rs#L1653) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1669](../../src-tauri/src/proxy/convert.rs#L1669) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1674](../../src-tauri/src/proxy/convert.rs#L1674) |
-| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1690](../../src-tauri/src/proxy/convert.rs#L1690) |
-| anthropic_message_to_sse | function_item |  | [1704](../../src-tauri/src/proxy/convert.rs#L1704) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1709](../../src-tauri/src/proxy/convert.rs#L1709) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1727](../../src-tauri/src/proxy/convert.rs#L1727) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1733](../../src-tauri/src/proxy/convert.rs#L1733) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1738](../../src-tauri/src/proxy/convert.rs#L1738) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1745](../../src-tauri/src/proxy/convert.rs#L1745) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1751](../../src-tauri/src/proxy/convert.rs#L1751) |
-| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1753](../../src-tauri/src/proxy/convert.rs#L1753) |
-| append_openai_message | function_item |  | [1757](../../src-tauri/src/proxy/convert.rs#L1757) |
-| json | macro invocation (unexpanded) | append_openai_message | [1766](../../src-tauri/src/proxy/convert.rs#L1766) |
-| json | macro invocation (unexpanded) | append_openai_message | [1770](../../src-tauri/src/proxy/convert.rs#L1770) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1177](../../src-tauri/src/proxy/convert.rs#L1177) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1230](../../src-tauri/src/proxy/convert.rs#L1230) |
+| matches | macro invocation (unexpanded) | OpenAiSseConverter::push_responses_event | [1237](../../src-tauri/src/proxy/convert.rs#L1237) |
+| observe_response | function_item | OpenAiSseConverter | [1247](../../src-tauri/src/proxy/convert.rs#L1247) |
+| ensure_started | function_item | OpenAiSseConverter | [1291](../../src-tauri/src/proxy/convert.rs#L1291) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_started | [1298](../../src-tauri/src/proxy/convert.rs#L1298) |
+| ensure_thinking_block | function_item | OpenAiSseConverter | [1313](../../src-tauri/src/proxy/convert.rs#L1313) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_thinking_block | [1326](../../src-tauri/src/proxy/convert.rs#L1326) |
+| close_thinking_block | function_item | OpenAiSseConverter | [1334](../../src-tauri/src/proxy/convert.rs#L1334) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::close_thinking_block | [1340](../../src-tauri/src/proxy/convert.rs#L1340) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::close_thinking_block | [1353](../../src-tauri/src/proxy/convert.rs#L1353) |
+| emit_normalized_text_delta | function_item | OpenAiSseConverter | [1360](../../src-tauri/src/proxy/convert.rs#L1360) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::emit_normalized_text_delta | [1376](../../src-tauri/src/proxy/convert.rs#L1376) |
+| flush_all_text_carries | function_item | OpenAiSseConverter | [1384](../../src-tauri/src/proxy/convert.rs#L1384) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::flush_all_text_carries | [1394](../../src-tauri/src/proxy/convert.rs#L1394) |
+| ensure_text_block | function_item | OpenAiSseConverter | [1404](../../src-tauri/src/proxy/convert.rs#L1404) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_text_block | [1416](../../src-tauri/src/proxy/convert.rs#L1416) |
+| ensure_tool_block | function_item | OpenAiSseConverter | [1424](../../src-tauri/src/proxy/convert.rs#L1424) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::ensure_tool_block | [1442](../../src-tauri/src/proxy/convert.rs#L1442) |
+| finish | function_item | OpenAiSseConverter | [1453](../../src-tauri/src/proxy/convert.rs#L1453) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::finish | [1464](../../src-tauri/src/proxy/convert.rs#L1464) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::finish | [1470](../../src-tauri/src/proxy/convert.rs#L1470) |
+| json | macro invocation (unexpanded) | OpenAiSseConverter::finish | [1480](../../src-tauri/src/proxy/convert.rs#L1480) |
+| anthropic_sse_abort | function_item |  | [1489](../../src-tauri/src/proxy/convert.rs#L1489) |
+| json | macro invocation (unexpanded) | anthropic_sse_abort | [1507](../../src-tauri/src/proxy/convert.rs#L1507) |
+| json | macro invocation (unexpanded) | anthropic_sse_abort | [1526](../../src-tauri/src/proxy/convert.rs#L1526) |
+| json | macro invocation (unexpanded) | anthropic_sse_abort | [1542](../../src-tauri/src/proxy/convert.rs#L1542) |
+| json | macro invocation (unexpanded) | anthropic_sse_abort | [1548](../../src-tauri/src/proxy/convert.rs#L1548) |
+| push_error_text_block | function_item |  | [1552](../../src-tauri/src/proxy/convert.rs#L1552) |
+| json | macro invocation (unexpanded) | push_error_text_block | [1556](../../src-tauri/src/proxy/convert.rs#L1556) |
+| json | macro invocation (unexpanded) | push_error_text_block | [1565](../../src-tauri/src/proxy/convert.rs#L1565) |
+| json | macro invocation (unexpanded) | push_error_text_block | [1574](../../src-tauri/src/proxy/convert.rs#L1574) |
+| chat_upstream_error_message | function_item |  | [1578](../../src-tauri/src/proxy/convert.rs#L1578) |
+| anthropic_messages_to_responses_input | function_item |  | [1599](../../src-tauri/src/proxy/convert.rs#L1599) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1624](../../src-tauri/src/proxy/convert.rs#L1624) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1631](../../src-tauri/src/proxy/convert.rs#L1631) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1636](../../src-tauri/src/proxy/convert.rs#L1636) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1641](../../src-tauri/src/proxy/convert.rs#L1641) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1647](../../src-tauri/src/proxy/convert.rs#L1647) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1654](../../src-tauri/src/proxy/convert.rs#L1654) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1670](../../src-tauri/src/proxy/convert.rs#L1670) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1675](../../src-tauri/src/proxy/convert.rs#L1675) |
+| json | macro invocation (unexpanded) | anthropic_messages_to_responses_input | [1691](../../src-tauri/src/proxy/convert.rs#L1691) |
+| anthropic_message_to_sse | function_item |  | [1705](../../src-tauri/src/proxy/convert.rs#L1705) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1710](../../src-tauri/src/proxy/convert.rs#L1710) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1728](../../src-tauri/src/proxy/convert.rs#L1728) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1734](../../src-tauri/src/proxy/convert.rs#L1734) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1739](../../src-tauri/src/proxy/convert.rs#L1739) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1746](../../src-tauri/src/proxy/convert.rs#L1746) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1752](../../src-tauri/src/proxy/convert.rs#L1752) |
+| json | macro invocation (unexpanded) | anthropic_message_to_sse | [1754](../../src-tauri/src/proxy/convert.rs#L1754) |
+| append_openai_message | function_item |  | [1758](../../src-tauri/src/proxy/convert.rs#L1758) |
+| json | macro invocation (unexpanded) | append_openai_message | [1767](../../src-tauri/src/proxy/convert.rs#L1767) |
 | json | macro invocation (unexpanded) | append_openai_message | [1771](../../src-tauri/src/proxy/convert.rs#L1771) |
 | json | macro invocation (unexpanded) | append_openai_message | [1772](../../src-tauri/src/proxy/convert.rs#L1772) |
-| json | macro invocation (unexpanded) | append_openai_message | [1776](../../src-tauri/src/proxy/convert.rs#L1776) |
+| json | macro invocation (unexpanded) | append_openai_message | [1773](../../src-tauri/src/proxy/convert.rs#L1773) |
 | json | macro invocation (unexpanded) | append_openai_message | [1777](../../src-tauri/src/proxy/convert.rs#L1777) |
-| json | macro invocation (unexpanded) | append_openai_message | [1787](../../src-tauri/src/proxy/convert.rs#L1787) |
-| json | macro invocation (unexpanded) | append_openai_message | [1791](../../src-tauri/src/proxy/convert.rs#L1791) |
-| extract_anthropic_document_text | function_item |  | [1838](../../src-tauri/src/proxy/convert.rs#L1838) |
-| matches | macro invocation (unexpanded) | extract_anthropic_document_text | [1858](../../src-tauri/src/proxy/convert.rs#L1858) |
-| format | macro invocation (unexpanded) | extract_anthropic_document_text | [1890](../../src-tauri/src/proxy/convert.rs#L1890) |
-| extract_anthropic_web_search_result_text | function_item |  | [1897](../../src-tauri/src/proxy/convert.rs#L1897) |
-| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1900](../../src-tauri/src/proxy/convert.rs#L1900) |
-| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1917](../../src-tauri/src/proxy/convert.rs#L1917) |
-| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1919](../../src-tauri/src/proxy/convert.rs#L1919) |
-| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1934](../../src-tauri/src/proxy/convert.rs#L1934) |
-| is_claude_server_tool_type | function_item |  | [1938](../../src-tauri/src/proxy/convert.rs#L1938) |
-| extract_tool_name | function_item |  | [1955](../../src-tauri/src/proxy/convert.rs#L1955) |
-| anthropic_tool_to_openai | function_item |  | [1969](../../src-tauri/src/proxy/convert.rs#L1969) |
-| json | macro invocation (unexpanded) | anthropic_tool_to_openai | [1971](../../src-tauri/src/proxy/convert.rs#L1971) |
-| anthropic_tool_to_responses | function_item |  | [1981](../../src-tauri/src/proxy/convert.rs#L1981) |
-| json | macro invocation (unexpanded) | anthropic_tool_to_responses | [1983](../../src-tauri/src/proxy/convert.rs#L1983) |
-| anthropic_tool_choice | function_item |  | [1991](../../src-tauri/src/proxy/convert.rs#L1991) |
-| json | macro invocation (unexpanded) | anthropic_tool_choice | [1994](../../src-tauri/src/proxy/convert.rs#L1994) |
-| anthropic_tool_choice_to_responses | function_item |  | [2002](../../src-tauri/src/proxy/convert.rs#L2002) |
-| json | macro invocation (unexpanded) | anthropic_tool_choice_to_responses | [2005](../../src-tauri/src/proxy/convert.rs#L2005) |
-| image_url | function_item |  | [2013](../../src-tauri/src/proxy/convert.rs#L2013) |
-| format | macro invocation (unexpanded) | image_url | [2016](../../src-tauri/src/proxy/convert.rs#L2016) |
-| content_text | function_item |  | [2032](../../src-tauri/src/proxy/convert.rs#L2032) |
-| copy_if_present | function_item |  | [2063](../../src-tauri/src/proxy/convert.rs#L2063) |
-| push_event | function_item |  | [2069](../../src-tauri/src/proxy/convert.rs#L2069) |
-| tests | mod_item |  | [2079](../../src-tauri/src/proxy/convert.rs#L2079) |
-| codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | function_item | tests | [2083](../../src-tauri/src/proxy/convert.rs#L2083) |
-| json | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2084](../../src-tauri/src/proxy/convert.rs#L2084) |
-| assert_eq | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2086](../../src-tauri/src/proxy/convert.rs#L2086) |
-| assert | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2087](../../src-tauri/src/proxy/convert.rs#L2087) |
-| assert | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2091](../../src-tauri/src/proxy/convert.rs#L2091) |
-| chat_conversion_preserves_tools_images_and_model | function_item | tests | [2098](../../src-tauri/src/proxy/convert.rs#L2098) |
-| json | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2099](../../src-tauri/src/proxy/convert.rs#L2099) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2108](../../src-tauri/src/proxy/convert.rs#L2108) |
+| json | macro invocation (unexpanded) | append_openai_message | [1778](../../src-tauri/src/proxy/convert.rs#L1778) |
+| json | macro invocation (unexpanded) | append_openai_message | [1788](../../src-tauri/src/proxy/convert.rs#L1788) |
+| json | macro invocation (unexpanded) | append_openai_message | [1792](../../src-tauri/src/proxy/convert.rs#L1792) |
+| extract_anthropic_document_text | function_item |  | [1839](../../src-tauri/src/proxy/convert.rs#L1839) |
+| matches | macro invocation (unexpanded) | extract_anthropic_document_text | [1859](../../src-tauri/src/proxy/convert.rs#L1859) |
+| format | macro invocation (unexpanded) | extract_anthropic_document_text | [1891](../../src-tauri/src/proxy/convert.rs#L1891) |
+| extract_anthropic_web_search_result_text | function_item |  | [1898](../../src-tauri/src/proxy/convert.rs#L1898) |
+| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1901](../../src-tauri/src/proxy/convert.rs#L1901) |
+| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1918](../../src-tauri/src/proxy/convert.rs#L1918) |
+| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1920](../../src-tauri/src/proxy/convert.rs#L1920) |
+| format | macro invocation (unexpanded) | extract_anthropic_web_search_result_text | [1935](../../src-tauri/src/proxy/convert.rs#L1935) |
+| is_claude_server_tool_type | function_item |  | [1939](../../src-tauri/src/proxy/convert.rs#L1939) |
+| extract_tool_name | function_item |  | [1956](../../src-tauri/src/proxy/convert.rs#L1956) |
+| anthropic_tool_to_openai | function_item |  | [1970](../../src-tauri/src/proxy/convert.rs#L1970) |
+| json | macro invocation (unexpanded) | anthropic_tool_to_openai | [1972](../../src-tauri/src/proxy/convert.rs#L1972) |
+| anthropic_tool_to_responses | function_item |  | [1982](../../src-tauri/src/proxy/convert.rs#L1982) |
+| json | macro invocation (unexpanded) | anthropic_tool_to_responses | [1984](../../src-tauri/src/proxy/convert.rs#L1984) |
+| anthropic_tool_choice | function_item |  | [1992](../../src-tauri/src/proxy/convert.rs#L1992) |
+| json | macro invocation (unexpanded) | anthropic_tool_choice | [1995](../../src-tauri/src/proxy/convert.rs#L1995) |
+| anthropic_tool_choice_to_responses | function_item |  | [2003](../../src-tauri/src/proxy/convert.rs#L2003) |
+| json | macro invocation (unexpanded) | anthropic_tool_choice_to_responses | [2006](../../src-tauri/src/proxy/convert.rs#L2006) |
+| image_url | function_item |  | [2014](../../src-tauri/src/proxy/convert.rs#L2014) |
+| format | macro invocation (unexpanded) | image_url | [2017](../../src-tauri/src/proxy/convert.rs#L2017) |
+| content_text | function_item |  | [2033](../../src-tauri/src/proxy/convert.rs#L2033) |
+| copy_if_present | function_item |  | [2064](../../src-tauri/src/proxy/convert.rs#L2064) |
+| push_event | function_item |  | [2070](../../src-tauri/src/proxy/convert.rs#L2070) |
+| tests | mod_item |  | [2080](../../src-tauri/src/proxy/convert.rs#L2080) |
+| codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | function_item | tests | [2084](../../src-tauri/src/proxy/convert.rs#L2084) |
+| json | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2085](../../src-tauri/src/proxy/convert.rs#L2085) |
+| assert_eq | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2087](../../src-tauri/src/proxy/convert.rs#L2087) |
+| assert | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2088](../../src-tauri/src/proxy/convert.rs#L2088) |
+| assert | macro invocation (unexpanded) | tests::codex_oauth_body_disables_storage_and_requests_encrypted_reasoning | [2092](../../src-tauri/src/proxy/convert.rs#L2092) |
+| chat_conversion_preserves_tools_images_and_model | function_item | tests | [2099](../../src-tauri/src/proxy/convert.rs#L2099) |
+| json | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2100](../../src-tauri/src/proxy/convert.rs#L2100) |
 | assert_eq | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2109](../../src-tauri/src/proxy/convert.rs#L2109) |
 | assert_eq | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2110](../../src-tauri/src/proxy/convert.rs#L2110) |
 | assert_eq | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2111](../../src-tauri/src/proxy/convert.rs#L2111) |
 | assert_eq | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2112](../../src-tauri/src/proxy/convert.rs#L2112) |
-| chat_response_and_sse_preserve_tool_call | function_item | tests | [2119](../../src-tauri/src/proxy/convert.rs#L2119) |
-| json | macro invocation (unexpanded) | tests::chat_response_and_sse_preserve_tool_call | [2120](../../src-tauri/src/proxy/convert.rs#L2120) |
-| assert_eq | macro invocation (unexpanded) | tests::chat_response_and_sse_preserve_tool_call | [2128](../../src-tauri/src/proxy/convert.rs#L2128) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_conversion_preserves_tools_images_and_model | [2113](../../src-tauri/src/proxy/convert.rs#L2113) |
+| chat_response_and_sse_preserve_tool_call | function_item | tests | [2120](../../src-tauri/src/proxy/convert.rs#L2120) |
+| json | macro invocation (unexpanded) | tests::chat_response_and_sse_preserve_tool_call | [2121](../../src-tauri/src/proxy/convert.rs#L2121) |
 | assert_eq | macro invocation (unexpanded) | tests::chat_response_and_sse_preserve_tool_call | [2129](../../src-tauri/src/proxy/convert.rs#L2129) |
+| assert_eq | macro invocation (unexpanded) | tests::chat_response_and_sse_preserve_tool_call | [2130](../../src-tauri/src/proxy/convert.rs#L2130) |

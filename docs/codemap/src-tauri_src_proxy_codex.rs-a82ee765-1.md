@@ -4,107 +4,107 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/codex.rs) · page 1/2
 
-Source SHA-256: cdd8d7b52ea10d588ac46acf8b482c05ad14d4cc4ed2d4f8a6cb584adc506128
+Source SHA-256: cb78db124ca63e1b05d94fca51c2f62c161d53f3d02369f8c171220310aaf0a0
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | codex_models_handler | function_item |  | [40](../../src-tauri/src/proxy/codex.rs#L40) |
 | format | macro invocation (unexpanded) | codex_models_handler | [50](../../src-tauri/src/proxy/codex.rs#L50) |
 | codex_proxy_handler | function_item |  | [88](../../src-tauri/src/proxy/codex.rs#L88) |
-| vec | macro invocation (unexpanded) | codex_proxy_handler | [240](../../src-tauri/src/proxy/codex.rs#L240) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [390](../../src-tauri/src/proxy/codex.rs#L390) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [396](../../src-tauri/src/proxy/codex.rs#L396) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [425](../../src-tauri/src/proxy/codex.rs#L425) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [430](../../src-tauri/src/proxy/codex.rs#L430) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [520](../../src-tauri/src/proxy/codex.rs#L520) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [547](../../src-tauri/src/proxy/codex.rs#L547) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [556](../../src-tauri/src/proxy/codex.rs#L556) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [589](../../src-tauri/src/proxy/codex.rs#L589) |
-| matches | macro invocation (unexpanded) | codex_proxy_handler | [633](../../src-tauri/src/proxy/codex.rs#L633) |
-| format | macro invocation (unexpanded) | codex_proxy_handler | [683](../../src-tauri/src/proxy/codex.rs#L683) |
-| ensure_responses_json_usage | function_item |  | [882](../../src-tauri/src/proxy/codex.rs#L882) |
-| drain_responses_frames | function_item |  | [894](../../src-tauri/src/proxy/codex.rs#L894) |
-| next_codex_failover_provider | function_item |  | [904](../../src-tauri/src/proxy/codex.rs#L904) |
-| catalog_failover_body_if_needed | function_item |  | [919](../../src-tauri/src/proxy/codex.rs#L919) |
-| PreparedCodexUpstream | struct_item |  | [941](../../src-tauri/src/proxy/codex.rs#L941) |
-| request | field_declaration | PreparedCodexUpstream | [942](../../src-tauri/src/proxy/codex.rs#L942) |
-| request_body | field_declaration | PreparedCodexUpstream | [943](../../src-tauri/src/proxy/codex.rs#L943) |
-| is_stream | field_declaration | PreparedCodexUpstream | [944](../../src-tauri/src/proxy/codex.rs#L944) |
-| is_anthropic_upstream | field_declaration | PreparedCodexUpstream | [945](../../src-tauri/src/proxy/codex.rs#L945) |
-| compact_fallback | field_declaration | PreparedCodexUpstream | [947](../../src-tauri/src/proxy/codex.rs#L947) |
-| is_chat_bridge | field_declaration | PreparedCodexUpstream | [949](../../src-tauri/src/proxy/codex.rs#L949) |
-| CompactFallback | enum_item |  | [953](../../src-tauri/src/proxy/codex.rs#L953) |
-| Chat | enum_variant | CompactFallback | [954](../../src-tauri/src/proxy/codex.rs#L954) |
-| Anthropic | enum_variant | CompactFallback | [955](../../src-tauri/src/proxy/codex.rs#L955) |
-| Responses | enum_variant | CompactFallback | [956](../../src-tauri/src/proxy/codex.rs#L956) |
-| should_bridge_responses_to_chat | function_item |  | [959](../../src-tauri/src/proxy/codex.rs#L959) |
-| matches | macro invocation (unexpanded) | should_bridge_responses_to_chat | [963](../../src-tauri/src/proxy/codex.rs#L963) |
-| prepare_codex_upstream | function_item |  | [966](../../src-tauri/src/proxy/codex.rs#L966) |
-| matches | macro invocation (unexpanded) | prepare_codex_upstream | [1030](../../src-tauri/src/proxy/codex.rs#L1030) |
-| matches | macro invocation (unexpanded) | prepare_codex_upstream | [1246](../../src-tauri/src/proxy/codex.rs#L1246) |
-| format | macro invocation (unexpanded) | prepare_codex_upstream | [1251](../../src-tauri/src/proxy/codex.rs#L1251) |
-| forward_chat_bridge_upstream | function_item |  | [1317](../../src-tauri/src/proxy/codex.rs#L1317) |
-| format | macro invocation (unexpanded) | forward_chat_bridge_upstream | [1335](../../src-tauri/src/proxy/codex.rs#L1335) |
-| parse_chat_sse_data | function_item |  | [1559](../../src-tauri/src/proxy/codex.rs#L1559) |
-| forward_compact_anthropic_fallback | function_item |  | [1574](../../src-tauri/src/proxy/codex.rs#L1574) |
-| format | macro invocation (unexpanded) | forward_compact_anthropic_fallback | [1586](../../src-tauri/src/proxy/codex.rs#L1586) |
-| forward_anthropic_upstream | function_item |  | [1633](../../src-tauri/src/proxy/codex.rs#L1633) |
-| format | macro invocation (unexpanded) | forward_anthropic_upstream | [1649](../../src-tauri/src/proxy/codex.rs#L1649) |
-| anthropic_response_to_chat_completion | function_item |  | [1888](../../src-tauri/src/proxy/codex.rs#L1888) |
-| format | macro invocation (unexpanded) | anthropic_response_to_chat_completion | [1894](../../src-tauri/src/proxy/codex.rs#L1894) |
-| serde_json::json | macro invocation (unexpanded) | anthropic_response_to_chat_completion | [1931](../../src-tauri/src/proxy/codex.rs#L1931) |
-| serde_json::json | macro invocation (unexpanded) | anthropic_response_to_chat_completion | [1988](../../src-tauri/src/proxy/codex.rs#L1988) |
-| forward_anthropic_to_chat_completions_stream | function_item |  | [2009](../../src-tauri/src/proxy/codex.rs#L2009) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2023](../../src-tauri/src/proxy/codex.rs#L2023) |
-| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2080](../../src-tauri/src/proxy/codex.rs#L2080) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2101](../../src-tauri/src/proxy/codex.rs#L2101) |
-| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2111](../../src-tauri/src/proxy/codex.rs#L2111) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2124](../../src-tauri/src/proxy/codex.rs#L2124) |
-| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2129](../../src-tauri/src/proxy/codex.rs#L2129) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2142](../../src-tauri/src/proxy/codex.rs#L2142) |
-| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2148](../../src-tauri/src/proxy/codex.rs#L2148) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2165](../../src-tauri/src/proxy/codex.rs#L2165) |
-| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2188](../../src-tauri/src/proxy/codex.rs#L2188) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2206](../../src-tauri/src/proxy/codex.rs#L2206) |
-| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2255](../../src-tauri/src/proxy/codex.rs#L2255) |
-| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2273](../../src-tauri/src/proxy/codex.rs#L2273) |
-| forward_responses_to_chat_completions_stream | function_item |  | [2307](../../src-tauri/src/proxy/codex.rs#L2307) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2321](../../src-tauri/src/proxy/codex.rs#L2321) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2376](../../src-tauri/src/proxy/codex.rs#L2376) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2389](../../src-tauri/src/proxy/codex.rs#L2389) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2397](../../src-tauri/src/proxy/codex.rs#L2397) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2410](../../src-tauri/src/proxy/codex.rs#L2410) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2431](../../src-tauri/src/proxy/codex.rs#L2431) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2452](../../src-tauri/src/proxy/codex.rs#L2452) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2470](../../src-tauri/src/proxy/codex.rs#L2470) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2487](../../src-tauri/src/proxy/codex.rs#L2487) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2509](../../src-tauri/src/proxy/codex.rs#L2509) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2530](../../src-tauri/src/proxy/codex.rs#L2530) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2535](../../src-tauri/src/proxy/codex.rs#L2535) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2552](../../src-tauri/src/proxy/codex.rs#L2552) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2582](../../src-tauri/src/proxy/codex.rs#L2582) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2595](../../src-tauri/src/proxy/codex.rs#L2595) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2610](../../src-tauri/src/proxy/codex.rs#L2610) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2631](../../src-tauri/src/proxy/codex.rs#L2631) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2642](../../src-tauri/src/proxy/codex.rs#L2642) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2660](../../src-tauri/src/proxy/codex.rs#L2660) |
-| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2709](../../src-tauri/src/proxy/codex.rs#L2709) |
-| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2727](../../src-tauri/src/proxy/codex.rs#L2727) |
-| forward_copilot_anthropic_streaming_early | function_item |  | [2762](../../src-tauri/src/proxy/codex.rs#L2762) |
-| tokio::select | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [2798](../../src-tauri/src/proxy/codex.rs#L2798) |
-| format | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [2854](../../src-tauri/src/proxy/codex.rs#L2854) |
-| format | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [2887](../../src-tauri/src/proxy/codex.rs#L2887) |
-| format | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [2889](../../src-tauri/src/proxy/codex.rs#L2889) |
-| tokio::select | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [2929](../../src-tauri/src/proxy/codex.rs#L2929) |
-| find_sse_frame_end | function_item |  | [3064](../../src-tauri/src/proxy/codex.rs#L3064) |
-| tests | mod_item |  | [3077](../../src-tauri/src/proxy/codex.rs#L3077) |
-| anthropic_bridge_enriches_bare_function_call_output_before_convert | function_item | tests | [3083](../../src-tauri/src/proxy/codex.rs#L3083) |
-| json | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3085](../../src-tauri/src/proxy/codex.rs#L3085) |
-| json | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3095](../../src-tauri/src/proxy/codex.rs#L3095) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3105](../../src-tauri/src/proxy/codex.rs#L3105) |
-| assert | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3110](../../src-tauri/src/proxy/codex.rs#L3110) |
-| assert | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3125](../../src-tauri/src/proxy/codex.rs#L3125) |
-| openai_chat_responses_route_bridges_to_chat | function_item | tests | [3144](../../src-tauri/src/proxy/codex.rs#L3144) |
-| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3145](../../src-tauri/src/proxy/codex.rs#L3145) |
-| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3150](../../src-tauri/src/proxy/codex.rs#L3150) |
-| assert | macro invocation (unexpanded) | tests::openai_chat_responses_route_bridges_to_chat | [3155](../../src-tauri/src/proxy/codex.rs#L3155) |
+| cache_responses_exchange | function_item |  | [108](../../src-tauri/src/proxy/codex.rs#L108) |
+| format | macro invocation (unexpanded) | cache_responses_exchange | [125](../../src-tauri/src/proxy/codex.rs#L125) |
+| matches | macro invocation (unexpanded) | cache_responses_exchange | [136](../../src-tauri/src/proxy/codex.rs#L136) |
+| codex_proxy_handler_inner | function_item |  | [153](../../src-tauri/src/proxy/codex.rs#L153) |
+| vec | macro invocation (unexpanded) | codex_proxy_handler_inner | [305](../../src-tauri/src/proxy/codex.rs#L305) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [455](../../src-tauri/src/proxy/codex.rs#L455) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [461](../../src-tauri/src/proxy/codex.rs#L461) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [490](../../src-tauri/src/proxy/codex.rs#L490) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [495](../../src-tauri/src/proxy/codex.rs#L495) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [597](../../src-tauri/src/proxy/codex.rs#L597) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [663](../../src-tauri/src/proxy/codex.rs#L663) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [690](../../src-tauri/src/proxy/codex.rs#L690) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [699](../../src-tauri/src/proxy/codex.rs#L699) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [732](../../src-tauri/src/proxy/codex.rs#L732) |
+| matches | macro invocation (unexpanded) | codex_proxy_handler_inner | [776](../../src-tauri/src/proxy/codex.rs#L776) |
+| format | macro invocation (unexpanded) | codex_proxy_handler_inner | [826](../../src-tauri/src/proxy/codex.rs#L826) |
+| ensure_responses_json_usage | function_item |  | [1025](../../src-tauri/src/proxy/codex.rs#L1025) |
+| drain_responses_frames | function_item |  | [1037](../../src-tauri/src/proxy/codex.rs#L1037) |
+| next_codex_failover_provider | function_item |  | [1047](../../src-tauri/src/proxy/codex.rs#L1047) |
+| catalog_failover_body_if_needed | function_item |  | [1062](../../src-tauri/src/proxy/codex.rs#L1062) |
+| PreparedCodexUpstream | struct_item |  | [1084](../../src-tauri/src/proxy/codex.rs#L1084) |
+| request | field_declaration | PreparedCodexUpstream | [1085](../../src-tauri/src/proxy/codex.rs#L1085) |
+| request_body | field_declaration | PreparedCodexUpstream | [1086](../../src-tauri/src/proxy/codex.rs#L1086) |
+| is_stream | field_declaration | PreparedCodexUpstream | [1087](../../src-tauri/src/proxy/codex.rs#L1087) |
+| is_anthropic_upstream | field_declaration | PreparedCodexUpstream | [1088](../../src-tauri/src/proxy/codex.rs#L1088) |
+| compact_fallback | field_declaration | PreparedCodexUpstream | [1090](../../src-tauri/src/proxy/codex.rs#L1090) |
+| is_chat_bridge | field_declaration | PreparedCodexUpstream | [1092](../../src-tauri/src/proxy/codex.rs#L1092) |
+| CompactFallback | enum_item |  | [1096](../../src-tauri/src/proxy/codex.rs#L1096) |
+| Chat | enum_variant | CompactFallback | [1097](../../src-tauri/src/proxy/codex.rs#L1097) |
+| Anthropic | enum_variant | CompactFallback | [1098](../../src-tauri/src/proxy/codex.rs#L1098) |
+| Responses | enum_variant | CompactFallback | [1099](../../src-tauri/src/proxy/codex.rs#L1099) |
+| request_has_previous_response_id | function_item |  | [1102](../../src-tauri/src/proxy/codex.rs#L1102) |
+| is_previous_response_id_error | function_item |  | [1114](../../src-tauri/src/proxy/codex.rs#L1114) |
+| should_bridge_responses_to_chat | function_item |  | [1120](../../src-tauri/src/proxy/codex.rs#L1120) |
+| matches | macro invocation (unexpanded) | should_bridge_responses_to_chat | [1124](../../src-tauri/src/proxy/codex.rs#L1124) |
+| prepare_codex_upstream | function_item |  | [1127](../../src-tauri/src/proxy/codex.rs#L1127) |
+| matches | macro invocation (unexpanded) | prepare_codex_upstream | [1191](../../src-tauri/src/proxy/codex.rs#L1191) |
+| matches | macro invocation (unexpanded) | prepare_codex_upstream | [1413](../../src-tauri/src/proxy/codex.rs#L1413) |
+| format | macro invocation (unexpanded) | prepare_codex_upstream | [1418](../../src-tauri/src/proxy/codex.rs#L1418) |
+| forward_chat_bridge_upstream | function_item |  | [1484](../../src-tauri/src/proxy/codex.rs#L1484) |
+| format | macro invocation (unexpanded) | forward_chat_bridge_upstream | [1502](../../src-tauri/src/proxy/codex.rs#L1502) |
+| parse_chat_sse_data | function_item |  | [1726](../../src-tauri/src/proxy/codex.rs#L1726) |
+| forward_compact_anthropic_fallback | function_item |  | [1741](../../src-tauri/src/proxy/codex.rs#L1741) |
+| format | macro invocation (unexpanded) | forward_compact_anthropic_fallback | [1753](../../src-tauri/src/proxy/codex.rs#L1753) |
+| forward_anthropic_upstream | function_item |  | [1800](../../src-tauri/src/proxy/codex.rs#L1800) |
+| format | macro invocation (unexpanded) | forward_anthropic_upstream | [1816](../../src-tauri/src/proxy/codex.rs#L1816) |
+| anthropic_response_to_chat_completion | function_item |  | [2055](../../src-tauri/src/proxy/codex.rs#L2055) |
+| format | macro invocation (unexpanded) | anthropic_response_to_chat_completion | [2061](../../src-tauri/src/proxy/codex.rs#L2061) |
+| serde_json::json | macro invocation (unexpanded) | anthropic_response_to_chat_completion | [2098](../../src-tauri/src/proxy/codex.rs#L2098) |
+| serde_json::json | macro invocation (unexpanded) | anthropic_response_to_chat_completion | [2155](../../src-tauri/src/proxy/codex.rs#L2155) |
+| forward_anthropic_to_chat_completions_stream | function_item |  | [2176](../../src-tauri/src/proxy/codex.rs#L2176) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2190](../../src-tauri/src/proxy/codex.rs#L2190) |
+| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2247](../../src-tauri/src/proxy/codex.rs#L2247) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2268](../../src-tauri/src/proxy/codex.rs#L2268) |
+| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2278](../../src-tauri/src/proxy/codex.rs#L2278) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2291](../../src-tauri/src/proxy/codex.rs#L2291) |
+| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2296](../../src-tauri/src/proxy/codex.rs#L2296) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2309](../../src-tauri/src/proxy/codex.rs#L2309) |
+| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2315](../../src-tauri/src/proxy/codex.rs#L2315) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2332](../../src-tauri/src/proxy/codex.rs#L2332) |
+| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2355](../../src-tauri/src/proxy/codex.rs#L2355) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2373](../../src-tauri/src/proxy/codex.rs#L2373) |
+| serde_json::json | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2422](../../src-tauri/src/proxy/codex.rs#L2422) |
+| format | macro invocation (unexpanded) | forward_anthropic_to_chat_completions_stream | [2440](../../src-tauri/src/proxy/codex.rs#L2440) |
+| forward_responses_to_chat_completions_stream | function_item |  | [2474](../../src-tauri/src/proxy/codex.rs#L2474) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2488](../../src-tauri/src/proxy/codex.rs#L2488) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2543](../../src-tauri/src/proxy/codex.rs#L2543) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2556](../../src-tauri/src/proxy/codex.rs#L2556) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2564](../../src-tauri/src/proxy/codex.rs#L2564) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2577](../../src-tauri/src/proxy/codex.rs#L2577) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2598](../../src-tauri/src/proxy/codex.rs#L2598) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2619](../../src-tauri/src/proxy/codex.rs#L2619) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2637](../../src-tauri/src/proxy/codex.rs#L2637) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2654](../../src-tauri/src/proxy/codex.rs#L2654) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2676](../../src-tauri/src/proxy/codex.rs#L2676) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2697](../../src-tauri/src/proxy/codex.rs#L2697) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2702](../../src-tauri/src/proxy/codex.rs#L2702) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2719](../../src-tauri/src/proxy/codex.rs#L2719) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2749](../../src-tauri/src/proxy/codex.rs#L2749) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2762](../../src-tauri/src/proxy/codex.rs#L2762) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2777](../../src-tauri/src/proxy/codex.rs#L2777) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2798](../../src-tauri/src/proxy/codex.rs#L2798) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2809](../../src-tauri/src/proxy/codex.rs#L2809) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2827](../../src-tauri/src/proxy/codex.rs#L2827) |
+| serde_json::json | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2876](../../src-tauri/src/proxy/codex.rs#L2876) |
+| format | macro invocation (unexpanded) | forward_responses_to_chat_completions_stream | [2894](../../src-tauri/src/proxy/codex.rs#L2894) |
+| forward_copilot_anthropic_streaming_early | function_item |  | [2929](../../src-tauri/src/proxy/codex.rs#L2929) |
+| tokio::select | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [2965](../../src-tauri/src/proxy/codex.rs#L2965) |
+| format | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [3021](../../src-tauri/src/proxy/codex.rs#L3021) |
+| format | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [3054](../../src-tauri/src/proxy/codex.rs#L3054) |
+| format | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [3056](../../src-tauri/src/proxy/codex.rs#L3056) |
+| tokio::select | macro invocation (unexpanded) | forward_copilot_anthropic_streaming_early | [3096](../../src-tauri/src/proxy/codex.rs#L3096) |
+| find_sse_frame_end | function_item |  | [3231](../../src-tauri/src/proxy/codex.rs#L3231) |
+| tests | mod_item |  | [3244](../../src-tauri/src/proxy/codex.rs#L3244) |
+| anthropic_bridge_enriches_bare_function_call_output_before_convert | function_item | tests | [3250](../../src-tauri/src/proxy/codex.rs#L3250) |
+| json | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3252](../../src-tauri/src/proxy/codex.rs#L3252) |
+| json | macro invocation (unexpanded) | tests::anthropic_bridge_enriches_bare_function_call_output_before_convert | [3262](../../src-tauri/src/proxy/codex.rs#L3262) |

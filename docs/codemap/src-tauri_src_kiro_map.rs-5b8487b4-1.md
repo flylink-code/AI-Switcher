@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/map.rs) · page 1/3
 
-Source SHA-256: 748447f618b27788d5d3671181ff5affd4b7b15ee0ee17db1b0ed5613bbd2199
+Source SHA-256: c13fde1080639cf13c7d8b5d51e131dc6e1fdd4022d5ee25221ed41708b13b9b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -33,78 +33,78 @@ Source SHA-256: 748447f618b27788d5d3671181ff5affd4b7b15ee0ee17db1b0ed5613bbd2199
 | history_message | function_item |  | [176](../../src-tauri/src/kiro/map.rs#L176) |
 | json | macro invocation (unexpanded) | history_message | [190](../../src-tauri/src/kiro/map.rs#L190) |
 | json | macro invocation (unexpanded) | history_message | [194](../../src-tauri/src/kiro/map.rs#L194) |
-| json | macro invocation (unexpanded) | history_message | [204](../../src-tauri/src/kiro/map.rs#L204) |
-| current_from | function_item |  | [218](../../src-tauri/src/kiro/map.rs#L218) |
-| message_text | function_item |  | [232](../../src-tauri/src/kiro/map.rs#L232) |
-| text_of | function_item |  | [242](../../src-tauri/src/kiro/map.rs#L242) |
-| normalize_kiro_tool_schema | function_item |  | [282](../../src-tauri/src/kiro/map.rs#L282) |
-| json | macro invocation (unexpanded) | normalize_kiro_tool_schema | [284](../../src-tauri/src/kiro/map.rs#L284) |
-| json | macro invocation (unexpanded) | normalize_kiro_tool_schema | [313](../../src-tauri/src/kiro/map.rs#L313) |
-| sanitize_tool_pairing_and_placeholders | function_item |  | [318](../../src-tauri/src/kiro/map.rs#L318) |
-| json | macro invocation (unexpanded) | sanitize_tool_pairing_and_placeholders | [398](../../src-tauri/src/kiro/map.rs#L398) |
-| anthropic_tool | function_item |  | [419](../../src-tauri/src/kiro/map.rs#L419) |
-| json | macro invocation (unexpanded) | anthropic_tool | [434](../../src-tauri/src/kiro/map.rs#L434) |
-| json | macro invocation (unexpanded) | anthropic_tool | [436](../../src-tauri/src/kiro/map.rs#L436) |
-| anthropic_tool_uses | function_item |  | [445](../../src-tauri/src/kiro/map.rs#L445) |
-| json | macro invocation (unexpanded) | anthropic_tool_uses | [453](../../src-tauri/src/kiro/map.rs#L453) |
-| anthropic_tool_results | function_item |  | [462](../../src-tauri/src/kiro/map.rs#L462) |
-| matches | macro invocation (unexpanded) | anthropic_tool_results | [469](../../src-tauri/src/kiro/map.rs#L469) |
-| json | macro invocation (unexpanded) | anthropic_tool_results | [488](../../src-tauri/src/kiro/map.rs#L488) |
-| parse_kiro_image_block | function_item |  | [497](../../src-tauri/src/kiro/map.rs#L497) |
-| json | macro invocation (unexpanded) | parse_kiro_image_block | [513](../../src-tauri/src/kiro/map.rs#L513) |
-| anthropic_images | function_item |  | [516](../../src-tauri/src/kiro/map.rs#L516) |
-| matches | macro invocation (unexpanded) | anthropic_images | [524](../../src-tauri/src/kiro/map.rs#L524) |
-| model_supports_kiro_reasoning | function_item |  | [543](../../src-tauri/src/kiro/map.rs#L543) |
-| matches | macro invocation (unexpanded) | model_supports_kiro_reasoning | [544](../../src-tauri/src/kiro/map.rs#L544) |
-| model_uses_gpt_reasoning | function_item |  | [559](../../src-tauri/src/kiro/map.rs#L559) |
-| matches | macro invocation (unexpanded) | model_uses_gpt_reasoning | [560](../../src-tauri/src/kiro/map.rs#L560) |
-| kiro_reasoning_requested | function_item |  | [566](../../src-tauri/src/kiro/map.rs#L566) |
-| extra_fields | function_item |  | [585](../../src-tauri/src/kiro/map.rs#L585) |
-| json | macro invocation (unexpanded) | extra_fields | [606](../../src-tauri/src/kiro/map.rs#L606) |
-| json | macro invocation (unexpanded) | extra_fields | [608](../../src-tauri/src/kiro/map.rs#L608) |
-| CollectedReply | struct_item |  | [613](../../src-tauri/src/kiro/map.rs#L613) |
-| text | field_declaration | CollectedReply | [614](../../src-tauri/src/kiro/map.rs#L614) |
-| thinking | field_declaration | CollectedReply | [615](../../src-tauri/src/kiro/map.rs#L615) |
-| thinking_signature | field_declaration | CollectedReply | [616](../../src-tauri/src/kiro/map.rs#L616) |
-| tools | field_declaration | CollectedReply | [617](../../src-tauri/src/kiro/map.rs#L617) |
-| input_tokens | field_declaration | CollectedReply | [618](../../src-tauri/src/kiro/map.rs#L618) |
-| output_tokens | field_declaration | CollectedReply | [619](../../src-tauri/src/kiro/map.rs#L619) |
-| cache_read | field_declaration | CollectedReply | [620](../../src-tauri/src/kiro/map.rs#L620) |
-| cache_write | field_declaration | CollectedReply | [621](../../src-tauri/src/kiro/map.rs#L621) |
-| upstream_error | field_declaration | CollectedReply | [622](../../src-tauri/src/kiro/map.rs#L622) |
-| context_percent | field_declaration | CollectedReply | [624](../../src-tauri/src/kiro/map.rs#L624) |
-| usage_measured | field_declaration | CollectedReply | [625](../../src-tauri/src/kiro/map.rs#L625) |
-| ToolCall | struct_item |  | [629](../../src-tauri/src/kiro/map.rs#L629) |
-| id | field_declaration | ToolCall | [630](../../src-tauri/src/kiro/map.rs#L630) |
-| name | field_declaration | ToolCall | [631](../../src-tauri/src/kiro/map.rs#L631) |
-| input | field_declaration | ToolCall | [632](../../src-tauri/src/kiro/map.rs#L632) |
-| CollectedReply | impl |  | [635](../../src-tauri/src/kiro/map.rs#L635) |
-| push_frame | function_item | CollectedReply | [636](../../src-tauri/src/kiro/map.rs#L636) |
-| format | macro invocation (unexpanded) | CollectedReply::push_frame | [657](../../src-tauri/src/kiro/map.rs#L657) |
-| finalize_usage | function_item | CollectedReply | [735](../../src-tauri/src/kiro/map.rs#L735) |
-| apply_token_usage | function_item | CollectedReply | [765](../../src-tauri/src/kiro/map.rs#L765) |
-| generated_text | function_item | CollectedReply | [802](../../src-tauri/src/kiro/map.rs#L802) |
-| json_i64_field | function_item |  | [814](../../src-tauri/src/kiro/map.rs#L814) |
-| json_i64 | function_item |  | [818](../../src-tauri/src/kiro/map.rs#L818) |
-| json_f64 | function_item |  | [832](../../src-tauri/src/kiro/map.rs#L832) |
-| estimate_chars | function_item |  | [841](../../src-tauri/src/kiro/map.rs#L841) |
-| estimate_tokens | function_item |  | [849](../../src-tauri/src/kiro/map.rs#L849) |
-| anthropic_message | function_item |  | [853](../../src-tauri/src/kiro/map.rs#L853) |
-| json | macro invocation (unexpanded) | anthropic_message | [856](../../src-tauri/src/kiro/map.rs#L856) |
+| json | macro invocation (unexpanded) | history_message | [205](../../src-tauri/src/kiro/map.rs#L205) |
+| current_from | function_item |  | [222](../../src-tauri/src/kiro/map.rs#L222) |
+| message_text | function_item |  | [239](../../src-tauri/src/kiro/map.rs#L239) |
+| text_of | function_item |  | [249](../../src-tauri/src/kiro/map.rs#L249) |
+| normalize_kiro_tool_schema | function_item |  | [289](../../src-tauri/src/kiro/map.rs#L289) |
+| json | macro invocation (unexpanded) | normalize_kiro_tool_schema | [291](../../src-tauri/src/kiro/map.rs#L291) |
+| json | macro invocation (unexpanded) | normalize_kiro_tool_schema | [320](../../src-tauri/src/kiro/map.rs#L320) |
+| sanitize_tool_pairing_and_placeholders | function_item |  | [325](../../src-tauri/src/kiro/map.rs#L325) |
+| json | macro invocation (unexpanded) | sanitize_tool_pairing_and_placeholders | [405](../../src-tauri/src/kiro/map.rs#L405) |
+| anthropic_tool | function_item |  | [426](../../src-tauri/src/kiro/map.rs#L426) |
+| json | macro invocation (unexpanded) | anthropic_tool | [441](../../src-tauri/src/kiro/map.rs#L441) |
+| json | macro invocation (unexpanded) | anthropic_tool | [443](../../src-tauri/src/kiro/map.rs#L443) |
+| anthropic_tool_uses | function_item |  | [452](../../src-tauri/src/kiro/map.rs#L452) |
+| json | macro invocation (unexpanded) | anthropic_tool_uses | [460](../../src-tauri/src/kiro/map.rs#L460) |
+| anthropic_tool_results | function_item |  | [469](../../src-tauri/src/kiro/map.rs#L469) |
+| matches | macro invocation (unexpanded) | anthropic_tool_results | [476](../../src-tauri/src/kiro/map.rs#L476) |
+| json | macro invocation (unexpanded) | anthropic_tool_results | [495](../../src-tauri/src/kiro/map.rs#L495) |
+| parse_kiro_image_block | function_item |  | [504](../../src-tauri/src/kiro/map.rs#L504) |
+| json | macro invocation (unexpanded) | parse_kiro_image_block | [520](../../src-tauri/src/kiro/map.rs#L520) |
+| anthropic_images | function_item |  | [523](../../src-tauri/src/kiro/map.rs#L523) |
+| matches | macro invocation (unexpanded) | anthropic_images | [531](../../src-tauri/src/kiro/map.rs#L531) |
+| model_supports_kiro_reasoning | function_item |  | [550](../../src-tauri/src/kiro/map.rs#L550) |
+| matches | macro invocation (unexpanded) | model_supports_kiro_reasoning | [551](../../src-tauri/src/kiro/map.rs#L551) |
+| model_uses_gpt_reasoning | function_item |  | [566](../../src-tauri/src/kiro/map.rs#L566) |
+| matches | macro invocation (unexpanded) | model_uses_gpt_reasoning | [567](../../src-tauri/src/kiro/map.rs#L567) |
+| kiro_reasoning_requested | function_item |  | [573](../../src-tauri/src/kiro/map.rs#L573) |
+| extra_fields | function_item |  | [592](../../src-tauri/src/kiro/map.rs#L592) |
+| json | macro invocation (unexpanded) | extra_fields | [613](../../src-tauri/src/kiro/map.rs#L613) |
+| json | macro invocation (unexpanded) | extra_fields | [615](../../src-tauri/src/kiro/map.rs#L615) |
+| CollectedReply | struct_item |  | [620](../../src-tauri/src/kiro/map.rs#L620) |
+| text | field_declaration | CollectedReply | [621](../../src-tauri/src/kiro/map.rs#L621) |
+| thinking | field_declaration | CollectedReply | [622](../../src-tauri/src/kiro/map.rs#L622) |
+| thinking_signature | field_declaration | CollectedReply | [623](../../src-tauri/src/kiro/map.rs#L623) |
+| tools | field_declaration | CollectedReply | [624](../../src-tauri/src/kiro/map.rs#L624) |
+| input_tokens | field_declaration | CollectedReply | [625](../../src-tauri/src/kiro/map.rs#L625) |
+| output_tokens | field_declaration | CollectedReply | [626](../../src-tauri/src/kiro/map.rs#L626) |
+| cache_read | field_declaration | CollectedReply | [627](../../src-tauri/src/kiro/map.rs#L627) |
+| cache_write | field_declaration | CollectedReply | [628](../../src-tauri/src/kiro/map.rs#L628) |
+| upstream_error | field_declaration | CollectedReply | [629](../../src-tauri/src/kiro/map.rs#L629) |
+| context_percent | field_declaration | CollectedReply | [631](../../src-tauri/src/kiro/map.rs#L631) |
+| usage_measured | field_declaration | CollectedReply | [632](../../src-tauri/src/kiro/map.rs#L632) |
+| ToolCall | struct_item |  | [636](../../src-tauri/src/kiro/map.rs#L636) |
+| id | field_declaration | ToolCall | [637](../../src-tauri/src/kiro/map.rs#L637) |
+| name | field_declaration | ToolCall | [638](../../src-tauri/src/kiro/map.rs#L638) |
+| input | field_declaration | ToolCall | [639](../../src-tauri/src/kiro/map.rs#L639) |
+| CollectedReply | impl |  | [642](../../src-tauri/src/kiro/map.rs#L642) |
+| push_frame | function_item | CollectedReply | [643](../../src-tauri/src/kiro/map.rs#L643) |
+| format | macro invocation (unexpanded) | CollectedReply::push_frame | [664](../../src-tauri/src/kiro/map.rs#L664) |
+| finalize_usage | function_item | CollectedReply | [742](../../src-tauri/src/kiro/map.rs#L742) |
+| apply_token_usage | function_item | CollectedReply | [772](../../src-tauri/src/kiro/map.rs#L772) |
+| generated_text | function_item | CollectedReply | [809](../../src-tauri/src/kiro/map.rs#L809) |
+| json_i64_field | function_item |  | [821](../../src-tauri/src/kiro/map.rs#L821) |
+| json_i64 | function_item |  | [825](../../src-tauri/src/kiro/map.rs#L825) |
+| json_f64 | function_item |  | [839](../../src-tauri/src/kiro/map.rs#L839) |
+| estimate_chars | function_item |  | [848](../../src-tauri/src/kiro/map.rs#L848) |
+| estimate_tokens | function_item |  | [856](../../src-tauri/src/kiro/map.rs#L856) |
+| anthropic_message | function_item |  | [860](../../src-tauri/src/kiro/map.rs#L860) |
 | json | macro invocation (unexpanded) | anthropic_message | [863](../../src-tauri/src/kiro/map.rs#L863) |
-| json | macro invocation (unexpanded) | anthropic_message | [867](../../src-tauri/src/kiro/map.rs#L867) |
-| json | macro invocation (unexpanded) | anthropic_message | [868](../../src-tauri/src/kiro/map.rs#L868) |
+| json | macro invocation (unexpanded) | anthropic_message | [870](../../src-tauri/src/kiro/map.rs#L870) |
+| json | macro invocation (unexpanded) | anthropic_message | [874](../../src-tauri/src/kiro/map.rs#L874) |
 | json | macro invocation (unexpanded) | anthropic_message | [875](../../src-tauri/src/kiro/map.rs#L875) |
-| anthropic_sse | function_item |  | [892](../../src-tauri/src/kiro/map.rs#L892) |
-| json | macro invocation (unexpanded) | anthropic_sse | [902](../../src-tauri/src/kiro/map.rs#L902) |
-| json | macro invocation (unexpanded) | anthropic_sse | [921](../../src-tauri/src/kiro/map.rs#L921) |
-| json | macro invocation (unexpanded) | anthropic_sse | [926](../../src-tauri/src/kiro/map.rs#L926) |
-| json | macro invocation (unexpanded) | anthropic_sse | [931](../../src-tauri/src/kiro/map.rs#L931) |
-| json | macro invocation (unexpanded) | anthropic_sse | [939](../../src-tauri/src/kiro/map.rs#L939) |
-| json | macro invocation (unexpanded) | anthropic_sse | [944](../../src-tauri/src/kiro/map.rs#L944) |
-| json | macro invocation (unexpanded) | anthropic_sse | [949](../../src-tauri/src/kiro/map.rs#L949) |
-| json | macro invocation (unexpanded) | anthropic_sse | [957](../../src-tauri/src/kiro/map.rs#L957) |
-| json | macro invocation (unexpanded) | anthropic_sse | [967](../../src-tauri/src/kiro/map.rs#L967) |
-| json | macro invocation (unexpanded) | anthropic_sse | [972](../../src-tauri/src/kiro/map.rs#L972) |
-| json | macro invocation (unexpanded) | anthropic_sse | [984](../../src-tauri/src/kiro/map.rs#L984) |
+| json | macro invocation (unexpanded) | anthropic_message | [882](../../src-tauri/src/kiro/map.rs#L882) |
+| anthropic_sse | function_item |  | [899](../../src-tauri/src/kiro/map.rs#L899) |
+| json | macro invocation (unexpanded) | anthropic_sse | [909](../../src-tauri/src/kiro/map.rs#L909) |
+| json | macro invocation (unexpanded) | anthropic_sse | [928](../../src-tauri/src/kiro/map.rs#L928) |
+| json | macro invocation (unexpanded) | anthropic_sse | [933](../../src-tauri/src/kiro/map.rs#L933) |
+| json | macro invocation (unexpanded) | anthropic_sse | [938](../../src-tauri/src/kiro/map.rs#L938) |
+| json | macro invocation (unexpanded) | anthropic_sse | [946](../../src-tauri/src/kiro/map.rs#L946) |
+| json | macro invocation (unexpanded) | anthropic_sse | [951](../../src-tauri/src/kiro/map.rs#L951) |
+| json | macro invocation (unexpanded) | anthropic_sse | [956](../../src-tauri/src/kiro/map.rs#L956) |
+| json | macro invocation (unexpanded) | anthropic_sse | [964](../../src-tauri/src/kiro/map.rs#L964) |
+| json | macro invocation (unexpanded) | anthropic_sse | [974](../../src-tauri/src/kiro/map.rs#L974) |
+| json | macro invocation (unexpanded) | anthropic_sse | [979](../../src-tauri/src/kiro/map.rs#L979) |
 | json | macro invocation (unexpanded) | anthropic_sse | [991](../../src-tauri/src/kiro/map.rs#L991) |
+| json | macro invocation (unexpanded) | anthropic_sse | [998](../../src-tauri/src/kiro/map.rs#L998) |

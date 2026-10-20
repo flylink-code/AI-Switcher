@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/conversation_model.rs) · page 1/1
 
-Source SHA-256: b5a743af1c48b3e249811bf18e664ecb909e7eb2d04ca4ed72aedc55f399b215
+Source SHA-256: cecee78ce7377cf315c31574d7739f347b17fa694ab6ab32b5d8f0eec8727259
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -23,11 +23,12 @@ Source SHA-256: b5a743af1c48b3e249811bf18e664ecb909e7eb2d04ca4ed72aedc55f399b215
 | recall | function_item |  | [84](../../src-tauri/src/proxy/conversation_model.rs#L84) |
 | recall_for_target | function_item |  | [88](../../src-tauri/src/proxy/conversation_model.rs#L88) |
 | format | macro invocation (unexpanded) | recall_for_target | [91](../../src-tauri/src/proxy/conversation_model.rs#L91) |
-| clear_all | function_item |  | [100](../../src-tauri/src/proxy/conversation_model.rs#L100) |
-| tests | mod_item |  | [108](../../src-tauri/src/proxy/conversation_model.rs#L108) |
-| session_model_wins_over_the_latest_other_conversation | function_item | tests | [112](../../src-tauri/src/proxy/conversation_model.rs#L112) |
-| assert_eq | macro invocation (unexpanded) | tests::session_model_wins_over_the_latest_other_conversation | [116](../../src-tauri/src/proxy/conversation_model.rs#L116) |
-| assert_eq | macro invocation (unexpanded) | tests::session_model_wins_over_the_latest_other_conversation | [120](../../src-tauri/src/proxy/conversation_model.rs#L120) |
-| targets_do_not_leak_remembered_models_across_agents | function_item | tests | [128](../../src-tauri/src/proxy/conversation_model.rs#L128) |
-| assert_eq | macro invocation (unexpanded) | tests::targets_do_not_leak_remembered_models_across_agents | [131](../../src-tauri/src/proxy/conversation_model.rs#L131) |
-| assert_eq | macro invocation (unexpanded) | tests::targets_do_not_leak_remembered_models_across_agents | [136](../../src-tauri/src/proxy/conversation_model.rs#L136) |
+| clear_all | function_item |  | [98](../../src-tauri/src/proxy/conversation_model.rs#L98) |
+| tests | mod_item |  | [106](../../src-tauri/src/proxy/conversation_model.rs#L106) |
+| session_model_wins_over_the_latest_other_conversation | function_item | tests | [110](../../src-tauri/src/proxy/conversation_model.rs#L110) |
+| assert_eq | macro invocation (unexpanded) | tests::session_model_wins_over_the_latest_other_conversation | [114](../../src-tauri/src/proxy/conversation_model.rs#L114) |
+| assert_eq | macro invocation (unexpanded) | tests::session_model_wins_over_the_latest_other_conversation | [118](../../src-tauri/src/proxy/conversation_model.rs#L118) |
+| assert_eq | macro invocation (unexpanded) | tests::session_model_wins_over_the_latest_other_conversation | [119](../../src-tauri/src/proxy/conversation_model.rs#L119) |
+| targets_do_not_leak_remembered_models_across_agents | function_item | tests | [127](../../src-tauri/src/proxy/conversation_model.rs#L127) |
+| assert_eq | macro invocation (unexpanded) | tests::targets_do_not_leak_remembered_models_across_agents | [130](../../src-tauri/src/proxy/conversation_model.rs#L130) |
+| assert_eq | macro invocation (unexpanded) | tests::targets_do_not_leak_remembered_models_across_agents | [135](../../src-tauri/src/proxy/conversation_model.rs#L135) |

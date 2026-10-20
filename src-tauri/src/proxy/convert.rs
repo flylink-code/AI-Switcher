@@ -1051,7 +1051,8 @@ impl OpenAiSseConverter {
         let event_type = event.get("type").and_then(Value::as_str).unwrap_or("");
         if event_type == "error" || event_type == "response.failed" {
             let message = event
-                .pointer("/error/message")
+                .pointer("/response/error/message")
+                .or_else(|| event.pointer("/error/message"))
                 .or_else(|| event.get("message"))
                 .and_then(Value::as_str)
                 .unwrap_or("上游服务返回流式错误");
@@ -2401,6 +2402,19 @@ mod tests {
         let text = output.find("上游流式响应中断").unwrap();
         let stop = output.find("event: message_stop").unwrap();
         assert!(text < stop);
+    }
+
+    #[test]
+    fn responses_failed_stream_preserves_nested_error_message() {
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, "selected-model");
+        let output = String::from_utf8(converter.push_event(&json!({
+            "type":"response.failed", "response":{
+                "status":"failed", "error":{"code":"api_error", "message":"model unavailable"}
+            }
+        }))).unwrap();
+        assert!(output.contains("model unavailable"));
+        assert!(output.contains("event: message_stop"));
+        assert!(converter.took_terminal_error());
     }
 
     #[test]

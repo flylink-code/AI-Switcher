@@ -1,19 +1,22 @@
-//! In-memory Codex Responses call-item cache for bridged upstreams.
+//! In-memory Codex Responses history for bridged upstreams.
 //!
-//! When Codex follow-ups only send `previous_response_id` + `function_call_output`,
-//! Chat / Anthropic targets still need the matching assistant call item in-body.
-//! Native Responses upstreams resolve history server-side and skip this store.
+//! Chat / Anthropic targets need full input history when clients send only
+//! `previous_response_id` and new input. Native Responses requests still use
+//! server-side history; their answers are retained for later model switches.
 
 use serde_json::Value;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 const MAX_CACHED_RESPONSES: usize = 512;
+const MAX_HISTORY_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Default)]
 struct CachedResponse {
     calls_by_id: HashMap<String, Value>,
     call_order: Vec<String>,
+    conversation: Option<Arc<Vec<Value>>>,
+    conversation_bytes: usize,
 }
 
 #[derive(Debug, Default)]
@@ -21,6 +24,7 @@ struct Inner {
     responses: HashMap<String, CachedResponse>,
     response_order: VecDeque<String>,
     call_index: HashMap<String, VecDeque<String>>,
+    history_bytes: usize,
 }
 
 #[derive(Debug, Default)]
@@ -35,6 +39,61 @@ struct CachedLookup {
 }
 
 impl CodexHistoryStore {
+    /// Retain the input as well as the answer: a response ID alone cannot carry
+    /// user text, images or completed tool rounds to a stateless upstream.
+    pub fn record_exchange(&self, request: &Value, response: &Value) {
+        if response.get("status").and_then(Value::as_str) == Some("failed") {
+            return;
+        }
+        let Some(id) = response.get("id").and_then(Value::as_str).filter(|id| !id.is_empty()) else {
+            return;
+        };
+        let Some(output) = response.get("output").and_then(Value::as_array) else {
+            return;
+        };
+        let mut request = request.clone();
+        if self.restore_conversation(&mut request).is_err() {
+            return;
+        }
+        self.enrich_request(&mut request);
+        let Some(mut items) = request.get("input").and_then(input_items) else {
+            return;
+        };
+        items.extend(output.iter().cloned());
+        let size = serde_json::to_vec(&items).map(|bytes| bytes.len()).unwrap_or_default();
+        let Ok(mut inner) = self.inner.lock() else {
+            return;
+        };
+        if !inner.responses.contains_key(id) {
+            inner.response_order.push_back(id.to_string());
+        }
+        let entry = inner.responses.entry(id.to_string()).or_default();
+        let old_size = entry.conversation_bytes;
+        entry.conversation = Some(Arc::new(items));
+        entry.conversation_bytes = size;
+        inner.history_bytes = inner.history_bytes - old_size + size;
+        inner.prune();
+    }
+
+    /// Expand only an explicitly referenced response. Never borrow another
+    /// session's conversation or silently send a delta as a complete history.
+    pub fn restore_conversation(&self, request: &mut Value) -> Result<(), String> {
+        let Some(id) = request.get("previous_response_id").and_then(Value::as_str)
+            .filter(|id| !id.is_empty()) else {
+            return Ok(());
+        };
+        let conversation = self.inner.lock().ok()
+            .and_then(|inner| inner.responses.get(id).and_then(|entry| entry.conversation.clone()))
+            .ok_or_else(|| "previous_response_id 的本地会话历史不可用（程序重启或缓存已过期），请新建对话后重试".to_string())?;
+        let mut items = conversation.as_ref().clone();
+        let input = request.get("input").and_then(input_items)
+            .ok_or_else(|| "Responses input 必须是字符串或数组".to_string())?;
+        items.extend(input);
+        request["input"] = Value::Array(items);
+        request.as_object_mut().unwrap().remove("previous_response_id");
+        Ok(())
+    }
+
     pub fn record_response(&self, response: &Value) -> usize {
         let Some(response_id) = response
             .get("id")
@@ -230,11 +289,15 @@ impl Inner {
     }
 
     fn prune(&mut self) {
-        while self.response_order.len() > MAX_CACHED_RESPONSES {
+        while self.response_order.len() > MAX_CACHED_RESPONSES
+            || self.history_bytes > MAX_HISTORY_BYTES
+        {
             let Some(response_id) = self.response_order.pop_front() else {
                 break;
             };
-            self.responses.remove(&response_id);
+            if let Some(entry) = self.responses.remove(&response_id) {
+                self.history_bytes -= entry.conversation_bytes;
+            }
             for response_ids in self.call_index.values_mut() {
                 response_ids.retain(|cached_id| cached_id != &response_id);
             }
@@ -300,6 +363,15 @@ impl Inner {
             found = Some(item);
         }
         found
+    }
+}
+
+fn input_items(input: &Value) -> Option<Vec<Value>> {
+    match input {
+        Value::String(text) => Some(vec![serde_json::json!({"role": "user", "content": text})]),
+        Value::Array(items) => Some(items.clone()),
+        Value::Object(_) => Some(vec![input.clone()]),
+        _ => None,
     }
 }
 
@@ -467,6 +539,108 @@ pub fn take_sse_block(buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn answer(id: &str, text: &str) -> Value {
+        json!({"id": id, "output": [{
+            "type": "message", "role": "assistant",
+            "content": [{"type": "output_text", "text": text}]
+        }]})
+    }
+
+    #[test]
+    fn restores_text_across_models_and_chained_turns_without_duplication() {
+        let history = CodexHistoryStore::default();
+        history.record_exchange(
+            &json!({"model":"gemini-4-argon-low", "input":"Remember BLUE742."}),
+            &answer("resp_a", "已记住"),
+        );
+        let second = json!({
+            "model":"claude-sonnet-5.5", "previous_response_id":"resp_a",
+            "input":[{"role":"user", "content":[{"type":"input_text","text":"暗号是什么？"}]}]
+        });
+        history.record_exchange(&second, &answer("resp_b", "BLUE742"));
+        let mut third = json!({
+            "model":"gemini-4-argon-low", "previous_response_id":"resp_b", "input":"再回答一次"
+        });
+        history.restore_conversation(&mut third).unwrap();
+        assert_eq!(third["input"].as_array().unwrap().len(), 5);
+        assert_eq!(third["input"][0]["content"], "Remember BLUE742.");
+        assert_eq!(third["input"][3]["content"][0]["text"], "BLUE742");
+        assert!(third.get("previous_response_id").is_none());
+        let expanded = third.clone();
+        history.restore_conversation(&mut third).unwrap();
+        assert_eq!(third, expanded);
+        let mut independent = json!({"input":"new session"});
+        history.restore_conversation(&mut independent).unwrap();
+        assert_eq!(independent, json!({"input":"new session"}));
+    }
+
+    #[test]
+    fn restores_original_task_images_and_tool_results_into_kiro_history() {
+        let history = CodexHistoryStore::default();
+        let image = json!({"type":"input_image","image_url":"data:image/png;base64,aGVsbG8="});
+        history.record_exchange(
+            &json!({"input":[{"role":"user","content":[
+                {"type":"input_text","text":"Find Workspace Trust and describe this image."}, image
+            ]}]}),
+            &json!({"id":"resp_search","output":[{
+                "type":"function_call","call_id":"call_search","name":"web_search",
+                "arguments":"{\"query\":\"Workspace Trust\"}"
+            }]}),
+        );
+        let mut followup = json!({
+            "model":"claude-sonnet-5.5", "previous_response_id":"resp_search",
+            "input":[{"type":"function_call_output","call_id":"call_search","output":"Restricted Mode"}]
+        });
+        history.restore_conversation(&mut followup).unwrap();
+        let account = crate::kiro::account::account_from_import(&json!({
+            "refreshToken":"rt", "authMethod":"idc", "provider":"BuilderId",
+            "clientId":"cid", "clientSecret":"sec"
+        })).unwrap();
+        let prepared = crate::kiro::map::prepare(
+            crate::kiro::map::WireProtocol::OpenAiResponses, &followup, &account,
+        ).unwrap();
+        let conversation = &prepared.body["conversationState"];
+        assert_eq!(conversation["history"][0]["userInputMessage"]["content"],
+            "Find Workspace Trust and describe this image.");
+        assert_eq!(conversation["history"][0]["userInputMessage"]["images"][0]["source"]["bytes"],
+            "aGVsbG8=");
+        assert_eq!(conversation["history"][1]["assistantResponseMessage"]["toolUses"][0]["toolUseId"],
+            "call_search");
+        assert_eq!(conversation["currentMessage"]["userInputMessage"]["userInputMessageContext"]
+            ["toolResults"][0]["content"][0]["text"], "Restricted Mode");
+    }
+
+    #[test]
+    fn missing_history_does_not_borrow_another_conversation_or_mutate_input() {
+        let history = CodexHistoryStore::default();
+        history.record_exchange(&json!({"input":"private A"}), &answer("resp_a", "OK"));
+        let mut request = json!({"previous_response_id":"resp_missing","input":"recall"});
+        let original = request.clone();
+        assert!(history.restore_conversation(&mut request).is_err());
+        assert_eq!(request, original);
+        history.record_exchange(&request, &answer("resp_incomplete_chain", "unknown"));
+        assert!(!history.inner.lock().unwrap().responses.contains_key("resp_incomplete_chain"));
+    }
+
+    #[test]
+    fn prunes_conversations_with_existing_response_limit_and_byte_budget() {
+        let history = CodexHistoryStore::default();
+        for i in 0..=MAX_CACHED_RESPONSES {
+            history.record_exchange(&json!({"input":"hello"}), &answer(&format!("resp_{i}"), "OK"));
+        }
+        let mut inner = history.inner.lock().unwrap();
+        assert_eq!(inner.responses.len(), MAX_CACHED_RESPONSES);
+        assert!(!inner.responses.contains_key("resp_0"));
+        assert_eq!(inner.history_bytes,
+            inner.responses.values().map(|entry| entry.conversation_bytes).sum::<usize>());
+        // Model a large image entry without allocating a 64 MiB fixture.
+        inner.responses.get_mut("resp_1").unwrap().conversation_bytes += MAX_HISTORY_BYTES;
+        inner.history_bytes += MAX_HISTORY_BYTES;
+        inner.prune();
+        assert!(!inner.responses.contains_key("resp_1"));
+        assert!(inner.history_bytes < MAX_HISTORY_BYTES);
+    }
 
     #[test]
     fn enriches_tool_output_with_cached_function_call_from_previous_response() {

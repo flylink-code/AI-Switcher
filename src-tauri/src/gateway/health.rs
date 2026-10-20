@@ -188,7 +188,8 @@ fn record_failure_classification(
                 entry.primary_failure_kind = Some(FailureKind::Quota);
                 entry.last_error = classification.safe_description;
             }
-            apply_cooldown(entry, now, Duration::from_secs(COOLDOWN_QUOTA_SECS));
+            apply_cooldown(entry, now, classification.cooldown
+                .unwrap_or(Duration::from_secs(COOLDOWN_QUOTA_SECS)));
         }
         FailureKind::RateLimit => {
             entry.consecutive_failures = entry.consecutive_failures.saturating_add(1);

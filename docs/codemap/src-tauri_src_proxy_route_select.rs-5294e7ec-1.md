@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/route_select.rs) · page 1/1
 
-Source SHA-256: cd7ae680f0159e8292ee4accd1ec4318864fc8f7c6d386313898f237aab9637c
+Source SHA-256: 3ac953c77c4d6313918fed714350c3394067106abd41f851d6a43c9de24e004e
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -16,61 +16,65 @@ Source SHA-256: cd7ae680f0159e8292ee4accd1ec4318864fc8f7c6d386313898f237aab9637c
 | std::fmt::Display for GatewaySelectionError | impl |  | [13](../../src-tauri/src/proxy/route_select.rs#L13) |
 | fmt | function_item | std::fmt::Display for GatewaySelectionError | [14](../../src-tauri/src/proxy/route_select.rs#L14) |
 | select_gateway_runtime_provider_with | function_item |  | [19](../../src-tauri/src/proxy/route_select.rs#L19) |
-| log::info | macro invocation (unexpanded) | select_gateway_runtime_provider_with | [108](../../src-tauri/src/proxy/route_select.rs#L108) |
-| log::info | macro invocation (unexpanded) | select_gateway_runtime_provider_with | [133](../../src-tauri/src/proxy/route_select.rs#L133) |
-| log::info | macro invocation (unexpanded) | select_gateway_runtime_provider_with | [202](../../src-tauri/src/proxy/route_select.rs#L202) |
-| configured_model_pins | function_item |  | [209](../../src-tauri/src/proxy/route_select.rs#L209) |
-| is_copilot_subtask_or_subagent_payload | function_item |  | [221](../../src-tauri/src/proxy/route_select.rs#L221) |
-| remember_gateway_success_upstream | function_item |  | [243](../../src-tauri/src/proxy/route_select.rs#L243) |
-| note_gateway_inflight | function_item |  | [259](../../src-tauri/src/proxy/route_select.rs#L259) |
-| resolve_explicit_fallback | function_item |  | [296](../../src-tauri/src/proxy/route_select.rs#L296) |
-| should_try_explicit_fallback | function_item |  | [314](../../src-tauri/src/proxy/route_select.rs#L314) |
-| matches | macro invocation (unexpanded) | should_try_explicit_fallback | [315](../../src-tauri/src/proxy/route_select.rs#L315) |
-| matches | macro invocation (unexpanded) | should_try_explicit_fallback | [318](../../src-tauri/src/proxy/route_select.rs#L318) |
-| should_forward_inbound_header | function_item |  | [322](../../src-tauri/src/proxy/route_select.rs#L322) |
-| prepare_upstream_request | function_item |  | [335](../../src-tauri/src/proxy/route_select.rs#L335) |
-| format | macro invocation (unexpanded) | prepare_upstream_request | [426](../../src-tauri/src/proxy/route_select.rs#L426) |
-| compatible_stream_retry | function_item |  | [449](../../src-tauri/src/proxy/route_select.rs#L449) |
-| matches | macro invocation (unexpanded) | compatible_stream_retry | [450](../../src-tauri/src/proxy/route_select.rs#L450) |
-| is_retryable_upstream_status | function_item |  | [462](../../src-tauri/src/proxy/route_select.rs#L462) |
-| should_failover_upstream_status | function_item |  | [474](../../src-tauri/src/proxy/route_select.rs#L474) |
-| should_failover_upstream_status_ex | function_item |  | [480](../../src-tauri/src/proxy/route_select.rs#L480) |
-| default_retryable_status_codes | function_item |  | [494](../../src-tauri/src/proxy/route_select.rs#L494) |
-| load_retryable_status_codes | function_item |  | [502](../../src-tauri/src/proxy/route_select.rs#L502) |
-| parse_retryable_status_codes | function_item |  | [509](../../src-tauri/src/proxy/route_select.rs#L509) |
+| log::info | macro invocation (unexpanded) | select_gateway_runtime_provider_with | [107](../../src-tauri/src/proxy/route_select.rs#L107) |
+| log::info | macro invocation (unexpanded) | select_gateway_runtime_provider_with | [134](../../src-tauri/src/proxy/route_select.rs#L134) |
+| log::info | macro invocation (unexpanded) | select_gateway_runtime_provider_with | [203](../../src-tauri/src/proxy/route_select.rs#L203) |
+| configured_model_pins | function_item |  | [210](../../src-tauri/src/proxy/route_select.rs#L210) |
+| is_copilot_subtask_or_subagent_payload | function_item |  | [222](../../src-tauri/src/proxy/route_select.rs#L222) |
+| remember_gateway_success_upstream | function_item |  | [231](../../src-tauri/src/proxy/route_select.rs#L231) |
+| note_gateway_inflight | function_item |  | [247](../../src-tauri/src/proxy/route_select.rs#L247) |
+| resolve_explicit_fallback | function_item |  | [284](../../src-tauri/src/proxy/route_select.rs#L284) |
+| should_try_explicit_fallback | function_item |  | [302](../../src-tauri/src/proxy/route_select.rs#L302) |
+| matches | macro invocation (unexpanded) | should_try_explicit_fallback | [303](../../src-tauri/src/proxy/route_select.rs#L303) |
+| matches | macro invocation (unexpanded) | should_try_explicit_fallback | [306](../../src-tauri/src/proxy/route_select.rs#L306) |
+| should_forward_inbound_header | function_item |  | [310](../../src-tauri/src/proxy/route_select.rs#L310) |
+| prepare_upstream_request | function_item |  | [323](../../src-tauri/src/proxy/route_select.rs#L323) |
+| format | macro invocation (unexpanded) | prepare_upstream_request | [414](../../src-tauri/src/proxy/route_select.rs#L414) |
+| compatible_stream_retry | function_item |  | [437](../../src-tauri/src/proxy/route_select.rs#L437) |
+| matches | macro invocation (unexpanded) | compatible_stream_retry | [438](../../src-tauri/src/proxy/route_select.rs#L438) |
+| is_retryable_upstream_status | function_item |  | [450](../../src-tauri/src/proxy/route_select.rs#L450) |
+| should_failover_upstream_status | function_item |  | [462](../../src-tauri/src/proxy/route_select.rs#L462) |
+| should_failover_upstream_status_ex | function_item |  | [468](../../src-tauri/src/proxy/route_select.rs#L468) |
+| default_retryable_status_codes | function_item |  | [482](../../src-tauri/src/proxy/route_select.rs#L482) |
+| load_retryable_status_codes | function_item |  | [490](../../src-tauri/src/proxy/route_select.rs#L490) |
+| parse_retryable_status_codes | function_item |  | [497](../../src-tauri/src/proxy/route_select.rs#L497) |
+| format | macro invocation (unexpanded) | parse_retryable_status_codes | [512](../../src-tauri/src/proxy/route_select.rs#L512) |
+| format | macro invocation (unexpanded) | parse_retryable_status_codes | [516](../../src-tauri/src/proxy/route_select.rs#L516) |
+| format | macro invocation (unexpanded) | parse_retryable_status_codes | [518](../../src-tauri/src/proxy/route_select.rs#L518) |
 | format | macro invocation (unexpanded) | parse_retryable_status_codes | [524](../../src-tauri/src/proxy/route_select.rs#L524) |
-| format | macro invocation (unexpanded) | parse_retryable_status_codes | [528](../../src-tauri/src/proxy/route_select.rs#L528) |
-| format | macro invocation (unexpanded) | parse_retryable_status_codes | [530](../../src-tauri/src/proxy/route_select.rs#L530) |
-| format | macro invocation (unexpanded) | parse_retryable_status_codes | [536](../../src-tauri/src/proxy/route_select.rs#L536) |
-| format | macro invocation (unexpanded) | parse_retryable_status_codes | [538](../../src-tauri/src/proxy/route_select.rs#L538) |
-| format_retryable_status_codes | function_item |  | [552](../../src-tauri/src/proxy/route_select.rs#L552) |
-| format | macro invocation (unexpanded) | format_retryable_status_codes | [567](../../src-tauri/src/proxy/route_select.rs#L567) |
-| format | macro invocation (unexpanded) | format_retryable_status_codes | [575](../../src-tauri/src/proxy/route_select.rs#L575) |
-| load_streaming_idle_timeout_secs | function_item |  | [580](../../src-tauri/src/proxy/route_select.rs#L580) |
-| health_handler | function_item |  | [591](../../src-tauri/src/proxy/route_select.rs#L591) |
-| matches | macro invocation (unexpanded) | health_handler | [613](../../src-tauri/src/proxy/route_select.rs#L613) |
-| log::error | macro invocation (unexpanded) | health_handler | [630](../../src-tauri/src/proxy/route_select.rs#L630) |
-| serde_json::json | macro invocation (unexpanded) | health_handler | [634](../../src-tauri/src/proxy/route_select.rs#L634) |
-| models_handler | function_item |  | [647](../../src-tauri/src/proxy/route_select.rs#L647) |
-| format | macro invocation (unexpanded) | models_handler | [672](../../src-tauri/src/proxy/route_select.rs#L672) |
-| log::error | macro invocation (unexpanded) | models_handler | [679](../../src-tauri/src/proxy/route_select.rs#L679) |
-| log::error | macro invocation (unexpanded) | models_handler | [694](../../src-tauri/src/proxy/route_select.rs#L694) |
-| model_retrieve_handler | function_item |  | [701](../../src-tauri/src/proxy/route_select.rs#L701) |
-| format | macro invocation (unexpanded) | model_retrieve_handler | [736](../../src-tauri/src/proxy/route_select.rs#L736) |
-| format | macro invocation (unexpanded) | model_retrieve_handler | [741](../../src-tauri/src/proxy/route_select.rs#L741) |
-| log::error | macro invocation (unexpanded) | model_retrieve_handler | [746](../../src-tauri/src/proxy/route_select.rs#L746) |
-| format | macro invocation (unexpanded) | model_retrieve_handler | [770](../../src-tauri/src/proxy/route_select.rs#L770) |
-| log::error | macro invocation (unexpanded) | model_retrieve_handler | [775](../../src-tauri/src/proxy/route_select.rs#L775) |
-| desktop_bound_smart_gateway | function_item |  | [782](../../src-tauri/src/proxy/route_select.rs#L782) |
-| route_select_tests | mod_item |  | [796](../../src-tauri/src/proxy/route_select.rs#L796) |
-| claude_code_switching_back_to_first_catalog_model_routes_to_gemini | function_item | route_select_tests | [800](../../src-tauri/src/proxy/route_select.rs#L800) |
-| serde_json::json | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [834](../../src-tauri/src/proxy/route_select.rs#L834) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [847](../../src-tauri/src/proxy/route_select.rs#L847) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [848](../../src-tauri/src/proxy/route_select.rs#L848) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [849](../../src-tauri/src/proxy/route_select.rs#L849) |
+| format | macro invocation (unexpanded) | parse_retryable_status_codes | [526](../../src-tauri/src/proxy/route_select.rs#L526) |
+| format_retryable_status_codes | function_item |  | [540](../../src-tauri/src/proxy/route_select.rs#L540) |
+| format | macro invocation (unexpanded) | format_retryable_status_codes | [555](../../src-tauri/src/proxy/route_select.rs#L555) |
+| format | macro invocation (unexpanded) | format_retryable_status_codes | [563](../../src-tauri/src/proxy/route_select.rs#L563) |
+| load_streaming_idle_timeout_secs | function_item |  | [568](../../src-tauri/src/proxy/route_select.rs#L568) |
+| health_handler | function_item |  | [579](../../src-tauri/src/proxy/route_select.rs#L579) |
+| matches | macro invocation (unexpanded) | health_handler | [601](../../src-tauri/src/proxy/route_select.rs#L601) |
+| log::error | macro invocation (unexpanded) | health_handler | [618](../../src-tauri/src/proxy/route_select.rs#L618) |
+| serde_json::json | macro invocation (unexpanded) | health_handler | [622](../../src-tauri/src/proxy/route_select.rs#L622) |
+| models_handler | function_item |  | [635](../../src-tauri/src/proxy/route_select.rs#L635) |
+| format | macro invocation (unexpanded) | models_handler | [660](../../src-tauri/src/proxy/route_select.rs#L660) |
+| log::error | macro invocation (unexpanded) | models_handler | [667](../../src-tauri/src/proxy/route_select.rs#L667) |
+| log::error | macro invocation (unexpanded) | models_handler | [682](../../src-tauri/src/proxy/route_select.rs#L682) |
+| model_retrieve_handler | function_item |  | [689](../../src-tauri/src/proxy/route_select.rs#L689) |
+| format | macro invocation (unexpanded) | model_retrieve_handler | [724](../../src-tauri/src/proxy/route_select.rs#L724) |
+| format | macro invocation (unexpanded) | model_retrieve_handler | [729](../../src-tauri/src/proxy/route_select.rs#L729) |
+| log::error | macro invocation (unexpanded) | model_retrieve_handler | [734](../../src-tauri/src/proxy/route_select.rs#L734) |
+| format | macro invocation (unexpanded) | model_retrieve_handler | [758](../../src-tauri/src/proxy/route_select.rs#L758) |
+| log::error | macro invocation (unexpanded) | model_retrieve_handler | [763](../../src-tauri/src/proxy/route_select.rs#L763) |
+| desktop_bound_smart_gateway | function_item |  | [770](../../src-tauri/src/proxy/route_select.rs#L770) |
+| route_select_tests | mod_item |  | [784](../../src-tauri/src/proxy/route_select.rs#L784) |
+| copilot_chat_without_tools_is_not_an_auxiliary_turn | function_item | route_select_tests | [788](../../src-tauri/src/proxy/route_select.rs#L788) |
+| serde_json::json | macro invocation (unexpanded) | route_select_tests::copilot_chat_without_tools_is_not_an_auxiliary_turn | [789](../../src-tauri/src/proxy/route_select.rs#L789) |
+| assert | macro invocation (unexpanded) | route_select_tests::copilot_chat_without_tools_is_not_an_auxiliary_turn | [791](../../src-tauri/src/proxy/route_select.rs#L791) |
+| assert | macro invocation (unexpanded) | route_select_tests::copilot_chat_without_tools_is_not_an_auxiliary_turn | [793](../../src-tauri/src/proxy/route_select.rs#L793) |
+| claude_code_switching_back_to_first_catalog_model_routes_to_gemini | function_item | route_select_tests | [797](../../src-tauri/src/proxy/route_select.rs#L797) |
+| serde_json::json | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [831](../../src-tauri/src/proxy/route_select.rs#L831) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [844](../../src-tauri/src/proxy/route_select.rs#L844) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [845](../../src-tauri/src/proxy/route_select.rs#L845) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [846](../../src-tauri/src/proxy/route_select.rs#L846) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [859](../../src-tauri/src/proxy/route_select.rs#L859) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [860](../../src-tauri/src/proxy/route_select.rs#L860) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [861](../../src-tauri/src/proxy/route_select.rs#L861) |
 | assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [862](../../src-tauri/src/proxy/route_select.rs#L862) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [863](../../src-tauri/src/proxy/route_select.rs#L863) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [864](../../src-tauri/src/proxy/route_select.rs#L864) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [865](../../src-tauri/src/proxy/route_select.rs#L865) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [878](../../src-tauri/src/proxy/route_select.rs#L878) |
-| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [879](../../src-tauri/src/proxy/route_select.rs#L879) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [875](../../src-tauri/src/proxy/route_select.rs#L875) |
+| assert_eq | macro invocation (unexpanded) | route_select_tests::claude_code_switching_back_to_first_catalog_model_routes_to_gemini | [876](../../src-tauri/src/proxy/route_select.rs#L876) |

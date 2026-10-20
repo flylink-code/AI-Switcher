@@ -4,44 +4,50 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/catalog.rs) · page 4/4
 
-Source SHA-256: d999a674b691b2668916b837f6d071e6f2a341d5e7e8b2314207ac575af4ade1
+Source SHA-256: 745482fa6af494d436ad731e45ab00a5dff7bebb795b3abedcad10274b5fa89b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2104](../../src-tauri/src/catalog.rs#L2104) |
-| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2105](../../src-tauri/src/catalog.rs#L2105) |
 | assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2106](../../src-tauri/src/catalog.rs#L2106) |
-| role_requests_follow_the_conversation_model | function_item | tests | [2110](../../src-tauri/src/catalog.rs#L2110) |
-| vec | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2112](../../src-tauri/src/catalog.rs#L2112) |
-| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2113](../../src-tauri/src/catalog.rs#L2113) |
-| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2121](../../src-tauri/src/catalog.rs#L2121) |
-| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2129](../../src-tauri/src/catalog.rs#L2129) |
-| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2137](../../src-tauri/src/catalog.rs#L2137) |
-| configured_default_follows_the_conversation_model | function_item | tests | [2144](../../src-tauri/src/catalog.rs#L2144) |
-| vec | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2145](../../src-tauri/src/catalog.rs#L2145) |
-| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2149](../../src-tauri/src/catalog.rs#L2149) |
-| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2150](../../src-tauri/src/catalog.rs#L2150) |
-| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2151](../../src-tauri/src/catalog.rs#L2151) |
-| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2155](../../src-tauri/src/catalog.rs#L2155) |
-| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2159](../../src-tauri/src/catalog.rs#L2159) |
-| assert_eq | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2160](../../src-tauri/src/catalog.rs#L2160) |
+| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2107](../../src-tauri/src/catalog.rs#L2107) |
+| assert | macro invocation (unexpanded) | tests::injected_claude_roles_are_not_explicit_passthrough | [2108](../../src-tauri/src/catalog.rs#L2108) |
+| copilot_explicit_switch_preserves_small_and_role_models | function_item | tests | [2112](../../src-tauri/src/catalog.rs#L2112) |
+| vec | macro invocation (unexpanded) | tests::copilot_explicit_switch_preserves_small_and_role_models | [2114](../../src-tauri/src/catalog.rs#L2114) |
+| vec | macro invocation (unexpanded) | tests::copilot_explicit_switch_preserves_small_and_role_models | [2115](../../src-tauri/src/catalog.rs#L2115) |
+| vec | macro invocation (unexpanded) | tests::copilot_explicit_switch_preserves_small_and_role_models | [2116](../../src-tauri/src/catalog.rs#L2116) |
+| assert_eq | macro invocation (unexpanded) | tests::copilot_explicit_switch_preserves_small_and_role_models | [2119](../../src-tauri/src/catalog.rs#L2119) |
+| assert_eq | macro invocation (unexpanded) | tests::copilot_explicit_switch_preserves_small_and_role_models | [2123](../../src-tauri/src/catalog.rs#L2123) |
+| role_requests_follow_the_conversation_model | function_item | tests | [2129](../../src-tauri/src/catalog.rs#L2129) |
+| vec | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2131](../../src-tauri/src/catalog.rs#L2131) |
+| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2132](../../src-tauri/src/catalog.rs#L2132) |
+| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2140](../../src-tauri/src/catalog.rs#L2140) |
+| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2148](../../src-tauri/src/catalog.rs#L2148) |
+| assert_eq | macro invocation (unexpanded) | tests::role_requests_follow_the_conversation_model | [2156](../../src-tauri/src/catalog.rs#L2156) |
+| configured_default_follows_the_conversation_model | function_item | tests | [2163](../../src-tauri/src/catalog.rs#L2163) |
+| vec | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2164](../../src-tauri/src/catalog.rs#L2164) |
+| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2168](../../src-tauri/src/catalog.rs#L2168) |
 | assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2169](../../src-tauri/src/catalog.rs#L2169) |
 | assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2170](../../src-tauri/src/catalog.rs#L2170) |
-| openai_discovery_lists_windows | function_item | tests | [2174](../../src-tauri/src/catalog.rs#L2174) |
-| vec | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2176](../../src-tauri/src/catalog.rs#L2176) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2178](../../src-tauri/src/catalog.rs#L2178) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2179](../../src-tauri/src/catalog.rs#L2179) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2182](../../src-tauri/src/catalog.rs#L2182) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2183](../../src-tauri/src/catalog.rs#L2183) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2184](../../src-tauri/src/catalog.rs#L2184) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2185](../../src-tauri/src/catalog.rs#L2185) |
-| assert | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2186](../../src-tauri/src/catalog.rs#L2186) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2187](../../src-tauri/src/catalog.rs#L2187) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2188](../../src-tauri/src/catalog.rs#L2188) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2189](../../src-tauri/src/catalog.rs#L2189) |
-| assert | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2190](../../src-tauri/src/catalog.rs#L2190) |
-| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2191](../../src-tauri/src/catalog.rs#L2191) |
-| advertised_window_does_not_inflate_gateway_extra_models | function_item | tests | [2194](../../src-tauri/src/catalog.rs#L2194) |
-| assert_eq | macro invocation (unexpanded) | tests::advertised_window_does_not_inflate_gateway_extra_models | [2198](../../src-tauri/src/catalog.rs#L2198) |
-| assert_eq | macro invocation (unexpanded) | tests::advertised_window_does_not_inflate_gateway_extra_models | [2199](../../src-tauri/src/catalog.rs#L2199) |
-| assert_eq | macro invocation (unexpanded) | tests::advertised_window_does_not_inflate_gateway_extra_models | [2200](../../src-tauri/src/catalog.rs#L2200) |
+| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2174](../../src-tauri/src/catalog.rs#L2174) |
+| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2178](../../src-tauri/src/catalog.rs#L2178) |
+| assert_eq | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2179](../../src-tauri/src/catalog.rs#L2179) |
+| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2188](../../src-tauri/src/catalog.rs#L2188) |
+| assert | macro invocation (unexpanded) | tests::configured_default_follows_the_conversation_model | [2189](../../src-tauri/src/catalog.rs#L2189) |
+| openai_discovery_lists_windows | function_item | tests | [2193](../../src-tauri/src/catalog.rs#L2193) |
+| vec | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2195](../../src-tauri/src/catalog.rs#L2195) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2197](../../src-tauri/src/catalog.rs#L2197) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2198](../../src-tauri/src/catalog.rs#L2198) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2201](../../src-tauri/src/catalog.rs#L2201) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2202](../../src-tauri/src/catalog.rs#L2202) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2203](../../src-tauri/src/catalog.rs#L2203) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2204](../../src-tauri/src/catalog.rs#L2204) |
+| assert | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2205](../../src-tauri/src/catalog.rs#L2205) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2206](../../src-tauri/src/catalog.rs#L2206) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2207](../../src-tauri/src/catalog.rs#L2207) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2208](../../src-tauri/src/catalog.rs#L2208) |
+| assert | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2209](../../src-tauri/src/catalog.rs#L2209) |
+| assert_eq | macro invocation (unexpanded) | tests::openai_discovery_lists_windows | [2210](../../src-tauri/src/catalog.rs#L2210) |
+| advertised_window_does_not_inflate_gateway_extra_models | function_item | tests | [2213](../../src-tauri/src/catalog.rs#L2213) |
+| assert_eq | macro invocation (unexpanded) | tests::advertised_window_does_not_inflate_gateway_extra_models | [2217](../../src-tauri/src/catalog.rs#L2217) |
+| assert_eq | macro invocation (unexpanded) | tests::advertised_window_does_not_inflate_gateway_extra_models | [2218](../../src-tauri/src/catalog.rs#L2218) |
+| assert_eq | macro invocation (unexpanded) | tests::advertised_window_does_not_inflate_gateway_extra_models | [2219](../../src-tauri/src/catalog.rs#L2219) |

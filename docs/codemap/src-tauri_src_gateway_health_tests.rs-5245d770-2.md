@@ -4,38 +4,59 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health/tests.rs) · page 2/2
 
-Source SHA-256: 8810fb53290a28c16488a5d0631966c84aa7da58a0b1642cb494677adf0c2e77
+Source SHA-256: 79cccd93f2265fbdb87506b852c910a1e7c43332b627a139fb05649c9c8ebd2b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [356](../../src-tauri/src/gateway/health/tests.rs#L356) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [359](../../src-tauri/src/gateway/health/tests.rs#L359) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [361](../../src-tauri/src/gateway/health/tests.rs#L361) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [363](../../src-tauri/src/gateway/health/tests.rs#L363) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [365](../../src-tauri/src/gateway/health/tests.rs#L365) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [369](../../src-tauri/src/gateway/health/tests.rs#L369) |
-| assert_eq | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [371](../../src-tauri/src/gateway/health/tests.rs#L371) |
-| assert_eq | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [372](../../src-tauri/src/gateway/health/tests.rs#L372) |
-| test_circuit_permit_drop_releases_half_open | function_item |  | [376](../../src-tauri/src/gateway/health/tests.rs#L376) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [386](../../src-tauri/src/gateway/health/tests.rs#L386) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [387](../../src-tauri/src/gateway/health/tests.rs#L387) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [389](../../src-tauri/src/gateway/health/tests.rs#L389) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [394](../../src-tauri/src/gateway/health/tests.rs#L394) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [395](../../src-tauri/src/gateway/health/tests.rs#L395) |
-| test_permit_record_http_failure_client_error_releases_model_probe | function_item |  | [399](../../src-tauri/src/gateway/health/tests.rs#L399) |
-| assert | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [415](../../src-tauri/src/gateway/health/tests.rs#L415) |
-| assert | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [417](../../src-tauri/src/gateway/health/tests.rs#L417) |
-| assert_eq | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [421](../../src-tauri/src/gateway/health/tests.rs#L421) |
-| assert | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [425](../../src-tauri/src/gateway/health/tests.rs#L425) |
-| test_parse_retry_after | function_item |  | [429](../../src-tauri/src/gateway/health/tests.rs#L429) |
-| assert_eq | macro invocation (unexpanded) | test_parse_retry_after | [431](../../src-tauri/src/gateway/health/tests.rs#L431) |
-| assert_eq | macro invocation (unexpanded) | test_parse_retry_after | [432](../../src-tauri/src/gateway/health/tests.rs#L432) |
-| assert_eq | macro invocation (unexpanded) | test_parse_retry_after | [433](../../src-tauri/src/gateway/health/tests.rs#L433) |
-| assert | macro invocation (unexpanded) | test_parse_retry_after | [438](../../src-tauri/src/gateway/health/tests.rs#L438) |
-| assert | macro invocation (unexpanded) | test_parse_retry_after | [440](../../src-tauri/src/gateway/health/tests.rs#L440) |
-| test_min_cooldown_remaining | function_item |  | [444](../../src-tauri/src/gateway/health/tests.rs#L444) |
-| assert | macro invocation (unexpanded) | test_min_cooldown_remaining | [454](../../src-tauri/src/gateway/health/tests.rs#L454) |
-| assert | macro invocation (unexpanded) | test_min_cooldown_remaining | [455](../../src-tauri/src/gateway/health/tests.rs#L455) |
-| test_relay_502_client_validation_error_is_ignored_not_transient | function_item |  | [459](../../src-tauri/src/gateway/health/tests.rs#L459) |
-| assert_eq | macro invocation (unexpanded) | test_relay_502_client_validation_error_is_ignored_not_transient | [465](../../src-tauri/src/gateway/health/tests.rs#L465) |
-| assert_eq | macro invocation (unexpanded) | test_relay_502_client_validation_error_is_ignored_not_transient | [466](../../src-tauri/src/gateway/health/tests.rs#L466) |
+| assert_eq | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [307](../../src-tauri/src/gateway/health/tests.rs#L307) |
+| assert_eq | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [311](../../src-tauri/src/gateway/health/tests.rs#L311) |
+| assert_eq | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [312](../../src-tauri/src/gateway/health/tests.rs#L312) |
+| assert | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [324](../../src-tauri/src/gateway/health/tests.rs#L324) |
+| assert | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [329](../../src-tauri/src/gateway/health/tests.rs#L329) |
+| test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | function_item |  | [333](../../src-tauri/src/gateway/health/tests.rs#L333) |
+| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [337](../../src-tauri/src/gateway/health/tests.rs#L337) |
+| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [339](../../src-tauri/src/gateway/health/tests.rs#L339) |
+| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [350](../../src-tauri/src/gateway/health/tests.rs#L350) |
+| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [353](../../src-tauri/src/gateway/health/tests.rs#L353) |
+| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [359](../../src-tauri/src/gateway/health/tests.rs#L359) |
+| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [362](../../src-tauri/src/gateway/health/tests.rs#L362) |
+| test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | function_item |  | [366](../../src-tauri/src/gateway/health/tests.rs#L366) |
+| assert | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [376](../../src-tauri/src/gateway/health/tests.rs#L376) |
+| assert | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [387](../../src-tauri/src/gateway/health/tests.rs#L387) |
+| assert_eq | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [388](../../src-tauri/src/gateway/health/tests.rs#L388) |
+| assert | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [393](../../src-tauri/src/gateway/health/tests.rs#L393) |
+| assert_eq | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [394](../../src-tauri/src/gateway/health/tests.rs#L394) |
+| test_circuit_permit_and_half_open_raii | function_item |  | [398](../../src-tauri/src/gateway/health/tests.rs#L398) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [403](../../src-tauri/src/gateway/health/tests.rs#L403) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [404](../../src-tauri/src/gateway/health/tests.rs#L404) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [414](../../src-tauri/src/gateway/health/tests.rs#L414) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [417](../../src-tauri/src/gateway/health/tests.rs#L417) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [419](../../src-tauri/src/gateway/health/tests.rs#L419) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [421](../../src-tauri/src/gateway/health/tests.rs#L421) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [423](../../src-tauri/src/gateway/health/tests.rs#L423) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [427](../../src-tauri/src/gateway/health/tests.rs#L427) |
+| assert_eq | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [429](../../src-tauri/src/gateway/health/tests.rs#L429) |
+| assert_eq | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [430](../../src-tauri/src/gateway/health/tests.rs#L430) |
+| test_circuit_permit_drop_releases_half_open | function_item |  | [434](../../src-tauri/src/gateway/health/tests.rs#L434) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [444](../../src-tauri/src/gateway/health/tests.rs#L444) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [445](../../src-tauri/src/gateway/health/tests.rs#L445) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [447](../../src-tauri/src/gateway/health/tests.rs#L447) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [452](../../src-tauri/src/gateway/health/tests.rs#L452) |
+| assert | macro invocation (unexpanded) | test_circuit_permit_drop_releases_half_open | [453](../../src-tauri/src/gateway/health/tests.rs#L453) |
+| test_permit_record_http_failure_client_error_releases_model_probe | function_item |  | [457](../../src-tauri/src/gateway/health/tests.rs#L457) |
+| assert | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [473](../../src-tauri/src/gateway/health/tests.rs#L473) |
+| assert | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [475](../../src-tauri/src/gateway/health/tests.rs#L475) |
+| assert_eq | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [479](../../src-tauri/src/gateway/health/tests.rs#L479) |
+| assert | macro invocation (unexpanded) | test_permit_record_http_failure_client_error_releases_model_probe | [483](../../src-tauri/src/gateway/health/tests.rs#L483) |
+| test_parse_retry_after | function_item |  | [487](../../src-tauri/src/gateway/health/tests.rs#L487) |
+| assert_eq | macro invocation (unexpanded) | test_parse_retry_after | [489](../../src-tauri/src/gateway/health/tests.rs#L489) |
+| assert_eq | macro invocation (unexpanded) | test_parse_retry_after | [490](../../src-tauri/src/gateway/health/tests.rs#L490) |
+| assert_eq | macro invocation (unexpanded) | test_parse_retry_after | [491](../../src-tauri/src/gateway/health/tests.rs#L491) |
+| assert | macro invocation (unexpanded) | test_parse_retry_after | [496](../../src-tauri/src/gateway/health/tests.rs#L496) |
+| assert | macro invocation (unexpanded) | test_parse_retry_after | [498](../../src-tauri/src/gateway/health/tests.rs#L498) |
+| test_min_cooldown_remaining | function_item |  | [502](../../src-tauri/src/gateway/health/tests.rs#L502) |
+| assert | macro invocation (unexpanded) | test_min_cooldown_remaining | [512](../../src-tauri/src/gateway/health/tests.rs#L512) |
+| assert | macro invocation (unexpanded) | test_min_cooldown_remaining | [513](../../src-tauri/src/gateway/health/tests.rs#L513) |
+| test_relay_502_client_validation_error_is_ignored_not_transient | function_item |  | [517](../../src-tauri/src/gateway/health/tests.rs#L517) |
+| assert_eq | macro invocation (unexpanded) | test_relay_502_client_validation_error_is_ignored_not_transient | [523](../../src-tauri/src/gateway/health/tests.rs#L523) |
+| assert_eq | macro invocation (unexpanded) | test_relay_502_client_validation_error_is_ignored_not_transient | [524](../../src-tauri/src/gateway/health/tests.rs#L524) |

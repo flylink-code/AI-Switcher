@@ -4,107 +4,107 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/health/tests.rs) · page 1/2
 
-Source SHA-256: 8810fb53290a28c16488a5d0631966c84aa7da58a0b1642cb494677adf0c2e77
+Source SHA-256: 79cccd93f2265fbdb87506b852c910a1e7c43332b627a139fb05649c9c8ebd2b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | TEST_SEQ | static_item |  | [6](../../src-tauri/src/gateway/health/tests.rs#L6) |
 | unique_id | function_item |  | [8](../../src-tauri/src/gateway/health/tests.rs#L8) |
 | format | macro invocation (unexpanded) | unique_id | [9](../../src-tauri/src/gateway/health/tests.rs#L9) |
-| probe_failure_does_not_open_circuit | function_item |  | [17](../../src-tauri/src/gateway/health/tests.rs#L17) |
-| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [22](../../src-tauri/src/gateway/health/tests.rs#L22) |
-| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [23](../../src-tauri/src/gateway/health/tests.rs#L23) |
-| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [24](../../src-tauri/src/gateway/health/tests.rs#L24) |
-| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [25](../../src-tauri/src/gateway/health/tests.rs#L25) |
-| live_failure_opens_circuit_after_two_hits | function_item |  | [29](../../src-tauri/src/gateway/health/tests.rs#L29) |
-| assert_eq | macro invocation (unexpanded) | live_failure_opens_circuit_after_two_hits | [34](../../src-tauri/src/gateway/health/tests.rs#L34) |
-| assert | macro invocation (unexpanded) | live_failure_opens_circuit_after_two_hits | [35](../../src-tauri/src/gateway/health/tests.rs#L35) |
-| assert_eq | macro invocation (unexpanded) | live_failure_opens_circuit_after_two_hits | [36](../../src-tauri/src/gateway/health/tests.rs#L36) |
-| success_clears_probe_failures | function_item |  | [40](../../src-tauri/src/gateway/health/tests.rs#L40) |
-| assert_eq | macro invocation (unexpanded) | success_clears_probe_failures | [45](../../src-tauri/src/gateway/health/tests.rs#L45) |
-| assert_eq | macro invocation (unexpanded) | success_clears_probe_failures | [46](../../src-tauri/src/gateway/health/tests.rs#L46) |
-| assert_eq | macro invocation (unexpanded) | success_clears_probe_failures | [47](../../src-tauri/src/gateway/health/tests.rs#L47) |
-| unknown_upstream_is_not_cooling | function_item |  | [51](../../src-tauri/src/gateway/health/tests.rs#L51) |
-| assert | macro invocation (unexpanded) | unknown_upstream_is_not_cooling | [53](../../src-tauri/src/gateway/health/tests.rs#L53) |
-| assert_eq | macro invocation (unexpanded) | unknown_upstream_is_not_cooling | [54](../../src-tauri/src/gateway/health/tests.rs#L54) |
-| assert | macro invocation (unexpanded) | unknown_upstream_is_not_cooling | [55](../../src-tauri/src/gateway/health/tests.rs#L55) |
-| classify_probe_status_treats_client_errors_as_reachable | function_item |  | [59](../../src-tauri/src/gateway/health/tests.rs#L59) |
-| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [60](../../src-tauri/src/gateway/health/tests.rs#L60) |
-| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [61](../../src-tauri/src/gateway/health/tests.rs#L61) |
-| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [62](../../src-tauri/src/gateway/health/tests.rs#L62) |
-| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [63](../../src-tauri/src/gateway/health/tests.rs#L63) |
-| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [66](../../src-tauri/src/gateway/health/tests.rs#L66) |
-| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [67](../../src-tauri/src/gateway/health/tests.rs#L67) |
-| test_classify_failure_auth | function_item |  | [73](../../src-tauri/src/gateway/health/tests.rs#L73) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [75](../../src-tauri/src/gateway/health/tests.rs#L75) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [76](../../src-tauri/src/gateway/health/tests.rs#L76) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [77](../../src-tauri/src/gateway/health/tests.rs#L77) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [84](../../src-tauri/src/gateway/health/tests.rs#L84) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [85](../../src-tauri/src/gateway/health/tests.rs#L85) |
-| test_classify_failure_quota | function_item |  | [89](../../src-tauri/src/gateway/health/tests.rs#L89) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [95](../../src-tauri/src/gateway/health/tests.rs#L95) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [96](../../src-tauri/src/gateway/health/tests.rs#L96) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [100](../../src-tauri/src/gateway/health/tests.rs#L100) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [109](../../src-tauri/src/gateway/health/tests.rs#L109) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [110](../../src-tauri/src/gateway/health/tests.rs#L110) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [117](../../src-tauri/src/gateway/health/tests.rs#L117) |
-| test_classify_failure_rate_limit_preserves_large_retry_after | function_item |  | [121](../../src-tauri/src/gateway/health/tests.rs#L121) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_preserves_large_retry_after | [130](../../src-tauri/src/gateway/health/tests.rs#L130) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_preserves_large_retry_after | [132](../../src-tauri/src/gateway/health/tests.rs#L132) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_preserves_large_retry_after | [133](../../src-tauri/src/gateway/health/tests.rs#L133) |
-| test_classify_failure_rate_limit_without_retry_after | function_item |  | [137](../../src-tauri/src/gateway/health/tests.rs#L137) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_without_retry_after | [143](../../src-tauri/src/gateway/health/tests.rs#L143) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_without_retry_after | [144](../../src-tauri/src/gateway/health/tests.rs#L144) |
-| test_classify_failure_model_unsupported_vs_general_404 | function_item |  | [148](../../src-tauri/src/gateway/health/tests.rs#L148) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [154](../../src-tauri/src/gateway/health/tests.rs#L154) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [155](../../src-tauri/src/gateway/health/tests.rs#L155) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [159](../../src-tauri/src/gateway/health/tests.rs#L159) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [169](../../src-tauri/src/gateway/health/tests.rs#L169) |
-| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [170](../../src-tauri/src/gateway/health/tests.rs#L170) |
-| test_no_false_positive_on_word_balance_or_model | function_item |  | [174](../../src-tauri/src/gateway/health/tests.rs#L174) |
-| assert_eq | macro invocation (unexpanded) | test_no_false_positive_on_word_balance_or_model | [177](../../src-tauri/src/gateway/health/tests.rs#L177) |
-| assert_eq | macro invocation (unexpanded) | test_no_false_positive_on_word_balance_or_model | [181](../../src-tauri/src/gateway/health/tests.rs#L181) |
-| test_model_scope_does_not_affect_other_models_or_upstream | function_item |  | [185](../../src-tauri/src/gateway/health/tests.rs#L185) |
-| assert_eq | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [197](../../src-tauri/src/gateway/health/tests.rs#L197) |
-| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [199](../../src-tauri/src/gateway/health/tests.rs#L199) |
-| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [200](../../src-tauri/src/gateway/health/tests.rs#L200) |
-| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [201](../../src-tauri/src/gateway/health/tests.rs#L201) |
-| assert_eq | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [205](../../src-tauri/src/gateway/health/tests.rs#L205) |
-| assert_eq | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [206](../../src-tauri/src/gateway/health/tests.rs#L206) |
-| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [209](../../src-tauri/src/gateway/health/tests.rs#L209) |
-| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [210](../../src-tauri/src/gateway/health/tests.rs#L210) |
-| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [213](../../src-tauri/src/gateway/health/tests.rs#L213) |
-| test_probe_401_sets_auth_failed | function_item |  | [217](../../src-tauri/src/gateway/health/tests.rs#L217) |
-| assert_eq | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [221](../../src-tauri/src/gateway/health/tests.rs#L221) |
-| assert_eq | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [222](../../src-tauri/src/gateway/health/tests.rs#L222) |
-| assert | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [223](../../src-tauri/src/gateway/health/tests.rs#L223) |
-| assert_eq | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [224](../../src-tauri/src/gateway/health/tests.rs#L224) |
-| assert | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [225](../../src-tauri/src/gateway/health/tests.rs#L225) |
-| test_probe_404_reachable_unknown_not_inference_success | function_item |  | [229](../../src-tauri/src/gateway/health/tests.rs#L229) |
-| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [233](../../src-tauri/src/gateway/health/tests.rs#L233) |
-| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [234](../../src-tauri/src/gateway/health/tests.rs#L234) |
-| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [235](../../src-tauri/src/gateway/health/tests.rs#L235) |
-| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [239](../../src-tauri/src/gateway/health/tests.rs#L239) |
-| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [242](../../src-tauri/src/gateway/health/tests.rs#L242) |
-| test_probe_429_cannot_clear_auth_or_overwrite_live_quota | function_item |  | [246](../../src-tauri/src/gateway/health/tests.rs#L246) |
-| assert_eq | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [249](../../src-tauri/src/gateway/health/tests.rs#L249) |
-| assert_eq | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [253](../../src-tauri/src/gateway/health/tests.rs#L253) |
-| assert_eq | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [254](../../src-tauri/src/gateway/health/tests.rs#L254) |
-| assert | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [266](../../src-tauri/src/gateway/health/tests.rs#L266) |
-| assert | macro invocation (unexpanded) | test_probe_429_cannot_clear_auth_or_overwrite_live_quota | [271](../../src-tauri/src/gateway/health/tests.rs#L271) |
-| test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | function_item |  | [275](../../src-tauri/src/gateway/health/tests.rs#L275) |
-| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [279](../../src-tauri/src/gateway/health/tests.rs#L279) |
-| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [281](../../src-tauri/src/gateway/health/tests.rs#L281) |
-| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [292](../../src-tauri/src/gateway/health/tests.rs#L292) |
-| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [295](../../src-tauri/src/gateway/health/tests.rs#L295) |
-| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [301](../../src-tauri/src/gateway/health/tests.rs#L301) |
-| assert_eq | macro invocation (unexpanded) | test_probe_200_clears_probe_auth_but_not_live_auth_or_live_cooling | [304](../../src-tauri/src/gateway/health/tests.rs#L304) |
-| test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | function_item |  | [308](../../src-tauri/src/gateway/health/tests.rs#L308) |
-| assert | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [318](../../src-tauri/src/gateway/health/tests.rs#L318) |
-| assert | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [329](../../src-tauri/src/gateway/health/tests.rs#L329) |
-| assert_eq | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [330](../../src-tauri/src/gateway/health/tests.rs#L330) |
-| assert | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [335](../../src-tauri/src/gateway/health/tests.rs#L335) |
-| assert_eq | macro invocation (unexpanded) | test_auth_active_does_not_get_shortened_by_concurrent_429_or_transient | [336](../../src-tauri/src/gateway/health/tests.rs#L336) |
-| test_circuit_permit_and_half_open_raii | function_item |  | [340](../../src-tauri/src/gateway/health/tests.rs#L340) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [345](../../src-tauri/src/gateway/health/tests.rs#L345) |
-| assert | macro invocation (unexpanded) | test_circuit_permit_and_half_open_raii | [346](../../src-tauri/src/gateway/health/tests.rs#L346) |
+| balance_recovery_classifies_observed_sub2api_error_as_quota | function_item |  | [17](../../src-tauri/src/gateway/health/tests.rs#L17) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_classifies_observed_sub2api_error_as_quota | [21](../../src-tauri/src/gateway/health/tests.rs#L21) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_classifies_observed_sub2api_error_as_quota | [22](../../src-tauri/src/gateway/health/tests.rs#L22) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_classifies_observed_sub2api_error_as_quota | [26](../../src-tauri/src/gateway/health/tests.rs#L26) |
+| balance_recovery_preserves_explicit_retry_after | function_item |  | [30](../../src-tauri/src/gateway/health/tests.rs#L30) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_preserves_explicit_retry_after | [34](../../src-tauri/src/gateway/health/tests.rs#L34) |
+| assert | macro invocation (unexpanded) | balance_recovery_preserves_explicit_retry_after | [37](../../src-tauri/src/gateway/health/tests.rs#L37) |
+| assert | macro invocation (unexpanded) | balance_recovery_preserves_explicit_retry_after | [38](../../src-tauri/src/gateway/health/tests.rs#L38) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_preserves_explicit_retry_after | [40](../../src-tauri/src/gateway/health/tests.rs#L40) |
+| balance_recovery_reopens_without_restart_and_keeps_single_probe | function_item |  | [46](../../src-tauri/src/gateway/health/tests.rs#L46) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [51](../../src-tauri/src/gateway/health/tests.rs#L51) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [52](../../src-tauri/src/gateway/health/tests.rs#L52) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [54](../../src-tauri/src/gateway/health/tests.rs#L54) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [58](../../src-tauri/src/gateway/health/tests.rs#L58) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [59](../../src-tauri/src/gateway/health/tests.rs#L59) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [63](../../src-tauri/src/gateway/health/tests.rs#L63) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [64](../../src-tauri/src/gateway/health/tests.rs#L64) |
+| assert_eq | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [68](../../src-tauri/src/gateway/health/tests.rs#L68) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [69](../../src-tauri/src/gateway/health/tests.rs#L69) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [70](../../src-tauri/src/gateway/health/tests.rs#L70) |
+| assert | macro invocation (unexpanded) | balance_recovery_reopens_without_restart_and_keeps_single_probe | [71](../../src-tauri/src/gateway/health/tests.rs#L71) |
+| probe_failure_does_not_open_circuit | function_item |  | [75](../../src-tauri/src/gateway/health/tests.rs#L75) |
+| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [80](../../src-tauri/src/gateway/health/tests.rs#L80) |
+| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [81](../../src-tauri/src/gateway/health/tests.rs#L81) |
+| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [82](../../src-tauri/src/gateway/health/tests.rs#L82) |
+| assert_eq | macro invocation (unexpanded) | probe_failure_does_not_open_circuit | [83](../../src-tauri/src/gateway/health/tests.rs#L83) |
+| live_failure_opens_circuit_after_two_hits | function_item |  | [87](../../src-tauri/src/gateway/health/tests.rs#L87) |
+| assert_eq | macro invocation (unexpanded) | live_failure_opens_circuit_after_two_hits | [92](../../src-tauri/src/gateway/health/tests.rs#L92) |
+| assert | macro invocation (unexpanded) | live_failure_opens_circuit_after_two_hits | [93](../../src-tauri/src/gateway/health/tests.rs#L93) |
+| assert_eq | macro invocation (unexpanded) | live_failure_opens_circuit_after_two_hits | [94](../../src-tauri/src/gateway/health/tests.rs#L94) |
+| success_clears_probe_failures | function_item |  | [98](../../src-tauri/src/gateway/health/tests.rs#L98) |
+| assert_eq | macro invocation (unexpanded) | success_clears_probe_failures | [103](../../src-tauri/src/gateway/health/tests.rs#L103) |
+| assert_eq | macro invocation (unexpanded) | success_clears_probe_failures | [104](../../src-tauri/src/gateway/health/tests.rs#L104) |
+| assert_eq | macro invocation (unexpanded) | success_clears_probe_failures | [105](../../src-tauri/src/gateway/health/tests.rs#L105) |
+| unknown_upstream_is_not_cooling | function_item |  | [109](../../src-tauri/src/gateway/health/tests.rs#L109) |
+| assert | macro invocation (unexpanded) | unknown_upstream_is_not_cooling | [111](../../src-tauri/src/gateway/health/tests.rs#L111) |
+| assert_eq | macro invocation (unexpanded) | unknown_upstream_is_not_cooling | [112](../../src-tauri/src/gateway/health/tests.rs#L112) |
+| assert | macro invocation (unexpanded) | unknown_upstream_is_not_cooling | [113](../../src-tauri/src/gateway/health/tests.rs#L113) |
+| classify_probe_status_treats_client_errors_as_reachable | function_item |  | [117](../../src-tauri/src/gateway/health/tests.rs#L117) |
+| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [118](../../src-tauri/src/gateway/health/tests.rs#L118) |
+| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [119](../../src-tauri/src/gateway/health/tests.rs#L119) |
+| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [120](../../src-tauri/src/gateway/health/tests.rs#L120) |
+| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [121](../../src-tauri/src/gateway/health/tests.rs#L121) |
+| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [124](../../src-tauri/src/gateway/health/tests.rs#L124) |
+| assert | macro invocation (unexpanded) | classify_probe_status_treats_client_errors_as_reachable | [125](../../src-tauri/src/gateway/health/tests.rs#L125) |
+| test_classify_failure_auth | function_item |  | [131](../../src-tauri/src/gateway/health/tests.rs#L131) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [133](../../src-tauri/src/gateway/health/tests.rs#L133) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [134](../../src-tauri/src/gateway/health/tests.rs#L134) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [135](../../src-tauri/src/gateway/health/tests.rs#L135) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [142](../../src-tauri/src/gateway/health/tests.rs#L142) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_auth | [143](../../src-tauri/src/gateway/health/tests.rs#L143) |
+| test_classify_failure_quota | function_item |  | [147](../../src-tauri/src/gateway/health/tests.rs#L147) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [153](../../src-tauri/src/gateway/health/tests.rs#L153) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [154](../../src-tauri/src/gateway/health/tests.rs#L154) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [158](../../src-tauri/src/gateway/health/tests.rs#L158) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [167](../../src-tauri/src/gateway/health/tests.rs#L167) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [168](../../src-tauri/src/gateway/health/tests.rs#L168) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_quota | [175](../../src-tauri/src/gateway/health/tests.rs#L175) |
+| test_classify_failure_rate_limit_preserves_large_retry_after | function_item |  | [179](../../src-tauri/src/gateway/health/tests.rs#L179) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_preserves_large_retry_after | [188](../../src-tauri/src/gateway/health/tests.rs#L188) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_preserves_large_retry_after | [190](../../src-tauri/src/gateway/health/tests.rs#L190) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_preserves_large_retry_after | [191](../../src-tauri/src/gateway/health/tests.rs#L191) |
+| test_classify_failure_rate_limit_without_retry_after | function_item |  | [195](../../src-tauri/src/gateway/health/tests.rs#L195) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_without_retry_after | [201](../../src-tauri/src/gateway/health/tests.rs#L201) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_rate_limit_without_retry_after | [202](../../src-tauri/src/gateway/health/tests.rs#L202) |
+| test_classify_failure_model_unsupported_vs_general_404 | function_item |  | [206](../../src-tauri/src/gateway/health/tests.rs#L206) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [212](../../src-tauri/src/gateway/health/tests.rs#L212) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [213](../../src-tauri/src/gateway/health/tests.rs#L213) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [217](../../src-tauri/src/gateway/health/tests.rs#L217) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [227](../../src-tauri/src/gateway/health/tests.rs#L227) |
+| assert_eq | macro invocation (unexpanded) | test_classify_failure_model_unsupported_vs_general_404 | [228](../../src-tauri/src/gateway/health/tests.rs#L228) |
+| test_no_false_positive_on_word_balance_or_model | function_item |  | [232](../../src-tauri/src/gateway/health/tests.rs#L232) |
+| assert_eq | macro invocation (unexpanded) | test_no_false_positive_on_word_balance_or_model | [235](../../src-tauri/src/gateway/health/tests.rs#L235) |
+| assert_eq | macro invocation (unexpanded) | test_no_false_positive_on_word_balance_or_model | [239](../../src-tauri/src/gateway/health/tests.rs#L239) |
+| test_model_scope_does_not_affect_other_models_or_upstream | function_item |  | [243](../../src-tauri/src/gateway/health/tests.rs#L243) |
+| assert_eq | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [255](../../src-tauri/src/gateway/health/tests.rs#L255) |
+| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [257](../../src-tauri/src/gateway/health/tests.rs#L257) |
+| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [258](../../src-tauri/src/gateway/health/tests.rs#L258) |
+| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [259](../../src-tauri/src/gateway/health/tests.rs#L259) |
+| assert_eq | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [263](../../src-tauri/src/gateway/health/tests.rs#L263) |
+| assert_eq | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [264](../../src-tauri/src/gateway/health/tests.rs#L264) |
+| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [267](../../src-tauri/src/gateway/health/tests.rs#L267) |
+| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [268](../../src-tauri/src/gateway/health/tests.rs#L268) |
+| assert | macro invocation (unexpanded) | test_model_scope_does_not_affect_other_models_or_upstream | [271](../../src-tauri/src/gateway/health/tests.rs#L271) |
+| test_probe_401_sets_auth_failed | function_item |  | [275](../../src-tauri/src/gateway/health/tests.rs#L275) |
+| assert_eq | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [279](../../src-tauri/src/gateway/health/tests.rs#L279) |
+| assert_eq | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [280](../../src-tauri/src/gateway/health/tests.rs#L280) |
+| assert | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [281](../../src-tauri/src/gateway/health/tests.rs#L281) |
+| assert_eq | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [282](../../src-tauri/src/gateway/health/tests.rs#L282) |
+| assert | macro invocation (unexpanded) | test_probe_401_sets_auth_failed | [283](../../src-tauri/src/gateway/health/tests.rs#L283) |
+| test_probe_404_reachable_unknown_not_inference_success | function_item |  | [287](../../src-tauri/src/gateway/health/tests.rs#L287) |
+| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [291](../../src-tauri/src/gateway/health/tests.rs#L291) |
+| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [292](../../src-tauri/src/gateway/health/tests.rs#L292) |
+| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [293](../../src-tauri/src/gateway/health/tests.rs#L293) |
+| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [297](../../src-tauri/src/gateway/health/tests.rs#L297) |
+| assert_eq | macro invocation (unexpanded) | test_probe_404_reachable_unknown_not_inference_success | [300](../../src-tauri/src/gateway/health/tests.rs#L300) |
+| test_probe_429_cannot_clear_auth_or_overwrite_live_quota | function_item |  | [304](../../src-tauri/src/gateway/health/tests.rs#L304) |

@@ -4,41 +4,46 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/convert.rs) · page 5/5
 
-Source SHA-256: 120375a25de03c2b704e79b214fd92fab87e04f3e74e00e53bf26a9543f84d69
+Source SHA-256: 6de4c5ee1009da39a66399b111106c07f5836681038aa5f0f82f54227172a9f8
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2677](../../src-tauri/src/proxy/convert.rs#L2677) |
-| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2678](../../src-tauri/src/proxy/convert.rs#L2678) |
-| json | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2680](../../src-tauri/src/proxy/convert.rs#L2680) |
-| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2687](../../src-tauri/src/proxy/convert.rs#L2687) |
-| json | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2689](../../src-tauri/src/proxy/convert.rs#L2689) |
-| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2696](../../src-tauri/src/proxy/convert.rs#L2696) |
-| deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | function_item | tests | [2700](../../src-tauri/src/proxy/convert.rs#L2700) |
-| json | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2701](../../src-tauri/src/proxy/convert.rs#L2701) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2731](../../src-tauri/src/proxy/convert.rs#L2731) |
-| assert | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2738](../../src-tauri/src/proxy/convert.rs#L2738) |
-| json | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2743](../../src-tauri/src/proxy/convert.rs#L2743) |
-| assert_eq | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2749](../../src-tauri/src/proxy/convert.rs#L2749) |
-| sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | function_item | tests | [2753](../../src-tauri/src/proxy/convert.rs#L2753) |
-| json | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2754](../../src-tauri/src/proxy/convert.rs#L2754) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2765](../../src-tauri/src/proxy/convert.rs#L2765) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2766](../../src-tauri/src/proxy/convert.rs#L2766) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2767](../../src-tauri/src/proxy/convert.rs#L2767) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2768](../../src-tauri/src/proxy/convert.rs#L2768) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2769](../../src-tauri/src/proxy/convert.rs#L2769) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2770](../../src-tauri/src/proxy/convert.rs#L2770) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2771](../../src-tauri/src/proxy/convert.rs#L2771) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2772](../../src-tauri/src/proxy/convert.rs#L2772) |
-| vec | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2774](../../src-tauri/src/proxy/convert.rs#L2774) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2671](../../src-tauri/src/proxy/convert.rs#L2671) |
+| json | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2673](../../src-tauri/src/proxy/convert.rs#L2673) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2679](../../src-tauri/src/proxy/convert.rs#L2679) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2680](../../src-tauri/src/proxy/convert.rs#L2680) |
+| json | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2683](../../src-tauri/src/proxy/convert.rs#L2683) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2691](../../src-tauri/src/proxy/convert.rs#L2691) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2692](../../src-tauri/src/proxy/convert.rs#L2692) |
+| json | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2694](../../src-tauri/src/proxy/convert.rs#L2694) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2701](../../src-tauri/src/proxy/convert.rs#L2701) |
+| json | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2703](../../src-tauri/src/proxy/convert.rs#L2703) |
+| assert | macro invocation (unexpanded) | tests::responses_reasoning_item_immediately_opens_thinking_block_and_normalizes_section_signs | [2710](../../src-tauri/src/proxy/convert.rs#L2710) |
+| deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | function_item | tests | [2714](../../src-tauri/src/proxy/convert.rs#L2714) |
+| json | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2715](../../src-tauri/src/proxy/convert.rs#L2715) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2745](../../src-tauri/src/proxy/convert.rs#L2745) |
+| assert | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2752](../../src-tauri/src/proxy/convert.rs#L2752) |
+| json | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2757](../../src-tauri/src/proxy/convert.rs#L2757) |
+| assert_eq | macro invocation (unexpanded) | tests::deepseek_thinking_downgrades_named_tool_choice_to_required_and_orders_tool_before_user_text | [2763](../../src-tauri/src/proxy/convert.rs#L2763) |
+| sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | function_item | tests | [2767](../../src-tauri/src/proxy/convert.rs#L2767) |
+| json | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2768](../../src-tauri/src/proxy/convert.rs#L2768) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2779](../../src-tauri/src/proxy/convert.rs#L2779) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2780](../../src-tauri/src/proxy/convert.rs#L2780) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2781](../../src-tauri/src/proxy/convert.rs#L2781) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2782](../../src-tauri/src/proxy/convert.rs#L2782) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2783](../../src-tauri/src/proxy/convert.rs#L2783) |
 | assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2784](../../src-tauri/src/proxy/convert.rs#L2784) |
 | assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2785](../../src-tauri/src/proxy/convert.rs#L2785) |
 | assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2786](../../src-tauri/src/proxy/convert.rs#L2786) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2787](../../src-tauri/src/proxy/convert.rs#L2787) |
-| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2788](../../src-tauri/src/proxy/convert.rs#L2788) |
-| extract_anthropic_document_text_handles_text_content_and_base64 | function_item | tests | [2792](../../src-tauri/src/proxy/convert.rs#L2792) |
-| json | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2793](../../src-tauri/src/proxy/convert.rs#L2793) |
-| assert | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2803](../../src-tauri/src/proxy/convert.rs#L2803) |
-| assert | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2804](../../src-tauri/src/proxy/convert.rs#L2804) |
-| json | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2806](../../src-tauri/src/proxy/convert.rs#L2806) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2815](../../src-tauri/src/proxy/convert.rs#L2815) |
+| vec | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2788](../../src-tauri/src/proxy/convert.rs#L2788) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2798](../../src-tauri/src/proxy/convert.rs#L2798) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2799](../../src-tauri/src/proxy/convert.rs#L2799) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2800](../../src-tauri/src/proxy/convert.rs#L2800) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2801](../../src-tauri/src/proxy/convert.rs#L2801) |
+| assert_eq | macro invocation (unexpanded) | tests::sanitize_responses_and_chat_repair_interrupted_and_orphan_tools | [2802](../../src-tauri/src/proxy/convert.rs#L2802) |
+| extract_anthropic_document_text_handles_text_content_and_base64 | function_item | tests | [2806](../../src-tauri/src/proxy/convert.rs#L2806) |
+| json | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2807](../../src-tauri/src/proxy/convert.rs#L2807) |
+| assert | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2817](../../src-tauri/src/proxy/convert.rs#L2817) |
+| assert | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2818](../../src-tauri/src/proxy/convert.rs#L2818) |
+| json | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2820](../../src-tauri/src/proxy/convert.rs#L2820) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_anthropic_document_text_handles_text_content_and_base64 | [2829](../../src-tauri/src/proxy/convert.rs#L2829) |

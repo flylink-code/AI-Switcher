@@ -73,8 +73,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
         };
         let stripped_original = crate::catalog::strip_client_model_prefix(&original_model);
         let role_followed = if state.target == ProviderTarget::VscodeCopilot {
-            let is_aux_turn = _force_catalog_subagent
-                || is_copilot_subtask_or_subagent_payload(_incoming, _headers, stripped_original);
+            let is_aux_turn = is_copilot_subtask_or_subagent_payload(_incoming, _headers, stripped_original);
             crate::catalog::follow_copilot_conversation_model(
                 stripped_original,
                 &entries,
@@ -115,14 +114,16 @@ pub(crate) fn select_gateway_runtime_provider_with(
         }
         let pin = crate::catalog::is_configured_model_pin(stripped_original, &pins);
         let avoid_remembering_aux = state.target == ProviderTarget::VscodeCopilot
-            && crate::catalog::is_copilot_auxiliary_model(stripped_original)
+            && is_copilot_subtask_or_subagent_payload(_incoming, _headers, stripped_original)
             && remembered
                 .as_deref()
                 .is_some_and(|main| !crate::catalog::is_copilot_auxiliary_model(main));
         if followed.eq_ignore_ascii_case(stripped_original)
             && !pin
             && !avoid_remembering_aux
-            && crate::catalog::is_explicit_catalog_passthrough(&entries, stripped_original)
+            && (crate::catalog::is_explicit_catalog_passthrough(&entries, stripped_original)
+                || (state.target == ProviderTarget::VscodeCopilot
+                    && crate::catalog::catalog_in_entries(&entries, stripped_original)))
         {
             conversation_model::remember_for_target(
                 state.target,
@@ -219,25 +220,12 @@ fn configured_model_pins(
 }
 
 fn is_copilot_subtask_or_subagent_payload(
-    incoming: &Value,
+    _incoming: &Value,
     headers: &HeaderMap,
-    requested_model: &str,
+    _requested_model: &str,
 ) -> bool {
-    if headers.contains_key(CS_SUBAGENT_HEADER) {
-        return true;
-    }
-    if crate::catalog::is_copilot_auxiliary_model(requested_model) {
-        // VS Code Copilot 联网搜索、标题生成、意图识别与辅助子任务默认使用 -luna / -mini 模型。
-        return true;
-    }
-    let tools_empty = incoming
-        .get("tools")
-        .and_then(Value::as_array)
-        .is_none_or(Vec::is_empty);
-    if tools_empty {
-        return true;
-    }
-    false
+    // 普通聊天也可能没有 tools，用户也能主动选择 mini / haiku。
+    headers.contains_key(CS_SUBAGENT_HEADER)
 }
 
 pub(crate) fn remember_gateway_success_upstream(
@@ -795,6 +783,15 @@ fn desktop_bound_smart_gateway(state: &ProxyState) -> bool {
 #[cfg(test)]
 mod route_select_tests {
     use super::*;
+
+    #[test]
+    fn copilot_chat_without_tools_is_not_an_auxiliary_turn() {
+        let body = serde_json::json!({"messages":[{"role":"user","content":"hello"}]});
+        let mut headers = HeaderMap::new();
+        assert!(!is_copilot_subtask_or_subagent_payload(&body, &headers, "gpt-4o-mini"));
+        headers.insert(CS_SUBAGENT_HEADER, "1".parse().unwrap());
+        assert!(is_copilot_subtask_or_subagent_payload(&body, &headers, "gpt-4o-mini"));
+    }
 
     #[test]
     fn claude_code_switching_back_to_first_catalog_model_routes_to_gemini() {

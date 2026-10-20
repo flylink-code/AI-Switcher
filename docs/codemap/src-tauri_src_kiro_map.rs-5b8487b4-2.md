@@ -4,107 +4,107 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/map.rs) · page 2/3
 
-Source SHA-256: 748447f618b27788d5d3671181ff5affd4b7b15ee0ee17db1b0ed5613bbd2199
+Source SHA-256: c13fde1080639cf13c7d8b5d51e131dc6e1fdd4022d5ee25221ed41708b13b9b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| openai_chat_json | function_item |  | [996](../../src-tauri/src/kiro/map.rs#L996) |
-| json | macro invocation (unexpanded) | openai_chat_json | [997](../../src-tauri/src/kiro/map.rs#L997) |
-| json | macro invocation (unexpanded) | openai_chat_json | [1009](../../src-tauri/src/kiro/map.rs#L1009) |
-| json | macro invocation (unexpanded) | openai_chat_json | [1018](../../src-tauri/src/kiro/map.rs#L1018) |
-| openai_chat_sse | function_item |  | [1035](../../src-tauri/src/kiro/map.rs#L1035) |
-| format | macro invocation (unexpanded) | openai_chat_sse | [1036](../../src-tauri/src/kiro/map.rs#L1036) |
-| json | macro invocation (unexpanded) | openai_chat_sse | [1038](../../src-tauri/src/kiro/map.rs#L1038) |
-| format | macro invocation (unexpanded) | openai_chat_sse | [1044](../../src-tauri/src/kiro/map.rs#L1044) |
-| json | macro invocation (unexpanded) | openai_chat_sse | [1056](../../src-tauri/src/kiro/map.rs#L1056) |
-| json | macro invocation (unexpanded) | openai_chat_sse | [1064](../../src-tauri/src/kiro/map.rs#L1064) |
-| format | macro invocation (unexpanded) | openai_chat_sse | [1070](../../src-tauri/src/kiro/map.rs#L1070) |
-| json | macro invocation (unexpanded) | openai_chat_sse | [1072](../../src-tauri/src/kiro/map.rs#L1072) |
-| format | macro invocation (unexpanded) | openai_chat_sse | [1083](../../src-tauri/src/kiro/map.rs#L1083) |
-| responses_json | function_item |  | [1088](../../src-tauri/src/kiro/map.rs#L1088) |
-| json | macro invocation (unexpanded) | responses_json | [1091](../../src-tauri/src/kiro/map.rs#L1091) |
-| json | macro invocation (unexpanded) | responses_json | [1103](../../src-tauri/src/kiro/map.rs#L1103) |
-| json | macro invocation (unexpanded) | responses_json | [1112](../../src-tauri/src/kiro/map.rs#L1112) |
-| responses_sse | function_item |  | [1126](../../src-tauri/src/kiro/map.rs#L1126) |
-| json | macro invocation (unexpanded) | responses_sse | [1133](../../src-tauri/src/kiro/map.rs#L1133) |
-| json | macro invocation (unexpanded) | responses_sse | [1144](../../src-tauri/src/kiro/map.rs#L1144) |
-| json | macro invocation (unexpanded) | responses_sse | [1149](../../src-tauri/src/kiro/map.rs#L1149) |
+| openai_chat_json | function_item |  | [1003](../../src-tauri/src/kiro/map.rs#L1003) |
+| json | macro invocation (unexpanded) | openai_chat_json | [1004](../../src-tauri/src/kiro/map.rs#L1004) |
+| json | macro invocation (unexpanded) | openai_chat_json | [1016](../../src-tauri/src/kiro/map.rs#L1016) |
+| json | macro invocation (unexpanded) | openai_chat_json | [1025](../../src-tauri/src/kiro/map.rs#L1025) |
+| openai_chat_sse | function_item |  | [1042](../../src-tauri/src/kiro/map.rs#L1042) |
+| format | macro invocation (unexpanded) | openai_chat_sse | [1043](../../src-tauri/src/kiro/map.rs#L1043) |
+| json | macro invocation (unexpanded) | openai_chat_sse | [1045](../../src-tauri/src/kiro/map.rs#L1045) |
+| format | macro invocation (unexpanded) | openai_chat_sse | [1051](../../src-tauri/src/kiro/map.rs#L1051) |
+| json | macro invocation (unexpanded) | openai_chat_sse | [1063](../../src-tauri/src/kiro/map.rs#L1063) |
+| json | macro invocation (unexpanded) | openai_chat_sse | [1071](../../src-tauri/src/kiro/map.rs#L1071) |
+| format | macro invocation (unexpanded) | openai_chat_sse | [1077](../../src-tauri/src/kiro/map.rs#L1077) |
+| json | macro invocation (unexpanded) | openai_chat_sse | [1079](../../src-tauri/src/kiro/map.rs#L1079) |
+| format | macro invocation (unexpanded) | openai_chat_sse | [1090](../../src-tauri/src/kiro/map.rs#L1090) |
+| responses_json | function_item |  | [1095](../../src-tauri/src/kiro/map.rs#L1095) |
+| json | macro invocation (unexpanded) | responses_json | [1098](../../src-tauri/src/kiro/map.rs#L1098) |
+| json | macro invocation (unexpanded) | responses_json | [1110](../../src-tauri/src/kiro/map.rs#L1110) |
+| json | macro invocation (unexpanded) | responses_json | [1119](../../src-tauri/src/kiro/map.rs#L1119) |
+| responses_sse | function_item |  | [1133](../../src-tauri/src/kiro/map.rs#L1133) |
+| json | macro invocation (unexpanded) | responses_sse | [1140](../../src-tauri/src/kiro/map.rs#L1140) |
+| json | macro invocation (unexpanded) | responses_sse | [1151](../../src-tauri/src/kiro/map.rs#L1151) |
 | json | macro invocation (unexpanded) | responses_sse | [1156](../../src-tauri/src/kiro/map.rs#L1156) |
-| json | macro invocation (unexpanded) | responses_sse | [1161](../../src-tauri/src/kiro/map.rs#L1161) |
-| json | macro invocation (unexpanded) | responses_sse | [1171](../../src-tauri/src/kiro/map.rs#L1171) |
-| format | macro invocation (unexpanded) | responses_sse | [1190](../../src-tauri/src/kiro/map.rs#L1190) |
-| json | macro invocation (unexpanded) | responses_sse | [1194](../../src-tauri/src/kiro/map.rs#L1194) |
-| json | macro invocation (unexpanded) | responses_sse | [1210](../../src-tauri/src/kiro/map.rs#L1210) |
-| json | macro invocation (unexpanded) | responses_sse | [1220](../../src-tauri/src/kiro/map.rs#L1220) |
-| json | macro invocation (unexpanded) | responses_sse | [1230](../../src-tauri/src/kiro/map.rs#L1230) |
-| json | macro invocation (unexpanded) | responses_sse | [1248](../../src-tauri/src/kiro/map.rs#L1248) |
-| push_sse | function_item |  | [1253](../../src-tauri/src/kiro/map.rs#L1253) |
-| should_log_usage | function_item |  | [1261](../../src-tauri/src/kiro/map.rs#L1261) |
-| KiroSseStreamer | struct_item |  | [1266](../../src-tauri/src/kiro/map.rs#L1266) |
-| protocol | field_declaration | KiroSseStreamer | [1267](../../src-tauri/src/kiro/map.rs#L1267) |
-| client_model | field_declaration | KiroSseStreamer | [1268](../../src-tauri/src/kiro/map.rs#L1268) |
-| msg_id | field_declaration | KiroSseStreamer | [1269](../../src-tauri/src/kiro/map.rs#L1269) |
-| started | field_declaration | KiroSseStreamer | [1270](../../src-tauri/src/kiro/map.rs#L1270) |
-| thinking_index | field_declaration | KiroSseStreamer | [1271](../../src-tauri/src/kiro/map.rs#L1271) |
-| text_index | field_declaration | KiroSseStreamer | [1272](../../src-tauri/src/kiro/map.rs#L1272) |
-| next_index | field_declaration | KiroSseStreamer | [1273](../../src-tauri/src/kiro/map.rs#L1273) |
-| collected | field_declaration | KiroSseStreamer | [1274](../../src-tauri/src/kiro/map.rs#L1274) |
-| KiroSseStreamer | impl |  | [1277](../../src-tauri/src/kiro/map.rs#L1277) |
-| new | function_item | KiroSseStreamer | [1278](../../src-tauri/src/kiro/map.rs#L1278) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::new | [1287](../../src-tauri/src/kiro/map.rs#L1287) |
-| ensure_started | function_item | KiroSseStreamer | [1296](../../src-tauri/src/kiro/map.rs#L1296) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1306](../../src-tauri/src/kiro/map.rs#L1306) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1322](../../src-tauri/src/kiro/map.rs#L1322) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1328](../../src-tauri/src/kiro/map.rs#L1328) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1331](../../src-tauri/src/kiro/map.rs#L1331) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1341](../../src-tauri/src/kiro/map.rs#L1341) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1346](../../src-tauri/src/kiro/map.rs#L1346) |
-| push_frame | function_item | KiroSseStreamer | [1352](../../src-tauri/src/kiro/map.rs#L1352) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1378](../../src-tauri/src/kiro/map.rs#L1378) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1387](../../src-tauri/src/kiro/map.rs#L1387) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1395](../../src-tauri/src/kiro/map.rs#L1395) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1399](../../src-tauri/src/kiro/map.rs#L1399) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1405](../../src-tauri/src/kiro/map.rs#L1405) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1411](../../src-tauri/src/kiro/map.rs#L1411) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1429](../../src-tauri/src/kiro/map.rs#L1429) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1441](../../src-tauri/src/kiro/map.rs#L1441) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1449](../../src-tauri/src/kiro/map.rs#L1449) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1453](../../src-tauri/src/kiro/map.rs#L1453) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1459](../../src-tauri/src/kiro/map.rs#L1459) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1465](../../src-tauri/src/kiro/map.rs#L1465) |
-| finish | function_item | KiroSseStreamer | [1476](../../src-tauri/src/kiro/map.rs#L1476) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1486](../../src-tauri/src/kiro/map.rs#L1486) |
+| json | macro invocation (unexpanded) | responses_sse | [1163](../../src-tauri/src/kiro/map.rs#L1163) |
+| json | macro invocation (unexpanded) | responses_sse | [1168](../../src-tauri/src/kiro/map.rs#L1168) |
+| json | macro invocation (unexpanded) | responses_sse | [1178](../../src-tauri/src/kiro/map.rs#L1178) |
+| format | macro invocation (unexpanded) | responses_sse | [1197](../../src-tauri/src/kiro/map.rs#L1197) |
+| json | macro invocation (unexpanded) | responses_sse | [1201](../../src-tauri/src/kiro/map.rs#L1201) |
+| json | macro invocation (unexpanded) | responses_sse | [1217](../../src-tauri/src/kiro/map.rs#L1217) |
+| json | macro invocation (unexpanded) | responses_sse | [1227](../../src-tauri/src/kiro/map.rs#L1227) |
+| json | macro invocation (unexpanded) | responses_sse | [1237](../../src-tauri/src/kiro/map.rs#L1237) |
+| json | macro invocation (unexpanded) | responses_sse | [1255](../../src-tauri/src/kiro/map.rs#L1255) |
+| push_sse | function_item |  | [1260](../../src-tauri/src/kiro/map.rs#L1260) |
+| should_log_usage | function_item |  | [1268](../../src-tauri/src/kiro/map.rs#L1268) |
+| KiroSseStreamer | struct_item |  | [1273](../../src-tauri/src/kiro/map.rs#L1273) |
+| protocol | field_declaration | KiroSseStreamer | [1274](../../src-tauri/src/kiro/map.rs#L1274) |
+| client_model | field_declaration | KiroSseStreamer | [1275](../../src-tauri/src/kiro/map.rs#L1275) |
+| msg_id | field_declaration | KiroSseStreamer | [1276](../../src-tauri/src/kiro/map.rs#L1276) |
+| started | field_declaration | KiroSseStreamer | [1277](../../src-tauri/src/kiro/map.rs#L1277) |
+| thinking_index | field_declaration | KiroSseStreamer | [1278](../../src-tauri/src/kiro/map.rs#L1278) |
+| text_index | field_declaration | KiroSseStreamer | [1279](../../src-tauri/src/kiro/map.rs#L1279) |
+| next_index | field_declaration | KiroSseStreamer | [1280](../../src-tauri/src/kiro/map.rs#L1280) |
+| collected | field_declaration | KiroSseStreamer | [1281](../../src-tauri/src/kiro/map.rs#L1281) |
+| KiroSseStreamer | impl |  | [1284](../../src-tauri/src/kiro/map.rs#L1284) |
+| new | function_item | KiroSseStreamer | [1285](../../src-tauri/src/kiro/map.rs#L1285) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::new | [1294](../../src-tauri/src/kiro/map.rs#L1294) |
+| ensure_started | function_item | KiroSseStreamer | [1303](../../src-tauri/src/kiro/map.rs#L1303) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1313](../../src-tauri/src/kiro/map.rs#L1313) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1329](../../src-tauri/src/kiro/map.rs#L1329) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1335](../../src-tauri/src/kiro/map.rs#L1335) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1338](../../src-tauri/src/kiro/map.rs#L1338) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1348](../../src-tauri/src/kiro/map.rs#L1348) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::ensure_started | [1353](../../src-tauri/src/kiro/map.rs#L1353) |
+| push_frame | function_item | KiroSseStreamer | [1359](../../src-tauri/src/kiro/map.rs#L1359) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1385](../../src-tauri/src/kiro/map.rs#L1385) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1394](../../src-tauri/src/kiro/map.rs#L1394) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1402](../../src-tauri/src/kiro/map.rs#L1402) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1406](../../src-tauri/src/kiro/map.rs#L1406) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1412](../../src-tauri/src/kiro/map.rs#L1412) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1418](../../src-tauri/src/kiro/map.rs#L1418) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1436](../../src-tauri/src/kiro/map.rs#L1436) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1448](../../src-tauri/src/kiro/map.rs#L1448) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1456](../../src-tauri/src/kiro/map.rs#L1456) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1460](../../src-tauri/src/kiro/map.rs#L1460) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1466](../../src-tauri/src/kiro/map.rs#L1466) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::push_frame | [1472](../../src-tauri/src/kiro/map.rs#L1472) |
+| finish | function_item | KiroSseStreamer | [1483](../../src-tauri/src/kiro/map.rs#L1483) |
 | json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1493](../../src-tauri/src/kiro/map.rs#L1493) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1507](../../src-tauri/src/kiro/map.rs#L1507) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1512](../../src-tauri/src/kiro/map.rs#L1512) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1517](../../src-tauri/src/kiro/map.rs#L1517) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1528](../../src-tauri/src/kiro/map.rs#L1528) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1500](../../src-tauri/src/kiro/map.rs#L1500) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1514](../../src-tauri/src/kiro/map.rs#L1514) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1519](../../src-tauri/src/kiro/map.rs#L1519) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1524](../../src-tauri/src/kiro/map.rs#L1524) |
 | json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1535](../../src-tauri/src/kiro/map.rs#L1535) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1550](../../src-tauri/src/kiro/map.rs#L1550) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1558](../../src-tauri/src/kiro/map.rs#L1558) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::finish | [1564](../../src-tauri/src/kiro/map.rs#L1564) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1566](../../src-tauri/src/kiro/map.rs#L1566) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::finish | [1577](../../src-tauri/src/kiro/map.rs#L1577) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1583](../../src-tauri/src/kiro/map.rs#L1583) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1593](../../src-tauri/src/kiro/map.rs#L1593) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1603](../../src-tauri/src/kiro/map.rs#L1603) |
-| format | macro invocation (unexpanded) | KiroSseStreamer::finish | [1617](../../src-tauri/src/kiro/map.rs#L1617) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1621](../../src-tauri/src/kiro/map.rs#L1621) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1637](../../src-tauri/src/kiro/map.rs#L1637) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1647](../../src-tauri/src/kiro/map.rs#L1647) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1657](../../src-tauri/src/kiro/map.rs#L1657) |
-| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1677](../../src-tauri/src/kiro/map.rs#L1677) |
-| tests | mod_item |  | [1686](../../src-tauri/src/kiro/map.rs#L1686) |
-| account | function_item | tests | [1691](../../src-tauri/src/kiro/map.rs#L1691) |
-| json | macro invocation (unexpanded) | tests::account | [1692](../../src-tauri/src/kiro/map.rs#L1692) |
-| builder_id_request_injects_placeholder_arn_and_keeps_client_model | function_item | tests | [1703](../../src-tauri/src/kiro/map.rs#L1703) |
-| json | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1704](../../src-tauri/src/kiro/map.rs#L1704) |
-| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1710](../../src-tauri/src/kiro/map.rs#L1710) |
-| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1711](../../src-tauri/src/kiro/map.rs#L1711) |
-| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1712](../../src-tauri/src/kiro/map.rs#L1712) |
-| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1713](../../src-tauri/src/kiro/map.rs#L1713) |
-| thinking_effort_uses_snake_case_output_config | function_item | tests | [1720](../../src-tauri/src/kiro/map.rs#L1720) |
-| json | macro invocation (unexpanded) | tests::thinking_effort_uses_snake_case_output_config | [1721](../../src-tauri/src/kiro/map.rs#L1721) |
-| assert_eq | macro invocation (unexpanded) | tests::thinking_effort_uses_snake_case_output_config | [1727](../../src-tauri/src/kiro/map.rs#L1727) |
-| assert | macro invocation (unexpanded) | tests::thinking_effort_uses_snake_case_output_config | [1731](../../src-tauri/src/kiro/map.rs#L1731) |
-| tool_result_only_turn_keeps_nonempty_content | function_item | tests | [1737](../../src-tauri/src/kiro/map.rs#L1737) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1542](../../src-tauri/src/kiro/map.rs#L1542) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1557](../../src-tauri/src/kiro/map.rs#L1557) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1565](../../src-tauri/src/kiro/map.rs#L1565) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::finish | [1571](../../src-tauri/src/kiro/map.rs#L1571) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1573](../../src-tauri/src/kiro/map.rs#L1573) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::finish | [1584](../../src-tauri/src/kiro/map.rs#L1584) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1590](../../src-tauri/src/kiro/map.rs#L1590) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1600](../../src-tauri/src/kiro/map.rs#L1600) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1610](../../src-tauri/src/kiro/map.rs#L1610) |
+| format | macro invocation (unexpanded) | KiroSseStreamer::finish | [1624](../../src-tauri/src/kiro/map.rs#L1624) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1628](../../src-tauri/src/kiro/map.rs#L1628) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1644](../../src-tauri/src/kiro/map.rs#L1644) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1654](../../src-tauri/src/kiro/map.rs#L1654) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1664](../../src-tauri/src/kiro/map.rs#L1664) |
+| json | macro invocation (unexpanded) | KiroSseStreamer::finish | [1684](../../src-tauri/src/kiro/map.rs#L1684) |
+| tests | mod_item |  | [1693](../../src-tauri/src/kiro/map.rs#L1693) |
+| account | function_item | tests | [1698](../../src-tauri/src/kiro/map.rs#L1698) |
+| json | macro invocation (unexpanded) | tests::account | [1699](../../src-tauri/src/kiro/map.rs#L1699) |
+| builder_id_request_injects_placeholder_arn_and_keeps_client_model | function_item | tests | [1710](../../src-tauri/src/kiro/map.rs#L1710) |
+| json | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1711](../../src-tauri/src/kiro/map.rs#L1711) |
+| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1717](../../src-tauri/src/kiro/map.rs#L1717) |
+| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1718](../../src-tauri/src/kiro/map.rs#L1718) |
+| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1719](../../src-tauri/src/kiro/map.rs#L1719) |
+| assert_eq | macro invocation (unexpanded) | tests::builder_id_request_injects_placeholder_arn_and_keeps_client_model | [1720](../../src-tauri/src/kiro/map.rs#L1720) |
+| images_survive_current_and_history_turns_in_all_protocols | function_item | tests | [1727](../../src-tauri/src/kiro/map.rs#L1727) |
+| json | macro invocation (unexpanded) | tests::images_survive_current_and_history_turns_in_all_protocols | [1728](../../src-tauri/src/kiro/map.rs#L1728) |
+| json | macro invocation (unexpanded) | tests::images_survive_current_and_history_turns_in_all_protocols | [1731](../../src-tauri/src/kiro/map.rs#L1731) |
+| json | macro invocation (unexpanded) | tests::images_survive_current_and_history_turns_in_all_protocols | [1732](../../src-tauri/src/kiro/map.rs#L1732) |
+| json | macro invocation (unexpanded) | tests::images_survive_current_and_history_turns_in_all_protocols | [1734](../../src-tauri/src/kiro/map.rs#L1734) |

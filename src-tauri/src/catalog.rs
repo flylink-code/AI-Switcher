@@ -548,13 +548,15 @@ pub fn follow_copilot_conversation_model(
         .filter(|value| !value.is_empty() && catalog_in_entries(entries, value))
     {
         if !catalog_in_entries(entries, stripped)
-            || is_sticky_remap_role_id(stripped)
             || (is_copilot_auxiliary_model(stripped)
                 && !is_copilot_auxiliary_model(main)
                 && is_auxiliary_turn)
         {
             return main.to_string();
         }
+    }
+    if catalog_in_entries(entries, stripped) {
+        return stripped.to_string();
     }
     follow_conversation_model(stripped, entries, remembered)
 }
@@ -2104,6 +2106,23 @@ mod tests {
         assert!(is_explicit_catalog_passthrough(&catalog, "claude.kimi-k2"));
         assert!(is_sticky_remap_role_id(CLAUDE_SONNET_ROLE_ID));
         assert!(is_sticky_remap_role_id(CLAUDE_HAIKU_ROLE_ID));
+    }
+
+    #[test]
+    fn copilot_explicit_switch_preserves_small_and_role_models() {
+        let catalog = build_catalog(CatalogStyle::Codex, &[
+            (provider("main", "Main", "gemini-4-argon-high"), vec![]),
+            (provider("small", "Small", "gpt-4o-mini"), vec![]),
+            (provider("role", "Role", CLAUDE_SONNET_ROLE_ID), vec![]),
+        ]);
+        for requested in ["gpt-4o-mini", CLAUDE_SONNET_ROLE_ID] {
+            assert_eq!(follow_copilot_conversation_model(
+                requested, &catalog, Some("gemini-4-argon-high"), false,
+            ), requested);
+        }
+        assert_eq!(follow_copilot_conversation_model(
+            "gpt-4o-mini", &catalog, Some("gemini-4-argon-high"), true,
+        ), "gemini-4-argon-high");
     }
 
     #[test]
