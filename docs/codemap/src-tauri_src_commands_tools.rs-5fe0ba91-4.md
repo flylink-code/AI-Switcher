@@ -4,102 +4,102 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/tools.rs) · page 4/4
 
-Source SHA-256: 1ff388f9f286efdc54abb2f7a70615968dcdfb3163d28bbcc5e8a605455527ca
+Source SHA-256: 2c7829bb89e363be02f1ccae7356ba7d5db77e7a5c8222322ecf95440dfab58b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| vec | macro invocation (unexpanded) | dsh_executable_candidates | [2454](../../src-tauri/src/commands/tools.rs#L2454) |
-| vec | macro invocation (unexpanded) | dsh_executable_candidates | [2463](../../src-tauri/src/commands/tools.rs#L2463) |
-| dsh_candidate_dirs | function_item |  | [2467](../../src-tauri/src/commands/tools.rs#L2467) |
-| probe_dsh_installation | function_item |  | [2480](../../src-tauri/src/commands/tools.rs#L2480) |
-| cfg | macro invocation (unexpanded) | probe_dsh_installation | [2496](../../src-tauri/src/commands/tools.rs#L2496) |
-| fetch_dsh_npm_latest | function_item |  | [2537](../../src-tauri/src/commands/tools.rs#L2537) |
-| format | macro invocation (unexpanded) | fetch_dsh_npm_latest | [2542](../../src-tauri/src/commands/tools.rs#L2542) |
-| dsh_update_command_for | function_item |  | [2555](../../src-tauri/src/commands/tools.rs#L2555) |
-| format | macro invocation (unexpanded) | dsh_update_command_for | [2560](../../src-tauri/src/commands/tools.rs#L2560) |
-| run_dsh_install_or_update | function_item |  | [2566](../../src-tauri/src/commands/tools.rs#L2566) |
-| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2580](../../src-tauri/src/commands/tools.rs#L2580) |
-| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2582](../../src-tauri/src/commands/tools.rs#L2582) |
-| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2589](../../src-tauri/src/commands/tools.rs#L2589) |
-| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2591](../../src-tauri/src/commands/tools.rs#L2591) |
-| get_dsh_cli_version | function_item |  | [2599](../../src-tauri/src/commands/tools.rs#L2599) |
-| tokio::join | macro invocation (unexpanded) | get_dsh_cli_version | [2602](../../src-tauri/src/commands/tools.rs#L2602) |
-| format | macro invocation (unexpanded) | get_dsh_cli_version | [2608](../../src-tauri/src/commands/tools.rs#L2608) |
-| cfg | macro invocation (unexpanded) | get_dsh_cli_version | [2636](../../src-tauri/src/commands/tools.rs#L2636) |
-| run_dsh_cli_update | function_item |  | [2642](../../src-tauri/src/commands/tools.rs#L2642) |
-| format | macro invocation (unexpanded) | run_dsh_cli_update | [2645](../../src-tauri/src/commands/tools.rs#L2645) |
-| dsh_web_is_ready | function_item |  | [2662](../../src-tauri/src/commands/tools.rs#L2662) |
-| start_dsh_web_sync | function_item |  | [2670](../../src-tauri/src/commands/tools.rs#L2670) |
-| format | macro invocation (unexpanded) | start_dsh_web_sync | [2677](../../src-tauri/src/commands/tools.rs#L2677) |
-| format | macro invocation (unexpanded) | start_dsh_web_sync | [2697](../../src-tauri/src/commands/tools.rs#L2697) |
-| format | macro invocation (unexpanded) | start_dsh_web_sync | [2715](../../src-tauri/src/commands/tools.rs#L2715) |
-| format | macro invocation (unexpanded) | start_dsh_web_sync | [2728](../../src-tauri/src/commands/tools.rs#L2728) |
-| start_dsh_web | function_item |  | [2735](../../src-tauri/src/commands/tools.rs#L2735) |
-| format | macro invocation (unexpanded) | start_dsh_web | [2739](../../src-tauri/src/commands/tools.rs#L2739) |
-| tests | mod_item |  | [2757](../../src-tauri/src/commands/tools.rs#L2757) |
-| parses_common_claude_version_outputs | function_item | tests | [2761](../../src-tauri/src/commands/tools.rs#L2761) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2762](../../src-tauri/src/commands/tools.rs#L2762) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2766](../../src-tauri/src/commands/tools.rs#L2766) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2767](../../src-tauri/src/commands/tools.rs#L2767) |
+| vec | macro invocation (unexpanded) | dsh_executable_candidates | [2460](../../src-tauri/src/commands/tools.rs#L2460) |
+| vec | macro invocation (unexpanded) | dsh_executable_candidates | [2469](../../src-tauri/src/commands/tools.rs#L2469) |
+| dsh_candidate_dirs | function_item |  | [2473](../../src-tauri/src/commands/tools.rs#L2473) |
+| probe_dsh_installation | function_item |  | [2486](../../src-tauri/src/commands/tools.rs#L2486) |
+| cfg | macro invocation (unexpanded) | probe_dsh_installation | [2502](../../src-tauri/src/commands/tools.rs#L2502) |
+| fetch_dsh_npm_latest | function_item |  | [2543](../../src-tauri/src/commands/tools.rs#L2543) |
+| format | macro invocation (unexpanded) | fetch_dsh_npm_latest | [2548](../../src-tauri/src/commands/tools.rs#L2548) |
+| dsh_update_command_for | function_item |  | [2561](../../src-tauri/src/commands/tools.rs#L2561) |
+| format | macro invocation (unexpanded) | dsh_update_command_for | [2566](../../src-tauri/src/commands/tools.rs#L2566) |
+| run_dsh_install_or_update | function_item |  | [2572](../../src-tauri/src/commands/tools.rs#L2572) |
+| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2586](../../src-tauri/src/commands/tools.rs#L2586) |
+| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2588](../../src-tauri/src/commands/tools.rs#L2588) |
+| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2595](../../src-tauri/src/commands/tools.rs#L2595) |
+| format | macro invocation (unexpanded) | run_dsh_install_or_update | [2597](../../src-tauri/src/commands/tools.rs#L2597) |
+| get_dsh_cli_version | function_item |  | [2605](../../src-tauri/src/commands/tools.rs#L2605) |
+| tokio::join | macro invocation (unexpanded) | get_dsh_cli_version | [2608](../../src-tauri/src/commands/tools.rs#L2608) |
+| format | macro invocation (unexpanded) | get_dsh_cli_version | [2614](../../src-tauri/src/commands/tools.rs#L2614) |
+| cfg | macro invocation (unexpanded) | get_dsh_cli_version | [2642](../../src-tauri/src/commands/tools.rs#L2642) |
+| run_dsh_cli_update | function_item |  | [2648](../../src-tauri/src/commands/tools.rs#L2648) |
+| format | macro invocation (unexpanded) | run_dsh_cli_update | [2651](../../src-tauri/src/commands/tools.rs#L2651) |
+| dsh_web_is_ready | function_item |  | [2668](../../src-tauri/src/commands/tools.rs#L2668) |
+| start_dsh_web_sync | function_item |  | [2676](../../src-tauri/src/commands/tools.rs#L2676) |
+| format | macro invocation (unexpanded) | start_dsh_web_sync | [2683](../../src-tauri/src/commands/tools.rs#L2683) |
+| format | macro invocation (unexpanded) | start_dsh_web_sync | [2703](../../src-tauri/src/commands/tools.rs#L2703) |
+| format | macro invocation (unexpanded) | start_dsh_web_sync | [2721](../../src-tauri/src/commands/tools.rs#L2721) |
+| format | macro invocation (unexpanded) | start_dsh_web_sync | [2734](../../src-tauri/src/commands/tools.rs#L2734) |
+| start_dsh_web | function_item |  | [2741](../../src-tauri/src/commands/tools.rs#L2741) |
+| format | macro invocation (unexpanded) | start_dsh_web | [2745](../../src-tauri/src/commands/tools.rs#L2745) |
+| tests | mod_item |  | [2763](../../src-tauri/src/commands/tools.rs#L2763) |
+| parses_common_claude_version_outputs | function_item | tests | [2767](../../src-tauri/src/commands/tools.rs#L2767) |
 | assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2768](../../src-tauri/src/commands/tools.rs#L2768) |
-| identifies_common_install_sources | function_item | tests | [2772](../../src-tauri/src/commands/tools.rs#L2772) |
-| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2773](../../src-tauri/src/commands/tools.rs#L2773) |
-| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2777](../../src-tauri/src/commands/tools.rs#L2777) |
-| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2781](../../src-tauri/src/commands/tools.rs#L2781) |
-| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2785](../../src-tauri/src/commands/tools.rs#L2785) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2772](../../src-tauri/src/commands/tools.rs#L2772) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2773](../../src-tauri/src/commands/tools.rs#L2773) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_common_claude_version_outputs | [2774](../../src-tauri/src/commands/tools.rs#L2774) |
+| identifies_common_install_sources | function_item | tests | [2778](../../src-tauri/src/commands/tools.rs#L2778) |
+| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2779](../../src-tauri/src/commands/tools.rs#L2779) |
+| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2783](../../src-tauri/src/commands/tools.rs#L2783) |
+| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2787](../../src-tauri/src/commands/tools.rs#L2787) |
 | assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2791](../../src-tauri/src/commands/tools.rs#L2791) |
-| parses_apt_cache_policy_fields | function_item | tests | [2798](../../src-tauri/src/commands/tools.rs#L2798) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_apt_cache_policy_fields | [2800](../../src-tauri/src/commands/tools.rs#L2800) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_apt_cache_policy_fields | [2804](../../src-tauri/src/commands/tools.rs#L2804) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_apt_cache_policy_fields | [2808](../../src-tauri/src/commands/tools.rs#L2808) |
-| codex_cli_missing_error_has_stable_prefix | function_item | tests | [2815](../../src-tauri/src/commands/tools.rs#L2815) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_missing_error_has_stable_prefix | [2817](../../src-tauri/src/commands/tools.rs#L2817) |
-| assert | macro invocation (unexpanded) | tests::codex_cli_missing_error_has_stable_prefix | [2818](../../src-tauri/src/commands/tools.rs#L2818) |
-| compares_semver_like_versions | function_item | tests | [2822](../../src-tauri/src/commands/tools.rs#L2822) |
-| assert | macro invocation (unexpanded) | tests::compares_semver_like_versions | [2823](../../src-tauri/src/commands/tools.rs#L2823) |
-| assert | macro invocation (unexpanded) | tests::compares_semver_like_versions | [2824](../../src-tauri/src/commands/tools.rs#L2824) |
-| assert | macro invocation (unexpanded) | tests::compares_semver_like_versions | [2825](../../src-tauri/src/commands/tools.rs#L2825) |
-| native_install_uses_self_update | function_item | tests | [2829](../../src-tauri/src/commands/tools.rs#L2829) |
-| assert_eq | macro invocation (unexpanded) | tests::native_install_uses_self_update | [2837](../../src-tauri/src/commands/tools.rs#L2837) |
-| wsl_install_updates_inside_its_distro | function_item | tests | [2844](../../src-tauri/src/commands/tools.rs#L2844) |
-| assert | macro invocation (unexpanded) | tests::wsl_install_updates_inside_its_distro | [2853](../../src-tauri/src/commands/tools.rs#L2853) |
-| assert | macro invocation (unexpanded) | tests::wsl_install_updates_inside_its_distro | [2854](../../src-tauri/src/commands/tools.rs#L2854) |
-| wsl_only_version_info_is_not_installed_on_windows | function_item | tests | [2858](../../src-tauri/src/commands/tools.rs#L2858) |
-| assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2868](../../src-tauri/src/commands/tools.rs#L2868) |
-| assert_eq | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2869](../../src-tauri/src/commands/tools.rs#L2869) |
-| assert_eq | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2873](../../src-tauri/src/commands/tools.rs#L2873) |
+| assert_eq | macro invocation (unexpanded) | tests::identifies_common_install_sources | [2797](../../src-tauri/src/commands/tools.rs#L2797) |
+| parses_apt_cache_policy_fields | function_item | tests | [2804](../../src-tauri/src/commands/tools.rs#L2804) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_apt_cache_policy_fields | [2806](../../src-tauri/src/commands/tools.rs#L2806) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_apt_cache_policy_fields | [2810](../../src-tauri/src/commands/tools.rs#L2810) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_apt_cache_policy_fields | [2814](../../src-tauri/src/commands/tools.rs#L2814) |
+| codex_cli_missing_error_has_stable_prefix | function_item | tests | [2821](../../src-tauri/src/commands/tools.rs#L2821) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_missing_error_has_stable_prefix | [2823](../../src-tauri/src/commands/tools.rs#L2823) |
+| assert | macro invocation (unexpanded) | tests::codex_cli_missing_error_has_stable_prefix | [2824](../../src-tauri/src/commands/tools.rs#L2824) |
+| compares_semver_like_versions | function_item | tests | [2828](../../src-tauri/src/commands/tools.rs#L2828) |
+| assert | macro invocation (unexpanded) | tests::compares_semver_like_versions | [2829](../../src-tauri/src/commands/tools.rs#L2829) |
+| assert | macro invocation (unexpanded) | tests::compares_semver_like_versions | [2830](../../src-tauri/src/commands/tools.rs#L2830) |
+| assert | macro invocation (unexpanded) | tests::compares_semver_like_versions | [2831](../../src-tauri/src/commands/tools.rs#L2831) |
+| native_install_uses_self_update | function_item | tests | [2835](../../src-tauri/src/commands/tools.rs#L2835) |
+| assert_eq | macro invocation (unexpanded) | tests::native_install_uses_self_update | [2843](../../src-tauri/src/commands/tools.rs#L2843) |
+| wsl_install_updates_inside_its_distro | function_item | tests | [2850](../../src-tauri/src/commands/tools.rs#L2850) |
+| assert | macro invocation (unexpanded) | tests::wsl_install_updates_inside_its_distro | [2859](../../src-tauri/src/commands/tools.rs#L2859) |
+| assert | macro invocation (unexpanded) | tests::wsl_install_updates_inside_its_distro | [2860](../../src-tauri/src/commands/tools.rs#L2860) |
+| wsl_only_version_info_is_not_installed_on_windows | function_item | tests | [2864](../../src-tauri/src/commands/tools.rs#L2864) |
 | assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2874](../../src-tauri/src/commands/tools.rs#L2874) |
-| assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2875](../../src-tauri/src/commands/tools.rs#L2875) |
-| assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2876](../../src-tauri/src/commands/tools.rs#L2876) |
-| wsl_only_install_does_not_use_wsl_shell | function_item | tests | [2880](../../src-tauri/src/commands/tools.rs#L2880) |
-| assert | macro invocation (unexpanded) | tests::wsl_only_install_does_not_use_wsl_shell | [2882](../../src-tauri/src/commands/tools.rs#L2882) |
-| assert | macro invocation (unexpanded) | tests::wsl_only_install_does_not_use_wsl_shell | [2891](../../src-tauri/src/commands/tools.rs#L2891) |
-| assert | macro invocation (unexpanded) | tests::wsl_only_install_does_not_use_wsl_shell | [2892](../../src-tauri/src/commands/tools.rs#L2892) |
-| codex_install_command_targets_openai_package | function_item | tests | [2898](../../src-tauri/src/commands/tools.rs#L2898) |
-| assert | macro invocation (unexpanded) | tests::codex_install_command_targets_openai_package | [2899](../../src-tauri/src/commands/tools.rs#L2899) |
-| opencode_channel_follows_major_version | function_item | tests | [2903](../../src-tauri/src/commands/tools.rs#L2903) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2904](../../src-tauri/src/commands/tools.rs#L2904) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2905](../../src-tauri/src/commands/tools.rs#L2905) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2906](../../src-tauri/src/commands/tools.rs#L2906) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2907](../../src-tauri/src/commands/tools.rs#L2907) |
-| opencode_install_command_targets_v2_package | function_item | tests | [2911](../../src-tauri/src/commands/tools.rs#L2911) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_install_command_targets_v2_package | [2912](../../src-tauri/src/commands/tools.rs#L2912) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_install_command_targets_v2_package | [2913](../../src-tauri/src/commands/tools.rs#L2913) |
-| assert_eq | macro invocation (unexpanded) | tests::opencode_install_command_targets_v2_package | [2914](../../src-tauri/src/commands/tools.rs#L2914) |
-| resolves_local_codex_cli_when_installed | function_item | tests | [2918](../../src-tauri/src/commands/tools.rs#L2918) |
-| assert | macro invocation (unexpanded) | tests::resolves_local_codex_cli_when_installed | [2937](../../src-tauri/src/commands/tools.rs#L2937) |
-| quotes_cmd_args_with_spaces | function_item | tests | [2954](../../src-tauri/src/commands/tools.rs#L2954) |
-| assert_eq | macro invocation (unexpanded) | tests::quotes_cmd_args_with_spaces | [2955](../../src-tauri/src/commands/tools.rs#L2955) |
-| assert_eq | macro invocation (unexpanded) | tests::quotes_cmd_args_with_spaces | [2956](../../src-tauri/src/commands/tools.rs#L2956) |
-| maps_npm_not_found_for_cli_install | function_item | tests | [2963](../../src-tauri/src/commands/tools.rs#L2963) |
-| assert | macro invocation (unexpanded) | tests::maps_npm_not_found_for_cli_install | [2965](../../src-tauri/src/commands/tools.rs#L2965) |
-| maps_missing_node_on_path_for_npm_shebang_cli | function_item | tests | [2969](../../src-tauri/src/commands/tools.rs#L2969) |
-| assert | macro invocation (unexpanded) | tests::maps_missing_node_on_path_for_npm_shebang_cli | [2971](../../src-tauri/src/commands/tools.rs#L2971) |
-| assert | macro invocation (unexpanded) | tests::maps_missing_node_on_path_for_npm_shebang_cli | [2973](../../src-tauri/src/commands/tools.rs#L2973) |
-| windows_probe_path_puts_anchored_node_before_program_files | function_item | tests | [2978](../../src-tauri/src/commands/tools.rs#L2978) |
-| assert | macro invocation (unexpanded) | tests::windows_probe_path_puts_anchored_node_before_program_files | [2993](../../src-tauri/src/commands/tools.rs#L2993) |
-| esm_loader_probe_failure_keeps_stderr_and_node | function_item | tests | [3000](../../src-tauri/src/commands/tools.rs#L3000) |
-| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3008](../../src-tauri/src/commands/tools.rs#L3008) |
-| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3009](../../src-tauri/src/commands/tools.rs#L3009) |
-| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3010](../../src-tauri/src/commands/tools.rs#L3010) |
-| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3011](../../src-tauri/src/commands/tools.rs#L3011) |
+| assert_eq | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2875](../../src-tauri/src/commands/tools.rs#L2875) |
+| assert_eq | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2879](../../src-tauri/src/commands/tools.rs#L2879) |
+| assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2880](../../src-tauri/src/commands/tools.rs#L2880) |
+| assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2881](../../src-tauri/src/commands/tools.rs#L2881) |
+| assert | macro invocation (unexpanded) | tests::wsl_only_version_info_is_not_installed_on_windows | [2882](../../src-tauri/src/commands/tools.rs#L2882) |
+| wsl_only_install_does_not_use_wsl_shell | function_item | tests | [2886](../../src-tauri/src/commands/tools.rs#L2886) |
+| assert | macro invocation (unexpanded) | tests::wsl_only_install_does_not_use_wsl_shell | [2888](../../src-tauri/src/commands/tools.rs#L2888) |
+| assert | macro invocation (unexpanded) | tests::wsl_only_install_does_not_use_wsl_shell | [2897](../../src-tauri/src/commands/tools.rs#L2897) |
+| assert | macro invocation (unexpanded) | tests::wsl_only_install_does_not_use_wsl_shell | [2898](../../src-tauri/src/commands/tools.rs#L2898) |
+| codex_install_command_targets_openai_package | function_item | tests | [2904](../../src-tauri/src/commands/tools.rs#L2904) |
+| assert | macro invocation (unexpanded) | tests::codex_install_command_targets_openai_package | [2905](../../src-tauri/src/commands/tools.rs#L2905) |
+| opencode_channel_follows_major_version | function_item | tests | [2909](../../src-tauri/src/commands/tools.rs#L2909) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2910](../../src-tauri/src/commands/tools.rs#L2910) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2911](../../src-tauri/src/commands/tools.rs#L2911) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2912](../../src-tauri/src/commands/tools.rs#L2912) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_channel_follows_major_version | [2913](../../src-tauri/src/commands/tools.rs#L2913) |
+| opencode_install_command_targets_v2_package | function_item | tests | [2917](../../src-tauri/src/commands/tools.rs#L2917) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_install_command_targets_v2_package | [2918](../../src-tauri/src/commands/tools.rs#L2918) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_install_command_targets_v2_package | [2919](../../src-tauri/src/commands/tools.rs#L2919) |
+| assert_eq | macro invocation (unexpanded) | tests::opencode_install_command_targets_v2_package | [2920](../../src-tauri/src/commands/tools.rs#L2920) |
+| resolves_local_codex_cli_when_installed | function_item | tests | [2924](../../src-tauri/src/commands/tools.rs#L2924) |
+| assert | macro invocation (unexpanded) | tests::resolves_local_codex_cli_when_installed | [2943](../../src-tauri/src/commands/tools.rs#L2943) |
+| quotes_cmd_args_with_spaces | function_item | tests | [2960](../../src-tauri/src/commands/tools.rs#L2960) |
+| assert_eq | macro invocation (unexpanded) | tests::quotes_cmd_args_with_spaces | [2961](../../src-tauri/src/commands/tools.rs#L2961) |
+| assert_eq | macro invocation (unexpanded) | tests::quotes_cmd_args_with_spaces | [2962](../../src-tauri/src/commands/tools.rs#L2962) |
+| maps_npm_not_found_for_cli_install | function_item | tests | [2969](../../src-tauri/src/commands/tools.rs#L2969) |
+| assert | macro invocation (unexpanded) | tests::maps_npm_not_found_for_cli_install | [2971](../../src-tauri/src/commands/tools.rs#L2971) |
+| maps_missing_node_on_path_for_npm_shebang_cli | function_item | tests | [2975](../../src-tauri/src/commands/tools.rs#L2975) |
+| assert | macro invocation (unexpanded) | tests::maps_missing_node_on_path_for_npm_shebang_cli | [2977](../../src-tauri/src/commands/tools.rs#L2977) |
+| assert | macro invocation (unexpanded) | tests::maps_missing_node_on_path_for_npm_shebang_cli | [2979](../../src-tauri/src/commands/tools.rs#L2979) |
+| windows_probe_path_puts_anchored_node_before_program_files | function_item | tests | [2984](../../src-tauri/src/commands/tools.rs#L2984) |
+| assert | macro invocation (unexpanded) | tests::windows_probe_path_puts_anchored_node_before_program_files | [2999](../../src-tauri/src/commands/tools.rs#L2999) |
+| esm_loader_probe_failure_keeps_stderr_and_node | function_item | tests | [3006](../../src-tauri/src/commands/tools.rs#L3006) |
+| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3014](../../src-tauri/src/commands/tools.rs#L3014) |
+| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3015](../../src-tauri/src/commands/tools.rs#L3015) |
+| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3016](../../src-tauri/src/commands/tools.rs#L3016) |
+| assert | macro invocation (unexpanded) | tests::esm_loader_probe_failure_keeps_stderr_and_node | [3017](../../src-tauri/src/commands/tools.rs#L3017) |

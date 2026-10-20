@@ -2,10 +2,16 @@
 
 use serde::Serialize;
 use std::collections::HashSet;
-use std::io::{self, Read};
+use std::io;
+#[cfg(windows)]
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitStatus, Output, Stdio};
-use std::time::{Duration, Instant};
+use std::process::{Command, ExitStatus, Output, Stdio};
+#[cfg(windows)]
+use std::process::Child;
+use std::time::Duration;
+#[cfg(windows)]
+use std::time::Instant;
 
 use crate::error::{AppError, AppResult};
 

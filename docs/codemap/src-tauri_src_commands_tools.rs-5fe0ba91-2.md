@@ -4,107 +4,107 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/tools.rs) · page 2/4
 
-Source SHA-256: 1ff388f9f286efdc54abb2f7a70615968dcdfb3163d28bbcc5e8a605455527ca
+Source SHA-256: 2c7829bb89e363be02f1ccae7356ba7d5db77e7a5c8222322ecf95440dfab58b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| format | macro invocation (unexpanded) | get_claude_code_version | [911](../../src-tauri/src/commands/tools.rs#L911) |
-| run_windows_command | function_item |  | [917](../../src-tauri/src/commands/tools.rs#L917) |
-| format | macro invocation (unexpanded) | run_windows_command | [928](../../src-tauri/src/commands/tools.rs#L928) |
-| run_anchored_update | function_item |  | [946](../../src-tauri/src/commands/tools.rs#L946) |
-| vec | macro invocation (unexpanded) | run_anchored_update | [980](../../src-tauri/src/commands/tools.rs#L980) |
-| vec | macro invocation (unexpanded) | run_anchored_update | [984](../../src-tauri/src/commands/tools.rs#L984) |
-| vec | macro invocation (unexpanded) | run_anchored_update | [1002](../../src-tauri/src/commands/tools.rs#L1002) |
-| run_unix_command_with_login_path | function_item |  | [1019](../../src-tauri/src/commands/tools.rs#L1019) |
-| format | macro invocation (unexpanded) | run_unix_command_with_login_path | [1031](../../src-tauri/src/commands/tools.rs#L1031) |
-| run_claude_doctor_output | function_item |  | [1042](../../src-tauri/src/commands/tools.rs#L1042) |
-| format | macro invocation (unexpanded) | run_claude_doctor_output | [1056](../../src-tauri/src/commands/tools.rs#L1056) |
+| format | macro invocation (unexpanded) | get_claude_code_version | [917](../../src-tauri/src/commands/tools.rs#L917) |
+| run_windows_command | function_item |  | [923](../../src-tauri/src/commands/tools.rs#L923) |
+| format | macro invocation (unexpanded) | run_windows_command | [934](../../src-tauri/src/commands/tools.rs#L934) |
+| run_anchored_update | function_item |  | [952](../../src-tauri/src/commands/tools.rs#L952) |
+| vec | macro invocation (unexpanded) | run_anchored_update | [986](../../src-tauri/src/commands/tools.rs#L986) |
+| vec | macro invocation (unexpanded) | run_anchored_update | [990](../../src-tauri/src/commands/tools.rs#L990) |
+| vec | macro invocation (unexpanded) | run_anchored_update | [1008](../../src-tauri/src/commands/tools.rs#L1008) |
+| run_unix_command_with_login_path | function_item |  | [1025](../../src-tauri/src/commands/tools.rs#L1025) |
+| format | macro invocation (unexpanded) | run_unix_command_with_login_path | [1037](../../src-tauri/src/commands/tools.rs#L1037) |
+| run_claude_doctor_output | function_item |  | [1048](../../src-tauri/src/commands/tools.rs#L1048) |
 | format | macro invocation (unexpanded) | run_claude_doctor_output | [1062](../../src-tauri/src/commands/tools.rs#L1062) |
-| format | macro invocation (unexpanded) | run_claude_doctor_output | [1071](../../src-tauri/src/commands/tools.rs#L1071) |
-| download_to_temp | function_item |  | [1075](../../src-tauri/src/commands/tools.rs#L1075) |
-| format | macro invocation (unexpanded) | download_to_temp | [1079](../../src-tauri/src/commands/tools.rs#L1079) |
-| format | macro invocation (unexpanded) | download_to_temp | [1083](../../src-tauri/src/commands/tools.rs#L1083) |
+| format | macro invocation (unexpanded) | run_claude_doctor_output | [1068](../../src-tauri/src/commands/tools.rs#L1068) |
+| format | macro invocation (unexpanded) | run_claude_doctor_output | [1077](../../src-tauri/src/commands/tools.rs#L1077) |
+| download_to_temp | function_item |  | [1081](../../src-tauri/src/commands/tools.rs#L1081) |
 | format | macro invocation (unexpanded) | download_to_temp | [1085](../../src-tauri/src/commands/tools.rs#L1085) |
-| format | macro invocation (unexpanded) | download_to_temp | [1092](../../src-tauri/src/commands/tools.rs#L1092) |
-| format | macro invocation (unexpanded) | download_to_temp | [1093](../../src-tauri/src/commands/tools.rs#L1093) |
-| run_claude_native_install_unix | function_item |  | [1104](../../src-tauri/src/commands/tools.rs#L1104) |
-| format | macro invocation (unexpanded) | run_claude_native_install_unix | [1116](../../src-tauri/src/commands/tools.rs#L1116) |
-| run_claude_native_install_windows | function_item |  | [1122](../../src-tauri/src/commands/tools.rs#L1122) |
-| format | macro invocation (unexpanded) | run_claude_native_install_windows | [1138](../../src-tauri/src/commands/tools.rs#L1138) |
-| run_claude_npm_install | function_item |  | [1143](../../src-tauri/src/commands/tools.rs#L1143) |
-| format | macro invocation (unexpanded) | run_claude_npm_install | [1150](../../src-tauri/src/commands/tools.rs#L1150) |
-| output_failed | function_item |  | [1159](../../src-tauri/src/commands/tools.rs#L1159) |
-| merge_install_failures | function_item |  | [1180](../../src-tauri/src/commands/tools.rs#L1180) |
-| format | macro invocation (unexpanded) | merge_install_failures | [1181](../../src-tauri/src/commands/tools.rs#L1181) |
-| verify_npm_cli_near_node | function_item |  | [1186](../../src-tauri/src/commands/tools.rs#L1186) |
-| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1190](../../src-tauri/src/commands/tools.rs#L1190) |
-| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1191](../../src-tauri/src/commands/tools.rs#L1191) |
-| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1192](../../src-tauri/src/commands/tools.rs#L1192) |
-| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1228](../../src-tauri/src/commands/tools.rs#L1228) |
-| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1235](../../src-tauri/src/commands/tools.rs#L1235) |
-| ensure_npm_cli_after_install | function_item |  | [1246](../../src-tauri/src/commands/tools.rs#L1246) |
-| run_claude_install_or_update | function_item |  | [1263](../../src-tauri/src/commands/tools.rs#L1263) |
-| format | macro invocation (unexpanded) | run_claude_install_or_update | [1276](../../src-tauri/src/commands/tools.rs#L1276) |
-| format | macro invocation (unexpanded) | run_claude_install_or_update | [1281](../../src-tauri/src/commands/tools.rs#L1281) |
-| run_claude_code_update | function_item |  | [1392](../../src-tauri/src/commands/tools.rs#L1392) |
-| format | macro invocation (unexpanded) | run_claude_code_update | [1395](../../src-tauri/src/commands/tools.rs#L1395) |
-| CODEX_NPM_PACKAGE | const_item |  | [1414](../../src-tauri/src/commands/tools.rs#L1414) |
-| CodexCliVersionInfo | struct_item |  | [1418](../../src-tauri/src/commands/tools.rs#L1418) |
-| installed | field_declaration | CodexCliVersionInfo | [1419](../../src-tauri/src/commands/tools.rs#L1419) |
-| current_version | field_declaration | CodexCliVersionInfo | [1420](../../src-tauri/src/commands/tools.rs#L1420) |
-| latest_version | field_declaration | CodexCliVersionInfo | [1421](../../src-tauri/src/commands/tools.rs#L1421) |
-| update_available | field_declaration | CodexCliVersionInfo | [1422](../../src-tauri/src/commands/tools.rs#L1422) |
-| install_command | field_declaration | CodexCliVersionInfo | [1423](../../src-tauri/src/commands/tools.rs#L1423) |
-| update_command | field_declaration | CodexCliVersionInfo | [1424](../../src-tauri/src/commands/tools.rs#L1424) |
-| error | field_declaration | CodexCliVersionInfo | [1425](../../src-tauri/src/commands/tools.rs#L1425) |
-| executable_path | field_declaration | CodexCliVersionInfo | [1426](../../src-tauri/src/commands/tools.rs#L1426) |
-| source | field_declaration | CodexCliVersionInfo | [1427](../../src-tauri/src/commands/tools.rs#L1427) |
-| environment | field_declaration | CodexCliVersionInfo | [1428](../../src-tauri/src/commands/tools.rs#L1428) |
-| installed_but_broken | field_declaration | CodexCliVersionInfo | [1429](../../src-tauri/src/commands/tools.rs#L1429) |
-| codex_install_command | function_item |  | [1432](../../src-tauri/src/commands/tools.rs#L1432) |
-| format | macro invocation (unexpanded) | codex_install_command | [1433](../../src-tauri/src/commands/tools.rs#L1433) |
-| codex_executable_candidates | function_item |  | [1436](../../src-tauri/src/commands/tools.rs#L1436) |
-| vec | macro invocation (unexpanded) | codex_executable_candidates | [1439](../../src-tauri/src/commands/tools.rs#L1439) |
-| vec | macro invocation (unexpanded) | codex_executable_candidates | [1448](../../src-tauri/src/commands/tools.rs#L1448) |
-| probe_codex_installation | function_item |  | [1452](../../src-tauri/src/commands/tools.rs#L1452) |
-| cfg | macro invocation (unexpanded) | probe_codex_installation | [1474](../../src-tauri/src/commands/tools.rs#L1474) |
-| resolve_codex_cli_path | function_item |  | [1513](../../src-tauri/src/commands/tools.rs#L1513) |
-| CODEX_CLI_MISSING_PREFIX | const_item |  | [1523](../../src-tauri/src/commands/tools.rs#L1523) |
-| codex_cli_missing_error | function_item |  | [1525](../../src-tauri/src/commands/tools.rs#L1525) |
-| format | macro invocation (unexpanded) | codex_cli_missing_error | [1526](../../src-tauri/src/commands/tools.rs#L1526) |
-| run_codex_cli | function_item |  | [1532](../../src-tauri/src/commands/tools.rs#L1532) |
-| format | macro invocation (unexpanded) | run_codex_cli | [1535](../../src-tauri/src/commands/tools.rs#L1535) |
-| run_codex_cli_timeout | function_item |  | [1541](../../src-tauri/src/commands/tools.rs#L1541) |
-| format | macro invocation (unexpanded) | run_codex_cli_timeout | [1545](../../src-tauri/src/commands/tools.rs#L1545) |
-| fetch_codex_npm_latest | function_item |  | [1551](../../src-tauri/src/commands/tools.rs#L1551) |
-| format | macro invocation (unexpanded) | fetch_codex_npm_latest | [1556](../../src-tauri/src/commands/tools.rs#L1556) |
-| codex_update_command_for | function_item |  | [1569](../../src-tauri/src/commands/tools.rs#L1569) |
-| format | macro invocation (unexpanded) | codex_update_command_for | [1574](../../src-tauri/src/commands/tools.rs#L1574) |
-| install_codex_with_npmjs_retry | function_item |  | [1580](../../src-tauri/src/commands/tools.rs#L1580) |
-| format | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1581](../../src-tauri/src/commands/tools.rs#L1581) |
-| format | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1583](../../src-tauri/src/commands/tools.rs#L1583) |
-| log::warn | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1588](../../src-tauri/src/commands/tools.rs#L1588) |
-| format | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1592](../../src-tauri/src/commands/tools.rs#L1592) |
-| run_codex_npm_install | function_item |  | [1596](../../src-tauri/src/commands/tools.rs#L1596) |
-| run_codex_install_or_update | function_item |  | [1601](../../src-tauri/src/commands/tools.rs#L1601) |
-| get_codex_cli_version | function_item |  | [1620](../../src-tauri/src/commands/tools.rs#L1620) |
-| tokio::join | macro invocation (unexpanded) | get_codex_cli_version | [1623](../../src-tauri/src/commands/tools.rs#L1623) |
-| format | macro invocation (unexpanded) | get_codex_cli_version | [1629](../../src-tauri/src/commands/tools.rs#L1629) |
-| cfg | macro invocation (unexpanded) | get_codex_cli_version | [1654](../../src-tauri/src/commands/tools.rs#L1654) |
-| run_codex_cli_update | function_item |  | [1660](../../src-tauri/src/commands/tools.rs#L1660) |
-| format | macro invocation (unexpanded) | run_codex_cli_update | [1663](../../src-tauri/src/commands/tools.rs#L1663) |
-| OPENCODE_V1_NPM_PACKAGE | const_item |  | [1682](../../src-tauri/src/commands/tools.rs#L1682) |
-| OPENCODE_V2_NPM_PACKAGE | const_item |  | [1683](../../src-tauri/src/commands/tools.rs#L1683) |
-| OpenCodeCliVersionInfo | struct_item |  | [1687](../../src-tauri/src/commands/tools.rs#L1687) |
-| installed | field_declaration | OpenCodeCliVersionInfo | [1688](../../src-tauri/src/commands/tools.rs#L1688) |
-| current_version | field_declaration | OpenCodeCliVersionInfo | [1689](../../src-tauri/src/commands/tools.rs#L1689) |
-| channel | field_declaration | OpenCodeCliVersionInfo | [1691](../../src-tauri/src/commands/tools.rs#L1691) |
-| latest_version | field_declaration | OpenCodeCliVersionInfo | [1693](../../src-tauri/src/commands/tools.rs#L1693) |
-| v1_latest_version | field_declaration | OpenCodeCliVersionInfo | [1695](../../src-tauri/src/commands/tools.rs#L1695) |
-| v2_latest_version | field_declaration | OpenCodeCliVersionInfo | [1696](../../src-tauri/src/commands/tools.rs#L1696) |
-| update_available | field_declaration | OpenCodeCliVersionInfo | [1697](../../src-tauri/src/commands/tools.rs#L1697) |
-| install_command | field_declaration | OpenCodeCliVersionInfo | [1698](../../src-tauri/src/commands/tools.rs#L1698) |
-| update_command | field_declaration | OpenCodeCliVersionInfo | [1699](../../src-tauri/src/commands/tools.rs#L1699) |
-| error | field_declaration | OpenCodeCliVersionInfo | [1700](../../src-tauri/src/commands/tools.rs#L1700) |
-| executable_path | field_declaration | OpenCodeCliVersionInfo | [1701](../../src-tauri/src/commands/tools.rs#L1701) |
-| source | field_declaration | OpenCodeCliVersionInfo | [1702](../../src-tauri/src/commands/tools.rs#L1702) |
+| format | macro invocation (unexpanded) | download_to_temp | [1089](../../src-tauri/src/commands/tools.rs#L1089) |
+| format | macro invocation (unexpanded) | download_to_temp | [1091](../../src-tauri/src/commands/tools.rs#L1091) |
+| format | macro invocation (unexpanded) | download_to_temp | [1098](../../src-tauri/src/commands/tools.rs#L1098) |
+| format | macro invocation (unexpanded) | download_to_temp | [1099](../../src-tauri/src/commands/tools.rs#L1099) |
+| run_claude_native_install_unix | function_item |  | [1110](../../src-tauri/src/commands/tools.rs#L1110) |
+| format | macro invocation (unexpanded) | run_claude_native_install_unix | [1122](../../src-tauri/src/commands/tools.rs#L1122) |
+| run_claude_native_install_windows | function_item |  | [1128](../../src-tauri/src/commands/tools.rs#L1128) |
+| format | macro invocation (unexpanded) | run_claude_native_install_windows | [1144](../../src-tauri/src/commands/tools.rs#L1144) |
+| run_claude_npm_install | function_item |  | [1149](../../src-tauri/src/commands/tools.rs#L1149) |
+| format | macro invocation (unexpanded) | run_claude_npm_install | [1156](../../src-tauri/src/commands/tools.rs#L1156) |
+| output_failed | function_item |  | [1165](../../src-tauri/src/commands/tools.rs#L1165) |
+| merge_install_failures | function_item |  | [1186](../../src-tauri/src/commands/tools.rs#L1186) |
+| format | macro invocation (unexpanded) | merge_install_failures | [1187](../../src-tauri/src/commands/tools.rs#L1187) |
+| verify_npm_cli_near_node | function_item |  | [1192](../../src-tauri/src/commands/tools.rs#L1192) |
+| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1196](../../src-tauri/src/commands/tools.rs#L1196) |
+| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1197](../../src-tauri/src/commands/tools.rs#L1197) |
+| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1198](../../src-tauri/src/commands/tools.rs#L1198) |
+| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1234](../../src-tauri/src/commands/tools.rs#L1234) |
+| format | macro invocation (unexpanded) | verify_npm_cli_near_node | [1241](../../src-tauri/src/commands/tools.rs#L1241) |
+| ensure_npm_cli_after_install | function_item |  | [1252](../../src-tauri/src/commands/tools.rs#L1252) |
+| run_claude_install_or_update | function_item |  | [1269](../../src-tauri/src/commands/tools.rs#L1269) |
+| format | macro invocation (unexpanded) | run_claude_install_or_update | [1282](../../src-tauri/src/commands/tools.rs#L1282) |
+| format | macro invocation (unexpanded) | run_claude_install_or_update | [1287](../../src-tauri/src/commands/tools.rs#L1287) |
+| run_claude_code_update | function_item |  | [1398](../../src-tauri/src/commands/tools.rs#L1398) |
+| format | macro invocation (unexpanded) | run_claude_code_update | [1401](../../src-tauri/src/commands/tools.rs#L1401) |
+| CODEX_NPM_PACKAGE | const_item |  | [1420](../../src-tauri/src/commands/tools.rs#L1420) |
+| CodexCliVersionInfo | struct_item |  | [1424](../../src-tauri/src/commands/tools.rs#L1424) |
+| installed | field_declaration | CodexCliVersionInfo | [1425](../../src-tauri/src/commands/tools.rs#L1425) |
+| current_version | field_declaration | CodexCliVersionInfo | [1426](../../src-tauri/src/commands/tools.rs#L1426) |
+| latest_version | field_declaration | CodexCliVersionInfo | [1427](../../src-tauri/src/commands/tools.rs#L1427) |
+| update_available | field_declaration | CodexCliVersionInfo | [1428](../../src-tauri/src/commands/tools.rs#L1428) |
+| install_command | field_declaration | CodexCliVersionInfo | [1429](../../src-tauri/src/commands/tools.rs#L1429) |
+| update_command | field_declaration | CodexCliVersionInfo | [1430](../../src-tauri/src/commands/tools.rs#L1430) |
+| error | field_declaration | CodexCliVersionInfo | [1431](../../src-tauri/src/commands/tools.rs#L1431) |
+| executable_path | field_declaration | CodexCliVersionInfo | [1432](../../src-tauri/src/commands/tools.rs#L1432) |
+| source | field_declaration | CodexCliVersionInfo | [1433](../../src-tauri/src/commands/tools.rs#L1433) |
+| environment | field_declaration | CodexCliVersionInfo | [1434](../../src-tauri/src/commands/tools.rs#L1434) |
+| installed_but_broken | field_declaration | CodexCliVersionInfo | [1435](../../src-tauri/src/commands/tools.rs#L1435) |
+| codex_install_command | function_item |  | [1438](../../src-tauri/src/commands/tools.rs#L1438) |
+| format | macro invocation (unexpanded) | codex_install_command | [1439](../../src-tauri/src/commands/tools.rs#L1439) |
+| codex_executable_candidates | function_item |  | [1442](../../src-tauri/src/commands/tools.rs#L1442) |
+| vec | macro invocation (unexpanded) | codex_executable_candidates | [1445](../../src-tauri/src/commands/tools.rs#L1445) |
+| vec | macro invocation (unexpanded) | codex_executable_candidates | [1454](../../src-tauri/src/commands/tools.rs#L1454) |
+| probe_codex_installation | function_item |  | [1458](../../src-tauri/src/commands/tools.rs#L1458) |
+| cfg | macro invocation (unexpanded) | probe_codex_installation | [1480](../../src-tauri/src/commands/tools.rs#L1480) |
+| resolve_codex_cli_path | function_item |  | [1519](../../src-tauri/src/commands/tools.rs#L1519) |
+| CODEX_CLI_MISSING_PREFIX | const_item |  | [1529](../../src-tauri/src/commands/tools.rs#L1529) |
+| codex_cli_missing_error | function_item |  | [1531](../../src-tauri/src/commands/tools.rs#L1531) |
+| format | macro invocation (unexpanded) | codex_cli_missing_error | [1532](../../src-tauri/src/commands/tools.rs#L1532) |
+| run_codex_cli | function_item |  | [1538](../../src-tauri/src/commands/tools.rs#L1538) |
+| format | macro invocation (unexpanded) | run_codex_cli | [1541](../../src-tauri/src/commands/tools.rs#L1541) |
+| run_codex_cli_timeout | function_item |  | [1547](../../src-tauri/src/commands/tools.rs#L1547) |
+| format | macro invocation (unexpanded) | run_codex_cli_timeout | [1551](../../src-tauri/src/commands/tools.rs#L1551) |
+| fetch_codex_npm_latest | function_item |  | [1557](../../src-tauri/src/commands/tools.rs#L1557) |
+| format | macro invocation (unexpanded) | fetch_codex_npm_latest | [1562](../../src-tauri/src/commands/tools.rs#L1562) |
+| codex_update_command_for | function_item |  | [1575](../../src-tauri/src/commands/tools.rs#L1575) |
+| format | macro invocation (unexpanded) | codex_update_command_for | [1580](../../src-tauri/src/commands/tools.rs#L1580) |
+| install_codex_with_npmjs_retry | function_item |  | [1586](../../src-tauri/src/commands/tools.rs#L1586) |
+| format | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1587](../../src-tauri/src/commands/tools.rs#L1587) |
+| format | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1589](../../src-tauri/src/commands/tools.rs#L1589) |
+| log::warn | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1594](../../src-tauri/src/commands/tools.rs#L1594) |
+| format | macro invocation (unexpanded) | install_codex_with_npmjs_retry | [1598](../../src-tauri/src/commands/tools.rs#L1598) |
+| run_codex_npm_install | function_item |  | [1602](../../src-tauri/src/commands/tools.rs#L1602) |
+| run_codex_install_or_update | function_item |  | [1607](../../src-tauri/src/commands/tools.rs#L1607) |
+| get_codex_cli_version | function_item |  | [1626](../../src-tauri/src/commands/tools.rs#L1626) |
+| tokio::join | macro invocation (unexpanded) | get_codex_cli_version | [1629](../../src-tauri/src/commands/tools.rs#L1629) |
+| format | macro invocation (unexpanded) | get_codex_cli_version | [1635](../../src-tauri/src/commands/tools.rs#L1635) |
+| cfg | macro invocation (unexpanded) | get_codex_cli_version | [1660](../../src-tauri/src/commands/tools.rs#L1660) |
+| run_codex_cli_update | function_item |  | [1666](../../src-tauri/src/commands/tools.rs#L1666) |
+| format | macro invocation (unexpanded) | run_codex_cli_update | [1669](../../src-tauri/src/commands/tools.rs#L1669) |
+| OPENCODE_V1_NPM_PACKAGE | const_item |  | [1688](../../src-tauri/src/commands/tools.rs#L1688) |
+| OPENCODE_V2_NPM_PACKAGE | const_item |  | [1689](../../src-tauri/src/commands/tools.rs#L1689) |
+| OpenCodeCliVersionInfo | struct_item |  | [1693](../../src-tauri/src/commands/tools.rs#L1693) |
+| installed | field_declaration | OpenCodeCliVersionInfo | [1694](../../src-tauri/src/commands/tools.rs#L1694) |
+| current_version | field_declaration | OpenCodeCliVersionInfo | [1695](../../src-tauri/src/commands/tools.rs#L1695) |
+| channel | field_declaration | OpenCodeCliVersionInfo | [1697](../../src-tauri/src/commands/tools.rs#L1697) |
+| latest_version | field_declaration | OpenCodeCliVersionInfo | [1699](../../src-tauri/src/commands/tools.rs#L1699) |
+| v1_latest_version | field_declaration | OpenCodeCliVersionInfo | [1701](../../src-tauri/src/commands/tools.rs#L1701) |
+| v2_latest_version | field_declaration | OpenCodeCliVersionInfo | [1702](../../src-tauri/src/commands/tools.rs#L1702) |
+| update_available | field_declaration | OpenCodeCliVersionInfo | [1703](../../src-tauri/src/commands/tools.rs#L1703) |
+| install_command | field_declaration | OpenCodeCliVersionInfo | [1704](../../src-tauri/src/commands/tools.rs#L1704) |
+| update_command | field_declaration | OpenCodeCliVersionInfo | [1705](../../src-tauri/src/commands/tools.rs#L1705) |
+| error | field_declaration | OpenCodeCliVersionInfo | [1706](../../src-tauri/src/commands/tools.rs#L1706) |
+| executable_path | field_declaration | OpenCodeCliVersionInfo | [1707](../../src-tauri/src/commands/tools.rs#L1707) |
+| source | field_declaration | OpenCodeCliVersionInfo | [1708](../../src-tauri/src/commands/tools.rs#L1708) |
