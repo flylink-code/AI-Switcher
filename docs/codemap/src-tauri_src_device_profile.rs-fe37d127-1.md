@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/device_profile.rs) · page 1/1
 
-Source SHA-256: e1dc77eb9d72b85e1c6c3c37eefc0015c9436d4d122f706b3633430b891b6db4
+Source SHA-256: 3527c82570b5ac9757f180796947556120495c89f763aac912840ce8afe8073a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -25,76 +25,86 @@ Source SHA-256: e1dc77eb9d72b85e1c6c3c37eefc0015c9436d4d122f706b3633430b891b6db4
 | write_global_timezone | function_item |  | [79](../../src-tauri/src/device_profile.rs#L79) |
 | environment_lines | function_item |  | [86](../../src-tauri/src/device_profile.rs#L86) |
 | EnvChange | type_item |  | [96](../../src-tauri/src/device_profile.rs#L96) |
-| replace_line_value | function_item |  | [99](../../src-tauri/src/device_profile.rs#L99) |
-| rewrite_environment | function_item |  | [119](../../src-tauri/src/device_profile.rs#L119) |
-| format | macro invocation (unexpanded) | rewrite_environment | [131](../../src-tauri/src/device_profile.rs#L131) |
-| DEBUG_ENV_REWRITE_SETTING | const_item |  | [135](../../src-tauri/src/device_profile.rs#L135) |
-| read_debug_env_rewrite | function_item |  | [137](../../src-tauri/src/device_profile.rs#L137) |
-| write_debug_env_rewrite | function_item |  | [144](../../src-tauri/src/device_profile.rs#L144) |
-| log_env_changes | function_item |  | [152](../../src-tauri/src/device_profile.rs#L152) |
-| format | macro invocation (unexpanded) | log_env_changes | [156](../../src-tauri/src/device_profile.rs#L156) |
-| log::info | macro invocation (unexpanded) | log_env_changes | [159](../../src-tauri/src/device_profile.rs#L159) |
-| rewrite_request_environment | function_item |  | [163](../../src-tauri/src/device_profile.rs#L163) |
-| rewrite_gemini_environment | function_item |  | [198](../../src-tauri/src/device_profile.rs#L198) |
-| effective_timezone | function_item |  | [230](../../src-tauri/src/device_profile.rs#L230) |
-| rust_os | function_item |  | [239](../../src-tauri/src/device_profile.rs#L239) |
-| node_platform | function_item |  | [248](../../src-tauri/src/device_profile.rs#L248) |
-| regenerate | function_item |  | [257](../../src-tauri/src/device_profile.rs#L257) |
-| tests | mod_item |  | [266](../../src-tauri/src/device_profile.rs#L266) |
-| generated_device_uses_a_real_platform | function_item | tests | [270](../../src-tauri/src/device_profile.rs#L270) |
-| assert | macro invocation (unexpanded) | tests::generated_device_uses_a_real_platform | [273](../../src-tauri/src/device_profile.rs#L273) |
-| assert | macro invocation (unexpanded) | tests::generated_device_uses_a_real_platform | [274](../../src-tauri/src/device_profile.rs#L274) |
-| derived_device_is_stable_per_seed_and_differs_across_seeds | function_item | tests | [279](../../src-tauri/src/device_profile.rs#L279) |
-| assert_eq | macro invocation (unexpanded) | tests::derived_device_is_stable_per_seed_and_differs_across_seeds | [280](../../src-tauri/src/device_profile.rs#L280) |
-| assert_ne | macro invocation (unexpanded) | tests::derived_device_is_stable_per_seed_and_differs_across_seeds | [281](../../src-tauri/src/device_profile.rs#L281) |
-| assert | macro invocation (unexpanded) | tests::derived_device_is_stable_per_seed_and_differs_across_seeds | [283](../../src-tauri/src/device_profile.rs#L283) |
-| timezone_must_be_iana_or_empty | function_item | tests | [287](../../src-tauri/src/device_profile.rs#L287) |
-| assert_eq | macro invocation (unexpanded) | tests::timezone_must_be_iana_or_empty | [288](../../src-tauri/src/device_profile.rs#L288) |
-| assert_eq | macro invocation (unexpanded) | tests::timezone_must_be_iana_or_empty | [289](../../src-tauri/src/device_profile.rs#L289) |
-| assert | macro invocation (unexpanded) | tests::timezone_must_be_iana_or_empty | [290](../../src-tauri/src/device_profile.rs#L290) |
-| mac | function_item | tests | [293](../../src-tauri/src/device_profile.rs#L293) |
-| rewrite_changes_only_the_environment_values | function_item | tests | [303](../../src-tauri/src/device_profile.rs#L303) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [306](../../src-tauri/src/device_profile.rs#L306) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [307](../../src-tauri/src/device_profile.rs#L307) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [308](../../src-tauri/src/device_profile.rs#L308) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [309](../../src-tauri/src/device_profile.rs#L309) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [310](../../src-tauri/src/device_profile.rs#L310) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [311](../../src-tauri/src/device_profile.rs#L311) |
-| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [312](../../src-tauri/src/device_profile.rs#L312) |
-| rewrite_is_a_noop_without_environment_text | function_item | tests | [316](../../src-tauri/src/device_profile.rs#L316) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_is_a_noop_without_environment_text | [319](../../src-tauri/src/device_profile.rs#L319) |
-| rewrite_request_walks_string_and_block_content | function_item | tests | [323](../../src-tauri/src/device_profile.rs#L323) |
-| serde_json::json | macro invocation (unexpanded) | tests::rewrite_request_walks_string_and_block_content | [324](../../src-tauri/src/device_profile.rs#L324) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_request_walks_string_and_block_content | [334](../../src-tauri/src/device_profile.rs#L334) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_request_walks_string_and_block_content | [335](../../src-tauri/src/device_profile.rs#L335) |
-| rewrite_gemini_request_only_touches_text_parts | function_item | tests | [339](../../src-tauri/src/device_profile.rs#L339) |
-| serde_json::json | macro invocation (unexpanded) | tests::rewrite_gemini_request_only_touches_text_parts | [340](../../src-tauri/src/device_profile.rs#L340) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_gemini_request_only_touches_text_parts | [347](../../src-tauri/src/device_profile.rs#L347) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_gemini_request_only_touches_text_parts | [348](../../src-tauri/src/device_profile.rs#L348) |
-| changes_report_old_and_new_values_without_touching_other_text | function_item | tests | [355](../../src-tauri/src/device_profile.rs#L355) |
-| serde_json::json | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [356](../../src-tauri/src/device_profile.rs#L356) |
-| assert_eq | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [363](../../src-tauri/src/device_profile.rs#L363) |
-| assert_eq | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [364](../../src-tauri/src/device_profile.rs#L364) |
-| assert_eq | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [365](../../src-tauri/src/device_profile.rs#L365) |
-| format | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [366](../../src-tauri/src/device_profile.rs#L366) |
-| assert | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [367](../../src-tauri/src/device_profile.rs#L367) |
-| assert | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [368](../../src-tauri/src/device_profile.rs#L368) |
-| no_environment_text_means_no_changes_to_log | function_item | tests | [372](../../src-tauri/src/device_profile.rs#L372) |
-| serde_json::json | macro invocation (unexpanded) | tests::no_environment_text_means_no_changes_to_log | [373](../../src-tauri/src/device_profile.rs#L373) |
-| assert | macro invocation (unexpanded) | tests::no_environment_text_means_no_changes_to_log | [374](../../src-tauri/src/device_profile.rs#L374) |
-| debug_env_rewrite_is_off_by_default_and_toggles | function_item | tests | [378](../../src-tauri/src/device_profile.rs#L378) |
-| assert | macro invocation (unexpanded) | tests::debug_env_rewrite_is_off_by_default_and_toggles | [380](../../src-tauri/src/device_profile.rs#L380) |
-| assert | macro invocation (unexpanded) | tests::debug_env_rewrite_is_off_by_default_and_toggles | [382](../../src-tauri/src/device_profile.rs#L382) |
-| assert | macro invocation (unexpanded) | tests::debug_env_rewrite_is_off_by_default_and_toggles | [384](../../src-tauri/src/device_profile.rs#L384) |
-| effective_timezone_prefers_the_account_over_global | function_item | tests | [388](../../src-tauri/src/device_profile.rs#L388) |
-| assert_eq | macro invocation (unexpanded) | tests::effective_timezone_prefers_the_account_over_global | [390](../../src-tauri/src/device_profile.rs#L390) |
-| assert_eq | macro invocation (unexpanded) | tests::effective_timezone_prefers_the_account_over_global | [391](../../src-tauri/src/device_profile.rs#L391) |
-| date_follows_the_account_timezone | function_item | tests | [395](../../src-tauri/src/device_profile.rs#L395) |
-| assert | macro invocation (unexpanded) | tests::date_follows_the_account_timezone | [408](../../src-tauri/src/device_profile.rs#L408) |
-| global_timezone_defaults_to_singapore_and_keeps_explicit_choice | function_item | tests | [412](../../src-tauri/src/device_profile.rs#L412) |
-| assert_eq | macro invocation (unexpanded) | tests::global_timezone_defaults_to_singapore_and_keeps_explicit_choice | [414](../../src-tauri/src/device_profile.rs#L414) |
-| assert_eq | macro invocation (unexpanded) | tests::global_timezone_defaults_to_singapore_and_keeps_explicit_choice | [416](../../src-tauri/src/device_profile.rs#L416) |
-| assert_eq | macro invocation (unexpanded) | tests::global_timezone_defaults_to_singapore_and_keeps_explicit_choice | [418](../../src-tauri/src/device_profile.rs#L418) |
-| regenerate_changes_device_but_keeps_timezone | function_item | tests | [422](../../src-tauri/src/device_profile.rs#L422) |
-| assert_ne | macro invocation (unexpanded) | tests::regenerate_changes_device_but_keeps_timezone | [430](../../src-tauri/src/device_profile.rs#L430) |
-| assert_eq | macro invocation (unexpanded) | tests::regenerate_changes_device_but_keeps_timezone | [431](../../src-tauri/src/device_profile.rs#L431) |
+| is_env_value | function_item |  | [100](../../src-tauri/src/device_profile.rs#L100) |
+| env_line_value | function_item |  | [107](../../src-tauri/src/device_profile.rs#L107) |
+| rewrite_env_line | function_item |  | [115](../../src-tauri/src/device_profile.rs#L115) |
+| format | macro invocation (unexpanded) | rewrite_env_line | [126](../../src-tauri/src/device_profile.rs#L126) |
+| rewrite_environment | function_item |  | [134](../../src-tauri/src/device_profile.rs#L134) |
+| format | macro invocation (unexpanded) | rewrite_environment | [160](../../src-tauri/src/device_profile.rs#L160) |
+| DEBUG_ENV_REWRITE_SETTING | const_item |  | [177](../../src-tauri/src/device_profile.rs#L177) |
+| read_debug_env_rewrite | function_item |  | [179](../../src-tauri/src/device_profile.rs#L179) |
+| write_debug_env_rewrite | function_item |  | [186](../../src-tauri/src/device_profile.rs#L186) |
+| log_env_changes | function_item |  | [194](../../src-tauri/src/device_profile.rs#L194) |
+| format | macro invocation (unexpanded) | log_env_changes | [198](../../src-tauri/src/device_profile.rs#L198) |
+| log::info | macro invocation (unexpanded) | log_env_changes | [201](../../src-tauri/src/device_profile.rs#L201) |
+| rewrite_request_environment | function_item |  | [205](../../src-tauri/src/device_profile.rs#L205) |
+| rewrite_gemini_environment | function_item |  | [240](../../src-tauri/src/device_profile.rs#L240) |
+| effective_timezone | function_item |  | [272](../../src-tauri/src/device_profile.rs#L272) |
+| rust_os | function_item |  | [281](../../src-tauri/src/device_profile.rs#L281) |
+| node_platform | function_item |  | [290](../../src-tauri/src/device_profile.rs#L290) |
+| regenerate | function_item |  | [299](../../src-tauri/src/device_profile.rs#L299) |
+| tests | mod_item |  | [308](../../src-tauri/src/device_profile.rs#L308) |
+| generated_device_uses_a_real_platform | function_item | tests | [312](../../src-tauri/src/device_profile.rs#L312) |
+| assert | macro invocation (unexpanded) | tests::generated_device_uses_a_real_platform | [315](../../src-tauri/src/device_profile.rs#L315) |
+| assert | macro invocation (unexpanded) | tests::generated_device_uses_a_real_platform | [316](../../src-tauri/src/device_profile.rs#L316) |
+| derived_device_is_stable_per_seed_and_differs_across_seeds | function_item | tests | [321](../../src-tauri/src/device_profile.rs#L321) |
+| assert_eq | macro invocation (unexpanded) | tests::derived_device_is_stable_per_seed_and_differs_across_seeds | [322](../../src-tauri/src/device_profile.rs#L322) |
+| assert_ne | macro invocation (unexpanded) | tests::derived_device_is_stable_per_seed_and_differs_across_seeds | [323](../../src-tauri/src/device_profile.rs#L323) |
+| assert | macro invocation (unexpanded) | tests::derived_device_is_stable_per_seed_and_differs_across_seeds | [325](../../src-tauri/src/device_profile.rs#L325) |
+| timezone_must_be_iana_or_empty | function_item | tests | [329](../../src-tauri/src/device_profile.rs#L329) |
+| assert_eq | macro invocation (unexpanded) | tests::timezone_must_be_iana_or_empty | [330](../../src-tauri/src/device_profile.rs#L330) |
+| assert_eq | macro invocation (unexpanded) | tests::timezone_must_be_iana_or_empty | [331](../../src-tauri/src/device_profile.rs#L331) |
+| assert | macro invocation (unexpanded) | tests::timezone_must_be_iana_or_empty | [332](../../src-tauri/src/device_profile.rs#L332) |
+| mac | function_item | tests | [335](../../src-tauri/src/device_profile.rs#L335) |
+| rewrite_changes_only_the_environment_values | function_item | tests | [345](../../src-tauri/src/device_profile.rs#L345) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [348](../../src-tauri/src/device_profile.rs#L348) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [349](../../src-tauri/src/device_profile.rs#L349) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [350](../../src-tauri/src/device_profile.rs#L350) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [351](../../src-tauri/src/device_profile.rs#L351) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [352](../../src-tauri/src/device_profile.rs#L352) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [353](../../src-tauri/src/device_profile.rs#L353) |
+| assert | macro invocation (unexpanded) | tests::rewrite_changes_only_the_environment_values | [354](../../src-tauri/src/device_profile.rs#L354) |
+| quoted_code_and_prose_mentioning_labels_are_left_alone | function_item | tests | [358](../../src-tauri/src/device_profile.rs#L358) |
+| assert_eq | macro invocation (unexpanded) | tests::quoted_code_and_prose_mentioning_labels_are_left_alone | [363](../../src-tauri/src/device_profile.rs#L363) |
+| assert | macro invocation (unexpanded) | tests::quoted_code_and_prose_mentioning_labels_are_left_alone | [364](../../src-tauri/src/device_profile.rs#L364) |
+| changes_never_hold_long_values | function_item | tests | [368](../../src-tauri/src/device_profile.rs#L368) |
+| format | macro invocation (unexpanded) | tests::changes_never_hold_long_values | [369](../../src-tauri/src/device_profile.rs#L369) |
+| assert | macro invocation (unexpanded) | tests::changes_never_hold_long_values | [372](../../src-tauri/src/device_profile.rs#L372) |
+| assert | macro invocation (unexpanded) | tests::changes_never_hold_long_values | [373](../../src-tauri/src/device_profile.rs#L373) |
+| rewrite_is_a_noop_without_environment_text | function_item | tests | [377](../../src-tauri/src/device_profile.rs#L377) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_is_a_noop_without_environment_text | [380](../../src-tauri/src/device_profile.rs#L380) |
+| rewrite_request_walks_string_and_block_content | function_item | tests | [384](../../src-tauri/src/device_profile.rs#L384) |
+| serde_json::json | macro invocation (unexpanded) | tests::rewrite_request_walks_string_and_block_content | [385](../../src-tauri/src/device_profile.rs#L385) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_request_walks_string_and_block_content | [395](../../src-tauri/src/device_profile.rs#L395) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_request_walks_string_and_block_content | [396](../../src-tauri/src/device_profile.rs#L396) |
+| rewrite_gemini_request_only_touches_text_parts | function_item | tests | [400](../../src-tauri/src/device_profile.rs#L400) |
+| serde_json::json | macro invocation (unexpanded) | tests::rewrite_gemini_request_only_touches_text_parts | [401](../../src-tauri/src/device_profile.rs#L401) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_gemini_request_only_touches_text_parts | [408](../../src-tauri/src/device_profile.rs#L408) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_gemini_request_only_touches_text_parts | [409](../../src-tauri/src/device_profile.rs#L409) |
+| changes_report_old_and_new_values_without_touching_other_text | function_item | tests | [416](../../src-tauri/src/device_profile.rs#L416) |
+| serde_json::json | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [417](../../src-tauri/src/device_profile.rs#L417) |
+| assert_eq | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [424](../../src-tauri/src/device_profile.rs#L424) |
+| assert_eq | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [425](../../src-tauri/src/device_profile.rs#L425) |
+| assert_eq | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [426](../../src-tauri/src/device_profile.rs#L426) |
+| format | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [427](../../src-tauri/src/device_profile.rs#L427) |
+| assert | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [428](../../src-tauri/src/device_profile.rs#L428) |
+| assert | macro invocation (unexpanded) | tests::changes_report_old_and_new_values_without_touching_other_text | [429](../../src-tauri/src/device_profile.rs#L429) |
+| no_environment_text_means_no_changes_to_log | function_item | tests | [433](../../src-tauri/src/device_profile.rs#L433) |
+| serde_json::json | macro invocation (unexpanded) | tests::no_environment_text_means_no_changes_to_log | [434](../../src-tauri/src/device_profile.rs#L434) |
+| assert | macro invocation (unexpanded) | tests::no_environment_text_means_no_changes_to_log | [435](../../src-tauri/src/device_profile.rs#L435) |
+| debug_env_rewrite_is_off_by_default_and_toggles | function_item | tests | [439](../../src-tauri/src/device_profile.rs#L439) |
+| assert | macro invocation (unexpanded) | tests::debug_env_rewrite_is_off_by_default_and_toggles | [441](../../src-tauri/src/device_profile.rs#L441) |
+| assert | macro invocation (unexpanded) | tests::debug_env_rewrite_is_off_by_default_and_toggles | [443](../../src-tauri/src/device_profile.rs#L443) |
+| assert | macro invocation (unexpanded) | tests::debug_env_rewrite_is_off_by_default_and_toggles | [445](../../src-tauri/src/device_profile.rs#L445) |
+| effective_timezone_prefers_the_account_over_global | function_item | tests | [449](../../src-tauri/src/device_profile.rs#L449) |
+| assert_eq | macro invocation (unexpanded) | tests::effective_timezone_prefers_the_account_over_global | [451](../../src-tauri/src/device_profile.rs#L451) |
+| assert_eq | macro invocation (unexpanded) | tests::effective_timezone_prefers_the_account_over_global | [452](../../src-tauri/src/device_profile.rs#L452) |
+| date_follows_the_account_timezone | function_item | tests | [456](../../src-tauri/src/device_profile.rs#L456) |
+| assert | macro invocation (unexpanded) | tests::date_follows_the_account_timezone | [469](../../src-tauri/src/device_profile.rs#L469) |
+| global_timezone_defaults_to_singapore_and_keeps_explicit_choice | function_item | tests | [473](../../src-tauri/src/device_profile.rs#L473) |
+| assert_eq | macro invocation (unexpanded) | tests::global_timezone_defaults_to_singapore_and_keeps_explicit_choice | [475](../../src-tauri/src/device_profile.rs#L475) |
+| assert_eq | macro invocation (unexpanded) | tests::global_timezone_defaults_to_singapore_and_keeps_explicit_choice | [477](../../src-tauri/src/device_profile.rs#L477) |
+| assert_eq | macro invocation (unexpanded) | tests::global_timezone_defaults_to_singapore_and_keeps_explicit_choice | [479](../../src-tauri/src/device_profile.rs#L479) |
+| regenerate_changes_device_but_keeps_timezone | function_item | tests | [483](../../src-tauri/src/device_profile.rs#L483) |
+| assert_ne | macro invocation (unexpanded) | tests::regenerate_changes_device_but_keeps_timezone | [491](../../src-tauri/src/device_profile.rs#L491) |
+| assert_eq | macro invocation (unexpanded) | tests::regenerate_changes_device_but_keeps_timezone | [492](../../src-tauri/src/device_profile.rs#L492) |

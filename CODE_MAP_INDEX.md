@@ -16,7 +16,7 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | rust-kiro | 16 | 1035 | [open](docs/codemap/rust-kiro.md) |
 | rust-proxy | 26 | 2542 | [open](docs/codemap/rust-proxy.md) |
 | rust-quota | 7 | 220 | [open](docs/codemap/rust-quota.md) |
-| rust-root | 33 | 2815 | [open](docs/codemap/rust-root.md) |
+| rust-root | 33 | 2825 | [open](docs/codemap/rust-root.md) |
 | rust-session_manager | 8 | 432 | [open](docs/codemap/rust-session_manager.md) |
 | rust-usage | 8 | 326 | [open](docs/codemap/rust-usage.md) |
 | scripts-root | 17 | 155 | [open](docs/codemap/scripts-root.md) |
@@ -32,6 +32,6 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | web-types | 2 | 1221 | [open](docs/codemap/web-types.md) |
 | web-utils | 5 | 88 | [open](docs/codemap/web-utils.md) |
 
-Total: 418 source files, 26412 extracted symbols, 0 parser diagnostics.
+Total: 418 source files, 26422 extracted symbols, 0 parser diagnostics.
 
 Scope includes local declarations; excludes imports, parameters, runtime/macro-generated symbols. PowerShell/BAT use lexical navigation only.

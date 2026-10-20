@@ -95,27 +95,42 @@ fn environment_lines(device: &DeviceProfile) -> (&'static str, &'static str, &'s
 /// One rewritten environment field: label (`Platform`, ...), old value, new value.
 pub type EnvChange = (&'static str, String, String);
 
-/// Replace the value after `label` up to the end of that line; no-op if the label is absent.
-fn replace_line_value(
-    text: &mut String,
+/// Real environment values are short single tokens or phrases; anything longer or
+/// containing code-like characters is prose that merely quotes the label.
+fn is_env_value(value: &str, max_len: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= max_len
+        && !value.contains(['"', '\\', '(', ')', ';', '{', '}', '`'])
+}
+
+/// The value of an exact `Label: value` environment line (optionally `- ` prefixed).
+fn env_line_value<'a>(line: &'a str, label: &str, max_len: usize) -> Option<&'a str> {
+    let rest = line.trim_start();
+    let rest = rest.strip_prefix("- ").unwrap_or(rest).trim_start();
+    let value = rest.strip_prefix(label)?.trim_end();
+    is_env_value(value, max_len).then_some(value)
+}
+
+/// Rewrite one whole line if it is exactly `label` + a plausible value.
+fn rewrite_env_line(
+    line: &str,
     label: &str,
     name: &'static str,
     value: &str,
+    max_len: usize,
     changes: &mut Vec<EnvChange>,
-) {
-    let Some(start) = text.find(label) else {
-        return;
-    };
-    let value_start = start + label.len();
-    let value_end = text[value_start..]
-        .find('\n')
-        .map_or(text.len(), |offset| value_start + offset);
-    changes.push((name, text[value_start..value_end].to_string(), value.to_string()));
-    text.replace_range(value_start..value_end, value);
+) -> Option<String> {
+    let old = env_line_value(line, label, max_len)?;
+    let value_pos = line.find(label)? + label.len();
+    changes.push((name, old.to_string(), value.to_string()));
+    Some(format!("{}{}", &line[..value_pos], value))
 }
 
 /// Make the environment block of a Claude Code request match the account's simulated
 /// device: platform lines, and today's date in the account's timezone.
+///
+/// Works line by line and only touches a line that is exactly `Label: value`, so code or
+/// prose elsewhere in the conversation that merely mentions a label is left alone.
 pub fn rewrite_environment(
     text: &mut String,
     device: &DeviceProfile,
@@ -123,12 +138,39 @@ pub fn rewrite_environment(
     changes: &mut Vec<EnvChange>,
 ) {
     let (platform, shell, os_version) = environment_lines(device);
-    replace_line_value(text, "Platform: ", "Platform", platform, changes);
-    replace_line_value(text, "Shell: ", "Shell", shell, changes);
-    replace_line_value(text, "OS Version: ", "OS Version", os_version, changes);
-    if let Ok(tz) = timezone.parse::<chrono_tz::Tz>() {
-        let today = chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d");
-        replace_line_value(text, "Today's date is ", "Date", &format!("{today}."), changes);
+    let today = timezone
+        .parse::<chrono_tz::Tz>()
+        .ok()
+        .map(|tz| chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d").to_string());
+    let mut out = String::with_capacity(text.len());
+    let mut touched = false;
+    for line in text.split_inclusive('\n') {
+        let (body, newline) = match line.strip_suffix('\n') {
+            Some(body) => (body, "\n"),
+            None => (line, ""),
+        };
+        let rewritten = rewrite_env_line(body, "Platform: ", "Platform", platform, 16, changes)
+            .or_else(|| rewrite_env_line(body, "Shell: ", "Shell", shell, 16, changes))
+            .or_else(|| rewrite_env_line(body, "OS Version: ", "OS Version", os_version, 80, changes))
+            .or_else(|| {
+                let today = today.as_deref()?;
+                let old = body.trim().strip_prefix("Today's date is ")?.trim_end_matches('.');
+                (old.len() == 10 && old.chars().all(|c| c.is_ascii_digit() || c == '-')).then(|| {
+                    changes.push(("Date", old.to_string(), today.to_string()));
+                    format!("Today's date is {today}.")
+                })
+            });
+        match rewritten {
+            Some(next) => {
+                touched = true;
+                out.push_str(&next);
+            }
+            None => out.push_str(body),
+        }
+        out.push_str(newline);
+    }
+    if touched {
+        *text = out;
     }
 }
 
@@ -310,6 +352,25 @@ mod tests {
         assert!(text.contains(" - Other: keep\n"));
         assert!(!text.contains("2000-01-01"));
         assert!(text.ends_with(".\nmore"));
+    }
+
+    #[test]
+    fn quoted_code_and_prose_mentioning_labels_are_left_alone() {
+        let code = "replace_line_value(text, \"Platform: \", platform);\nlet s = \"Shell: bash\";\n    println!(\"OS Version: {v}\");\nPlatform: the platform we run on, e.g. a long sentence about it\nI said Platform: win32 in passing\nToday's date is a string literal\n";
+        let mut text = code.to_string();
+        let mut changes = Vec::new();
+        rewrite_environment(&mut text, &mac(), "Asia/Singapore", &mut changes);
+        assert_eq!(text, code);
+        assert!(changes.is_empty());
+    }
+
+    #[test]
+    fn changes_never_hold_long_values() {
+        let mut text = format!(" - Platform: {}\n - OS Version: Windows 11\n", "x".repeat(500));
+        let mut changes = Vec::new();
+        rewrite_environment(&mut text, &mac(), "Asia/Singapore", &mut changes);
+        assert!(changes.iter().all(|c| c.1.len() <= 80));
+        assert!(text.starts_with(&format!(" - Platform: {}", "x".repeat(500))));
     }
 
     #[test]
