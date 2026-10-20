@@ -4,19 +4,19 @@
 
 [Module](rust-session_manager.md) · [Source](../../src-tauri/src/session_manager/tests.rs) · page 2/2
 
-Source SHA-256: a0ade4cb1df8443758cd25ad92f7074dea1e2dfdac469a57f9fa99a614e3c5ec
+Source SHA-256: 4755a548b8d48cc7246d4265b9e476033d56667e562ad9f5dc791b7c7d0f666a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [452](../../src-tauri/src/session_manager/tests.rs#L452) |
-| assert | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [453](../../src-tauri/src/session_manager/tests.rs#L453) |
+| assert_eq | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [453](../../src-tauri/src/session_manager/tests.rs#L453) |
 | assert | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [454](../../src-tauri/src/session_manager/tests.rs#L454) |
 | assert | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [455](../../src-tauri/src/session_manager/tests.rs#L455) |
 | assert | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [456](../../src-tauri/src/session_manager/tests.rs#L456) |
 | assert | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [457](../../src-tauri/src/session_manager/tests.rs#L457) |
-| claude_project_slug_uses_a_windows_drive | function_item | tests | [461](../../src-tauri/src/session_manager/tests.rs#L461) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_project_slug_uses_a_windows_drive | [462](../../src-tauri/src/session_manager/tests.rs#L462) |
+| assert | macro invocation (unexpanded) | tests::prune_auto_backups_keeps_manual_zip | [458](../../src-tauri/src/session_manager/tests.rs#L458) |
+| claude_project_slug_uses_a_windows_drive | function_item | tests | [462](../../src-tauri/src/session_manager/tests.rs#L462) |
 | assert_eq | macro invocation (unexpanded) | tests::claude_project_slug_uses_a_windows_drive | [463](../../src-tauri/src/session_manager/tests.rs#L463) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_project_slug_uses_a_windows_drive | [467](../../src-tauri/src/session_manager/tests.rs#L467) |
-| claude_project_label_prefers_the_session_cwd | function_item | tests | [474](../../src-tauri/src/session_manager/tests.rs#L474) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_project_label_prefers_the_session_cwd | [486](../../src-tauri/src/session_manager/tests.rs#L486) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_project_slug_uses_a_windows_drive | [464](../../src-tauri/src/session_manager/tests.rs#L464) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_project_slug_uses_a_windows_drive | [468](../../src-tauri/src/session_manager/tests.rs#L468) |
+| claude_project_label_prefers_the_session_cwd | function_item | tests | [475](../../src-tauri/src/session_manager/tests.rs#L475) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_project_label_prefers_the_session_cwd | [487](../../src-tauri/src/session_manager/tests.rs#L487) |

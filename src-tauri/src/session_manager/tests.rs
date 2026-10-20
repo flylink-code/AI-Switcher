@@ -288,6 +288,7 @@ mod tests {
         conn
     }
 
+    #[cfg(windows)]
     #[test]
     fn backup_dir_round_trip_strips_windows_extended_prefix() {
         let dir = tempfile::tempdir().unwrap();

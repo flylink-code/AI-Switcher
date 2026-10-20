@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/desktop_localization_parts/tests.rs) · page 2/3
 
-Source SHA-256: 0ca892e1df0e98e066f337797007d73a127cd8e12603790e6650d2dc07b87c2c
+Source SHA-256: c150dafadaba761859966cb1be1f09704e431feb3b763a5c15d2cd314dc9958e
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

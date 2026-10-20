@@ -4,7 +4,7 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/gateway.rs) · page 4/7
 
-Source SHA-256: df4011ea149b9052ec33e5901fffee183dbf2cb35e68adc9f25a9a684876ac6b
+Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

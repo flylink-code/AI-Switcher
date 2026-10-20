@@ -4364,6 +4364,8 @@ mod tests {
 
     #[test]
     fn test_existing_upstream_with_key_hit() {
+        let upstream_key = crate::secrets::test_credentials::Credential::new("secret_shared_key_123");
+        let legacy_key = crate::secrets::test_credentials::Credential::new("secret_shared_key_123");
         let home = tempfile::tempdir().unwrap();
         crate::config::paths::with_isolated_home(home.path(), || {
             let db = migration_fixture();
@@ -4375,7 +4377,7 @@ mod tests {
                         id: Some("up_existing_key".to_string()),
                         name: "Existing Upstream".to_string(),
                         base_url: "https://api.upstream.com/v1".to_string(),
-                        api_key: "secret_shared_key_123".to_string(),
+                        api_key: String::new(),
                         clear_api_key: false,
                         model: "upstream-model".to_string(),
                         model_context_window: None,
@@ -4406,7 +4408,7 @@ mod tests {
                         id: Some("p_legacy_same_key".to_string()),
                         name: "Legacy Same Key".to_string(),
                         base_url: "https://API.UPSTREAM.COM/v1".to_string(),
-                        api_key: "secret_shared_key_123".to_string(),
+                        api_key: String::new(),
                         clear_api_key: false,
                         model: "upstream-model".to_string(),
                         model_context_window: None,
@@ -4424,6 +4426,15 @@ mod tests {
                         thinking_config: None,
                         custom_headers: None,
                     },
+                )?;
+
+                conn.execute(
+                    "UPDATE upstreams SET api_key = ? WHERE id = ?",
+                    params![upstream_key.reference(), up.id],
+                )?;
+                conn.execute(
+                    "UPDATE providers SET api_key = ? WHERE id = ?",
+                    params![legacy_key.reference(), p_legacy.id],
                 )?;
 
                 // Run migration

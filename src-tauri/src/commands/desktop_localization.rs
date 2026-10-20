@@ -1902,7 +1902,7 @@ mod tests {
         let app_path = root.path().join("Claude_AppX");
         fs::create_dir_all(app_path.join("app").join("resources")).unwrap();
         fs::create_dir_all(app_path.join("resources")).unwrap();
-        fs::write(app_path.join("app").join("claude.exe"), b"exe").unwrap();
+        fs::write(app_path.join("app").join("Claude.exe"), b"exe").unwrap();
 
         let install = install_from_appx_path(app_path.clone(), "1.24012.9.0", false).unwrap();
 

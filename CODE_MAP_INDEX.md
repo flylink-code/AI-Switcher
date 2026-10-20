@@ -10,7 +10,7 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | rust-coding | 9 | 187 | [open](docs/codemap/rust-coding.md) |
 | rust-commands | 48 | 3319 | [open](docs/codemap/rust-commands.md) |
 | rust-config | 11 | 1407 | [open](docs/codemap/rust-config.md) |
-| rust-database | 10 | 1585 | [open](docs/codemap/rust-database.md) |
+| rust-database | 10 | 1587 | [open](docs/codemap/rust-database.md) |
 | rust-deeplink | 1 | 94 | [open](docs/codemap/rust-deeplink.md) |
 | rust-gateway | 10 | 882 | [open](docs/codemap/rust-gateway.md) |
 | rust-kiro | 16 | 1028 | [open](docs/codemap/rust-kiro.md) |
@@ -32,6 +32,6 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | web-types | 2 | 1215 | [open](docs/codemap/web-types.md) |
 | web-utils | 5 | 88 | [open](docs/codemap/web-utils.md) |
 
-Total: 416 source files, 26215 extracted symbols, 0 parser diagnostics.
+Total: 416 source files, 26217 extracted symbols, 0 parser diagnostics.
 
 Scope includes local declarations; excludes imports, parameters, runtime/macro-generated symbols. PowerShell/BAT use lexical navigation only.

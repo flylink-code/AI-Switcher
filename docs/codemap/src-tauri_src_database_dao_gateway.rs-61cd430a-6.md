@@ -4,7 +4,7 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/gateway.rs) · page 6/7
 
-Source SHA-256: df4011ea149b9052ec33e5901fffee183dbf2cb35e68adc9f25a9a684876ac6b
+Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -34,77 +34,77 @@ Source SHA-256: df4011ea149b9052ec33e5901fffee183dbf2cb35e68adc9f25a9a684876ac6b
 | assert | macro invocation (unexpanded) | tests::test_rollback_v34 | [4350](../../src-tauri/src/database/dao/gateway.rs#L4350) |
 | assert_eq | macro invocation (unexpanded) | tests::test_rollback_v34 | [4358](../../src-tauri/src/database/dao/gateway.rs#L4358) |
 | test_existing_upstream_with_key_hit | function_item | tests | [4366](../../src-tauri/src/database/dao/gateway.rs#L4366) |
-| assert_eq | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4434](../../src-tauri/src/database/dao/gateway.rs#L4434) |
-| assert_eq | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4439](../../src-tauri/src/database/dao/gateway.rs#L4439) |
-| params | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4444](../../src-tauri/src/database/dao/gateway.rs#L4444) |
-| assert_eq | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4447](../../src-tauri/src/database/dao/gateway.rs#L4447) |
-| assert | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4451](../../src-tauri/src/database/dao/gateway.rs#L4451) |
-| test_auto_migration_preserves_custom_profile_and_token | function_item | tests | [4463](../../src-tauri/src/database/dao/gateway.rs#L4463) |
-| params | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4474](../../src-tauri/src/database/dao/gateway.rs#L4474) |
-| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4496](../../src-tauri/src/database/dao/gateway.rs#L4496) |
-| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4497](../../src-tauri/src/database/dao/gateway.rs#L4497) |
-| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4498](../../src-tauri/src/database/dao/gateway.rs#L4498) |
-| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4499](../../src-tauri/src/database/dao/gateway.rs#L4499) |
-| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4500](../../src-tauri/src/database/dao/gateway.rs#L4500) |
-| fresh_database_does_not_bind_agents | function_item | tests | [4508](../../src-tauri/src/database/dao/gateway.rs#L4508) |
-| assert | macro invocation (unexpanded) | tests::fresh_database_does_not_bind_agents | [4512](../../src-tauri/src/database/dao/gateway.rs#L4512) |
-| assert | macro invocation (unexpanded) | tests::fresh_database_does_not_bind_agents | [4514](../../src-tauri/src/database/dao/gateway.rs#L4514) |
-| test_unbound_t2_agents_get_gateway_binding_on_migration | function_item | tests | [4521](../../src-tauri/src/database/dao/gateway.rs#L4521) |
-| assert_eq | macro invocation (unexpanded) | tests::test_unbound_t2_agents_get_gateway_binding_on_migration | [4538](../../src-tauri/src/database/dao/gateway.rs#L4538) |
-| assert | macro invocation (unexpanded) | tests::test_unbound_t2_agents_get_gateway_binding_on_migration | [4539](../../src-tauri/src/database/dao/gateway.rs#L4539) |
-| assert | macro invocation (unexpanded) | tests::test_unbound_t2_agents_get_gateway_binding_on_migration | [4540](../../src-tauri/src/database/dao/gateway.rs#L4540) |
-| test_rerun_migration_then_rollback_and_remigrate | function_item | tests | [4549](../../src-tauri/src/database/dao/gateway.rs#L4549) |
-| params | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4558](../../src-tauri/src/database/dao/gateway.rs#L4558) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4590](../../src-tauri/src/database/dao/gateway.rs#L4590) |
-| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4592](../../src-tauri/src/database/dao/gateway.rs#L4592) |
-| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4593](../../src-tauri/src/database/dao/gateway.rs#L4593) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4594](../../src-tauri/src/database/dao/gateway.rs#L4594) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4595](../../src-tauri/src/database/dao/gateway.rs#L4595) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4602](../../src-tauri/src/database/dao/gateway.rs#L4602) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4603](../../src-tauri/src/database/dao/gateway.rs#L4603) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4611](../../src-tauri/src/database/dao/gateway.rs#L4611) |
-| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4614](../../src-tauri/src/database/dao/gateway.rs#L4614) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4621](../../src-tauri/src/database/dao/gateway.rs#L4621) |
+| params | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4433](../../src-tauri/src/database/dao/gateway.rs#L4433) |
+| params | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4437](../../src-tauri/src/database/dao/gateway.rs#L4437) |
+| assert_eq | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4445](../../src-tauri/src/database/dao/gateway.rs#L4445) |
+| assert_eq | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4450](../../src-tauri/src/database/dao/gateway.rs#L4450) |
+| params | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4455](../../src-tauri/src/database/dao/gateway.rs#L4455) |
+| assert_eq | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4458](../../src-tauri/src/database/dao/gateway.rs#L4458) |
+| assert | macro invocation (unexpanded) | tests::test_existing_upstream_with_key_hit | [4462](../../src-tauri/src/database/dao/gateway.rs#L4462) |
+| test_auto_migration_preserves_custom_profile_and_token | function_item | tests | [4474](../../src-tauri/src/database/dao/gateway.rs#L4474) |
+| params | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4485](../../src-tauri/src/database/dao/gateway.rs#L4485) |
+| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4507](../../src-tauri/src/database/dao/gateway.rs#L4507) |
+| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4508](../../src-tauri/src/database/dao/gateway.rs#L4508) |
+| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4509](../../src-tauri/src/database/dao/gateway.rs#L4509) |
+| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4510](../../src-tauri/src/database/dao/gateway.rs#L4510) |
+| assert_eq | macro invocation (unexpanded) | tests::test_auto_migration_preserves_custom_profile_and_token | [4511](../../src-tauri/src/database/dao/gateway.rs#L4511) |
+| fresh_database_does_not_bind_agents | function_item | tests | [4519](../../src-tauri/src/database/dao/gateway.rs#L4519) |
+| assert | macro invocation (unexpanded) | tests::fresh_database_does_not_bind_agents | [4523](../../src-tauri/src/database/dao/gateway.rs#L4523) |
+| assert | macro invocation (unexpanded) | tests::fresh_database_does_not_bind_agents | [4525](../../src-tauri/src/database/dao/gateway.rs#L4525) |
+| test_unbound_t2_agents_get_gateway_binding_on_migration | function_item | tests | [4532](../../src-tauri/src/database/dao/gateway.rs#L4532) |
+| assert_eq | macro invocation (unexpanded) | tests::test_unbound_t2_agents_get_gateway_binding_on_migration | [4549](../../src-tauri/src/database/dao/gateway.rs#L4549) |
+| assert | macro invocation (unexpanded) | tests::test_unbound_t2_agents_get_gateway_binding_on_migration | [4550](../../src-tauri/src/database/dao/gateway.rs#L4550) |
+| assert | macro invocation (unexpanded) | tests::test_unbound_t2_agents_get_gateway_binding_on_migration | [4551](../../src-tauri/src/database/dao/gateway.rs#L4551) |
+| test_rerun_migration_then_rollback_and_remigrate | function_item | tests | [4560](../../src-tauri/src/database/dao/gateway.rs#L4560) |
+| params | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4569](../../src-tauri/src/database/dao/gateway.rs#L4569) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4601](../../src-tauri/src/database/dao/gateway.rs#L4601) |
+| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4603](../../src-tauri/src/database/dao/gateway.rs#L4603) |
+| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4604](../../src-tauri/src/database/dao/gateway.rs#L4604) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4605](../../src-tauri/src/database/dao/gateway.rs#L4605) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4606](../../src-tauri/src/database/dao/gateway.rs#L4606) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4613](../../src-tauri/src/database/dao/gateway.rs#L4613) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4614](../../src-tauri/src/database/dao/gateway.rs#L4614) |
 | assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4622](../../src-tauri/src/database/dao/gateway.rs#L4622) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4623](../../src-tauri/src/database/dao/gateway.rs#L4623) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4624](../../src-tauri/src/database/dao/gateway.rs#L4624) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4625](../../src-tauri/src/database/dao/gateway.rs#L4625) |
-| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4630](../../src-tauri/src/database/dao/gateway.rs#L4630) |
-| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4632](../../src-tauri/src/database/dao/gateway.rs#L4632) |
-| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4635](../../src-tauri/src/database/dao/gateway.rs#L4635) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4640](../../src-tauri/src/database/dao/gateway.rs#L4640) |
-| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4641](../../src-tauri/src/database/dao/gateway.rs#L4641) |
-| sample_upstream | function_item | tests | [4648](../../src-tauri/src/database/dao/gateway.rs#L4648) |
-| local_gateway_is_off_until_confirmed_or_already_in_use | function_item | tests | [4674](../../src-tauri/src/database/dao/gateway.rs#L4674) |
-| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4677](../../src-tauri/src/database/dao/gateway.rs#L4677) |
-| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4679](../../src-tauri/src/database/dao/gateway.rs#L4679) |
-| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4683](../../src-tauri/src/database/dao/gateway.rs#L4683) |
-| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4691](../../src-tauri/src/database/dao/gateway.rs#L4691) |
+| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4625](../../src-tauri/src/database/dao/gateway.rs#L4625) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4632](../../src-tauri/src/database/dao/gateway.rs#L4632) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4633](../../src-tauri/src/database/dao/gateway.rs#L4633) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4634](../../src-tauri/src/database/dao/gateway.rs#L4634) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4635](../../src-tauri/src/database/dao/gateway.rs#L4635) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4636](../../src-tauri/src/database/dao/gateway.rs#L4636) |
+| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4641](../../src-tauri/src/database/dao/gateway.rs#L4641) |
+| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4643](../../src-tauri/src/database/dao/gateway.rs#L4643) |
+| assert | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4646](../../src-tauri/src/database/dao/gateway.rs#L4646) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4651](../../src-tauri/src/database/dao/gateway.rs#L4651) |
+| assert_eq | macro invocation (unexpanded) | tests::test_rerun_migration_then_rollback_and_remigrate | [4652](../../src-tauri/src/database/dao/gateway.rs#L4652) |
+| sample_upstream | function_item | tests | [4659](../../src-tauri/src/database/dao/gateway.rs#L4659) |
+| local_gateway_is_off_until_confirmed_or_already_in_use | function_item | tests | [4685](../../src-tauri/src/database/dao/gateway.rs#L4685) |
+| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4688](../../src-tauri/src/database/dao/gateway.rs#L4688) |
+| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4690](../../src-tauri/src/database/dao/gateway.rs#L4690) |
+| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4694](../../src-tauri/src/database/dao/gateway.rs#L4694) |
 | assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4702](../../src-tauri/src/database/dao/gateway.rs#L4702) |
-| reorder_upstreams_rewrites_priority_and_new_ones_go_last | function_item | tests | [4709](../../src-tauri/src/database/dao/gateway.rs#L4709) |
-| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4721](../../src-tauri/src/database/dao/gateway.rs#L4721) |
-| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4728](../../src-tauri/src/database/dao/gateway.rs#L4728) |
-| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4731](../../src-tauri/src/database/dao/gateway.rs#L4731) |
-| paused_upstream_leaves_routing_and_blocks_new_direct | function_item | tests | [4738](../../src-tauri/src/database/dao/gateway.rs#L4738) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4742](../../src-tauri/src/database/dao/gateway.rs#L4742) |
-| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4743](../../src-tauri/src/database/dao/gateway.rs#L4743) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4746](../../src-tauri/src/database/dao/gateway.rs#L4746) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4747](../../src-tauri/src/database/dao/gateway.rs#L4747) |
-| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4749](../../src-tauri/src/database/dao/gateway.rs#L4749) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4750](../../src-tauri/src/database/dao/gateway.rs#L4750) |
-| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4753](../../src-tauri/src/database/dao/gateway.rs#L4753) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4754](../../src-tauri/src/database/dao/gateway.rs#L4754) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4755](../../src-tauri/src/database/dao/gateway.rs#L4755) |
+| assert | macro invocation (unexpanded) | tests::local_gateway_is_off_until_confirmed_or_already_in_use | [4713](../../src-tauri/src/database/dao/gateway.rs#L4713) |
+| reorder_upstreams_rewrites_priority_and_new_ones_go_last | function_item | tests | [4720](../../src-tauri/src/database/dao/gateway.rs#L4720) |
+| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4732](../../src-tauri/src/database/dao/gateway.rs#L4732) |
+| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4739](../../src-tauri/src/database/dao/gateway.rs#L4739) |
+| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4742](../../src-tauri/src/database/dao/gateway.rs#L4742) |
+| paused_upstream_leaves_routing_and_blocks_new_direct | function_item | tests | [4749](../../src-tauri/src/database/dao/gateway.rs#L4749) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4753](../../src-tauri/src/database/dao/gateway.rs#L4753) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4754](../../src-tauri/src/database/dao/gateway.rs#L4754) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4757](../../src-tauri/src/database/dao/gateway.rs#L4757) |
 | assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4758](../../src-tauri/src/database/dao/gateway.rs#L4758) |
-| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4759](../../src-tauri/src/database/dao/gateway.rs#L4759) |
-| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4760](../../src-tauri/src/database/dao/gateway.rs#L4760) |
-| agent_direct_mapping_overlays_upstream_mapping_per_role | function_item | tests | [4767](../../src-tauri/src/database/dao/gateway.rs#L4767) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4786](../../src-tauri/src/database/dao/gateway.rs#L4786) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4787](../../src-tauri/src/database/dao/gateway.rs#L4787) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4760](../../src-tauri/src/database/dao/gateway.rs#L4760) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4761](../../src-tauri/src/database/dao/gateway.rs#L4761) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4764](../../src-tauri/src/database/dao/gateway.rs#L4764) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4765](../../src-tauri/src/database/dao/gateway.rs#L4765) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4766](../../src-tauri/src/database/dao/gateway.rs#L4766) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4769](../../src-tauri/src/database/dao/gateway.rs#L4769) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4770](../../src-tauri/src/database/dao/gateway.rs#L4770) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4771](../../src-tauri/src/database/dao/gateway.rs#L4771) |
+| agent_direct_mapping_overlays_upstream_mapping_per_role | function_item | tests | [4778](../../src-tauri/src/database/dao/gateway.rs#L4778) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4797](../../src-tauri/src/database/dao/gateway.rs#L4797) |
 | assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4798](../../src-tauri/src/database/dao/gateway.rs#L4798) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4801](../../src-tauri/src/database/dao/gateway.rs#L4801) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4802](../../src-tauri/src/database/dao/gateway.rs#L4802) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4803](../../src-tauri/src/database/dao/gateway.rs#L4803) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4804](../../src-tauri/src/database/dao/gateway.rs#L4804) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4808](../../src-tauri/src/database/dao/gateway.rs#L4808) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4809](../../src-tauri/src/database/dao/gateway.rs#L4809) |
 | assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4812](../../src-tauri/src/database/dao/gateway.rs#L4812) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4813](../../src-tauri/src/database/dao/gateway.rs#L4813) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4814](../../src-tauri/src/database/dao/gateway.rs#L4814) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4815](../../src-tauri/src/database/dao/gateway.rs#L4815) |

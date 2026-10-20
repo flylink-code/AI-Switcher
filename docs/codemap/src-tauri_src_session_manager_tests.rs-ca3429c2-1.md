@@ -4,7 +4,7 @@
 
 [Module](rust-session_manager.md) · [Source](../../src-tauri/src/session_manager/tests.rs) · page 1/2
 
-Source SHA-256: a0ade4cb1df8443758cd25ad92f7074dea1e2dfdac469a57f9fa99a614e3c5ec
+Source SHA-256: 4755a548b8d48cc7246d4265b9e476033d56667e562ad9f5dc791b7c7d0f666a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -74,37 +74,37 @@ Source SHA-256: a0ade4cb1df8443758cd25ad92f7074dea1e2dfdac469a57f9fa99a614e3c5ec
 | assert_eq | macro invocation (unexpanded) | tests::relative_to_root_accepts_mixed_windows_verbatim_prefix | [274](../../src-tauri/src/session_manager/tests.rs#L274) |
 | assert | macro invocation (unexpanded) | tests::relative_to_root_accepts_mixed_windows_verbatim_prefix | [276](../../src-tauri/src/session_manager/tests.rs#L276) |
 | settings_conn | function_item | tests | [282](../../src-tauri/src/session_manager/tests.rs#L282) |
-| backup_dir_round_trip_strips_windows_extended_prefix | function_item | tests | [292](../../src-tauri/src/session_manager/tests.rs#L292) |
-| format | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [295](../../src-tauri/src/session_manager/tests.rs#L295) |
-| assert | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [297](../../src-tauri/src/session_manager/tests.rs#L297) |
-| assert | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [302](../../src-tauri/src/session_manager/tests.rs#L302) |
-| assert_eq | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [307](../../src-tauri/src/session_manager/tests.rs#L307) |
-| foreign_windows_backup_dir_is_ignored_and_cleared | function_item | tests | [312](../../src-tauri/src/session_manager/tests.rs#L312) |
-| assert_eq | macro invocation (unexpanded) | tests::foreign_windows_backup_dir_is_ignored_and_cleared | [323](../../src-tauri/src/session_manager/tests.rs#L323) |
-| assert | macro invocation (unexpanded) | tests::foreign_windows_backup_dir_is_ignored_and_cleared | [325](../../src-tauri/src/session_manager/tests.rs#L325) |
-| assert | macro invocation (unexpanded) | tests::foreign_windows_backup_dir_is_ignored_and_cleared | [333](../../src-tauri/src/session_manager/tests.rs#L333) |
-| rewrite_foreign_session_backup_directory_clears_windows_path | function_item | tests | [338](../../src-tauri/src/session_manager/tests.rs#L338) |
-| assert | macro invocation (unexpanded) | tests::rewrite_foreign_session_backup_directory_clears_windows_path | [350](../../src-tauri/src/session_manager/tests.rs#L350) |
-| rewrite_keeps_native_session_backup_directory | function_item | tests | [354](../../src-tauri/src/session_manager/tests.rs#L354) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_keeps_native_session_backup_directory | [369](../../src-tauri/src/session_manager/tests.rs#L369) |
-| assert_eq | macro invocation (unexpanded) | tests::rewrite_keeps_native_session_backup_directory | [371](../../src-tauri/src/session_manager/tests.rs#L371) |
-| set_session_backup_dir_rejects_foreign_os_path | function_item | tests | [375](../../src-tauri/src/session_manager/tests.rs#L375) |
-| assert | macro invocation (unexpanded) | tests::set_session_backup_dir_rejects_foreign_os_path | [380](../../src-tauri/src/session_manager/tests.rs#L380) |
-| assert | macro invocation (unexpanded) | tests::set_session_backup_dir_rejects_foreign_os_path | [385](../../src-tauri/src/session_manager/tests.rs#L385) |
-| loads_codex_response_item_messages | function_item | tests | [390](../../src-tauri/src/session_manager/tests.rs#L390) |
-| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [394](../../src-tauri/src/session_manager/tests.rs#L394) |
-| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [399](../../src-tauri/src/session_manager/tests.rs#L399) |
-| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [404](../../src-tauri/src/session_manager/tests.rs#L404) |
-| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [409](../../src-tauri/src/session_manager/tests.rs#L409) |
-| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [414](../../src-tauri/src/session_manager/tests.rs#L414) |
-| assert_eq | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [420](../../src-tauri/src/session_manager/tests.rs#L420) |
+| backup_dir_round_trip_strips_windows_extended_prefix | function_item | tests | [293](../../src-tauri/src/session_manager/tests.rs#L293) |
+| format | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [296](../../src-tauri/src/session_manager/tests.rs#L296) |
+| assert | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [298](../../src-tauri/src/session_manager/tests.rs#L298) |
+| assert | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [303](../../src-tauri/src/session_manager/tests.rs#L303) |
+| assert_eq | macro invocation (unexpanded) | tests::backup_dir_round_trip_strips_windows_extended_prefix | [308](../../src-tauri/src/session_manager/tests.rs#L308) |
+| foreign_windows_backup_dir_is_ignored_and_cleared | function_item | tests | [313](../../src-tauri/src/session_manager/tests.rs#L313) |
+| assert_eq | macro invocation (unexpanded) | tests::foreign_windows_backup_dir_is_ignored_and_cleared | [324](../../src-tauri/src/session_manager/tests.rs#L324) |
+| assert | macro invocation (unexpanded) | tests::foreign_windows_backup_dir_is_ignored_and_cleared | [326](../../src-tauri/src/session_manager/tests.rs#L326) |
+| assert | macro invocation (unexpanded) | tests::foreign_windows_backup_dir_is_ignored_and_cleared | [334](../../src-tauri/src/session_manager/tests.rs#L334) |
+| rewrite_foreign_session_backup_directory_clears_windows_path | function_item | tests | [339](../../src-tauri/src/session_manager/tests.rs#L339) |
+| assert | macro invocation (unexpanded) | tests::rewrite_foreign_session_backup_directory_clears_windows_path | [351](../../src-tauri/src/session_manager/tests.rs#L351) |
+| rewrite_keeps_native_session_backup_directory | function_item | tests | [355](../../src-tauri/src/session_manager/tests.rs#L355) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_keeps_native_session_backup_directory | [370](../../src-tauri/src/session_manager/tests.rs#L370) |
+| assert_eq | macro invocation (unexpanded) | tests::rewrite_keeps_native_session_backup_directory | [372](../../src-tauri/src/session_manager/tests.rs#L372) |
+| set_session_backup_dir_rejects_foreign_os_path | function_item | tests | [376](../../src-tauri/src/session_manager/tests.rs#L376) |
+| assert | macro invocation (unexpanded) | tests::set_session_backup_dir_rejects_foreign_os_path | [381](../../src-tauri/src/session_manager/tests.rs#L381) |
+| assert | macro invocation (unexpanded) | tests::set_session_backup_dir_rejects_foreign_os_path | [386](../../src-tauri/src/session_manager/tests.rs#L386) |
+| loads_codex_response_item_messages | function_item | tests | [391](../../src-tauri/src/session_manager/tests.rs#L391) |
+| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [395](../../src-tauri/src/session_manager/tests.rs#L395) |
+| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [400](../../src-tauri/src/session_manager/tests.rs#L400) |
+| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [405](../../src-tauri/src/session_manager/tests.rs#L405) |
+| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [410](../../src-tauri/src/session_manager/tests.rs#L410) |
+| writeln | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [415](../../src-tauri/src/session_manager/tests.rs#L415) |
 | assert_eq | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [421](../../src-tauri/src/session_manager/tests.rs#L421) |
 | assert_eq | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [422](../../src-tauri/src/session_manager/tests.rs#L422) |
 | assert_eq | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [423](../../src-tauri/src/session_manager/tests.rs#L423) |
 | assert_eq | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [424](../../src-tauri/src/session_manager/tests.rs#L424) |
-| file_archive_backup_is_unsupported_for_opencode_and_cline | function_item | tests | [428](../../src-tauri/src/session_manager/tests.rs#L428) |
-| assert | macro invocation (unexpanded) | tests::file_archive_backup_is_unsupported_for_opencode_and_cline | [430](../../src-tauri/src/session_manager/tests.rs#L430) |
-| assert | macro invocation (unexpanded) | tests::file_archive_backup_is_unsupported_for_opencode_and_cline | [432](../../src-tauri/src/session_manager/tests.rs#L432) |
-| list_session_backups_ignores_non_archive_files | function_item | tests | [436](../../src-tauri/src/session_manager/tests.rs#L436) |
-| assert | macro invocation (unexpanded) | tests::list_session_backups_ignores_non_archive_files | [441](../../src-tauri/src/session_manager/tests.rs#L441) |
-| prune_auto_backups_keeps_manual_zip | function_item | tests | [445](../../src-tauri/src/session_manager/tests.rs#L445) |
+| assert_eq | macro invocation (unexpanded) | tests::loads_codex_response_item_messages | [425](../../src-tauri/src/session_manager/tests.rs#L425) |
+| file_archive_backup_is_unsupported_for_opencode_and_cline | function_item | tests | [429](../../src-tauri/src/session_manager/tests.rs#L429) |
+| assert | macro invocation (unexpanded) | tests::file_archive_backup_is_unsupported_for_opencode_and_cline | [431](../../src-tauri/src/session_manager/tests.rs#L431) |
+| assert | macro invocation (unexpanded) | tests::file_archive_backup_is_unsupported_for_opencode_and_cline | [433](../../src-tauri/src/session_manager/tests.rs#L433) |
+| list_session_backups_ignores_non_archive_files | function_item | tests | [437](../../src-tauri/src/session_manager/tests.rs#L437) |
+| assert | macro invocation (unexpanded) | tests::list_session_backups_ignores_non_archive_files | [442](../../src-tauri/src/session_manager/tests.rs#L442) |
+| prune_auto_backups_keeps_manual_zip | function_item | tests | [446](../../src-tauri/src/session_manager/tests.rs#L446) |

@@ -745,7 +745,7 @@ fn parse_pid_list_ignores_blank_and_garbage_lines() {
 #[test]
 fn appx_package_family_is_derived_from_install_dir_name() {
     assert_eq!(
-        appx_package_family(Path::new(r"C:\Program Files\WindowsApps\Claude_2.0.0.0_x64__abc123xyz")),
+        appx_package_family(&Path::new("WindowsApps").join("Claude_2.0.0.0_x64__abc123xyz")),
         Some("Claude_abc123xyz".to_string())
     );
     assert_eq!(appx_package_family(Path::new("Claude_1.0")), None);
