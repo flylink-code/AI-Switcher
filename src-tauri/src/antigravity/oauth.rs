@@ -91,6 +91,7 @@ async fn login_with_browser_inner(app: &AppHandle) -> AppResult<AntigravityAccou
         cooldown_until: None,
         remaining_quota: None,
         quota: None,
+        device_profile: Some(crate::device_profile::generate()),
     };
 
     store().upsert_account(account)

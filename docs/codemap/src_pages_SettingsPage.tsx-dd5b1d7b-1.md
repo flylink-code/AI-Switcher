@@ -4,50 +4,64 @@
 
 [Module](web-pages.md) · [Source](../../src/pages/SettingsPage.tsx) · page 1/1
 
-Source SHA-256: bdd8b107d8c03749f0bd9bb6dfa1ff612d8f99b2dbabfc1d25ba9121ddb53bb1
+Source SHA-256: 9f350d2a430b8be146eafc0b571f481abc7250a82320add0f621cbc8097aa54b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| SettingsPage | FunctionDeclaration |  | [35](../../src/pages/SettingsPage.tsx#L35) |
-| { t } | VariableDeclaration | SettingsPage | [36](../../src/pages/SettingsPage.tsx#L36) |
-| t | BindingElement | SettingsPage.{ t } | [36](../../src/pages/SettingsPage.tsx#L36) |
-| navigate | VariableDeclaration | SettingsPage | [37](../../src/pages/SettingsPage.tsx#L37) |
-| language | VariableDeclaration | SettingsPage | [38](../../src/pages/SettingsPage.tsx#L38) |
-| layoutMode | VariableDeclaration | SettingsPage | [39](../../src/pages/SettingsPage.tsx#L39) |
-| setLayoutMode | VariableDeclaration | SettingsPage | [40](../../src/pages/SettingsPage.tsx#L40) |
-| appVersion | VariableDeclaration | SettingsPage | [41](../../src/pages/SettingsPage.tsx#L41) |
-| setLanguage | VariableDeclaration | SettingsPage | [42](../../src/pages/SettingsPage.tsx#L42) |
-| themeMode | VariableDeclaration | SettingsPage | [43](../../src/pages/SettingsPage.tsx#L43) |
-| setThemeMode | VariableDeclaration | SettingsPage | [44](../../src/pages/SettingsPage.tsx#L44) |
-| visibleAgents | VariableDeclaration | SettingsPage | [45](../../src/pages/SettingsPage.tsx#L45) |
-| setVisibleAgents | VariableDeclaration | SettingsPage | [46](../../src/pages/SettingsPage.tsx#L46) |
-| queryClient | VariableDeclaration | SettingsPage | [47](../../src/pages/SettingsPage.tsx#L47) |
-| autostartQuery | VariableDeclaration | SettingsPage | [48](../../src/pages/SettingsPage.tsx#L48) |
-| closeBehaviorQuery | VariableDeclaration | SettingsPage | [49](../../src/pages/SettingsPage.tsx#L49) |
-| [autostartChanging, setAutostartChanging] | VariableDeclaration | SettingsPage | [50](../../src/pages/SettingsPage.tsx#L50) |
-| autostartChanging | BindingElement | SettingsPage.[autostartChanging, setAutostartChanging] | [50](../../src/pages/SettingsPage.tsx#L50) |
-| setAutostartChanging | BindingElement | SettingsPage.[autostartChanging, setAutostartChanging] | [50](../../src/pages/SettingsPage.tsx#L50) |
-| [closeBehaviorChanging, setCloseBehaviorChanging] | VariableDeclaration | SettingsPage | [51](../../src/pages/SettingsPage.tsx#L51) |
-| closeBehaviorChanging | BindingElement | SettingsPage.[closeBehaviorChanging, setCloseBehaviorChanging] | [51](../../src/pages/SettingsPage.tsx#L51) |
-| setCloseBehaviorChanging | BindingElement | SettingsPage.[closeBehaviorChanging, setCloseBehaviorChanging] | [51](../../src/pages/SettingsPage.tsx#L51) |
-| gatewayModeQuery | VariableDeclaration | SettingsPage | [52](../../src/pages/SettingsPage.tsx#L52) |
-| sidecarStatusQuery | VariableDeclaration | SettingsPage | [53](../../src/pages/SettingsPage.tsx#L53) |
-| refetchInterval | PropertyAssignment | SettingsPage.sidecarStatusQuery | [55](../../src/pages/SettingsPage.tsx#L55) |
-| [gatewayModeChanging, setGatewayModeChanging] | VariableDeclaration | SettingsPage | [57](../../src/pages/SettingsPage.tsx#L57) |
-| gatewayModeChanging | BindingElement | SettingsPage.[gatewayModeChanging, setGatewayModeChanging] | [57](../../src/pages/SettingsPage.tsx#L57) |
-| setGatewayModeChanging | BindingElement | SettingsPage.[gatewayModeChanging, setGatewayModeChanging] | [57](../../src/pages/SettingsPage.tsx#L57) |
-| [gatewayModePendingRestart, setGatewayModePendingRestart] | VariableDeclaration | SettingsPage | [58](../../src/pages/SettingsPage.tsx#L58) |
-| gatewayModePendingRestart | BindingElement | SettingsPage.[gatewayModePendingRestart, setGatewayModePendingRestart] | [58](../../src/pages/SettingsPage.tsx#L58) |
-| setGatewayModePendingRestart | BindingElement | SettingsPage.[gatewayModePendingRestart, setGatewayModePendingRestart] | [58](../../src/pages/SettingsPage.tsx#L58) |
-| onGatewayModeChange | VariableDeclaration | SettingsPage | [60](../../src/pages/SettingsPage.tsx#L60) |
-| saved | VariableDeclaration | SettingsPage.onGatewayModeChange | [63](../../src/pages/SettingsPage.tsx#L63) |
-| e | VariableDeclaration | SettingsPage.onGatewayModeChange | [66](../../src/pages/SettingsPage.tsx#L66) |
-| onAutostartChange | VariableDeclaration | SettingsPage | [73](../../src/pages/SettingsPage.tsx#L73) |
-| next | VariableDeclaration | SettingsPage.onAutostartChange | [78](../../src/pages/SettingsPage.tsx#L78) |
-| e | VariableDeclaration | SettingsPage.onAutostartChange | [88](../../src/pages/SettingsPage.tsx#L88) |
-| onCloseBehaviorChange | VariableDeclaration | SettingsPage | [96](../../src/pages/SettingsPage.tsx#L96) |
-| e | VariableDeclaration | SettingsPage.onCloseBehaviorChange | [102](../../src/pages/SettingsPage.tsx#L102) |
-| sidecarStatusDescription | FunctionDeclaration |  | [292](../../src/pages/SettingsPage.tsx#L292) |
-| base | VariableDeclaration | sidecarStatusDescription | [293](../../src/pages/SettingsPage.tsx#L293) |
-| health | VariableDeclaration | sidecarStatusDescription | [296](../../src/pages/SettingsPage.tsx#L296) |
-| extra | VariableDeclaration | sidecarStatusDescription | [304](../../src/pages/SettingsPage.tsx#L304) |
+| SettingsPage | FunctionDeclaration |  | [40](../../src/pages/SettingsPage.tsx#L40) |
+| { t } | VariableDeclaration | SettingsPage | [41](../../src/pages/SettingsPage.tsx#L41) |
+| t | BindingElement | SettingsPage.{ t } | [41](../../src/pages/SettingsPage.tsx#L41) |
+| navigate | VariableDeclaration | SettingsPage | [42](../../src/pages/SettingsPage.tsx#L42) |
+| language | VariableDeclaration | SettingsPage | [43](../../src/pages/SettingsPage.tsx#L43) |
+| layoutMode | VariableDeclaration | SettingsPage | [44](../../src/pages/SettingsPage.tsx#L44) |
+| setLayoutMode | VariableDeclaration | SettingsPage | [45](../../src/pages/SettingsPage.tsx#L45) |
+| appVersion | VariableDeclaration | SettingsPage | [46](../../src/pages/SettingsPage.tsx#L46) |
+| setLanguage | VariableDeclaration | SettingsPage | [47](../../src/pages/SettingsPage.tsx#L47) |
+| themeMode | VariableDeclaration | SettingsPage | [48](../../src/pages/SettingsPage.tsx#L48) |
+| setThemeMode | VariableDeclaration | SettingsPage | [49](../../src/pages/SettingsPage.tsx#L49) |
+| visibleAgents | VariableDeclaration | SettingsPage | [50](../../src/pages/SettingsPage.tsx#L50) |
+| setVisibleAgents | VariableDeclaration | SettingsPage | [51](../../src/pages/SettingsPage.tsx#L51) |
+| queryClient | VariableDeclaration | SettingsPage | [52](../../src/pages/SettingsPage.tsx#L52) |
+| autostartQuery | VariableDeclaration | SettingsPage | [53](../../src/pages/SettingsPage.tsx#L53) |
+| closeBehaviorQuery | VariableDeclaration | SettingsPage | [54](../../src/pages/SettingsPage.tsx#L54) |
+| [autostartChanging, setAutostartChanging] | VariableDeclaration | SettingsPage | [55](../../src/pages/SettingsPage.tsx#L55) |
+| autostartChanging | BindingElement | SettingsPage.[autostartChanging, setAutostartChanging] | [55](../../src/pages/SettingsPage.tsx#L55) |
+| setAutostartChanging | BindingElement | SettingsPage.[autostartChanging, setAutostartChanging] | [55](../../src/pages/SettingsPage.tsx#L55) |
+| [closeBehaviorChanging, setCloseBehaviorChanging] | VariableDeclaration | SettingsPage | [56](../../src/pages/SettingsPage.tsx#L56) |
+| closeBehaviorChanging | BindingElement | SettingsPage.[closeBehaviorChanging, setCloseBehaviorChanging] | [56](../../src/pages/SettingsPage.tsx#L56) |
+| setCloseBehaviorChanging | BindingElement | SettingsPage.[closeBehaviorChanging, setCloseBehaviorChanging] | [56](../../src/pages/SettingsPage.tsx#L56) |
+| gatewayModeQuery | VariableDeclaration | SettingsPage | [57](../../src/pages/SettingsPage.tsx#L57) |
+| sidecarStatusQuery | VariableDeclaration | SettingsPage | [58](../../src/pages/SettingsPage.tsx#L58) |
+| refetchInterval | PropertyAssignment | SettingsPage.sidecarStatusQuery | [60](../../src/pages/SettingsPage.tsx#L60) |
+| [gatewayModeChanging, setGatewayModeChanging] | VariableDeclaration | SettingsPage | [62](../../src/pages/SettingsPage.tsx#L62) |
+| gatewayModeChanging | BindingElement | SettingsPage.[gatewayModeChanging, setGatewayModeChanging] | [62](../../src/pages/SettingsPage.tsx#L62) |
+| setGatewayModeChanging | BindingElement | SettingsPage.[gatewayModeChanging, setGatewayModeChanging] | [62](../../src/pages/SettingsPage.tsx#L62) |
+| [gatewayModePendingRestart, setGatewayModePendingRestart] | VariableDeclaration | SettingsPage | [63](../../src/pages/SettingsPage.tsx#L63) |
+| gatewayModePendingRestart | BindingElement | SettingsPage.[gatewayModePendingRestart, setGatewayModePendingRestart] | [63](../../src/pages/SettingsPage.tsx#L63) |
+| setGatewayModePendingRestart | BindingElement | SettingsPage.[gatewayModePendingRestart, setGatewayModePendingRestart] | [63](../../src/pages/SettingsPage.tsx#L63) |
+| onGatewayModeChange | VariableDeclaration | SettingsPage | [65](../../src/pages/SettingsPage.tsx#L65) |
+| saved | VariableDeclaration | SettingsPage.onGatewayModeChange | [68](../../src/pages/SettingsPage.tsx#L68) |
+| e | VariableDeclaration | SettingsPage.onGatewayModeChange | [71](../../src/pages/SettingsPage.tsx#L71) |
+| gatewayTimezoneQuery | VariableDeclaration | SettingsPage | [78](../../src/pages/SettingsPage.tsx#L78) |
+| [gatewayTimezoneChanging, setGatewayTimezoneChanging] | VariableDeclaration | SettingsPage | [79](../../src/pages/SettingsPage.tsx#L79) |
+| gatewayTimezoneChanging | BindingElement | SettingsPage.[gatewayTimezoneChanging, setGatewayTimezoneChanging] | [79](../../src/pages/SettingsPage.tsx#L79) |
+| setGatewayTimezoneChanging | BindingElement | SettingsPage.[gatewayTimezoneChanging, setGatewayTimezoneChanging] | [79](../../src/pages/SettingsPage.tsx#L79) |
+| onGatewayTimezoneChange | VariableDeclaration | SettingsPage | [81](../../src/pages/SettingsPage.tsx#L81) |
+| saved | VariableDeclaration | SettingsPage.onGatewayTimezoneChange | [84](../../src/pages/SettingsPage.tsx#L84) |
+| e | VariableDeclaration | SettingsPage.onGatewayTimezoneChange | [87](../../src/pages/SettingsPage.tsx#L87) |
+| debugEnvRewriteQuery | VariableDeclaration | SettingsPage | [94](../../src/pages/SettingsPage.tsx#L94) |
+| [debugEnvRewriteChanging, setDebugEnvRewriteChanging] | VariableDeclaration | SettingsPage | [95](../../src/pages/SettingsPage.tsx#L95) |
+| debugEnvRewriteChanging | BindingElement | SettingsPage.[debugEnvRewriteChanging, setDebugEnvRewriteChanging] | [95](../../src/pages/SettingsPage.tsx#L95) |
+| setDebugEnvRewriteChanging | BindingElement | SettingsPage.[debugEnvRewriteChanging, setDebugEnvRewriteChanging] | [95](../../src/pages/SettingsPage.tsx#L95) |
+| onDebugEnvRewriteChange | VariableDeclaration | SettingsPage | [97](../../src/pages/SettingsPage.tsx#L97) |
+| saved | VariableDeclaration | SettingsPage.onDebugEnvRewriteChange | [100](../../src/pages/SettingsPage.tsx#L100) |
+| e | VariableDeclaration | SettingsPage.onDebugEnvRewriteChange | [102](../../src/pages/SettingsPage.tsx#L102) |
+| onAutostartChange | VariableDeclaration | SettingsPage | [109](../../src/pages/SettingsPage.tsx#L109) |
+| next | VariableDeclaration | SettingsPage.onAutostartChange | [114](../../src/pages/SettingsPage.tsx#L114) |
+| e | VariableDeclaration | SettingsPage.onAutostartChange | [124](../../src/pages/SettingsPage.tsx#L124) |
+| onCloseBehaviorChange | VariableDeclaration | SettingsPage | [132](../../src/pages/SettingsPage.tsx#L132) |
+| e | VariableDeclaration | SettingsPage.onCloseBehaviorChange | [138](../../src/pages/SettingsPage.tsx#L138) |
+| sidecarStatusDescription | FunctionDeclaration |  | [359](../../src/pages/SettingsPage.tsx#L359) |
+| base | VariableDeclaration | sidecarStatusDescription | [360](../../src/pages/SettingsPage.tsx#L360) |
+| health | VariableDeclaration | sidecarStatusDescription | [363](../../src/pages/SettingsPage.tsx#L363) |
+| extra | VariableDeclaration | sidecarStatusDescription | [371](../../src/pages/SettingsPage.tsx#L371) |

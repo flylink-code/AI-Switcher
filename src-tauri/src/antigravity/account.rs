@@ -14,6 +14,7 @@ use crate::antigravity::quota::{
     default_allowed_model_patterns, model_pattern_matches, QuotaSnapshot,
 };
 use crate::config;
+use crate::device_profile::{self, DeviceProfile};
 use crate::error::{AppError, AppResult};
 use crate::file_stamp::FileStamp;
 
@@ -95,6 +96,9 @@ pub struct AntigravityAccount {
     /// Latest Cloud Code quota snapshot (5h / weekly + per-model).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota: Option<QuotaSnapshot>,
+    /// `None` derives a stable device from the account id (see `effective_device`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_profile: Option<DeviceProfile>,
 }
 
 fn default_model_access_mode() -> String {
@@ -131,6 +135,12 @@ fn normalize_model_patterns(patterns: Vec<String>) -> AppResult<Vec<String>> {
 }
 
 impl AntigravityAccount {
+    pub fn effective_device(&self) -> DeviceProfile {
+        self.device_profile
+            .clone()
+            .unwrap_or_else(|| device_profile::derive(&self.id))
+    }
+
     pub fn allows_model(&self, model: &str) -> bool {
         let patterns = if self.model_access_mode.eq_ignore_ascii_case("custom") {
             &self.allowed_model_patterns
@@ -196,6 +206,7 @@ pub struct AntigravityAccountPublic {
     pub quota_updated_at: Option<i64>,
     #[serde(default)]
     pub quota_forbidden: bool,
+    pub device_profile: DeviceProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota: Option<QuotaSnapshot>,
 }
@@ -234,6 +245,7 @@ impl From<&AntigravityAccount> for AntigravityAccountPublic {
             quota_updated_at: quota.map(|q| q.last_updated),
             quota_forbidden: quota.is_some_and(|q| q.is_forbidden),
             quota: account.quota.clone(),
+            device_profile: account.effective_device(),
         }
     }
 }
@@ -441,6 +453,31 @@ impl AccountStore {
         persist(&guard)?;
         Ok(public)
     }
+
+    pub fn set_device(
+        &self,
+        account_id: &str,
+        timezone: &str,
+        regenerate: bool,
+    ) -> AppResult<AntigravityAccountPublic> {
+        let timezone = device_profile::normalize_timezone(timezone)?;
+        let mut guard = self.lock_accounts();
+        let account = guard
+            .accounts
+            .iter_mut()
+            .find(|account| account.id == account_id)
+            .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?;
+        let mut profile = account.effective_device();
+        if regenerate {
+            profile = device_profile::regenerate(Some(&profile));
+        }
+        profile.timezone = timezone;
+        account.device_profile = Some(profile);
+        let public = AntigravityAccountPublic::from(&*account);
+        persist(&guard)?;
+        Ok(public)
+    }
+
     pub fn mark_cooldown(&self, account_id: &str, seconds: i64, reason: &str) -> AppResult<()> {
         let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
@@ -820,6 +857,14 @@ pub fn set_account_model_access(
     store().set_model_access(account_id, mode, patterns)
 }
 
+pub fn set_account_device(
+    account_id: &str,
+    timezone: &str,
+    regenerate: bool,
+) -> AppResult<AntigravityAccountPublic> {
+    store().set_device(account_id, timezone, regenerate)
+}
+
 pub fn import_accounts_json(raw: &str) -> AppResult<usize> {
     store().import_json(raw)
 }
@@ -968,6 +1013,7 @@ fn parse_one_account(item: &Value, now: i64) -> Option<AntigravityAccount> {
         cooldown_until: None,
         remaining_quota: None,
         quota: None,
+        device_profile: Some(device_profile::generate()),
     })
 }
 
@@ -1005,6 +1051,41 @@ mod tests {
         let accounts = parse_import_payload(&raw).unwrap();
         assert_eq!(accounts.len(), 1);
         assert_eq!(accounts[0].token.refresh_token, "r1");
+    }
+
+    #[test]
+    fn legacy_account_without_device_gets_a_stable_derived_one() {
+        let raw = serde_json::json!({
+            "id": "legacy-1",
+            "email": "old@example.com",
+            "token": {
+                "accessToken": "a", "refreshToken": "r",
+                "expiresIn": 3600, "expiryTimestamp": 1
+            },
+            "createdAt": 0,
+            "lastUsed": 0
+        });
+        let account: AntigravityAccount = serde_json::from_value(raw).unwrap();
+        assert!(account.device_profile.is_none());
+        assert_eq!(account.effective_device(), account.effective_device());
+        let public = AntigravityAccountPublic::from(&account);
+        assert_eq!(public.device_profile, account.effective_device());
+        let json = serde_json::to_value(&account).unwrap();
+        assert!(json.get("deviceProfile").is_none());
+    }
+
+    #[test]
+    fn imported_accounts_get_distinct_devices() {
+        let raw = serde_json::json!({
+            "accounts": [
+                { "email": "a@example.com", "refresh_token": "r1" },
+                { "email": "b@example.com", "refresh_token": "r2" }
+            ]
+        });
+        let accounts = parse_import_payload(&raw).unwrap();
+        let first = accounts[0].device_profile.as_ref().unwrap();
+        let second = accounts[1].device_profile.as_ref().unwrap();
+        assert_ne!(first.device_id, second.device_id);
     }
 
     #[test]

@@ -4,12 +4,18 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/upstream.rs) · page 2/2
 
-Source SHA-256: 02092d01963f4a71a10310cbbdfb1d439de59914ed3ca8f11fe45c9e63261fe7
+Source SHA-256: bc6407efde2e3137f8a1aad5164b42a257bd93d6c8af7f34b821f156f47f8c67
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| network_error_mentions_kind_and_host_count | function_item | tests | [567](../../src-tauri/src/antigravity/upstream.rs#L567) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [569](../../src-tauri/src/antigravity/upstream.rs#L569) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [570](../../src-tauri/src/antigravity/upstream.rs#L570) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [571](../../src-tauri/src/antigravity/upstream.rs#L571) |
-| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [575](../../src-tauri/src/antigravity/upstream.rs#L575) |
+| model_error_text_does_not_trigger_host_fallback | function_item | tests | [578](../../src-tauri/src/antigravity/upstream.rs#L578) |
+| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [579](../../src-tauri/src/antigravity/upstream.rs#L579) |
+| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [580](../../src-tauri/src/antigravity/upstream.rs#L580) |
+| assert | macro invocation (unexpanded) | tests::model_error_text_does_not_trigger_host_fallback | [581](../../src-tauri/src/antigravity/upstream.rs#L581) |
+| rebuilds_client_error_status_without_laundering | function_item | tests | [585](../../src-tauri/src/antigravity/upstream.rs#L585) |
+| assert_eq | macro invocation (unexpanded) | tests::rebuilds_client_error_status_without_laundering | [590](../../src-tauri/src/antigravity/upstream.rs#L590) |
+| network_error_mentions_kind_and_host_count | function_item | tests | [594](../../src-tauri/src/antigravity/upstream.rs#L594) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [596](../../src-tauri/src/antigravity/upstream.rs#L596) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [597](../../src-tauri/src/antigravity/upstream.rs#L597) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [598](../../src-tauri/src/antigravity/upstream.rs#L598) |
+| assert | macro invocation (unexpanded) | tests::network_error_mentions_kind_and_host_count | [602](../../src-tauri/src/antigravity/upstream.rs#L602) |

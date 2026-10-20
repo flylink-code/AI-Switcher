@@ -1048,6 +1048,7 @@ mod tests {
                 last_updated: Utc::now().timestamp(),
                 ..QuotaSnapshot::default()
             }),
+            device_profile: None,
         }
     }
 

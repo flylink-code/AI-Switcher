@@ -4,7 +4,7 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 2/12
 
-Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
+Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

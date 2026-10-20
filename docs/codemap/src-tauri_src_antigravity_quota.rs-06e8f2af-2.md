@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/quota.rs) · page 2/3
 
-Source SHA-256: f2a0c676b1257582906a706ffc12b4a69492d65156817cbddd83852547062577
+Source SHA-256: 5697e3196f59ea44d55a21993d4a72f2f3eb751403f253cc8ecf9a24e80de25b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| format | macro invocation (unexpanded) | fetch_models_quota | [769](../../src-tauri/src/antigravity/quota.rs#L769) |
-| log::warn | macro invocation (unexpanded) | fetch_models_quota | [770](../../src-tauri/src/antigravity/quota.rs#L770) |
-| format | macro invocation (unexpanded) | fetch_models_quota | [776](../../src-tauri/src/antigravity/quota.rs#L776) |
+| log::warn | macro invocation (unexpanded) | fetch_models_quota | [782](../../src-tauri/src/antigravity/quota.rs#L782) |
 | format | macro invocation (unexpanded) | fetch_models_quota | [788](../../src-tauri/src/antigravity/quota.rs#L788) |
-| parse_models_response | function_item |  | [791](../../src-tauri/src/antigravity/quota.rs#L791) |
-| collect_sort_model_ids | function_item |  | [864](../../src-tauri/src/antigravity/quota.rs#L864) |
-| walk_model_ids | function_item |  | [870](../../src-tauri/src/antigravity/quota.rs#L870) |
-| fetch_quota_summary_bounded | function_item |  | [895](../../src-tauri/src/antigravity/quota.rs#L895) |
-| log::warn | macro invocation (unexpanded) | fetch_quota_summary_bounded | [908](../../src-tauri/src/antigravity/quota.rs#L908) |
-| fetch_quota_summary | function_item |  | [914](../../src-tauri/src/antigravity/quota.rs#L914) |
-| json | macro invocation (unexpanded) | fetch_quota_summary | [920](../../src-tauri/src/antigravity/quota.rs#L920) |
-| json | macro invocation (unexpanded) | fetch_quota_summary | [922](../../src-tauri/src/antigravity/quota.rs#L922) |
-| log::info | macro invocation (unexpanded) | fetch_quota_summary | [928](../../src-tauri/src/antigravity/quota.rs#L928) |
-| log::warn | macro invocation (unexpanded) | fetch_quota_summary | [943](../../src-tauri/src/antigravity/quota.rs#L943) |
-| log::warn | macro invocation (unexpanded) | fetch_quota_summary | [952](../../src-tauri/src/antigravity/quota.rs#L952) |
-| log::warn | macro invocation (unexpanded) | fetch_quota_summary | [960](../../src-tauri/src/antigravity/quota.rs#L960) |
-| log::info | macro invocation (unexpanded) | fetch_quota_summary | [965](../../src-tauri/src/antigravity/quota.rs#L965) |
-| summary_completeness_score | function_item |  | [980](../../src-tauri/src/antigravity/quota.rs#L980) |
-| parse_summary_groups | function_item |  | [997](../../src-tauri/src/antigravity/quota.rs#L997) |
-| extract_groups_array | function_item |  | [1026](../../src-tauri/src/antigravity/quota.rs#L1026) |
-| parse_summary_bucket | function_item |  | [1043](../../src-tauri/src/antigravity/quota.rs#L1043) |
-| json_window_str | function_item |  | [1070](../../src-tauri/src/antigravity/quota.rs#L1070) |
-| json_string | function_item |  | [1087](../../src-tauri/src/antigravity/quota.rs#L1087) |
-| json_number_as_f64 | function_item |  | [1095](../../src-tauri/src/antigravity/quota.rs#L1095) |
-| parse_remaining_fraction | function_item |  | [1103](../../src-tauri/src/antigravity/quota.rs#L1103) |
-| normalize_fraction | function_item |  | [1125](../../src-tauri/src/antigravity/quota.rs#L1125) |
-| tests | mod_item |  | [1136](../../src-tauri/src/antigravity/quota.rs#L1136) |
-| default_model_access_patterns_are_conservative_and_tier_based | function_item | tests | [1140](../../src-tauri/src/antigravity/quota.rs#L1140) |
-| assert_eq | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1141](../../src-tauri/src/antigravity/quota.rs#L1141) |
-| assert_eq | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1142](../../src-tauri/src/antigravity/quota.rs#L1142) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1148](../../src-tauri/src/antigravity/quota.rs#L1148) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1149](../../src-tauri/src/antigravity/quota.rs#L1149) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1150](../../src-tauri/src/antigravity/quota.rs#L1150) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1151](../../src-tauri/src/antigravity/quota.rs#L1151) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1152](../../src-tauri/src/antigravity/quota.rs#L1152) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1153](../../src-tauri/src/antigravity/quota.rs#L1153) |
-| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1154](../../src-tauri/src/antigravity/quota.rs#L1154) |
+| format | macro invocation (unexpanded) | fetch_models_quota | [800](../../src-tauri/src/antigravity/quota.rs#L800) |
+| parse_models_response | function_item |  | [803](../../src-tauri/src/antigravity/quota.rs#L803) |
+| collect_sort_model_ids | function_item |  | [876](../../src-tauri/src/antigravity/quota.rs#L876) |
+| walk_model_ids | function_item |  | [882](../../src-tauri/src/antigravity/quota.rs#L882) |
+| fetch_quota_summary_bounded | function_item |  | [907](../../src-tauri/src/antigravity/quota.rs#L907) |
+| log::warn | macro invocation (unexpanded) | fetch_quota_summary_bounded | [921](../../src-tauri/src/antigravity/quota.rs#L921) |
+| fetch_quota_summary | function_item |  | [927](../../src-tauri/src/antigravity/quota.rs#L927) |
+| json | macro invocation (unexpanded) | fetch_quota_summary | [934](../../src-tauri/src/antigravity/quota.rs#L934) |
+| json | macro invocation (unexpanded) | fetch_quota_summary | [936](../../src-tauri/src/antigravity/quota.rs#L936) |
+| log::info | macro invocation (unexpanded) | fetch_quota_summary | [942](../../src-tauri/src/antigravity/quota.rs#L942) |
+| log::warn | macro invocation (unexpanded) | fetch_quota_summary | [957](../../src-tauri/src/antigravity/quota.rs#L957) |
+| log::warn | macro invocation (unexpanded) | fetch_quota_summary | [966](../../src-tauri/src/antigravity/quota.rs#L966) |
+| log::warn | macro invocation (unexpanded) | fetch_quota_summary | [974](../../src-tauri/src/antigravity/quota.rs#L974) |
+| log::info | macro invocation (unexpanded) | fetch_quota_summary | [979](../../src-tauri/src/antigravity/quota.rs#L979) |
+| summary_completeness_score | function_item |  | [994](../../src-tauri/src/antigravity/quota.rs#L994) |
+| parse_summary_groups | function_item |  | [1011](../../src-tauri/src/antigravity/quota.rs#L1011) |
+| extract_groups_array | function_item |  | [1040](../../src-tauri/src/antigravity/quota.rs#L1040) |
+| parse_summary_bucket | function_item |  | [1057](../../src-tauri/src/antigravity/quota.rs#L1057) |
+| json_window_str | function_item |  | [1084](../../src-tauri/src/antigravity/quota.rs#L1084) |
+| json_string | function_item |  | [1101](../../src-tauri/src/antigravity/quota.rs#L1101) |
+| json_number_as_f64 | function_item |  | [1109](../../src-tauri/src/antigravity/quota.rs#L1109) |
+| parse_remaining_fraction | function_item |  | [1117](../../src-tauri/src/antigravity/quota.rs#L1117) |
+| normalize_fraction | function_item |  | [1139](../../src-tauri/src/antigravity/quota.rs#L1139) |
+| tests | mod_item |  | [1150](../../src-tauri/src/antigravity/quota.rs#L1150) |
+| default_model_access_patterns_are_conservative_and_tier_based | function_item | tests | [1154](../../src-tauri/src/antigravity/quota.rs#L1154) |
 | assert_eq | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1155](../../src-tauri/src/antigravity/quota.rs#L1155) |
-| model_access_patterns_normalize_prefix_and_match_suffixes | function_item | tests | [1159](../../src-tauri/src/antigravity/quota.rs#L1159) |
-| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1160](../../src-tauri/src/antigravity/quota.rs#L1160) |
-| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1164](../../src-tauri/src/antigravity/quota.rs#L1164) |
-| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1165](../../src-tauri/src/antigravity/quota.rs#L1165) |
-| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1166](../../src-tauri/src/antigravity/quota.rs#L1166) |
-| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1170](../../src-tauri/src/antigravity/quota.rs#L1170) |
-| parses_models_and_summary | function_item | tests | [1174](../../src-tauri/src/antigravity/quota.rs#L1174) |
-| json | macro invocation (unexpanded) | tests::parses_models_and_summary | [1175](../../src-tauri/src/antigravity/quota.rs#L1175) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1184](../../src-tauri/src/antigravity/quota.rs#L1184) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1185](../../src-tauri/src/antigravity/quota.rs#L1185) |
-| json | macro invocation (unexpanded) | tests::parses_models_and_summary | [1187](../../src-tauri/src/antigravity/quota.rs#L1187) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1206](../../src-tauri/src/antigravity/quota.rs#L1206) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1207](../../src-tauri/src/antigravity/quota.rs#L1207) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1211](../../src-tauri/src/antigravity/quota.rs#L1211) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1212](../../src-tauri/src/antigravity/quota.rs#L1212) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1213](../../src-tauri/src/antigravity/quota.rs#L1213) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1214](../../src-tauri/src/antigravity/quota.rs#L1214) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1215](../../src-tauri/src/antigravity/quota.rs#L1215) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1216](../../src-tauri/src/antigravity/quota.rs#L1216) |
-| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1217](../../src-tauri/src/antigravity/quota.rs#L1217) |
-| assert | macro invocation (unexpanded) | tests::parses_models_and_summary | [1218](../../src-tauri/src/antigravity/quota.rs#L1218) |
-| weekly_aliases_and_bucket_ids_map_to_weekly_percent | function_item | tests | [1222](../../src-tauri/src/antigravity/quota.rs#L1222) |
-| json | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1223](../../src-tauri/src/antigravity/quota.rs#L1223) |
-| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1246](../../src-tauri/src/antigravity/quota.rs#L1246) |
-| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1247](../../src-tauri/src/antigravity/quota.rs#L1247) |
-| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1248](../../src-tauri/src/antigravity/quota.rs#L1248) |
-| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1249](../../src-tauri/src/antigravity/quota.rs#L1249) |
-| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1250](../../src-tauri/src/antigravity/quota.rs#L1250) |
-| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1251](../../src-tauri/src/antigravity/quota.rs#L1251) |
-| models_response_harvests_agent_model_sorts | function_item | tests | [1255](../../src-tauri/src/antigravity/quota.rs#L1255) |
-| json | macro invocation (unexpanded) | tests::models_response_harvests_agent_model_sorts | [1256](../../src-tauri/src/antigravity/quota.rs#L1256) |
-| assert | macro invocation (unexpanded) | tests::models_response_harvests_agent_model_sorts | [1273](../../src-tauri/src/antigravity/quota.rs#L1273) |
-| assert | macro invocation (unexpanded) | tests::models_response_harvests_agent_model_sorts | [1274](../../src-tauri/src/antigravity/quota.rs#L1274) |
-| extract_tier_prefers_paid_over_current | function_item | tests | [1278](../../src-tauri/src/antigravity/quota.rs#L1278) |
-| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1279](../../src-tauri/src/antigravity/quota.rs#L1279) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1283](../../src-tauri/src/antigravity/quota.rs#L1283) |
-| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1285](../../src-tauri/src/antigravity/quota.rs#L1285) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1286](../../src-tauri/src/antigravity/quota.rs#L1286) |
-| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1288](../../src-tauri/src/antigravity/quota.rs#L1288) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1289](../../src-tauri/src/antigravity/quota.rs#L1289) |
-| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1292](../../src-tauri/src/antigravity/quota.rs#L1292) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1296](../../src-tauri/src/antigravity/quota.rs#L1296) |
-| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1298](../../src-tauri/src/antigravity/quota.rs#L1298) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1305](../../src-tauri/src/antigravity/quota.rs#L1305) |
-| extracts_project_from_string_or_object | function_item | tests | [1312](../../src-tauri/src/antigravity/quota.rs#L1312) |
-| json | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1313](../../src-tauri/src/antigravity/quota.rs#L1313) |
-| assert_eq | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1314](../../src-tauri/src/antigravity/quota.rs#L1314) |
-| json | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1319](../../src-tauri/src/antigravity/quota.rs#L1319) |
-| assert_eq | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1323](../../src-tauri/src/antigravity/quota.rs#L1323) |
-| json | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1328](../../src-tauri/src/antigravity/quota.rs#L1328) |
-| assert_eq | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1334](../../src-tauri/src/antigravity/quota.rs#L1334) |
-| onboard_tier_prefers_allowed_default | function_item | tests | [1341](../../src-tauri/src/antigravity/quota.rs#L1341) |
-| json | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1342](../../src-tauri/src/antigravity/quota.rs#L1342) |
-| assert_eq | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1350](../../src-tauri/src/antigravity/quota.rs#L1350) |
-| json | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1352](../../src-tauri/src/antigravity/quota.rs#L1352) |
-| assert_eq | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1353](../../src-tauri/src/antigravity/quota.rs#L1353) |
-| empty_groups_keep_previous_summary_bars | function_item | tests | [1357](../../src-tauri/src/antigravity/quota.rs#L1357) |
-| vec | macro invocation (unexpanded) | tests::empty_groups_keep_previous_summary_bars | [1359](../../src-tauri/src/antigravity/quota.rs#L1359) |
-| assert_eq | macro invocation (unexpanded) | tests::empty_groups_keep_previous_summary_bars | [1377](../../src-tauri/src/antigravity/quota.rs#L1377) |
-| forbidden_has_zero_hint | function_item | tests | [1381](../../src-tauri/src/antigravity/quota.rs#L1381) |
-| assert_eq | macro invocation (unexpanded) | tests::forbidden_has_zero_hint | [1383](../../src-tauri/src/antigravity/quota.rs#L1383) |
-| assert | macro invocation (unexpanded) | tests::forbidden_has_zero_hint | [1384](../../src-tauri/src/antigravity/quota.rs#L1384) |
+| assert_eq | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1156](../../src-tauri/src/antigravity/quota.rs#L1156) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1162](../../src-tauri/src/antigravity/quota.rs#L1162) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1163](../../src-tauri/src/antigravity/quota.rs#L1163) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1164](../../src-tauri/src/antigravity/quota.rs#L1164) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1165](../../src-tauri/src/antigravity/quota.rs#L1165) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1166](../../src-tauri/src/antigravity/quota.rs#L1166) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1167](../../src-tauri/src/antigravity/quota.rs#L1167) |
+| assert | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1168](../../src-tauri/src/antigravity/quota.rs#L1168) |
+| assert_eq | macro invocation (unexpanded) | tests::default_model_access_patterns_are_conservative_and_tier_based | [1169](../../src-tauri/src/antigravity/quota.rs#L1169) |
+| model_access_patterns_normalize_prefix_and_match_suffixes | function_item | tests | [1173](../../src-tauri/src/antigravity/quota.rs#L1173) |
+| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1174](../../src-tauri/src/antigravity/quota.rs#L1174) |
+| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1178](../../src-tauri/src/antigravity/quota.rs#L1178) |
+| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1179](../../src-tauri/src/antigravity/quota.rs#L1179) |
+| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1180](../../src-tauri/src/antigravity/quota.rs#L1180) |
+| assert | macro invocation (unexpanded) | tests::model_access_patterns_normalize_prefix_and_match_suffixes | [1184](../../src-tauri/src/antigravity/quota.rs#L1184) |
+| parses_models_and_summary | function_item | tests | [1188](../../src-tauri/src/antigravity/quota.rs#L1188) |
+| json | macro invocation (unexpanded) | tests::parses_models_and_summary | [1189](../../src-tauri/src/antigravity/quota.rs#L1189) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1198](../../src-tauri/src/antigravity/quota.rs#L1198) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1199](../../src-tauri/src/antigravity/quota.rs#L1199) |
+| json | macro invocation (unexpanded) | tests::parses_models_and_summary | [1201](../../src-tauri/src/antigravity/quota.rs#L1201) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1220](../../src-tauri/src/antigravity/quota.rs#L1220) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1221](../../src-tauri/src/antigravity/quota.rs#L1221) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1225](../../src-tauri/src/antigravity/quota.rs#L1225) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1226](../../src-tauri/src/antigravity/quota.rs#L1226) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1227](../../src-tauri/src/antigravity/quota.rs#L1227) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1228](../../src-tauri/src/antigravity/quota.rs#L1228) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1229](../../src-tauri/src/antigravity/quota.rs#L1229) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1230](../../src-tauri/src/antigravity/quota.rs#L1230) |
+| assert_eq | macro invocation (unexpanded) | tests::parses_models_and_summary | [1231](../../src-tauri/src/antigravity/quota.rs#L1231) |
+| assert | macro invocation (unexpanded) | tests::parses_models_and_summary | [1232](../../src-tauri/src/antigravity/quota.rs#L1232) |
+| weekly_aliases_and_bucket_ids_map_to_weekly_percent | function_item | tests | [1236](../../src-tauri/src/antigravity/quota.rs#L1236) |
+| json | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1237](../../src-tauri/src/antigravity/quota.rs#L1237) |
+| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1260](../../src-tauri/src/antigravity/quota.rs#L1260) |
+| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1261](../../src-tauri/src/antigravity/quota.rs#L1261) |
+| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1262](../../src-tauri/src/antigravity/quota.rs#L1262) |
+| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1263](../../src-tauri/src/antigravity/quota.rs#L1263) |
+| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1264](../../src-tauri/src/antigravity/quota.rs#L1264) |
+| assert_eq | macro invocation (unexpanded) | tests::weekly_aliases_and_bucket_ids_map_to_weekly_percent | [1265](../../src-tauri/src/antigravity/quota.rs#L1265) |
+| models_response_harvests_agent_model_sorts | function_item | tests | [1269](../../src-tauri/src/antigravity/quota.rs#L1269) |
+| json | macro invocation (unexpanded) | tests::models_response_harvests_agent_model_sorts | [1270](../../src-tauri/src/antigravity/quota.rs#L1270) |
+| assert | macro invocation (unexpanded) | tests::models_response_harvests_agent_model_sorts | [1287](../../src-tauri/src/antigravity/quota.rs#L1287) |
+| assert | macro invocation (unexpanded) | tests::models_response_harvests_agent_model_sorts | [1288](../../src-tauri/src/antigravity/quota.rs#L1288) |
+| extract_tier_prefers_paid_over_current | function_item | tests | [1292](../../src-tauri/src/antigravity/quota.rs#L1292) |
+| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1293](../../src-tauri/src/antigravity/quota.rs#L1293) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1297](../../src-tauri/src/antigravity/quota.rs#L1297) |
+| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1299](../../src-tauri/src/antigravity/quota.rs#L1299) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1300](../../src-tauri/src/antigravity/quota.rs#L1300) |
+| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1302](../../src-tauri/src/antigravity/quota.rs#L1302) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1303](../../src-tauri/src/antigravity/quota.rs#L1303) |
+| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1306](../../src-tauri/src/antigravity/quota.rs#L1306) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1310](../../src-tauri/src/antigravity/quota.rs#L1310) |
+| json | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1312](../../src-tauri/src/antigravity/quota.rs#L1312) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_tier_prefers_paid_over_current | [1319](../../src-tauri/src/antigravity/quota.rs#L1319) |
+| extracts_project_from_string_or_object | function_item | tests | [1326](../../src-tauri/src/antigravity/quota.rs#L1326) |
+| json | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1327](../../src-tauri/src/antigravity/quota.rs#L1327) |
+| assert_eq | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1328](../../src-tauri/src/antigravity/quota.rs#L1328) |
+| json | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1333](../../src-tauri/src/antigravity/quota.rs#L1333) |
+| assert_eq | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1337](../../src-tauri/src/antigravity/quota.rs#L1337) |
+| json | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1342](../../src-tauri/src/antigravity/quota.rs#L1342) |
+| assert_eq | macro invocation (unexpanded) | tests::extracts_project_from_string_or_object | [1348](../../src-tauri/src/antigravity/quota.rs#L1348) |
+| onboard_tier_prefers_allowed_default | function_item | tests | [1355](../../src-tauri/src/antigravity/quota.rs#L1355) |
+| json | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1356](../../src-tauri/src/antigravity/quota.rs#L1356) |
+| assert_eq | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1364](../../src-tauri/src/antigravity/quota.rs#L1364) |
+| json | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1366](../../src-tauri/src/antigravity/quota.rs#L1366) |
+| assert_eq | macro invocation (unexpanded) | tests::onboard_tier_prefers_allowed_default | [1367](../../src-tauri/src/antigravity/quota.rs#L1367) |
+| empty_groups_keep_previous_summary_bars | function_item | tests | [1371](../../src-tauri/src/antigravity/quota.rs#L1371) |
+| vec | macro invocation (unexpanded) | tests::empty_groups_keep_previous_summary_bars | [1373](../../src-tauri/src/antigravity/quota.rs#L1373) |
+| assert_eq | macro invocation (unexpanded) | tests::empty_groups_keep_previous_summary_bars | [1391](../../src-tauri/src/antigravity/quota.rs#L1391) |
+| forbidden_has_zero_hint | function_item | tests | [1395](../../src-tauri/src/antigravity/quota.rs#L1395) |
+| assert_eq | macro invocation (unexpanded) | tests::forbidden_has_zero_hint | [1397](../../src-tauri/src/antigravity/quota.rs#L1397) |
+| assert | macro invocation (unexpanded) | tests::forbidden_has_zero_hint | [1398](../../src-tauri/src/antigravity/quota.rs#L1398) |
+| family_bars | function_item | tests | [1401](../../src-tauri/src/antigravity/quota.rs#L1401) |

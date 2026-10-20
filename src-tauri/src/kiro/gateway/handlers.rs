@@ -306,7 +306,23 @@ async fn handle(
                 continue;
             }
         };
-        let prepared = match prepare(protocol, &incoming, &account) {
+        let device = account.effective_device();
+        let device_timezone = crate::device_profile::effective_timezone(&device.timezone, &state.db);
+        let mut account_incoming = incoming.clone();
+        let env_changes = crate::device_profile::rewrite_request_environment(
+            &mut account_incoming,
+            &device,
+            &device_timezone,
+        );
+        if crate::device_profile::read_debug_env_rewrite(&state.db) {
+            crate::device_profile::log_env_changes(
+                "Kiro",
+                &account.id,
+                &format!("os/{}", crate::device_profile::node_platform(&device.os)),
+                &env_changes,
+            );
+        }
+        let prepared = match prepare(protocol, &account_incoming, &account) {
             Ok(prepared) => prepared,
             Err(error) => {
                 return error_response(protocol, StatusCode::BAD_REQUEST, &error);

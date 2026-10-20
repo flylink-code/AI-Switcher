@@ -72,6 +72,18 @@ export async function setAntigravityAccountModelAccess(
   });
 }
 
+export async function setAntigravityAccountDevice(
+  accountId: string,
+  timezone: string,
+  regenerate: boolean,
+): Promise<AntigravityAccountPublic> {
+  return call<AntigravityAccountPublic>("set_antigravity_account_device", {
+    accountId,
+    timezone,
+    regenerate,
+  });
+}
+
 export async function getAntigravityGatewayStatus(): Promise<AntigravityGatewayStatus> {
   return call<AntigravityGatewayStatus>("get_antigravity_gateway_status");
 }

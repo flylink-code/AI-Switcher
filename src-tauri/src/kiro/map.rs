@@ -73,7 +73,7 @@ pub fn prepare(
             "origin": "AI_EDITOR",
             "userInputMessageContext": {
                 "envState": {
-                    "operatingSystem": std::env::consts::OS,
+                    "operatingSystem": crate::device_profile::rust_os(&account.effective_device().os),
                     "currentWorkingDirectory": "/"
                 }
             }

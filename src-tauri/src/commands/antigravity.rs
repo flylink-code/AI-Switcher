@@ -4,7 +4,8 @@ use crate::antigravity::{
     clear_sticky_sessions, gateway_status, get_fast_path_settings, get_limiter_settings,
     import_accounts_json, list_accounts, login_with_browser, probe_exit_latency, probe_exit_proxy,
     refresh_all_account_quotas, refresh_one_account_quota, remove_account,
-    set_account_model_access, set_active_account, set_exit_proxies, set_fast_path_settings,
+    set_account_device, set_account_model_access, set_active_account, set_exit_proxies,
+    set_fast_path_settings,
     set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway,
     stop_gateway, AntigravityAccountPublic, AntigravityAccountTestResult, AntigravityGatewayStatus,
     ExitProxyEntry, ExitProxyLatencyResult, ExitProxyProbeResult, FastPathSettings,
@@ -54,6 +55,15 @@ pub fn set_antigravity_account_model_access(
     let result = set_account_model_access(&account_id, &mode, patterns)?;
     clear_sticky_sessions();
     Ok(result)
+}
+
+#[tauri::command]
+pub fn set_antigravity_account_device(
+    account_id: String,
+    timezone: String,
+    regenerate: bool,
+) -> AppResult<AntigravityAccountPublic> {
+    set_account_device(&account_id, &timezone, regenerate)
 }
 
 #[tauri::command]

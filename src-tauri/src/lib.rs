@@ -28,6 +28,7 @@ mod commands;
 mod config;
 mod database;
 mod deeplink;
+mod device_profile;
 mod error;
 mod file_stamp;
 mod gateway;
@@ -91,6 +92,8 @@ use crate::commands::{
     get_codex_web_search_mode, get_current_profile_id, get_current_provider, get_data_root,
     get_db_info, get_desktop_localization_status, get_dismissed_onboarding_tips,
     get_dsh_cli_version, get_gateway_catalog_hide_official, get_gateway_runtime_mode,
+    get_gateway_debug_env_rewrite, get_gateway_timezone, set_gateway_debug_env_rewrite,
+    set_gateway_timezone, set_kiro_account_device,
     get_gateway_sidecar_status, get_gateway_upstream_policy, get_kiro_gateway_status,
     get_local_gateway_enabled, get_localization_hub_status, get_log_maintenance_policy,
     get_managed_apps_runtime_status, get_mcp_desktop_conflict_status, get_mcp_oauth_status,
@@ -143,7 +146,8 @@ use crate::commands::{
     save_prompt, save_sync_target, save_workspace_pi_prompt, scan_sessions, scan_unmanaged_skills,
     search_mcp_registry, search_session_contents, select_desktop_localization_pack,
     set_agent_connection, set_agent_direct, set_agent_direct_model_mapping, set_agent_enabled,
-    set_antigravity_account_model_access, set_antigravity_active_account,
+    set_antigravity_account_device, set_antigravity_account_model_access,
+    set_antigravity_active_account,
     set_antigravity_exit_proxy, set_antigravity_fast_path_settings,
     set_antigravity_gateway_api_key, set_antigravity_gateway_port,
     set_antigravity_limiter_settings, set_antigravity_outbound_proxy, set_app_language,
@@ -438,6 +442,8 @@ pub fn run() {
             refresh_antigravity_quotas,
             test_antigravity_account,
             set_antigravity_account_model_access,
+            set_antigravity_account_device,
+            set_kiro_account_device,
             ensure_antigravity_provider,
             get_antigravity_defaults,
             get_antigravity_pool_warning,
@@ -574,6 +580,10 @@ pub fn run() {
             get_gateway_runtime_mode,
             get_gateway_sidecar_status,
             set_gateway_runtime_mode,
+            get_gateway_timezone,
+            get_gateway_debug_env_rewrite,
+            set_gateway_debug_env_rewrite,
+            set_gateway_timezone,
             resolve_close_request,
             list_profiles,
             get_current_profile_id,

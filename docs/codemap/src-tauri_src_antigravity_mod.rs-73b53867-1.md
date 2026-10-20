@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/mod.rs) · page 1/1
 
-Source SHA-256: 1e8fc8cf72b6ef8f64be58176d1d914fbd4b9f13d4da096240e97687878f750d
+Source SHA-256: dee15e02f547c400c32ba94a8020f493af65f3be072e6bcb723f266f716689e9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -6,6 +6,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::get_app_config_dir;
+use crate::device_profile::{self, DeviceProfile};
 use crate::error::{AppError, AppResult};
 use crate::file_stamp::FileStamp;
 use base64::Engine;
@@ -52,6 +53,17 @@ pub struct KiroAccount {
     pub cooldown_until_ms: i64,
     #[serde(default)]
     pub quota: Option<super::quota::KiroQuotaSnapshot>,
+    /// `None` derives a stable device from the account id (see `effective_device`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_profile: Option<DeviceProfile>,
+}
+
+impl KiroAccount {
+    pub fn effective_device(&self) -> DeviceProfile {
+        self.device_profile
+            .clone()
+            .unwrap_or_else(|| device_profile::derive(&self.id))
+    }
 }
 
 fn default_region() -> String {
@@ -79,6 +91,7 @@ pub struct KiroAccountPublic {
     pub active: bool,
     #[serde(default)]
     pub quota: Option<super::quota::KiroQuotaSnapshot>,
+    pub device_profile: DeviceProfile,
 }
 
 pub struct AccountStore {
@@ -138,6 +151,9 @@ impl AccountStore {
             .iter()
             .position(|item| item.id == account.id)
         {
+            if account.device_profile.is_none() {
+                account.device_profile = stored.accounts[index].device_profile.clone();
+            }
             stored.accounts[index] = account;
             stored.accounts[index].id.clone()
         } else if let Some(index) = stored
@@ -149,10 +165,16 @@ impl AccountStore {
             if account.machine_id.is_empty() {
                 account.machine_id = stored.accounts[index].machine_id.clone();
             }
+            if account.device_profile.is_none() {
+                account.device_profile = stored.accounts[index].device_profile.clone();
+            }
             stored.accounts[index] = account;
             stored.accounts[index].id.clone()
         } else {
             let saved_id = account.id.clone();
+            if account.device_profile.is_none() {
+                account.device_profile = Some(device_profile::generate());
+            }
             stored.accounts.push(account);
             saved_id
         };
@@ -172,6 +194,30 @@ impl AccountStore {
             .cloned()
             .ok_or_else(|| AppError::Config("没有可保存的 Kiro 账号".into()))?;
         Ok(public_of(&saved, &active))
+    }
+
+    pub fn set_device(
+        &self,
+        id: &str,
+        timezone: &str,
+        regenerate: bool,
+    ) -> AppResult<KiroAccountPublic> {
+        let timezone = device_profile::normalize_timezone(timezone)?;
+        let mut stored = self.lock();
+        let account = stored
+            .accounts
+            .iter_mut()
+            .find(|account| account.id == id)
+            .ok_or_else(|| AppError::Config("Kiro 账号不存在".into()))?;
+        let mut profile = account.effective_device();
+        if regenerate {
+            profile = device_profile::regenerate(Some(&profile));
+        }
+        profile.timezone = timezone;
+        account.device_profile = Some(profile);
+        let account = account.clone();
+        save_accounts(&stored)?;
+        Ok(public_of(&account, &stored.active_id))
     }
 
     pub fn import_json(&self, raw: &str) -> AppResult<usize> {
@@ -338,7 +384,16 @@ fn public_of(account: &KiroAccount, active_id: &str) -> KiroAccountPublic {
         has_refresh_token: !account.refresh_token.trim().is_empty(),
         active: account.id == active_id,
         quota: account.quota.clone(),
+        device_profile: account.effective_device(),
     }
+}
+
+pub fn set_account_device(
+    id: &str,
+    timezone: &str,
+    regenerate: bool,
+) -> AppResult<KiroAccountPublic> {
+    store().set_device(id, timezone, regenerate)
 }
 
 pub fn list_accounts() -> AppResult<Vec<KiroAccountPublic>> {
@@ -443,6 +498,7 @@ pub(crate) fn account_from_import(value: &serde_json::Value) -> AppResult<KiroAc
         disable_reason: String::new(),
         cooldown_until_ms: 0,
         quota: None,
+        device_profile: None,
     };
     normalize_account(&mut account)?;
     Ok(account)

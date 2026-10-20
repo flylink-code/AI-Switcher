@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/account.rs) · page 1/2
 
-Source SHA-256: 4a803a2982e2e21f388669ba10b3bed8c41862e942b87220401b573cb43418ff
+Source SHA-256: 546dba2ff56eb572bfbd7172c3ffcf6950741ec1c58e5129f834ee7bd2489e97
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| OAUTH_CLIENT_ID | const_item |  | [24](../../src-tauri/src/antigravity/account.rs#L24) |
-| option_env | macro invocation (unexpanded) | OAUTH_CLIENT_ID | [24](../../src-tauri/src/antigravity/account.rs#L24) |
-| OAUTH_CLIENT_SECRET | const_item |  | [28](../../src-tauri/src/antigravity/account.rs#L28) |
-| option_env | macro invocation (unexpanded) | OAUTH_CLIENT_SECRET | [28](../../src-tauri/src/antigravity/account.rs#L28) |
-| ensure_oauth_configured | function_item |  | [32](../../src-tauri/src/antigravity/account.rs#L32) |
-| TOKEN_URL | const_item |  | [41](../../src-tauri/src/antigravity/account.rs#L41) |
-| REFRESH_SKEW_SECS | const_item |  | [42](../../src-tauri/src/antigravity/account.rs#L42) |
-| ACCOUNTS_FILE | const_item |  | [43](../../src-tauri/src/antigravity/account.rs#L43) |
-| REAUTH_REASON | const_item |  | [45](../../src-tauri/src/antigravity/account.rs#L45) |
-| AntigravityToken | struct_item |  | [49](../../src-tauri/src/antigravity/account.rs#L49) |
-| access_token | field_declaration | AntigravityToken | [50](../../src-tauri/src/antigravity/account.rs#L50) |
-| refresh_token | field_declaration | AntigravityToken | [51](../../src-tauri/src/antigravity/account.rs#L51) |
-| expires_in | field_declaration | AntigravityToken | [52](../../src-tauri/src/antigravity/account.rs#L52) |
-| expiry_timestamp | field_declaration | AntigravityToken | [53](../../src-tauri/src/antigravity/account.rs#L53) |
-| token_type | field_declaration | AntigravityToken | [55](../../src-tauri/src/antigravity/account.rs#L55) |
-| email | field_declaration | AntigravityToken | [57](../../src-tauri/src/antigravity/account.rs#L57) |
-| project_id | field_declaration | AntigravityToken | [59](../../src-tauri/src/antigravity/account.rs#L59) |
-| session_id | field_declaration | AntigravityToken | [61](../../src-tauri/src/antigravity/account.rs#L61) |
-| AntigravityAccount | struct_item |  | [66](../../src-tauri/src/antigravity/account.rs#L66) |
-| id | field_declaration | AntigravityAccount | [67](../../src-tauri/src/antigravity/account.rs#L67) |
-| email | field_declaration | AntigravityAccount | [68](../../src-tauri/src/antigravity/account.rs#L68) |
-| name | field_declaration | AntigravityAccount | [70](../../src-tauri/src/antigravity/account.rs#L70) |
-| token | field_declaration | AntigravityAccount | [71](../../src-tauri/src/antigravity/account.rs#L71) |
-| model_access_mode | field_declaration | AntigravityAccount | [75](../../src-tauri/src/antigravity/account.rs#L75) |
-| allowed_model_patterns | field_declaration | AntigravityAccount | [77](../../src-tauri/src/antigravity/account.rs#L77) |
-| disabled | field_declaration | AntigravityAccount | [79](../../src-tauri/src/antigravity/account.rs#L79) |
-| disabled_reason | field_declaration | AntigravityAccount | [81](../../src-tauri/src/antigravity/account.rs#L81) |
-| is_active | field_declaration | AntigravityAccount | [83](../../src-tauri/src/antigravity/account.rs#L83) |
-| created_at | field_declaration | AntigravityAccount | [84](../../src-tauri/src/antigravity/account.rs#L84) |
-| last_used | field_declaration | AntigravityAccount | [85](../../src-tauri/src/antigravity/account.rs#L85) |
-| health_score | field_declaration | AntigravityAccount | [88](../../src-tauri/src/antigravity/account.rs#L88) |
-| cooldown_until | field_declaration | AntigravityAccount | [91](../../src-tauri/src/antigravity/account.rs#L91) |
-| remaining_quota | field_declaration | AntigravityAccount | [94](../../src-tauri/src/antigravity/account.rs#L94) |
-| quota | field_declaration | AntigravityAccount | [97](../../src-tauri/src/antigravity/account.rs#L97) |
-| default_model_access_mode | function_item |  | [100](../../src-tauri/src/antigravity/account.rs#L100) |
-| default_health | function_item |  | [104](../../src-tauri/src/antigravity/account.rs#L104) |
-| normalize_model_access_mode | function_item |  | [108](../../src-tauri/src/antigravity/account.rs#L108) |
-| normalize_model_patterns | function_item |  | [116](../../src-tauri/src/antigravity/account.rs#L116) |
-| format | macro invocation (unexpanded) | normalize_model_patterns | [124](../../src-tauri/src/antigravity/account.rs#L124) |
-| AntigravityAccount | impl |  | [133](../../src-tauri/src/antigravity/account.rs#L133) |
-| allows_model | function_item | AntigravityAccount | [134](../../src-tauri/src/antigravity/account.rs#L134) |
-| effective_model_patterns | function_item | AntigravityAccount | [151](../../src-tauri/src/antigravity/account.rs#L151) |
-| AntigravityAccountPublic | struct_item |  | [164](../../src-tauri/src/antigravity/account.rs#L164) |
-| id | field_declaration | AntigravityAccountPublic | [165](../../src-tauri/src/antigravity/account.rs#L165) |
-| email | field_declaration | AntigravityAccountPublic | [166](../../src-tauri/src/antigravity/account.rs#L166) |
-| name | field_declaration | AntigravityAccountPublic | [167](../../src-tauri/src/antigravity/account.rs#L167) |
-| model_access_mode | field_declaration | AntigravityAccountPublic | [168](../../src-tauri/src/antigravity/account.rs#L168) |
-| allowed_model_patterns | field_declaration | AntigravityAccountPublic | [169](../../src-tauri/src/antigravity/account.rs#L169) |
-| effective_model_patterns | field_declaration | AntigravityAccountPublic | [170](../../src-tauri/src/antigravity/account.rs#L170) |
-| disabled | field_declaration | AntigravityAccountPublic | [171](../../src-tauri/src/antigravity/account.rs#L171) |
-| disabled_reason | field_declaration | AntigravityAccountPublic | [172](../../src-tauri/src/antigravity/account.rs#L172) |
-| is_active | field_declaration | AntigravityAccountPublic | [173](../../src-tauri/src/antigravity/account.rs#L173) |
-| created_at | field_declaration | AntigravityAccountPublic | [174](../../src-tauri/src/antigravity/account.rs#L174) |
-| last_used | field_declaration | AntigravityAccountPublic | [175](../../src-tauri/src/antigravity/account.rs#L175) |
-| health_score | field_declaration | AntigravityAccountPublic | [176](../../src-tauri/src/antigravity/account.rs#L176) |
-| cooldown_until | field_declaration | AntigravityAccountPublic | [177](../../src-tauri/src/antigravity/account.rs#L177) |
-| remaining_quota | field_declaration | AntigravityAccountPublic | [178](../../src-tauri/src/antigravity/account.rs#L178) |
-| has_project_id | field_declaration | AntigravityAccountPublic | [179](../../src-tauri/src/antigravity/account.rs#L179) |
-| token_expires_at | field_declaration | AntigravityAccountPublic | [180](../../src-tauri/src/antigravity/account.rs#L180) |
-| subscription_tier | field_declaration | AntigravityAccountPublic | [182](../../src-tauri/src/antigravity/account.rs#L182) |
-| quota_5h_percent | field_declaration | AntigravityAccountPublic | [184](../../src-tauri/src/antigravity/account.rs#L184) |
-| quota_weekly_percent | field_declaration | AntigravityAccountPublic | [186](../../src-tauri/src/antigravity/account.rs#L186) |
-| quota_gemini_5h_percent | field_declaration | AntigravityAccountPublic | [188](../../src-tauri/src/antigravity/account.rs#L188) |
-| quota_gemini_weekly_percent | field_declaration | AntigravityAccountPublic | [190](../../src-tauri/src/antigravity/account.rs#L190) |
-| quota_claude_5h_percent | field_declaration | AntigravityAccountPublic | [192](../../src-tauri/src/antigravity/account.rs#L192) |
-| quota_claude_weekly_percent | field_declaration | AntigravityAccountPublic | [194](../../src-tauri/src/antigravity/account.rs#L194) |
-| quota_updated_at | field_declaration | AntigravityAccountPublic | [196](../../src-tauri/src/antigravity/account.rs#L196) |
-| quota_forbidden | field_declaration | AntigravityAccountPublic | [198](../../src-tauri/src/antigravity/account.rs#L198) |
-| quota | field_declaration | AntigravityAccountPublic | [200](../../src-tauri/src/antigravity/account.rs#L200) |
-| From<&AntigravityAccount> for AntigravityAccountPublic | impl |  | [203](../../src-tauri/src/antigravity/account.rs#L203) |
-| from | function_item | From<&AntigravityAccount> for AntigravityAccountPublic | [204](../../src-tauri/src/antigravity/account.rs#L204) |
-| StoredAccounts | struct_item |  | [243](../../src-tauri/src/antigravity/account.rs#L243) |
-| accounts | field_declaration | StoredAccounts | [245](../../src-tauri/src/antigravity/account.rs#L245) |
-| AccountStore | struct_item |  | [248](../../src-tauri/src/antigravity/account.rs#L248) |
-| client | field_declaration | AccountStore | [249](../../src-tauri/src/antigravity/account.rs#L249) |
-| inner | field_declaration | AccountStore | [250](../../src-tauri/src/antigravity/account.rs#L250) |
-| disk | field_declaration | AccountStore | [252](../../src-tauri/src/antigravity/account.rs#L252) |
-| store | function_item |  | [255](../../src-tauri/src/antigravity/account.rs#L255) |
-| STORE | static_item | store | [256](../../src-tauri/src/antigravity/account.rs#L256) |
-| accounts_path | function_item |  | [260](../../src-tauri/src/antigravity/account.rs#L260) |
-| AccountStore | impl |  | [264](../../src-tauri/src/antigravity/account.rs#L264) |
-| new | function_item | AccountStore | [265](../../src-tauri/src/antigravity/account.rs#L265) |
-| lock_accounts | function_item | AccountStore | [276](../../src-tauri/src/antigravity/account.rs#L276) |
-| log::error | macro invocation (unexpanded) | AccountStore::lock_accounts | [280](../../src-tauri/src/antigravity/account.rs#L280) |
-| log::warn | macro invocation (unexpanded) | AccountStore::lock_accounts | [287](../../src-tauri/src/antigravity/account.rs#L287) |
-| lock_http_client | function_item | AccountStore | [293](../../src-tauri/src/antigravity/account.rs#L293) |
-| log::error | macro invocation (unexpanded) | AccountStore::lock_http_client | [297](../../src-tauri/src/antigravity/account.rs#L297) |
-| reload_http_client | function_item | AccountStore | [303](../../src-tauri/src/antigravity/account.rs#L303) |
-| list_public | function_item | AccountStore | [307](../../src-tauri/src/antigravity/account.rs#L307) |
-| list_accounts | function_item | AccountStore | [323](../../src-tauri/src/antigravity/account.rs#L323) |
-| remove_account | function_item | AccountStore | [328](../../src-tauri/src/antigravity/account.rs#L328) |
-| set_active_account | function_item | AccountStore | [344](../../src-tauri/src/antigravity/account.rs#L344) |
-| import_json | function_item | AccountStore | [369](../../src-tauri/src/antigravity/account.rs#L369) |
-| format | macro invocation (unexpanded) | AccountStore::import_json | [371](../../src-tauri/src/antigravity/account.rs#L371) |
-| upsert_account | function_item | AccountStore | [384](../../src-tauri/src/antigravity/account.rs#L384) |
-| set_model_access | function_item | AccountStore | [419](../../src-tauri/src/antigravity/account.rs#L419) |
-| mark_cooldown | function_item | AccountStore | [444](../../src-tauri/src/antigravity/account.rs#L444) |
-| mark_reauthorization_required | function_item | AccountStore | [464](../../src-tauri/src/antigravity/account.rs#L464) |
-| mark_forbidden_403 | function_item | AccountStore | [477](../../src-tauri/src/antigravity/account.rs#L477) |
-| clear_cooldown | function_item | AccountStore | [495](../../src-tauri/src/antigravity/account.rs#L495) |
+| OAUTH_CLIENT_ID | const_item |  | [25](../../src-tauri/src/antigravity/account.rs#L25) |
+| option_env | macro invocation (unexpanded) | OAUTH_CLIENT_ID | [25](../../src-tauri/src/antigravity/account.rs#L25) |
+| OAUTH_CLIENT_SECRET | const_item |  | [29](../../src-tauri/src/antigravity/account.rs#L29) |
+| option_env | macro invocation (unexpanded) | OAUTH_CLIENT_SECRET | [29](../../src-tauri/src/antigravity/account.rs#L29) |
+| ensure_oauth_configured | function_item |  | [33](../../src-tauri/src/antigravity/account.rs#L33) |
+| TOKEN_URL | const_item |  | [42](../../src-tauri/src/antigravity/account.rs#L42) |
+| REFRESH_SKEW_SECS | const_item |  | [43](../../src-tauri/src/antigravity/account.rs#L43) |
+| ACCOUNTS_FILE | const_item |  | [44](../../src-tauri/src/antigravity/account.rs#L44) |
+| REAUTH_REASON | const_item |  | [46](../../src-tauri/src/antigravity/account.rs#L46) |
+| AntigravityToken | struct_item |  | [50](../../src-tauri/src/antigravity/account.rs#L50) |
+| access_token | field_declaration | AntigravityToken | [51](../../src-tauri/src/antigravity/account.rs#L51) |
+| refresh_token | field_declaration | AntigravityToken | [52](../../src-tauri/src/antigravity/account.rs#L52) |
+| expires_in | field_declaration | AntigravityToken | [53](../../src-tauri/src/antigravity/account.rs#L53) |
+| expiry_timestamp | field_declaration | AntigravityToken | [54](../../src-tauri/src/antigravity/account.rs#L54) |
+| token_type | field_declaration | AntigravityToken | [56](../../src-tauri/src/antigravity/account.rs#L56) |
+| email | field_declaration | AntigravityToken | [58](../../src-tauri/src/antigravity/account.rs#L58) |
+| project_id | field_declaration | AntigravityToken | [60](../../src-tauri/src/antigravity/account.rs#L60) |
+| session_id | field_declaration | AntigravityToken | [62](../../src-tauri/src/antigravity/account.rs#L62) |
+| AntigravityAccount | struct_item |  | [67](../../src-tauri/src/antigravity/account.rs#L67) |
+| id | field_declaration | AntigravityAccount | [68](../../src-tauri/src/antigravity/account.rs#L68) |
+| email | field_declaration | AntigravityAccount | [69](../../src-tauri/src/antigravity/account.rs#L69) |
+| name | field_declaration | AntigravityAccount | [71](../../src-tauri/src/antigravity/account.rs#L71) |
+| token | field_declaration | AntigravityAccount | [72](../../src-tauri/src/antigravity/account.rs#L72) |
+| model_access_mode | field_declaration | AntigravityAccount | [76](../../src-tauri/src/antigravity/account.rs#L76) |
+| allowed_model_patterns | field_declaration | AntigravityAccount | [78](../../src-tauri/src/antigravity/account.rs#L78) |
+| disabled | field_declaration | AntigravityAccount | [80](../../src-tauri/src/antigravity/account.rs#L80) |
+| disabled_reason | field_declaration | AntigravityAccount | [82](../../src-tauri/src/antigravity/account.rs#L82) |
+| is_active | field_declaration | AntigravityAccount | [84](../../src-tauri/src/antigravity/account.rs#L84) |
+| created_at | field_declaration | AntigravityAccount | [85](../../src-tauri/src/antigravity/account.rs#L85) |
+| last_used | field_declaration | AntigravityAccount | [86](../../src-tauri/src/antigravity/account.rs#L86) |
+| health_score | field_declaration | AntigravityAccount | [89](../../src-tauri/src/antigravity/account.rs#L89) |
+| cooldown_until | field_declaration | AntigravityAccount | [92](../../src-tauri/src/antigravity/account.rs#L92) |
+| remaining_quota | field_declaration | AntigravityAccount | [95](../../src-tauri/src/antigravity/account.rs#L95) |
+| quota | field_declaration | AntigravityAccount | [98](../../src-tauri/src/antigravity/account.rs#L98) |
+| device_profile | field_declaration | AntigravityAccount | [101](../../src-tauri/src/antigravity/account.rs#L101) |
+| default_model_access_mode | function_item |  | [104](../../src-tauri/src/antigravity/account.rs#L104) |
+| default_health | function_item |  | [108](../../src-tauri/src/antigravity/account.rs#L108) |
+| normalize_model_access_mode | function_item |  | [112](../../src-tauri/src/antigravity/account.rs#L112) |
+| normalize_model_patterns | function_item |  | [120](../../src-tauri/src/antigravity/account.rs#L120) |
+| format | macro invocation (unexpanded) | normalize_model_patterns | [128](../../src-tauri/src/antigravity/account.rs#L128) |
+| AntigravityAccount | impl |  | [137](../../src-tauri/src/antigravity/account.rs#L137) |
+| effective_device | function_item | AntigravityAccount | [138](../../src-tauri/src/antigravity/account.rs#L138) |
+| allows_model | function_item | AntigravityAccount | [144](../../src-tauri/src/antigravity/account.rs#L144) |
+| effective_model_patterns | function_item | AntigravityAccount | [161](../../src-tauri/src/antigravity/account.rs#L161) |
+| AntigravityAccountPublic | struct_item |  | [174](../../src-tauri/src/antigravity/account.rs#L174) |
+| id | field_declaration | AntigravityAccountPublic | [175](../../src-tauri/src/antigravity/account.rs#L175) |
+| email | field_declaration | AntigravityAccountPublic | [176](../../src-tauri/src/antigravity/account.rs#L176) |
+| name | field_declaration | AntigravityAccountPublic | [177](../../src-tauri/src/antigravity/account.rs#L177) |
+| model_access_mode | field_declaration | AntigravityAccountPublic | [178](../../src-tauri/src/antigravity/account.rs#L178) |
+| allowed_model_patterns | field_declaration | AntigravityAccountPublic | [179](../../src-tauri/src/antigravity/account.rs#L179) |
+| effective_model_patterns | field_declaration | AntigravityAccountPublic | [180](../../src-tauri/src/antigravity/account.rs#L180) |
+| disabled | field_declaration | AntigravityAccountPublic | [181](../../src-tauri/src/antigravity/account.rs#L181) |
+| disabled_reason | field_declaration | AntigravityAccountPublic | [182](../../src-tauri/src/antigravity/account.rs#L182) |
+| is_active | field_declaration | AntigravityAccountPublic | [183](../../src-tauri/src/antigravity/account.rs#L183) |
+| created_at | field_declaration | AntigravityAccountPublic | [184](../../src-tauri/src/antigravity/account.rs#L184) |
+| last_used | field_declaration | AntigravityAccountPublic | [185](../../src-tauri/src/antigravity/account.rs#L185) |
+| health_score | field_declaration | AntigravityAccountPublic | [186](../../src-tauri/src/antigravity/account.rs#L186) |
+| cooldown_until | field_declaration | AntigravityAccountPublic | [187](../../src-tauri/src/antigravity/account.rs#L187) |
+| remaining_quota | field_declaration | AntigravityAccountPublic | [188](../../src-tauri/src/antigravity/account.rs#L188) |
+| has_project_id | field_declaration | AntigravityAccountPublic | [189](../../src-tauri/src/antigravity/account.rs#L189) |
+| token_expires_at | field_declaration | AntigravityAccountPublic | [190](../../src-tauri/src/antigravity/account.rs#L190) |
+| subscription_tier | field_declaration | AntigravityAccountPublic | [192](../../src-tauri/src/antigravity/account.rs#L192) |
+| quota_5h_percent | field_declaration | AntigravityAccountPublic | [194](../../src-tauri/src/antigravity/account.rs#L194) |
+| quota_weekly_percent | field_declaration | AntigravityAccountPublic | [196](../../src-tauri/src/antigravity/account.rs#L196) |
+| quota_gemini_5h_percent | field_declaration | AntigravityAccountPublic | [198](../../src-tauri/src/antigravity/account.rs#L198) |
+| quota_gemini_weekly_percent | field_declaration | AntigravityAccountPublic | [200](../../src-tauri/src/antigravity/account.rs#L200) |
+| quota_claude_5h_percent | field_declaration | AntigravityAccountPublic | [202](../../src-tauri/src/antigravity/account.rs#L202) |
+| quota_claude_weekly_percent | field_declaration | AntigravityAccountPublic | [204](../../src-tauri/src/antigravity/account.rs#L204) |
+| quota_updated_at | field_declaration | AntigravityAccountPublic | [206](../../src-tauri/src/antigravity/account.rs#L206) |
+| quota_forbidden | field_declaration | AntigravityAccountPublic | [208](../../src-tauri/src/antigravity/account.rs#L208) |
+| device_profile | field_declaration | AntigravityAccountPublic | [209](../../src-tauri/src/antigravity/account.rs#L209) |
+| quota | field_declaration | AntigravityAccountPublic | [211](../../src-tauri/src/antigravity/account.rs#L211) |
+| From<&AntigravityAccount> for AntigravityAccountPublic | impl |  | [214](../../src-tauri/src/antigravity/account.rs#L214) |
+| from | function_item | From<&AntigravityAccount> for AntigravityAccountPublic | [215](../../src-tauri/src/antigravity/account.rs#L215) |
+| StoredAccounts | struct_item |  | [255](../../src-tauri/src/antigravity/account.rs#L255) |
+| accounts | field_declaration | StoredAccounts | [257](../../src-tauri/src/antigravity/account.rs#L257) |
+| AccountStore | struct_item |  | [260](../../src-tauri/src/antigravity/account.rs#L260) |
+| client | field_declaration | AccountStore | [261](../../src-tauri/src/antigravity/account.rs#L261) |
+| inner | field_declaration | AccountStore | [262](../../src-tauri/src/antigravity/account.rs#L262) |
+| disk | field_declaration | AccountStore | [264](../../src-tauri/src/antigravity/account.rs#L264) |
+| store | function_item |  | [267](../../src-tauri/src/antigravity/account.rs#L267) |
+| STORE | static_item | store | [268](../../src-tauri/src/antigravity/account.rs#L268) |
+| accounts_path | function_item |  | [272](../../src-tauri/src/antigravity/account.rs#L272) |
+| AccountStore | impl |  | [276](../../src-tauri/src/antigravity/account.rs#L276) |
+| new | function_item | AccountStore | [277](../../src-tauri/src/antigravity/account.rs#L277) |
+| lock_accounts | function_item | AccountStore | [288](../../src-tauri/src/antigravity/account.rs#L288) |
+| log::error | macro invocation (unexpanded) | AccountStore::lock_accounts | [292](../../src-tauri/src/antigravity/account.rs#L292) |
+| log::warn | macro invocation (unexpanded) | AccountStore::lock_accounts | [299](../../src-tauri/src/antigravity/account.rs#L299) |
+| lock_http_client | function_item | AccountStore | [305](../../src-tauri/src/antigravity/account.rs#L305) |
+| log::error | macro invocation (unexpanded) | AccountStore::lock_http_client | [309](../../src-tauri/src/antigravity/account.rs#L309) |
+| reload_http_client | function_item | AccountStore | [315](../../src-tauri/src/antigravity/account.rs#L315) |
+| list_public | function_item | AccountStore | [319](../../src-tauri/src/antigravity/account.rs#L319) |
+| list_accounts | function_item | AccountStore | [335](../../src-tauri/src/antigravity/account.rs#L335) |
+| remove_account | function_item | AccountStore | [340](../../src-tauri/src/antigravity/account.rs#L340) |
+| set_active_account | function_item | AccountStore | [356](../../src-tauri/src/antigravity/account.rs#L356) |
+| import_json | function_item | AccountStore | [381](../../src-tauri/src/antigravity/account.rs#L381) |
+| format | macro invocation (unexpanded) | AccountStore::import_json | [383](../../src-tauri/src/antigravity/account.rs#L383) |
+| upsert_account | function_item | AccountStore | [396](../../src-tauri/src/antigravity/account.rs#L396) |
+| set_model_access | function_item | AccountStore | [431](../../src-tauri/src/antigravity/account.rs#L431) |
+| set_device | function_item | AccountStore | [457](../../src-tauri/src/antigravity/account.rs#L457) |

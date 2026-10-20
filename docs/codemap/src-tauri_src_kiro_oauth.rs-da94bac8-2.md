@@ -4,72 +4,72 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/oauth.rs) · page 2/2
 
-Source SHA-256: e662d4f8fbc382aae147a2190383efe465397c26db1139928da0b663d464986a
+Source SHA-256: 94d5089f72af1ed4db6f9875912d29a3629a2b23168650c89d97ce862c7f109f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| read_request_target | function_item |  | [615](../../src-tauri/src/kiro/oauth.rs#L615) |
-| http_response | function_item |  | [637](../../src-tauri/src/kiro/oauth.rs#L637) |
-| format | macro invocation (unexpanded) | http_response | [639](../../src-tauri/src/kiro/oauth.rs#L639) |
-| format | macro invocation (unexpanded) | http_response | [641](../../src-tauri/src/kiro/oauth.rs#L641) |
-| page | function_item |  | [647](../../src-tauri/src/kiro/oauth.rs#L647) |
-| format | macro invocation (unexpanded) | page | [649](../../src-tauri/src/kiro/oauth.rs#L649) |
-| html_escape | function_item |  | [656](../../src-tauri/src/kiro/oauth.rs#L656) |
-| random_state | function_item |  | [664](../../src-tauri/src/kiro/oauth.rs#L664) |
-| account_from_token | function_item |  | [670](../../src-tauri/src/kiro/oauth.rs#L670) |
-| send_json | function_item |  | [697](../../src-tauri/src/kiro/oauth.rs#L697) |
-| format | macro invocation (unexpanded) | send_json | [711](../../src-tauri/src/kiro/oauth.rs#L711) |
-| bind_callbacks | function_item |  | [720](../../src-tauri/src/kiro/oauth.rs#L720) |
-| vec | macro invocation (unexpanded) | bind_callbacks | [723](../../src-tauri/src/kiro/oauth.rs#L723) |
-| send_json_ide | function_item |  | [737](../../src-tauri/src/kiro/oauth.rs#L737) |
-| format | macro invocation (unexpanded) | send_json_ide | [753](../../src-tauri/src/kiro/oauth.rs#L753) |
-| pkce | function_item |  | [760](../../src-tauri/src/kiro/oauth.rs#L760) |
-| urlencoding | function_item |  | [771](../../src-tauri/src/kiro/oauth.rs#L771) |
-| RegisterResponse | struct_item |  | [777](../../src-tauri/src/kiro/oauth.rs#L777) |
-| client_id | field_declaration | RegisterResponse | [778](../../src-tauri/src/kiro/oauth.rs#L778) |
-| client_secret | field_declaration | RegisterResponse | [779](../../src-tauri/src/kiro/oauth.rs#L779) |
-| DeviceResponse | struct_item |  | [784](../../src-tauri/src/kiro/oauth.rs#L784) |
-| device_code | field_declaration | DeviceResponse | [785](../../src-tauri/src/kiro/oauth.rs#L785) |
-| user_code | field_declaration | DeviceResponse | [787](../../src-tauri/src/kiro/oauth.rs#L787) |
-| verification_uri | field_declaration | DeviceResponse | [788](../../src-tauri/src/kiro/oauth.rs#L788) |
-| verification_uri_complete | field_declaration | DeviceResponse | [790](../../src-tauri/src/kiro/oauth.rs#L790) |
-| expires_in | field_declaration | DeviceResponse | [791](../../src-tauri/src/kiro/oauth.rs#L791) |
-| interval | field_declaration | DeviceResponse | [792](../../src-tauri/src/kiro/oauth.rs#L792) |
-| TokenResponse | struct_item |  | [797](../../src-tauri/src/kiro/oauth.rs#L797) |
-| access_token | field_declaration | TokenResponse | [798](../../src-tauri/src/kiro/oauth.rs#L798) |
-| refresh_token | field_declaration | TokenResponse | [800](../../src-tauri/src/kiro/oauth.rs#L800) |
-| expires_in | field_declaration | TokenResponse | [802](../../src-tauri/src/kiro/oauth.rs#L802) |
-| SocialToken | struct_item |  | [807](../../src-tauri/src/kiro/oauth.rs#L807) |
-| access_token | field_declaration | SocialToken | [808](../../src-tauri/src/kiro/oauth.rs#L808) |
-| refresh_token | field_declaration | SocialToken | [810](../../src-tauri/src/kiro/oauth.rs#L810) |
-| expires_at | field_declaration | SocialToken | [812](../../src-tauri/src/kiro/oauth.rs#L812) |
-| expires_in | field_declaration | SocialToken | [814](../../src-tauri/src/kiro/oauth.rs#L814) |
-| profile_arn | field_declaration | SocialToken | [816](../../src-tauri/src/kiro/oauth.rs#L816) |
-| tests | mod_item |  | [820](../../src-tauri/src/kiro/oauth.rs#L820) |
-| STATE | const_item | tests | [823](../../src-tauri/src/kiro/oauth.rs#L823) |
-| BASE | const_item | tests | [824](../../src-tauri/src/kiro/oauth.rs#L824) |
-| query | function_item | tests | [826](../../src-tauri/src/kiro/oauth.rs#L826) |
-| classify | function_item | tests | [833](../../src-tauri/src/kiro/oauth.rs#L833) |
-| stage | function_item | tests | [837](../../src-tauri/src/kiro/oauth.rs#L837) |
-| portal_url_redirect_has_no_path | function_item | tests | [849](../../src-tauri/src/kiro/oauth.rs#L849) |
-| assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [851](../../src-tauri/src/kiro/oauth.rs#L851) |
-| assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [852](../../src-tauri/src/kiro/oauth.rs#L852) |
+| read_request_target | function_item |  | [616](../../src-tauri/src/kiro/oauth.rs#L616) |
+| http_response | function_item |  | [638](../../src-tauri/src/kiro/oauth.rs#L638) |
+| format | macro invocation (unexpanded) | http_response | [640](../../src-tauri/src/kiro/oauth.rs#L640) |
+| format | macro invocation (unexpanded) | http_response | [642](../../src-tauri/src/kiro/oauth.rs#L642) |
+| page | function_item |  | [648](../../src-tauri/src/kiro/oauth.rs#L648) |
+| format | macro invocation (unexpanded) | page | [650](../../src-tauri/src/kiro/oauth.rs#L650) |
+| html_escape | function_item |  | [657](../../src-tauri/src/kiro/oauth.rs#L657) |
+| random_state | function_item |  | [665](../../src-tauri/src/kiro/oauth.rs#L665) |
+| account_from_token | function_item |  | [671](../../src-tauri/src/kiro/oauth.rs#L671) |
+| send_json | function_item |  | [699](../../src-tauri/src/kiro/oauth.rs#L699) |
+| format | macro invocation (unexpanded) | send_json | [713](../../src-tauri/src/kiro/oauth.rs#L713) |
+| bind_callbacks | function_item |  | [722](../../src-tauri/src/kiro/oauth.rs#L722) |
+| vec | macro invocation (unexpanded) | bind_callbacks | [725](../../src-tauri/src/kiro/oauth.rs#L725) |
+| send_json_ide | function_item |  | [739](../../src-tauri/src/kiro/oauth.rs#L739) |
+| format | macro invocation (unexpanded) | send_json_ide | [755](../../src-tauri/src/kiro/oauth.rs#L755) |
+| pkce | function_item |  | [762](../../src-tauri/src/kiro/oauth.rs#L762) |
+| urlencoding | function_item |  | [773](../../src-tauri/src/kiro/oauth.rs#L773) |
+| RegisterResponse | struct_item |  | [779](../../src-tauri/src/kiro/oauth.rs#L779) |
+| client_id | field_declaration | RegisterResponse | [780](../../src-tauri/src/kiro/oauth.rs#L780) |
+| client_secret | field_declaration | RegisterResponse | [781](../../src-tauri/src/kiro/oauth.rs#L781) |
+| DeviceResponse | struct_item |  | [786](../../src-tauri/src/kiro/oauth.rs#L786) |
+| device_code | field_declaration | DeviceResponse | [787](../../src-tauri/src/kiro/oauth.rs#L787) |
+| user_code | field_declaration | DeviceResponse | [789](../../src-tauri/src/kiro/oauth.rs#L789) |
+| verification_uri | field_declaration | DeviceResponse | [790](../../src-tauri/src/kiro/oauth.rs#L790) |
+| verification_uri_complete | field_declaration | DeviceResponse | [792](../../src-tauri/src/kiro/oauth.rs#L792) |
+| expires_in | field_declaration | DeviceResponse | [793](../../src-tauri/src/kiro/oauth.rs#L793) |
+| interval | field_declaration | DeviceResponse | [794](../../src-tauri/src/kiro/oauth.rs#L794) |
+| TokenResponse | struct_item |  | [799](../../src-tauri/src/kiro/oauth.rs#L799) |
+| access_token | field_declaration | TokenResponse | [800](../../src-tauri/src/kiro/oauth.rs#L800) |
+| refresh_token | field_declaration | TokenResponse | [802](../../src-tauri/src/kiro/oauth.rs#L802) |
+| expires_in | field_declaration | TokenResponse | [804](../../src-tauri/src/kiro/oauth.rs#L804) |
+| SocialToken | struct_item |  | [809](../../src-tauri/src/kiro/oauth.rs#L809) |
+| access_token | field_declaration | SocialToken | [810](../../src-tauri/src/kiro/oauth.rs#L810) |
+| refresh_token | field_declaration | SocialToken | [812](../../src-tauri/src/kiro/oauth.rs#L812) |
+| expires_at | field_declaration | SocialToken | [814](../../src-tauri/src/kiro/oauth.rs#L814) |
+| expires_in | field_declaration | SocialToken | [816](../../src-tauri/src/kiro/oauth.rs#L816) |
+| profile_arn | field_declaration | SocialToken | [818](../../src-tauri/src/kiro/oauth.rs#L818) |
+| tests | mod_item |  | [822](../../src-tauri/src/kiro/oauth.rs#L822) |
+| STATE | const_item | tests | [825](../../src-tauri/src/kiro/oauth.rs#L825) |
+| BASE | const_item | tests | [826](../../src-tauri/src/kiro/oauth.rs#L826) |
+| query | function_item | tests | [828](../../src-tauri/src/kiro/oauth.rs#L828) |
+| classify | function_item | tests | [835](../../src-tauri/src/kiro/oauth.rs#L835) |
+| stage | function_item | tests | [839](../../src-tauri/src/kiro/oauth.rs#L839) |
+| portal_url_redirect_has_no_path | function_item | tests | [851](../../src-tauri/src/kiro/oauth.rs#L851) |
 | assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [853](../../src-tauri/src/kiro/oauth.rs#L853) |
 | assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [854](../../src-tauri/src/kiro/oauth.rs#L854) |
 | assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [855](../../src-tauri/src/kiro/oauth.rs#L855) |
-| social_callback_keeps_login_option_in_token_redirect | function_item | tests | [859](../../src-tauri/src/kiro/oauth.rs#L859) |
-| assert_eq | macro invocation (unexpanded) | tests::social_callback_keeps_login_option_in_token_redirect | [869](../../src-tauri/src/kiro/oauth.rs#L869) |
-| assert | macro invocation (unexpanded) | tests::social_callback_keeps_login_option_in_token_redirect | [886](../../src-tauri/src/kiro/oauth.rs#L886) |
-| builder_id_callback_registers_aws_client | function_item | tests | [896](../../src-tauri/src/kiro/oauth.rs#L896) |
-| assert | macro invocation (unexpanded) | tests::builder_id_callback_registers_aws_client | [907](../../src-tauri/src/kiro/oauth.rs#L907) |
-| assert | macro invocation (unexpanded) | tests::builder_id_callback_registers_aws_client | [924](../../src-tauri/src/kiro/oauth.rs#L924) |
-| aws_leg_matches_its_own_state | function_item | tests | [928](../../src-tauri/src/kiro/oauth.rs#L928) |
-| assert_eq | macro invocation (unexpanded) | tests::aws_leg_matches_its_own_state | [935](../../src-tauri/src/kiro/oauth.rs#L935) |
-| assert_eq | macro invocation (unexpanded) | tests::aws_leg_matches_its_own_state | [942](../../src-tauri/src/kiro/oauth.rs#L942) |
-| rejects_errors_foreign_state_and_unknown_paths | function_item | tests | [953](../../src-tauri/src/kiro/oauth.rs#L953) |
-| assert | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [954](../../src-tauri/src/kiro/oauth.rs#L954) |
-| assert_eq | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [962](../../src-tauri/src/kiro/oauth.rs#L962) |
-| assert_eq | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [970](../../src-tauri/src/kiro/oauth.rs#L970) |
-| assert | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [974](../../src-tauri/src/kiro/oauth.rs#L974) |
-| ide_user_agent_has_kiro_prefix | function_item | tests | [985](../../src-tauri/src/kiro/oauth.rs#L985) |
-| assert | macro invocation (unexpanded) | tests::ide_user_agent_has_kiro_prefix | [986](../../src-tauri/src/kiro/oauth.rs#L986) |
+| assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [856](../../src-tauri/src/kiro/oauth.rs#L856) |
+| assert | macro invocation (unexpanded) | tests::portal_url_redirect_has_no_path | [857](../../src-tauri/src/kiro/oauth.rs#L857) |
+| social_callback_keeps_login_option_in_token_redirect | function_item | tests | [861](../../src-tauri/src/kiro/oauth.rs#L861) |
+| assert_eq | macro invocation (unexpanded) | tests::social_callback_keeps_login_option_in_token_redirect | [871](../../src-tauri/src/kiro/oauth.rs#L871) |
+| assert | macro invocation (unexpanded) | tests::social_callback_keeps_login_option_in_token_redirect | [888](../../src-tauri/src/kiro/oauth.rs#L888) |
+| builder_id_callback_registers_aws_client | function_item | tests | [898](../../src-tauri/src/kiro/oauth.rs#L898) |
+| assert | macro invocation (unexpanded) | tests::builder_id_callback_registers_aws_client | [909](../../src-tauri/src/kiro/oauth.rs#L909) |
+| assert | macro invocation (unexpanded) | tests::builder_id_callback_registers_aws_client | [926](../../src-tauri/src/kiro/oauth.rs#L926) |
+| aws_leg_matches_its_own_state | function_item | tests | [930](../../src-tauri/src/kiro/oauth.rs#L930) |
+| assert_eq | macro invocation (unexpanded) | tests::aws_leg_matches_its_own_state | [937](../../src-tauri/src/kiro/oauth.rs#L937) |
+| assert_eq | macro invocation (unexpanded) | tests::aws_leg_matches_its_own_state | [944](../../src-tauri/src/kiro/oauth.rs#L944) |
+| rejects_errors_foreign_state_and_unknown_paths | function_item | tests | [955](../../src-tauri/src/kiro/oauth.rs#L955) |
+| assert | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [956](../../src-tauri/src/kiro/oauth.rs#L956) |
+| assert_eq | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [964](../../src-tauri/src/kiro/oauth.rs#L964) |
+| assert_eq | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [972](../../src-tauri/src/kiro/oauth.rs#L972) |
+| assert | macro invocation (unexpanded) | tests::rejects_errors_foreign_state_and_unknown_paths | [976](../../src-tauri/src/kiro/oauth.rs#L976) |
+| ide_user_agent_has_kiro_prefix | function_item | tests | [987](../../src-tauri/src/kiro/oauth.rs#L987) |
+| assert | macro invocation (unexpanded) | tests::ide_user_agent_has_kiro_prefix | [988](../../src-tauri/src/kiro/oauth.rs#L988) |

@@ -108,6 +108,24 @@ export async function setGatewayRuntimeMode(
   return call<GatewayRuntimeMode>("set_gateway_runtime_mode", { mode });
 }
 
+/** 反代网关的全局时区（IANA 名）；空串表示跟随系统。 */
+export async function getGatewayTimezone(): Promise<string> {
+  return call<string>("get_gateway_timezone", {});
+}
+
+export async function setGatewayTimezone(timezone: string): Promise<string> {
+  return call<string>("set_gateway_timezone", { timezone });
+}
+
+/** 开启后，反代网关把每次改写的 Platform / Shell / OS Version / 日期的前后值写入日志。 */
+export async function getGatewayDebugEnvRewrite(): Promise<boolean> {
+  return call<boolean>("get_gateway_debug_env_rewrite", {});
+}
+
+export async function setGatewayDebugEnvRewrite(enabled: boolean): Promise<boolean> {
+  return call<boolean>("set_gateway_debug_env_rewrite", { enabled });
+}
+
 export async function setCloseBehavior(behavior: CloseBehavior): Promise<void> {
   return call<void>("set_close_behavior", { behavior });
 }

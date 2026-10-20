@@ -15,9 +15,10 @@
 | [src-tauri/src/claude_plugins.rs](../../src-tauri/src/claude_plugins.rs) | 139 | [1](src-tauri_src_claude_plugins.rs-e71178e2-1.md) [2](src-tauri_src_claude_plugins.rs-e71178e2-2.md) |
 | [src-tauri/src/codex_oauth.rs](../../src-tauri/src/codex_oauth.rs) | 86 | [1](src-tauri_src_codex_oauth.rs-0c2dab42-1.md) |
 | [src-tauri/src/codex_plugins.rs](../../src-tauri/src/codex_plugins.rs) | 132 | [1](src-tauri_src_codex_plugins.rs-f62478d2-1.md) [2](src-tauri_src_codex_plugins.rs-f62478d2-2.md) |
+| [src-tauri/src/device_profile.rs](../../src-tauri/src/device_profile.rs) | 90 | [1](src-tauri_src_device_profile.rs-fe37d127-1.md) |
 | [src-tauri/src/error.rs](../../src-tauri/src/error.rs) | 22 | [1](src-tauri_src_error.rs-6d4084d6-1.md) |
 | [src-tauri/src/file_stamp.rs](../../src-tauri/src/file_stamp.rs) | 26 | [1](src-tauri_src_file_stamp.rs-8b27de1e-1.md) |
-| [src-tauri/src/lib.rs](../../src-tauri/src/lib.rs) | 108 | [1](src-tauri_src_lib.rs-eabcebd0-1.md) [2](src-tauri_src_lib.rs-eabcebd0-2.md) |
+| [src-tauri/src/lib.rs](../../src-tauri/src/lib.rs) | 109 | [1](src-tauri_src_lib.rs-eabcebd0-1.md) [2](src-tauri_src_lib.rs-eabcebd0-2.md) |
 | [src-tauri/src/log_redact.rs](../../src-tauri/src/log_redact.rs) | 18 | [1](src-tauri_src_log_redact.rs-fe37703f-1.md) |
 | [src-tauri/src/main.rs](../../src-tauri/src/main.rs) | 1 | [1](src-tauri_src_main.rs-2f5e0a90-1.md) |
 | [src-tauri/src/mcp.rs](../../src-tauri/src/mcp.rs) | 75 | [1](src-tauri_src_mcp.rs-a72a9d34-1.md) |

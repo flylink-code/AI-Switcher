@@ -4,7 +4,7 @@
 
 [Module](web-services.md) · [Source](../../src/services/kiro.ts) · page 1/2
 
-Source SHA-256: 6d8d3fd6e9801d6fbe5dfaf9333fea21bac44054983fd60020c07025448e7c4e
+Source SHA-256: 412793b0be67b1bff0831821169ff2d8aedc5793ae734841504c662bfdc8a007
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -28,83 +28,83 @@ Source SHA-256: 6d8d3fd6e9801d6fbe5dfaf9333fea21bac44054983fd60020c07025448e7c4e
 | disableReason | PropertySignature | KiroAccountPublic | [23](../../src/services/kiro.ts#L23) |
 | hasRefreshToken | PropertySignature | KiroAccountPublic | [24](../../src/services/kiro.ts#L24) |
 | active | PropertySignature | KiroAccountPublic | [25](../../src/services/kiro.ts#L25) |
-| quota | PropertySignature | KiroAccountPublic | [26](../../src/services/kiro.ts#L26) |
-| KiroExitProxy | InterfaceDeclaration |  | [29](../../src/services/kiro.ts#L29) |
-| id | PropertySignature | KiroExitProxy | [30](../../src/services/kiro.ts#L30) |
-| name | PropertySignature | KiroExitProxy | [31](../../src/services/kiro.ts#L31) |
-| enabled | PropertySignature | KiroExitProxy | [32](../../src/services/kiro.ts#L32) |
-| proxyUrl | PropertySignature | KiroExitProxy | [33](../../src/services/kiro.ts#L33) |
-| proxyRedacted | PropertySignature | KiroExitProxy | [34](../../src/services/kiro.ts#L34) |
-| probeOk | PropertySignature | KiroExitProxy | [35](../../src/services/kiro.ts#L35) |
-| probeIp | PropertySignature | KiroExitProxy | [36](../../src/services/kiro.ts#L36) |
-| probeHop | PropertySignature | KiroExitProxy | [37](../../src/services/kiro.ts#L37) |
-| probeMessage | PropertySignature | KiroExitProxy | [38](../../src/services/kiro.ts#L38) |
-| latencyOk | PropertySignature | KiroExitProxy | [39](../../src/services/kiro.ts#L39) |
-| latencyMs | PropertySignature | KiroExitProxy | [40](../../src/services/kiro.ts#L40) |
-| latencyMessage | PropertySignature | KiroExitProxy | [41](../../src/services/kiro.ts#L41) |
-| KiroExitProxyInput | InterfaceDeclaration |  | [44](../../src/services/kiro.ts#L44) |
-| id | PropertySignature | KiroExitProxyInput | [45](../../src/services/kiro.ts#L45) |
-| name | PropertySignature | KiroExitProxyInput | [46](../../src/services/kiro.ts#L46) |
-| enabled | PropertySignature | KiroExitProxyInput | [47](../../src/services/kiro.ts#L47) |
-| proxyUrl | PropertySignature | KiroExitProxyInput | [48](../../src/services/kiro.ts#L48) |
-| KiroExitProbeResult | InterfaceDeclaration |  | [51](../../src/services/kiro.ts#L51) |
-| id | PropertySignature | KiroExitProbeResult | [52](../../src/services/kiro.ts#L52) |
-| ok | PropertySignature | KiroExitProbeResult | [53](../../src/services/kiro.ts#L53) |
-| ip | PropertySignature | KiroExitProbeResult | [54](../../src/services/kiro.ts#L54) |
-| hop | PropertySignature | KiroExitProbeResult | [55](../../src/services/kiro.ts#L55) |
-| message | PropertySignature | KiroExitProbeResult | [56](../../src/services/kiro.ts#L56) |
-| KiroExitLatencyResult | InterfaceDeclaration |  | [59](../../src/services/kiro.ts#L59) |
-| id | PropertySignature | KiroExitLatencyResult | [60](../../src/services/kiro.ts#L60) |
-| ok | PropertySignature | KiroExitLatencyResult | [61](../../src/services/kiro.ts#L61) |
-| millis | PropertySignature | KiroExitLatencyResult | [62](../../src/services/kiro.ts#L62) |
-| hop | PropertySignature | KiroExitLatencyResult | [63](../../src/services/kiro.ts#L63) |
-| message | PropertySignature | KiroExitLatencyResult | [64](../../src/services/kiro.ts#L64) |
-| KiroAccountTestResult | InterfaceDeclaration |  | [67](../../src/services/kiro.ts#L67) |
-| ok | PropertySignature | KiroAccountTestResult | [68](../../src/services/kiro.ts#L68) |
-| category | PropertySignature | KiroAccountTestResult | [69](../../src/services/kiro.ts#L69) |
-| status | PropertySignature | KiroAccountTestResult | [70](../../src/services/kiro.ts#L70) |
-| model | PropertySignature | KiroAccountTestResult | [71](../../src/services/kiro.ts#L71) |
-| latencyMs | PropertySignature | KiroAccountTestResult | [72](../../src/services/kiro.ts#L72) |
-| reply | PropertySignature | KiroAccountTestResult | [73](../../src/services/kiro.ts#L73) |
-| error | PropertySignature | KiroAccountTestResult | [74](../../src/services/kiro.ts#L74) |
-| KiroAccountTestCategory | TypeAliasDeclaration |  | [77](../../src/services/kiro.ts#L77) |
-| KiroGatewayStatus | InterfaceDeclaration |  | [79](../../src/services/kiro.ts#L79) |
-| running | PropertySignature | KiroGatewayStatus | [80](../../src/services/kiro.ts#L80) |
-| port | PropertySignature | KiroGatewayStatus | [81](../../src/services/kiro.ts#L81) |
-| apiKey | PropertySignature | KiroGatewayStatus | [82](../../src/services/kiro.ts#L82) |
-| accountCount | PropertySignature | KiroGatewayStatus | [83](../../src/services/kiro.ts#L83) |
-| baseUrl | PropertySignature | KiroGatewayStatus | [84](../../src/services/kiro.ts#L84) |
-| outboundMode | PropertySignature | KiroGatewayStatus | [85](../../src/services/kiro.ts#L85) |
-| outboundProxyUrl | PropertySignature | KiroGatewayStatus | [86](../../src/services/kiro.ts#L86) |
-| effectiveOutboundProxy | PropertySignature | KiroGatewayStatus | [87](../../src/services/kiro.ts#L87) |
-| exitProxies | PropertySignature | KiroGatewayStatus | [88](../../src/services/kiro.ts#L88) |
-| exitChainLabel | PropertySignature | KiroGatewayStatus | [89](../../src/services/kiro.ts#L89) |
-| exitError | PropertySignature | KiroGatewayStatus | [90](../../src/services/kiro.ts#L90) |
-| KiroOutboundMode | TypeAliasDeclaration |  | [93](../../src/services/kiro.ts#L93) |
-| listKiroAccounts | FunctionDeclaration |  | [95](../../src/services/kiro.ts#L95) |
-| importKiroAccounts | FunctionDeclaration |  | [99](../../src/services/kiro.ts#L99) |
-| removeKiroAccount | FunctionDeclaration |  | [103](../../src/services/kiro.ts#L103) |
-| invoke | VariableDeclaration | removeKiroAccount | [104](../../src/services/kiro.ts#L104) |
-| startKiroBuilderIdLogin | FunctionDeclaration |  | [108](../../src/services/kiro.ts#L108) |
-| startKiroSocialLogin | FunctionDeclaration |  | [112](../../src/services/kiro.ts#L112) |
-| KiroModelInfo | InterfaceDeclaration |  | [116](../../src/services/kiro.ts#L116) |
-| id | PropertySignature | KiroModelInfo | [117](../../src/services/kiro.ts#L117) |
-| name | PropertySignature | KiroModelInfo | [118](../../src/services/kiro.ts#L118) |
-| context | PropertySignature | KiroModelInfo | [120](../../src/services/kiro.ts#L120) |
-| output | PropertySignature | KiroModelInfo | [121](../../src/services/kiro.ts#L121) |
-| images | PropertySignature | KiroModelInfo | [122](../../src/services/kiro.ts#L122) |
-| KiroModelList | InterfaceDeclaration |  | [125](../../src/services/kiro.ts#L125) |
-| models | PropertySignature | KiroModelList | [126](../../src/services/kiro.ts#L126) |
-| source | PropertySignature | KiroModelList | [128](../../src/services/kiro.ts#L128) |
-| fetchedAt | PropertySignature | KiroModelList | [129](../../src/services/kiro.ts#L129) |
-| listKiroModels | FunctionDeclaration |  | [132](../../src/services/kiro.ts#L132) |
-| refreshKiroModels | FunctionDeclaration |  | [136](../../src/services/kiro.ts#L136) |
-| submitKiroLoginCallback | FunctionDeclaration |  | [141](../../src/services/kiro.ts#L141) |
-| getKiroGatewayStatus | FunctionDeclaration |  | [145](../../src/services/kiro.ts#L145) |
-| setKiroGatewayPort | FunctionDeclaration |  | [149](../../src/services/kiro.ts#L149) |
-| invoke | VariableDeclaration | setKiroGatewayPort | [150](../../src/services/kiro.ts#L150) |
-| setKiroGatewayApiKey | FunctionDeclaration |  | [154](../../src/services/kiro.ts#L154) |
-| invoke | VariableDeclaration | setKiroGatewayApiKey | [155](../../src/services/kiro.ts#L155) |
-| setKiroOutboundProxy | FunctionDeclaration |  | [159](../../src/services/kiro.ts#L159) |
-| startKiroGateway | FunctionDeclaration |  | [169](../../src/services/kiro.ts#L169) |
-| stopKiroGateway | FunctionDeclaration |  | [173](../../src/services/kiro.ts#L173) |
+| deviceProfile | PropertySignature | KiroAccountPublic | [26](../../src/services/kiro.ts#L26) |
+| quota | PropertySignature | KiroAccountPublic | [27](../../src/services/kiro.ts#L27) |
+| KiroExitProxy | InterfaceDeclaration |  | [30](../../src/services/kiro.ts#L30) |
+| id | PropertySignature | KiroExitProxy | [31](../../src/services/kiro.ts#L31) |
+| name | PropertySignature | KiroExitProxy | [32](../../src/services/kiro.ts#L32) |
+| enabled | PropertySignature | KiroExitProxy | [33](../../src/services/kiro.ts#L33) |
+| proxyUrl | PropertySignature | KiroExitProxy | [34](../../src/services/kiro.ts#L34) |
+| proxyRedacted | PropertySignature | KiroExitProxy | [35](../../src/services/kiro.ts#L35) |
+| probeOk | PropertySignature | KiroExitProxy | [36](../../src/services/kiro.ts#L36) |
+| probeIp | PropertySignature | KiroExitProxy | [37](../../src/services/kiro.ts#L37) |
+| probeHop | PropertySignature | KiroExitProxy | [38](../../src/services/kiro.ts#L38) |
+| probeMessage | PropertySignature | KiroExitProxy | [39](../../src/services/kiro.ts#L39) |
+| latencyOk | PropertySignature | KiroExitProxy | [40](../../src/services/kiro.ts#L40) |
+| latencyMs | PropertySignature | KiroExitProxy | [41](../../src/services/kiro.ts#L41) |
+| latencyMessage | PropertySignature | KiroExitProxy | [42](../../src/services/kiro.ts#L42) |
+| KiroExitProxyInput | InterfaceDeclaration |  | [45](../../src/services/kiro.ts#L45) |
+| id | PropertySignature | KiroExitProxyInput | [46](../../src/services/kiro.ts#L46) |
+| name | PropertySignature | KiroExitProxyInput | [47](../../src/services/kiro.ts#L47) |
+| enabled | PropertySignature | KiroExitProxyInput | [48](../../src/services/kiro.ts#L48) |
+| proxyUrl | PropertySignature | KiroExitProxyInput | [49](../../src/services/kiro.ts#L49) |
+| KiroExitProbeResult | InterfaceDeclaration |  | [52](../../src/services/kiro.ts#L52) |
+| id | PropertySignature | KiroExitProbeResult | [53](../../src/services/kiro.ts#L53) |
+| ok | PropertySignature | KiroExitProbeResult | [54](../../src/services/kiro.ts#L54) |
+| ip | PropertySignature | KiroExitProbeResult | [55](../../src/services/kiro.ts#L55) |
+| hop | PropertySignature | KiroExitProbeResult | [56](../../src/services/kiro.ts#L56) |
+| message | PropertySignature | KiroExitProbeResult | [57](../../src/services/kiro.ts#L57) |
+| KiroExitLatencyResult | InterfaceDeclaration |  | [60](../../src/services/kiro.ts#L60) |
+| id | PropertySignature | KiroExitLatencyResult | [61](../../src/services/kiro.ts#L61) |
+| ok | PropertySignature | KiroExitLatencyResult | [62](../../src/services/kiro.ts#L62) |
+| millis | PropertySignature | KiroExitLatencyResult | [63](../../src/services/kiro.ts#L63) |
+| hop | PropertySignature | KiroExitLatencyResult | [64](../../src/services/kiro.ts#L64) |
+| message | PropertySignature | KiroExitLatencyResult | [65](../../src/services/kiro.ts#L65) |
+| KiroAccountTestResult | InterfaceDeclaration |  | [68](../../src/services/kiro.ts#L68) |
+| ok | PropertySignature | KiroAccountTestResult | [69](../../src/services/kiro.ts#L69) |
+| category | PropertySignature | KiroAccountTestResult | [70](../../src/services/kiro.ts#L70) |
+| status | PropertySignature | KiroAccountTestResult | [71](../../src/services/kiro.ts#L71) |
+| model | PropertySignature | KiroAccountTestResult | [72](../../src/services/kiro.ts#L72) |
+| latencyMs | PropertySignature | KiroAccountTestResult | [73](../../src/services/kiro.ts#L73) |
+| reply | PropertySignature | KiroAccountTestResult | [74](../../src/services/kiro.ts#L74) |
+| error | PropertySignature | KiroAccountTestResult | [75](../../src/services/kiro.ts#L75) |
+| KiroAccountTestCategory | TypeAliasDeclaration |  | [78](../../src/services/kiro.ts#L78) |
+| KiroGatewayStatus | InterfaceDeclaration |  | [80](../../src/services/kiro.ts#L80) |
+| running | PropertySignature | KiroGatewayStatus | [81](../../src/services/kiro.ts#L81) |
+| port | PropertySignature | KiroGatewayStatus | [82](../../src/services/kiro.ts#L82) |
+| apiKey | PropertySignature | KiroGatewayStatus | [83](../../src/services/kiro.ts#L83) |
+| accountCount | PropertySignature | KiroGatewayStatus | [84](../../src/services/kiro.ts#L84) |
+| baseUrl | PropertySignature | KiroGatewayStatus | [85](../../src/services/kiro.ts#L85) |
+| outboundMode | PropertySignature | KiroGatewayStatus | [86](../../src/services/kiro.ts#L86) |
+| outboundProxyUrl | PropertySignature | KiroGatewayStatus | [87](../../src/services/kiro.ts#L87) |
+| effectiveOutboundProxy | PropertySignature | KiroGatewayStatus | [88](../../src/services/kiro.ts#L88) |
+| exitProxies | PropertySignature | KiroGatewayStatus | [89](../../src/services/kiro.ts#L89) |
+| exitChainLabel | PropertySignature | KiroGatewayStatus | [90](../../src/services/kiro.ts#L90) |
+| exitError | PropertySignature | KiroGatewayStatus | [91](../../src/services/kiro.ts#L91) |
+| KiroOutboundMode | TypeAliasDeclaration |  | [94](../../src/services/kiro.ts#L94) |
+| listKiroAccounts | FunctionDeclaration |  | [96](../../src/services/kiro.ts#L96) |
+| setKiroAccountDevice | FunctionDeclaration |  | [100](../../src/services/kiro.ts#L100) |
+| importKiroAccounts | FunctionDeclaration |  | [108](../../src/services/kiro.ts#L108) |
+| removeKiroAccount | FunctionDeclaration |  | [112](../../src/services/kiro.ts#L112) |
+| invoke | VariableDeclaration | removeKiroAccount | [113](../../src/services/kiro.ts#L113) |
+| startKiroBuilderIdLogin | FunctionDeclaration |  | [117](../../src/services/kiro.ts#L117) |
+| startKiroSocialLogin | FunctionDeclaration |  | [121](../../src/services/kiro.ts#L121) |
+| KiroModelInfo | InterfaceDeclaration |  | [125](../../src/services/kiro.ts#L125) |
+| id | PropertySignature | KiroModelInfo | [126](../../src/services/kiro.ts#L126) |
+| name | PropertySignature | KiroModelInfo | [127](../../src/services/kiro.ts#L127) |
+| context | PropertySignature | KiroModelInfo | [129](../../src/services/kiro.ts#L129) |
+| output | PropertySignature | KiroModelInfo | [130](../../src/services/kiro.ts#L130) |
+| images | PropertySignature | KiroModelInfo | [131](../../src/services/kiro.ts#L131) |
+| KiroModelList | InterfaceDeclaration |  | [134](../../src/services/kiro.ts#L134) |
+| models | PropertySignature | KiroModelList | [135](../../src/services/kiro.ts#L135) |
+| source | PropertySignature | KiroModelList | [137](../../src/services/kiro.ts#L137) |
+| fetchedAt | PropertySignature | KiroModelList | [138](../../src/services/kiro.ts#L138) |
+| listKiroModels | FunctionDeclaration |  | [141](../../src/services/kiro.ts#L141) |
+| refreshKiroModels | FunctionDeclaration |  | [145](../../src/services/kiro.ts#L145) |
+| submitKiroLoginCallback | FunctionDeclaration |  | [150](../../src/services/kiro.ts#L150) |
+| getKiroGatewayStatus | FunctionDeclaration |  | [154](../../src/services/kiro.ts#L154) |
+| setKiroGatewayPort | FunctionDeclaration |  | [158](../../src/services/kiro.ts#L158) |
+| invoke | VariableDeclaration | setKiroGatewayPort | [159](../../src/services/kiro.ts#L159) |
+| setKiroGatewayApiKey | FunctionDeclaration |  | [163](../../src/services/kiro.ts#L163) |
+| invoke | VariableDeclaration | setKiroGatewayApiKey | [164](../../src/services/kiro.ts#L164) |
+| setKiroOutboundProxy | FunctionDeclaration |  | [168](../../src/services/kiro.ts#L168) |

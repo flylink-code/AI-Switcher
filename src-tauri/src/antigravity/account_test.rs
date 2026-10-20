@@ -237,6 +237,7 @@ pub async fn test_account(
         }
     };
 
+    let user_agent = crate::antigravity::upstream::user_agent_for(&account.effective_device());
     let project_id = match account
         .token
         .project_id
@@ -246,7 +247,7 @@ pub async fn test_account(
         Some(id) => id.to_string(),
         None => {
             let upstream = UpstreamClient::new();
-            match upstream.fetch_project_id(&access_token).await {
+            match upstream.fetch_project_id(&access_token, &user_agent).await {
                 Ok(id) => {
                     let _ = account_store().update_project_id(account_id, &id);
                     id
@@ -274,11 +275,14 @@ pub async fn test_account(
         }
     };
 
-    let wrapped = wrap_v1internal(&project_id, &upstream_model, request);
+    let wrapped = wrap_v1internal(&project_id, &upstream_model, &user_agent, request);
     let upstream = UpstreamClient::new();
     let mut refreshed = false;
     loop {
-        match upstream.generate(&access_token, &wrapped, false).await {
+        match upstream
+            .generate(&access_token, &user_agent, &wrapped, false)
+            .await
+        {
             Ok(response) => {
                 let status = response.status().as_u16();
                 if status == 401 && !refreshed {

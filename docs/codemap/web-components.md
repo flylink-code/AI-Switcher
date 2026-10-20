@@ -8,11 +8,12 @@
 
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
+| [src/components/AccountDeviceRow.tsx](../../src/components/AccountDeviceRow.tsx) | 22 | [1](src_components_AccountDeviceRow.tsx-88220af0-1.md) |
 | [src/components/AgentConfigDrift.tsx](../../src/components/AgentConfigDrift.tsx) | 22 | [1](src_components_AgentConfigDrift.tsx-f7d32d72-1.md) |
 | [src/components/AgentConnectionCard.tsx](../../src/components/AgentConnectionCard.tsx) | 94 | [1](src_components_AgentConnectionCard.tsx-a3e35156-1.md) |
 | [src/components/AgentDirectModelMapping.tsx](../../src/components/AgentDirectModelMapping.tsx) | 50 | [1](src_components_AgentDirectModelMapping.tsx-c1d6b509-1.md) |
 | [src/components/AgentTargetSwitcher.tsx](../../src/components/AgentTargetSwitcher.tsx) | 24 | [1](src_components_AgentTargetSwitcher.tsx-2393e8bd-1.md) |
-| [src/components/AntigravityQuotaBars.tsx](../../src/components/AntigravityQuotaBars.tsx) | 50 | [1](src_components_AntigravityQuotaBars.tsx-ba9d913a-1.md) |
+| [src/components/AntigravityQuotaBars.tsx](../../src/components/AntigravityQuotaBars.tsx) | 53 | [1](src_components_AntigravityQuotaBars.tsx-ba9d913a-1.md) |
 | [src/components/ImportPreviewDialog.tsx](../../src/components/ImportPreviewDialog.tsx) | 17 | [1](src_components_ImportPreviewDialog.tsx-c588cb94-1.md) |
 | [src/components/OnboardingTip.tsx](../../src/components/OnboardingTip.tsx) | 17 | [1](src_components_OnboardingTip.tsx-9a176f64-1.md) |
 | [src/components/ProviderQuotaView.tsx](../../src/components/ProviderQuotaView.tsx) | 46 | [1](src_components_ProviderQuotaView.tsx-6c2cee5d-1.md) |
@@ -27,7 +28,7 @@
 | [src/components/agent/localization/ClaudeCodeLocalizationSection.tsx](../../src/components/agent/localization/ClaudeCodeLocalizationSection.tsx) | 29 | [1](src_components_agent_localization_ClaudeCodeLocalizationSection.tsx-6fa8d209-1.md) |
 | [src/components/agent/localization/ClaudeDesktopLocalizationSection.tsx](../../src/components/agent/localization/ClaudeDesktopLocalizationSection.tsx) | 47 | [1](src_components_agent_localization_ClaudeDesktopLocalizationSection.tsx-27dad057-1.md) |
 | [src/components/agent/localization/LocalizationShared.tsx](../../src/components/agent/localization/LocalizationShared.tsx) | 58 | [1](src_components_agent_localization_LocalizationShared.tsx-2309c6ec-1.md) |
-| [src/components/antigravity/AccountCard.tsx](../../src/components/antigravity/AccountCard.tsx) | 88 | [1](src_components_antigravity_AccountCard.tsx-64a332cb-1.md) |
+| [src/components/antigravity/AccountCard.tsx](../../src/components/antigravity/AccountCard.tsx) | 91 | [1](src_components_antigravity_AccountCard.tsx-64a332cb-1.md) |
 | [src/components/antigravity/AccountPoolOverview.tsx](../../src/components/antigravity/AccountPoolOverview.tsx) | 18 | [1](src_components_antigravity_AccountPoolOverview.tsx-5c95a25a-1.md) |
 | [src/components/antigravity/BindAppsCard.tsx](../../src/components/antigravity/BindAppsCard.tsx) | 19 | [1](src_components_antigravity_BindAppsCard.tsx-7cf805b8-1.md) |
 | [src/components/antigravity/GatewayCard.tsx](../../src/components/antigravity/GatewayCard.tsx) | 153 | [1](src_components_antigravity_GatewayCard.tsx-f8787553-1.md) [2](src_components_antigravity_GatewayCard.tsx-f8787553-2.md) |
@@ -40,7 +41,7 @@
 | [src/components/common/MoreMenu.tsx](../../src/components/common/MoreMenu.tsx) | 8 | [1](src_components_common_MoreMenu.tsx-a8311de9-1.md) |
 | [src/components/common/SelectionBar.tsx](../../src/components/common/SelectionBar.tsx) | 10 | [1](src_components_common_SelectionBar.tsx-ef16e2af-1.md) |
 | [src/components/common/index.ts](../../src/components/common/index.ts) | 4 | [1](src_components_common_index.ts-103cea3d-1.md) |
-| [src/components/kiro/AccountCard.tsx](../../src/components/kiro/AccountCard.tsx) | 44 | [1](src_components_kiro_AccountCard.tsx-e3b54c3d-1.md) |
+| [src/components/kiro/AccountCard.tsx](../../src/components/kiro/AccountCard.tsx) | 47 | [1](src_components_kiro_AccountCard.tsx-e3b54c3d-1.md) |
 | [src/components/kiro/AccountPoolOverview.tsx](../../src/components/kiro/AccountPoolOverview.tsx) | 12 | [1](src_components_kiro_AccountPoolOverview.tsx-b29915e0-1.md) |
 | [src/components/kiro/BindAppsCard.tsx](../../src/components/kiro/BindAppsCard.tsx) | 18 | [1](src_components_kiro_BindAppsCard.tsx-be8021e4-1.md) |
 | [src/components/kiro/GatewayCard.tsx](../../src/components/kiro/GatewayCard.tsx) | 118 | [1](src_components_kiro_GatewayCard.tsx-03ebac48-1.md) [2](src_components_kiro_GatewayCard.tsx-03ebac48-2.md) |

@@ -8,9 +8,9 @@ use crate::kiro::model_list::refresh_models;
 use crate::kiro::models::{model_list, preferred_haiku, preferred_opus, KiroModelList};
 use crate::kiro::{
     gateway_status, import_accounts_json, list_accounts, login_builder_id, login_social,
-    preferred_default_model, remove_account, set_gateway_api_key, set_gateway_port,
-    set_outbound_proxy, start_gateway, stop_gateway, submit_login_callback, KiroAccountPublic,
-    KiroGatewayStatus,
+    preferred_default_model, remove_account, set_account_device, set_gateway_api_key,
+    set_gateway_port, set_outbound_proxy, start_gateway, stop_gateway, submit_login_callback,
+    KiroAccountPublic, KiroGatewayStatus,
 };
 use crate::provider::{
     ClaudeModelMapping, ProtocolType, Provider, ProviderInput, ProviderKind, ProviderTarget,
@@ -25,6 +25,15 @@ pub fn list_kiro_accounts() -> AppResult<Vec<KiroAccountPublic>> {
 #[tauri::command]
 pub fn import_kiro_accounts(raw: String) -> AppResult<usize> {
     import_accounts_json(&raw)
+}
+
+#[tauri::command]
+pub fn set_kiro_account_device(
+    id: String,
+    timezone: String,
+    regenerate: bool,
+) -> AppResult<KiroAccountPublic> {
+    set_account_device(&id, &timezone, regenerate)
 }
 
 #[tauri::command]

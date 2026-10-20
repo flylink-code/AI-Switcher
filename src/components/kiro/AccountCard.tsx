@@ -7,9 +7,11 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "@/components/ui";
+import { AccountDeviceRow, useEffectiveTimezone } from "@/components/AccountDeviceRow";
 import { useKiroModels } from "@/components/kiro/models";
 import {
   refreshKiroAccountQuota,
+  setKiroAccountDevice,
   testKiroAccount,
   type KiroAccountPublic,
   type KiroAccountTestCategory,
@@ -117,6 +119,12 @@ export function AccountCard({ account, onRemove, isPending = false }: AccountCar
   });
 
   const quota = account.quota;
+  const timeZone = useEffectiveTimezone(account.deviceProfile);
+
+  const formatReset = (resetAt: string) => {
+    const date = new Date(resetAt);
+    return Number.isNaN(date.getTime()) ? resetAt : date.toLocaleString(undefined, { timeZone });
+  };
 
   return (
     <Card
@@ -158,7 +166,7 @@ export function AccountCard({ account, onRemove, isPending = false }: AccountCar
             <Space size={8} wrap>
               {quota.resetAt ? (
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("kiro.quotaReset", { time: quota.resetAt })}
+                  {t("kiro.quotaReset", { time: formatReset(quota.resetAt) })}
                 </Text>
               ) : null}
               {quota.overage ? (
@@ -197,6 +205,14 @@ export function AccountCard({ account, onRemove, isPending = false }: AccountCar
             {account.hasRefreshToken ? t("kiro.hasRefresh") : t("kiro.missingRefresh")}
           </Text>
         )}
+
+        <AccountDeviceRow
+          profile={account.deviceProfile}
+          onSave={async (timezone, regenerate) => {
+            await setKiroAccountDevice(account.id, timezone, regenerate);
+            await queryClient.invalidateQueries({ queryKey: ["kiro-accounts"] });
+          }}
+        />
 
         <div style={{ marginTop: "auto", display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
           <Button

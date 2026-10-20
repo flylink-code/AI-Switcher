@@ -15,7 +15,6 @@ use crate::error::{AppError, AppResult};
 /// Cloud Code quota endpoints validate the native Antigravity client fingerprint.
 /// A generic `antigravity` user agent is accepted inconsistently and can return
 /// an empty/forbidden quota response despite a valid OAuth token.
-const QUOTA_USER_AGENT: &str = crate::antigravity::upstream::USER_AGENT;
 
 /// Connect / total timeouts for quota probes (Antigravity-Manager uses 15s).
 const QUOTA_CONNECT_SECS: u64 = 8;
@@ -255,10 +254,10 @@ struct ProjectMeta {
 
 /// Resolve Cloud Code `cloudaicompanionProject`, onboarding when loadCodeAssist
 /// returns a tier but no project yet (new / never-opened Antigravity accounts).
-pub async fn resolve_project_id(access_token: &str) -> AppResult<String> {
+pub async fn resolve_project_id(access_token: &str, user_agent: &str) -> AppResult<String> {
     let client =
         crate::antigravity::outbound::build_async_client(QUOTA_CONNECT_SECS, QUOTA_TIMEOUT_SECS);
-    fetch_project_meta(&client, access_token)
+    fetch_project_meta(&client, access_token, user_agent)
         .await
         .project_id
         .filter(|value| !value.trim().is_empty())
@@ -268,6 +267,7 @@ pub async fn resolve_project_id(access_token: &str) -> AppResult<String> {
 /// Fetch quota for one account access token.
 pub async fn fetch_quota(
     access_token: &str,
+    user_agent: &str,
     cached_project_id: Option<&str>,
 ) -> AppResult<(QuotaSnapshot, Option<String>)> {
     let client =
@@ -282,9 +282,9 @@ pub async fn fetch_quota(
     // API does not starve the 5h/weekly snapshot.
     let (mut meta, mut snapshot) = if let Some(pid) = cached_pid {
         let (meta, models_result, groups) = tokio::join!(
-            fetch_project_meta(&client, access_token),
-            fetch_models_quota(&client, access_token, Some(pid), None),
-            fetch_quota_summary_bounded(&client, access_token, Some(pid)),
+            fetch_project_meta(&client, access_token, user_agent),
+            fetch_models_quota(&client, access_token, user_agent, Some(pid), None),
+            fetch_quota_summary_bounded(&client, access_token, user_agent, Some(pid)),
         );
         let mut snapshot = models_result?;
         if let Some(groups) = groups {
@@ -292,15 +292,21 @@ pub async fn fetch_quota(
         }
         (meta, snapshot)
     } else {
-        let meta = fetch_project_meta(&client, access_token).await;
+        let meta = fetch_project_meta(&client, access_token, user_agent).await;
         let (models_result, groups) = tokio::join!(
             fetch_models_quota(
                 &client,
                 access_token,
+                user_agent,
                 meta.project_id.as_deref(),
                 meta.subscription_tier.clone(),
             ),
-            fetch_quota_summary_bounded(&client, access_token, meta.project_id.as_deref()),
+            fetch_quota_summary_bounded(
+                &client,
+                access_token,
+                user_agent,
+                meta.project_id.as_deref()
+            ),
         );
         let mut snapshot = models_result?;
         if let Some(groups) = groups {
@@ -321,7 +327,11 @@ pub async fn fetch_quota(
     Ok((snapshot, meta.project_id))
 }
 
-async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> ProjectMeta {
+async fn fetch_project_meta(
+    client: &reqwest::Client,
+    access_token: &str,
+    user_agent: &str,
+) -> ProjectMeta {
     let body = json!({ "metadata": { "ideType": "ANTIGRAVITY" } });
     for url in PROJECT_ENDPOINTS {
         let started = Instant::now();
@@ -329,7 +339,7 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
             .post(url)
             .bearer_auth(access_token)
             .header("Content-Type", "application/json")
-            .header("User-Agent", QUOTA_USER_AGENT)
+            .header("User-Agent", user_agent)
             .json(&body)
             .send()
             .await
@@ -361,7 +371,7 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
         // loadCodeAssist often returns paidTier (PRO) with no project until the
         // account has been onboarded. Do not treat this as a finished lookup.
         log::info!("Antigravity loadCodeAssist {url} has no project; trying onboardUser");
-        let project_id = onboard_user_project(client, access_token, &value).await;
+        let project_id = onboard_user_project(client, access_token, user_agent, &value).await;
         return ProjectMeta {
             project_id,
             subscription_tier,
@@ -453,6 +463,7 @@ fn tier_id_value(tier: &Value) -> Option<String> {
 async fn onboard_user_project(
     client: &reqwest::Client,
     access_token: &str,
+    user_agent: &str,
     load: &Value,
 ) -> Option<String> {
     let tier_id = default_onboard_tier_id(load);
@@ -472,7 +483,7 @@ async fn onboard_user_project(
                 .post(url)
                 .bearer_auth(access_token)
                 .header("Content-Type", "application/json")
-                .header("User-Agent", QUOTA_USER_AGENT)
+                .header("User-Agent", user_agent)
                 .json(&body)
                 .send()
                 .await
@@ -730,6 +741,7 @@ fn normalize_tier_label(raw: String) -> String {
 async fn fetch_models_quota(
     client: &reqwest::Client,
     access_token: &str,
+    user_agent: &str,
     project_id: Option<&str>,
     subscription_tier: Option<String>,
 ) -> AppResult<QuotaSnapshot> {
@@ -747,7 +759,7 @@ async fn fetch_models_quota(
                 .post(url)
                 .bearer_auth(access_token)
                 .header("Content-Type", "application/json")
-                .header("User-Agent", QUOTA_USER_AGENT)
+                .header("User-Agent", user_agent)
                 .json(&payload)
                 .send()
                 .await
@@ -895,11 +907,12 @@ fn walk_model_ids(value: &Value, ids: &mut Vec<String>) {
 async fn fetch_quota_summary_bounded(
     client: &reqwest::Client,
     access_token: &str,
+    user_agent: &str,
     project_id: Option<&str>,
 ) -> Option<Vec<QuotaGroup>> {
     match tokio::time::timeout(
         Duration::from_secs(25),
-        fetch_quota_summary(client, access_token, project_id),
+        fetch_quota_summary(client, access_token, user_agent, project_id),
     )
     .await
     {
@@ -914,6 +927,7 @@ async fn fetch_quota_summary_bounded(
 async fn fetch_quota_summary(
     client: &reqwest::Client,
     access_token: &str,
+    user_agent: &str,
     project_id: Option<&str>,
 ) -> Option<Vec<QuotaGroup>> {
     let payload = if let Some(pid) = project_id {
@@ -935,7 +949,7 @@ async fn fetch_quota_summary(
             .post(url)
             .bearer_auth(access_token)
             .header("Content-Type", "application/json")
-            .header("User-Agent", QUOTA_USER_AGENT)
+            .header("User-Agent", user_agent)
             .json(&payload)
             .send()
             .await

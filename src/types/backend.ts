@@ -1477,10 +1477,19 @@ export interface AntigravityAccountTestResult {
   error?: string | null;
 }
 
+export interface AccountDeviceProfile {
+  deviceId: string;
+  os: string;
+  arch: string;
+  /** 空串表示跟随全局时区。 */
+  timezone: string;
+}
+
 export interface AntigravityAccountPublic {
   id: string;
   email: string;
   name?: string | null;
+  deviceProfile: AccountDeviceProfile;
   modelAccessMode: "auto" | "custom" | string;
   allowedModelPatterns: string[];
   effectiveModelPatterns: string[];

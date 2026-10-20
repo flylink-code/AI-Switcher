@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/oauth.rs) · page 1/2
 
-Source SHA-256: e662d4f8fbc382aae147a2190383efe465397c26db1139928da0b663d464986a
+Source SHA-256: 94d5089f72af1ed4db6f9875912d29a3629a2b23168650c89d97ce862c7f109f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -98,13 +98,13 @@ Source SHA-256: e662d4f8fbc382aae147a2190383efe465397c26db1139928da0b663d464986a
 | exchange_social | function_item |  | [440](../../src-tauri/src/kiro/oauth.rs#L440) |
 | format | macro invocation (unexpanded) | exchange_social | [449](../../src-tauri/src/kiro/oauth.rs#L449) |
 | serde_json::json | macro invocation (unexpanded) | exchange_social | [450](../../src-tauri/src/kiro/oauth.rs#L450) |
-| exchange_aws | function_item |  | [477](../../src-tauri/src/kiro/oauth.rs#L477) |
-| format | macro invocation (unexpanded) | exchange_aws | [481](../../src-tauri/src/kiro/oauth.rs#L481) |
-| serde_json::json | macro invocation (unexpanded) | exchange_aws | [482](../../src-tauri/src/kiro/oauth.rs#L482) |
-| login_social | function_item |  | [503](../../src-tauri/src/kiro/oauth.rs#L503) |
-| tokio::select | macro invocation (unexpanded) | login_social | [534](../../src-tauri/src/kiro/oauth.rs#L534) |
-| submit_login_callback | function_item |  | [545](../../src-tauri/src/kiro/oauth.rs#L545) |
-| matches | macro invocation (unexpanded) | submit_login_callback | [550](../../src-tauri/src/kiro/oauth.rs#L550) |
-| matches | macro invocation (unexpanded) | submit_login_callback | [553](../../src-tauri/src/kiro/oauth.rs#L553) |
-| serve_callbacks | function_item |  | [574](../../src-tauri/src/kiro/oauth.rs#L574) |
-| handle_connection | function_item |  | [586](../../src-tauri/src/kiro/oauth.rs#L586) |
+| exchange_aws | function_item |  | [478](../../src-tauri/src/kiro/oauth.rs#L478) |
+| format | macro invocation (unexpanded) | exchange_aws | [482](../../src-tauri/src/kiro/oauth.rs#L482) |
+| serde_json::json | macro invocation (unexpanded) | exchange_aws | [483](../../src-tauri/src/kiro/oauth.rs#L483) |
+| login_social | function_item |  | [504](../../src-tauri/src/kiro/oauth.rs#L504) |
+| tokio::select | macro invocation (unexpanded) | login_social | [535](../../src-tauri/src/kiro/oauth.rs#L535) |
+| submit_login_callback | function_item |  | [546](../../src-tauri/src/kiro/oauth.rs#L546) |
+| matches | macro invocation (unexpanded) | submit_login_callback | [551](../../src-tauri/src/kiro/oauth.rs#L551) |
+| matches | macro invocation (unexpanded) | submit_login_callback | [554](../../src-tauri/src/kiro/oauth.rs#L554) |
+| serve_callbacks | function_item |  | [575](../../src-tauri/src/kiro/oauth.rs#L575) |
+| handle_connection | function_item |  | [587](../../src-tauri/src/kiro/oauth.rs#L587) |

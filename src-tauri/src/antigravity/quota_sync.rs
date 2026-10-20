@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use crate::antigravity::account::store as account_store;
 use crate::antigravity::quota::fetch_quota;
+use crate::antigravity::upstream::user_agent_for;
 use crate::antigravity::AntigravityAccountPublic;
 use crate::error::{AppError, AppResult};
 
@@ -48,7 +49,11 @@ pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<Antigravit
 
     let quota_result = tokio::time::timeout(
         ACCOUNT_QUOTA_BUDGET,
-        fetch_quota(&access_token, account.token.project_id.as_deref()),
+        fetch_quota(
+            &access_token,
+            &user_agent_for(&account.effective_device()),
+            account.token.project_id.as_deref(),
+        ),
     )
     .await
     .map_err(|_| {
@@ -91,7 +96,11 @@ pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<Antigravit
             };
             tokio::time::timeout(
                 ACCOUNT_QUOTA_BUDGET,
-                fetch_quota(&access_token, refreshed_account.token.project_id.as_deref()),
+                fetch_quota(
+                    &access_token,
+                    &user_agent_for(&refreshed_account.effective_device()),
+                    refreshed_account.token.project_id.as_deref(),
+                ),
             )
             .await
             .map_err(|_| {

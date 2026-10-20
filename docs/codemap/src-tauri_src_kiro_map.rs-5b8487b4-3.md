@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/map.rs) · page 3/3
 
-Source SHA-256: c13fde1080639cf13c7d8b5d51e131dc6e1fdd4022d5ee25221ed41708b13b9b
+Source SHA-256: 949535efbc587a4c1c199f15884a7e6b659de26d2f821fbbd5b273a72448efb4
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -4,88 +4,90 @@
 
 [Module](web-lib.md) · [Source](../../src/lib/appQueries.ts) · page 1/1
 
-Source SHA-256: 7d47ed43897ec79d0bc62d5c5df70e7ef7ecd1af98e6aa6e8af03b9532d415b6
+Source SHA-256: b4136ebdbf436a86f0e99205fa41462b59dc87404eaaadd2887f6516271049ed
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| providerListOptions | VariableDeclaration |  | [51](../../src/lib/appQueries.ts#L51) |
-| queryFn | PropertyAssignment | providerListOptions | [54](../../src/lib/appQueries.ts#L54) |
-| proxyStatusOptions | VariableDeclaration |  | [58](../../src/lib/appQueries.ts#L58) |
-| queryFn | PropertyAssignment | proxyStatusOptions | [61](../../src/lib/appQueries.ts#L61) |
-| managedAppsRuntimeStatusOptions | VariableDeclaration |  | [66](../../src/lib/appQueries.ts#L66) |
-| mcpServersOptions | VariableDeclaration |  | [73](../../src/lib/appQueries.ts#L73) |
-| mcpOauthStatusOptions | VariableDeclaration |  | [79](../../src/lib/appQueries.ts#L79) |
-| mcpDesktopConflictOptions | VariableDeclaration |  | [85](../../src/lib/appQueries.ts#L85) |
-| promptsOverviewOptions | VariableDeclaration |  | [91](../../src/lib/appQueries.ts#L91) |
-| queryFn | PropertyAssignment | promptsOverviewOptions | [93](../../src/lib/appQueries.ts#L93) |
-| [items, livePrompt] | VariableDeclaration | promptsOverviewOptions.queryFn | [94](../../src/lib/appQueries.ts#L94) |
-| items | BindingElement | promptsOverviewOptions.queryFn.[items, livePrompt] | [94](../../src/lib/appQueries.ts#L94) |
-| livePrompt | BindingElement | promptsOverviewOptions.queryFn.[items, livePrompt] | [94](../../src/lib/appQueries.ts#L94) |
-| skillsOptions | VariableDeclaration |  | [100](../../src/lib/appQueries.ts#L100) |
-| queryFn | PropertyAssignment | skillsOptions | [102](../../src/lib/appQueries.ts#L102) |
-| unmanagedSkillsOptions | VariableDeclaration |  | [106](../../src/lib/appQueries.ts#L106) |
-| queryFn | PropertyAssignment | unmanagedSkillsOptions | [109](../../src/lib/appQueries.ts#L109) |
-| agentsOptions | VariableDeclaration |  | [113](../../src/lib/appQueries.ts#L113) |
-| codexPluginsOptions | VariableDeclaration |  | [119](../../src/lib/appQueries.ts#L119) |
-| codexPluginMarketplacesOptions | VariableDeclaration |  | [125](../../src/lib/appQueries.ts#L125) |
-| codexPluginCatalogOptions | VariableDeclaration |  | [131](../../src/lib/appQueries.ts#L131) |
-| claudePluginsOptions | VariableDeclaration |  | [137](../../src/lib/appQueries.ts#L137) |
-| claudePluginCatalogOptions | VariableDeclaration |  | [143](../../src/lib/appQueries.ts#L143) |
-| claudePluginMarketplacesOptions | VariableDeclaration |  | [149](../../src/lib/appQueries.ts#L149) |
-| skillRepositoryOptions | VariableDeclaration |  | [155](../../src/lib/appQueries.ts#L155) |
-| skillRepositoriesOptions | VariableDeclaration |  | [160](../../src/lib/appQueries.ts#L160) |
-| usageDashboardOptions | VariableDeclaration |  | [166](../../src/lib/appQueries.ts#L166) |
-| queryFn | PropertyAssignment | usageDashboardOptions | [172](../../src/lib/appQueries.ts#L172) |
-| usageLogsOptions | VariableDeclaration |  | [176](../../src/lib/appQueries.ts#L176) |
-| queryFn | PropertyAssignment | usageLogsOptions | [185](../../src/lib/appQueries.ts#L185) |
-| usageMetaOptions | VariableDeclaration |  | [197](../../src/lib/appQueries.ts#L197) |
-| queryFn | PropertyAssignment | usageMetaOptions | [199](../../src/lib/appQueries.ts#L199) |
-| [pricing, maintenancePolicy] | VariableDeclaration | usageMetaOptions.queryFn | [200](../../src/lib/appQueries.ts#L200) |
-| pricing | BindingElement | usageMetaOptions.queryFn.[pricing, maintenancePolicy] | [200](../../src/lib/appQueries.ts#L200) |
-| maintenancePolicy | BindingElement | usageMetaOptions.queryFn.[pricing, maintenancePolicy] | [200](../../src/lib/appQueries.ts#L200) |
-| usageOverviewOptions | VariableDeclaration |  | [210](../../src/lib/appQueries.ts#L210) |
-| queryFn | PropertyAssignment | usageOverviewOptions | [217](../../src/lib/appQueries.ts#L217) |
-| range | VariableDeclaration | usageOverviewOptions.queryFn | [218](../../src/lib/appQueries.ts#L218) |
-| [dashboard, pricing, maintenancePolicy, requestLogs] | VariableDeclaration | usageOverviewOptions.queryFn | [219](../../src/lib/appQueries.ts#L219) |
-| dashboard | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [219](../../src/lib/appQueries.ts#L219) |
-| pricing | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [219](../../src/lib/appQueries.ts#L219) |
-| maintenancePolicy | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [219](../../src/lib/appQueries.ts#L219) |
-| requestLogs | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [219](../../src/lib/appQueries.ts#L219) |
-| usageTrendOptions | VariableDeclaration |  | [236](../../src/lib/appQueries.ts#L236) |
-| queryFn | PropertyAssignment | usageTrendOptions | [242](../../src/lib/appQueries.ts#L242) |
-| environmentOptions | VariableDeclaration |  | [250](../../src/lib/appQueries.ts#L250) |
-| queryFn | PropertyAssignment | environmentOptions | [252](../../src/lib/appQueries.ts#L252) |
-| [paths, db, dataRoot] | VariableDeclaration | environmentOptions.queryFn | [253](../../src/lib/appQueries.ts#L253) |
-| paths | BindingElement | environmentOptions.queryFn.[paths, db, dataRoot] | [253](../../src/lib/appQueries.ts#L253) |
-| db | BindingElement | environmentOptions.queryFn.[paths, db, dataRoot] | [253](../../src/lib/appQueries.ts#L253) |
-| dataRoot | BindingElement | environmentOptions.queryFn.[paths, db, dataRoot] | [253](../../src/lib/appQueries.ts#L253) |
-| autostartOptions | VariableDeclaration |  | [259](../../src/lib/appQueries.ts#L259) |
-| closeBehaviorOptions | VariableDeclaration |  | [265](../../src/lib/appQueries.ts#L265) |
-| gatewayRuntimeModeOptions | VariableDeclaration |  | [271](../../src/lib/appQueries.ts#L271) |
-| gatewaySidecarStatusOptions | VariableDeclaration |  | [277](../../src/lib/appQueries.ts#L277) |
-| localizationOptions | VariableDeclaration |  | [283](../../src/lib/appQueries.ts#L283) |
-| localizationHubOptions | VariableDeclaration |  | [289](../../src/lib/appQueries.ts#L289) |
-| localizationUpstreamOptions | VariableDeclaration |  | [295](../../src/lib/appQueries.ts#L295) |
-| localClaudeVersionOptions | VariableDeclaration |  | [302](../../src/lib/appQueries.ts#L302) |
-| queryFn | PropertyAssignment | localClaudeVersionOptions | [304](../../src/lib/appQueries.ts#L304) |
-| claudeVersionOptions | VariableDeclaration |  | [308](../../src/lib/appQueries.ts#L308) |
-| queryFn | PropertyAssignment | claudeVersionOptions | [310](../../src/lib/appQueries.ts#L310) |
-| claudeDesktopAppOptions | VariableDeclaration |  | [314](../../src/lib/appQueries.ts#L314) |
-| localCodexCliVersionOptions | VariableDeclaration |  | [320](../../src/lib/appQueries.ts#L320) |
-| queryFn | PropertyAssignment | localCodexCliVersionOptions | [322](../../src/lib/appQueries.ts#L322) |
-| codexCliVersionOptions | VariableDeclaration |  | [326](../../src/lib/appQueries.ts#L326) |
-| queryFn | PropertyAssignment | codexCliVersionOptions | [328](../../src/lib/appQueries.ts#L328) |
-| localOpenCodeCliVersionOptions | VariableDeclaration |  | [332](../../src/lib/appQueries.ts#L332) |
-| queryFn | PropertyAssignment | localOpenCodeCliVersionOptions | [334](../../src/lib/appQueries.ts#L334) |
-| opencodeCliVersionOptions | VariableDeclaration |  | [338](../../src/lib/appQueries.ts#L338) |
-| queryFn | PropertyAssignment | opencodeCliVersionOptions | [340](../../src/lib/appQueries.ts#L340) |
-| localPiCliVersionOptions | VariableDeclaration |  | [344](../../src/lib/appQueries.ts#L344) |
-| queryFn | PropertyAssignment | localPiCliVersionOptions | [346](../../src/lib/appQueries.ts#L346) |
-| piCliVersionOptions | VariableDeclaration |  | [350](../../src/lib/appQueries.ts#L350) |
-| queryFn | PropertyAssignment | piCliVersionOptions | [352](../../src/lib/appQueries.ts#L352) |
-| localDshCliVersionOptions | VariableDeclaration |  | [356](../../src/lib/appQueries.ts#L356) |
-| queryFn | PropertyAssignment | localDshCliVersionOptions | [358](../../src/lib/appQueries.ts#L358) |
-| dshCliVersionOptions | VariableDeclaration |  | [362](../../src/lib/appQueries.ts#L362) |
-| queryFn | PropertyAssignment | dshCliVersionOptions | [364](../../src/lib/appQueries.ts#L364) |
-| opencodeDesktopStatusOptions | VariableDeclaration |  | [368](../../src/lib/appQueries.ts#L368) |
-| nodeRuntimeStatusOptions | VariableDeclaration |  | [374](../../src/lib/appQueries.ts#L374) |
+| providerListOptions | VariableDeclaration |  | [53](../../src/lib/appQueries.ts#L53) |
+| queryFn | PropertyAssignment | providerListOptions | [56](../../src/lib/appQueries.ts#L56) |
+| proxyStatusOptions | VariableDeclaration |  | [60](../../src/lib/appQueries.ts#L60) |
+| queryFn | PropertyAssignment | proxyStatusOptions | [63](../../src/lib/appQueries.ts#L63) |
+| managedAppsRuntimeStatusOptions | VariableDeclaration |  | [68](../../src/lib/appQueries.ts#L68) |
+| mcpServersOptions | VariableDeclaration |  | [75](../../src/lib/appQueries.ts#L75) |
+| mcpOauthStatusOptions | VariableDeclaration |  | [81](../../src/lib/appQueries.ts#L81) |
+| mcpDesktopConflictOptions | VariableDeclaration |  | [87](../../src/lib/appQueries.ts#L87) |
+| promptsOverviewOptions | VariableDeclaration |  | [93](../../src/lib/appQueries.ts#L93) |
+| queryFn | PropertyAssignment | promptsOverviewOptions | [95](../../src/lib/appQueries.ts#L95) |
+| [items, livePrompt] | VariableDeclaration | promptsOverviewOptions.queryFn | [96](../../src/lib/appQueries.ts#L96) |
+| items | BindingElement | promptsOverviewOptions.queryFn.[items, livePrompt] | [96](../../src/lib/appQueries.ts#L96) |
+| livePrompt | BindingElement | promptsOverviewOptions.queryFn.[items, livePrompt] | [96](../../src/lib/appQueries.ts#L96) |
+| skillsOptions | VariableDeclaration |  | [102](../../src/lib/appQueries.ts#L102) |
+| queryFn | PropertyAssignment | skillsOptions | [104](../../src/lib/appQueries.ts#L104) |
+| unmanagedSkillsOptions | VariableDeclaration |  | [108](../../src/lib/appQueries.ts#L108) |
+| queryFn | PropertyAssignment | unmanagedSkillsOptions | [111](../../src/lib/appQueries.ts#L111) |
+| agentsOptions | VariableDeclaration |  | [115](../../src/lib/appQueries.ts#L115) |
+| codexPluginsOptions | VariableDeclaration |  | [121](../../src/lib/appQueries.ts#L121) |
+| codexPluginMarketplacesOptions | VariableDeclaration |  | [127](../../src/lib/appQueries.ts#L127) |
+| codexPluginCatalogOptions | VariableDeclaration |  | [133](../../src/lib/appQueries.ts#L133) |
+| claudePluginsOptions | VariableDeclaration |  | [139](../../src/lib/appQueries.ts#L139) |
+| claudePluginCatalogOptions | VariableDeclaration |  | [145](../../src/lib/appQueries.ts#L145) |
+| claudePluginMarketplacesOptions | VariableDeclaration |  | [151](../../src/lib/appQueries.ts#L151) |
+| skillRepositoryOptions | VariableDeclaration |  | [157](../../src/lib/appQueries.ts#L157) |
+| skillRepositoriesOptions | VariableDeclaration |  | [162](../../src/lib/appQueries.ts#L162) |
+| usageDashboardOptions | VariableDeclaration |  | [168](../../src/lib/appQueries.ts#L168) |
+| queryFn | PropertyAssignment | usageDashboardOptions | [174](../../src/lib/appQueries.ts#L174) |
+| usageLogsOptions | VariableDeclaration |  | [178](../../src/lib/appQueries.ts#L178) |
+| queryFn | PropertyAssignment | usageLogsOptions | [187](../../src/lib/appQueries.ts#L187) |
+| usageMetaOptions | VariableDeclaration |  | [199](../../src/lib/appQueries.ts#L199) |
+| queryFn | PropertyAssignment | usageMetaOptions | [201](../../src/lib/appQueries.ts#L201) |
+| [pricing, maintenancePolicy] | VariableDeclaration | usageMetaOptions.queryFn | [202](../../src/lib/appQueries.ts#L202) |
+| pricing | BindingElement | usageMetaOptions.queryFn.[pricing, maintenancePolicy] | [202](../../src/lib/appQueries.ts#L202) |
+| maintenancePolicy | BindingElement | usageMetaOptions.queryFn.[pricing, maintenancePolicy] | [202](../../src/lib/appQueries.ts#L202) |
+| usageOverviewOptions | VariableDeclaration |  | [212](../../src/lib/appQueries.ts#L212) |
+| queryFn | PropertyAssignment | usageOverviewOptions | [219](../../src/lib/appQueries.ts#L219) |
+| range | VariableDeclaration | usageOverviewOptions.queryFn | [220](../../src/lib/appQueries.ts#L220) |
+| [dashboard, pricing, maintenancePolicy, requestLogs] | VariableDeclaration | usageOverviewOptions.queryFn | [221](../../src/lib/appQueries.ts#L221) |
+| dashboard | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [221](../../src/lib/appQueries.ts#L221) |
+| pricing | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [221](../../src/lib/appQueries.ts#L221) |
+| maintenancePolicy | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [221](../../src/lib/appQueries.ts#L221) |
+| requestLogs | BindingElement | usageOverviewOptions.queryFn.[dashboard, pricing, maintenancePolicy, requestLogs] | [221](../../src/lib/appQueries.ts#L221) |
+| usageTrendOptions | VariableDeclaration |  | [238](../../src/lib/appQueries.ts#L238) |
+| queryFn | PropertyAssignment | usageTrendOptions | [244](../../src/lib/appQueries.ts#L244) |
+| environmentOptions | VariableDeclaration |  | [252](../../src/lib/appQueries.ts#L252) |
+| queryFn | PropertyAssignment | environmentOptions | [254](../../src/lib/appQueries.ts#L254) |
+| [paths, db, dataRoot] | VariableDeclaration | environmentOptions.queryFn | [255](../../src/lib/appQueries.ts#L255) |
+| paths | BindingElement | environmentOptions.queryFn.[paths, db, dataRoot] | [255](../../src/lib/appQueries.ts#L255) |
+| db | BindingElement | environmentOptions.queryFn.[paths, db, dataRoot] | [255](../../src/lib/appQueries.ts#L255) |
+| dataRoot | BindingElement | environmentOptions.queryFn.[paths, db, dataRoot] | [255](../../src/lib/appQueries.ts#L255) |
+| autostartOptions | VariableDeclaration |  | [261](../../src/lib/appQueries.ts#L261) |
+| closeBehaviorOptions | VariableDeclaration |  | [267](../../src/lib/appQueries.ts#L267) |
+| gatewayRuntimeModeOptions | VariableDeclaration |  | [273](../../src/lib/appQueries.ts#L273) |
+| gatewayTimezoneOptions | VariableDeclaration |  | [279](../../src/lib/appQueries.ts#L279) |
+| gatewayDebugEnvRewriteOptions | VariableDeclaration |  | [285](../../src/lib/appQueries.ts#L285) |
+| gatewaySidecarStatusOptions | VariableDeclaration |  | [291](../../src/lib/appQueries.ts#L291) |
+| localizationOptions | VariableDeclaration |  | [297](../../src/lib/appQueries.ts#L297) |
+| localizationHubOptions | VariableDeclaration |  | [303](../../src/lib/appQueries.ts#L303) |
+| localizationUpstreamOptions | VariableDeclaration |  | [309](../../src/lib/appQueries.ts#L309) |
+| localClaudeVersionOptions | VariableDeclaration |  | [316](../../src/lib/appQueries.ts#L316) |
+| queryFn | PropertyAssignment | localClaudeVersionOptions | [318](../../src/lib/appQueries.ts#L318) |
+| claudeVersionOptions | VariableDeclaration |  | [322](../../src/lib/appQueries.ts#L322) |
+| queryFn | PropertyAssignment | claudeVersionOptions | [324](../../src/lib/appQueries.ts#L324) |
+| claudeDesktopAppOptions | VariableDeclaration |  | [328](../../src/lib/appQueries.ts#L328) |
+| localCodexCliVersionOptions | VariableDeclaration |  | [334](../../src/lib/appQueries.ts#L334) |
+| queryFn | PropertyAssignment | localCodexCliVersionOptions | [336](../../src/lib/appQueries.ts#L336) |
+| codexCliVersionOptions | VariableDeclaration |  | [340](../../src/lib/appQueries.ts#L340) |
+| queryFn | PropertyAssignment | codexCliVersionOptions | [342](../../src/lib/appQueries.ts#L342) |
+| localOpenCodeCliVersionOptions | VariableDeclaration |  | [346](../../src/lib/appQueries.ts#L346) |
+| queryFn | PropertyAssignment | localOpenCodeCliVersionOptions | [348](../../src/lib/appQueries.ts#L348) |
+| opencodeCliVersionOptions | VariableDeclaration |  | [352](../../src/lib/appQueries.ts#L352) |
+| queryFn | PropertyAssignment | opencodeCliVersionOptions | [354](../../src/lib/appQueries.ts#L354) |
+| localPiCliVersionOptions | VariableDeclaration |  | [358](../../src/lib/appQueries.ts#L358) |
+| queryFn | PropertyAssignment | localPiCliVersionOptions | [360](../../src/lib/appQueries.ts#L360) |
+| piCliVersionOptions | VariableDeclaration |  | [364](../../src/lib/appQueries.ts#L364) |
+| queryFn | PropertyAssignment | piCliVersionOptions | [366](../../src/lib/appQueries.ts#L366) |
+| localDshCliVersionOptions | VariableDeclaration |  | [370](../../src/lib/appQueries.ts#L370) |
+| queryFn | PropertyAssignment | localDshCliVersionOptions | [372](../../src/lib/appQueries.ts#L372) |
+| dshCliVersionOptions | VariableDeclaration |  | [376](../../src/lib/appQueries.ts#L376) |
+| queryFn | PropertyAssignment | dshCliVersionOptions | [378](../../src/lib/appQueries.ts#L378) |
+| opencodeDesktopStatusOptions | VariableDeclaration |  | [382](../../src/lib/appQueries.ts#L382) |
+| nodeRuntimeStatusOptions | VariableDeclaration |  | [388](../../src/lib/appQueries.ts#L388) |

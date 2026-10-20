@@ -23,7 +23,12 @@ const DAILY_HOST_LIMITED_TTL: Duration = Duration::from_secs(300);
 
 /// Cloud Code rejects Claude 5.5 for clients below 2.9.0. This hub fingerprint
 /// matches October 2026 live traffic and is shared with quota probes.
-pub(crate) const USER_AGENT: &str = "antigravity/hub/2.19.1 darwin/arm64";
+const USER_AGENT_PREFIX: &str = "antigravity/hub/2.19.1";
+
+/// Hub fingerprint for one simulated device; the version part must stay >= 2.9.0.
+pub(crate) fn user_agent_for(device: &crate::device_profile::DeviceProfile) -> String {
+    format!("{USER_AGENT_PREFIX} {}/{}", device.os, device.arch)
+}
 
 /// Anthropic beta marker for Claude models served via Cloud Code
 /// (mirrors Antigravity-Manager's claude.rs handling).
@@ -236,13 +241,18 @@ impl UpstreamClient {
             })
     }
 
-    pub async fn fetch_project_id(&self, access_token: &str) -> AppResult<String> {
-        crate::antigravity::quota::resolve_project_id(access_token).await
+    pub async fn fetch_project_id(
+        &self,
+        access_token: &str,
+        user_agent: &str,
+    ) -> AppResult<String> {
+        crate::antigravity::quota::resolve_project_id(access_token, user_agent).await
     }
 
     pub async fn generate(
         &self,
         access_token: &str,
+        user_agent: &str,
         body: &Value,
         stream: bool,
     ) -> AppResult<reqwest::Response> {
@@ -280,7 +290,7 @@ impl UpstreamClient {
                     .post(&url)
                     .bearer_auth(access_token)
                     .header("Content-Type", "application/json")
-                    .header("User-Agent", USER_AGENT)
+                    .header("User-Agent", user_agent)
                     .header("x-client-name", "antigravity")
                     .json(body);
                 if is_claude {
@@ -445,7 +455,12 @@ impl Default for UpstreamClient {
 }
 
 /// Wrap a Gemini-style request body into Cloud Code v1internal envelope.
-pub fn wrap_v1internal(project_id: &str, model: &str, request: Value) -> Value {
+pub fn wrap_v1internal(
+    project_id: &str,
+    model: &str,
+    user_agent: &str,
+    request: Value,
+) -> Value {
     let timestamp_ms = chrono::Utc::now().timestamp_millis();
     let random_hex = uuid::Uuid::new_v4().simple().to_string();
     let random_hex = &random_hex[..8];
@@ -454,7 +469,7 @@ pub fn wrap_v1internal(project_id: &str, model: &str, request: Value) -> Value {
         "model": model,
         "requestId": format!("agent/{timestamp_ms}/{random_hex}"),
         "request": request,
-        "userAgent": USER_AGENT,
+        "userAgent": user_agent,
         "requestType": "agent",
     })
 }
@@ -472,11 +487,23 @@ mod tests {
 
     #[test]
     fn wraps_model_id_unchanged() {
-        let wrapped = wrap_v1internal("proj", "gemini-4-argon-high", json!({ "ok": true }));
+        let wrapped = wrap_v1internal("proj", "gemini-4-argon-high", "ua", json!({ "ok": true }));
         assert_eq!(wrapped["model"], json!("gemini-4-argon-high"));
         assert_eq!(wrapped["project"], json!("proj"));
-        let flash = wrap_v1internal("proj", "gemini-3.8-flash-high", json!({}));
+        let flash = wrap_v1internal("proj", "gemini-3.8-flash-high", "ua", json!({}));
         assert_eq!(flash["model"], json!("gemini-3.8-flash-high"));
+    }
+
+    #[test]
+    fn user_agent_follows_the_account_device() {
+        let a = crate::device_profile::derive("acc-a");
+        let b = crate::device_profile::derive("acc-b");
+        assert_eq!(
+            user_agent_for(&a),
+            format!("antigravity/hub/2.19.1 {}/{}", a.os, a.arch)
+        );
+        let wrapped = wrap_v1internal("proj", "m", &user_agent_for(&b), json!({}));
+        assert_eq!(wrapped["userAgent"], json!(user_agent_for(&b)));
     }
 
     #[test]

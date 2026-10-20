@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/account_test.rs) · page 1/1
 
-Source SHA-256: e7a80d35001e52cceee04421ce0f5a333b869619f193ceaaa658e25655c07845
+Source SHA-256: 040fa1c2bf8e2f4f5f8063fbff5e95662d3a5638e82e5a117ee24930519b12f8
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -35,26 +35,26 @@ Source SHA-256: e7a80d35001e52cceee04421ce0f5a333b869619f193ceaaa658e25655c07845
 | format | macro invocation (unexpanded) | refresh_probe_token | [166](../../src-tauri/src/antigravity/account_test.rs#L166) |
 | test_account | function_item |  | [169](../../src-tauri/src/antigravity/account_test.rs#L169) |
 | matches | macro invocation (unexpanded) | test_account | [217](../../src-tauri/src/antigravity/account_test.rs#L217) |
-| matches | macro invocation (unexpanded) | test_account | [256](../../src-tauri/src/antigravity/account_test.rs#L256) |
-| log::info | macro invocation (unexpanded) | test_account | [286](../../src-tauri/src/antigravity/account_test.rs#L286) |
-| tests | mod_item |  | [367](../../src-tauri/src/antigravity/account_test.rs#L367) |
-| empty_model_and_prompt_use_defaults | function_item | tests | [371](../../src-tauri/src/antigravity/account_test.rs#L371) |
-| assert_eq | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [372](../../src-tauri/src/antigravity/account_test.rs#L372) |
-| assert_eq | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [373](../../src-tauri/src/antigravity/account_test.rs#L373) |
-| assert_eq | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [374](../../src-tauri/src/antigravity/account_test.rs#L374) |
-| assert | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [376](../../src-tauri/src/antigravity/account_test.rs#L376) |
-| probe_request_contains_hello | function_item | tests | [383](../../src-tauri/src/antigravity/account_test.rs#L383) |
-| assert_eq | macro invocation (unexpanded) | tests::probe_request_contains_hello | [386](../../src-tauri/src/antigravity/account_test.rs#L386) |
+| matches | macro invocation (unexpanded) | test_account | [257](../../src-tauri/src/antigravity/account_test.rs#L257) |
+| log::info | macro invocation (unexpanded) | test_account | [290](../../src-tauri/src/antigravity/account_test.rs#L290) |
+| tests | mod_item |  | [371](../../src-tauri/src/antigravity/account_test.rs#L371) |
+| empty_model_and_prompt_use_defaults | function_item | tests | [375](../../src-tauri/src/antigravity/account_test.rs#L375) |
+| assert_eq | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [376](../../src-tauri/src/antigravity/account_test.rs#L376) |
+| assert_eq | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [377](../../src-tauri/src/antigravity/account_test.rs#L377) |
+| assert_eq | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [378](../../src-tauri/src/antigravity/account_test.rs#L378) |
+| assert | macro invocation (unexpanded) | tests::empty_model_and_prompt_use_defaults | [380](../../src-tauri/src/antigravity/account_test.rs#L380) |
+| probe_request_contains_hello | function_item | tests | [387](../../src-tauri/src/antigravity/account_test.rs#L387) |
 | assert_eq | macro invocation (unexpanded) | tests::probe_request_contains_hello | [390](../../src-tauri/src/antigravity/account_test.rs#L390) |
-| assert_eq | macro invocation (unexpanded) | tests::probe_request_contains_hello | [391](../../src-tauri/src/antigravity/account_test.rs#L391) |
-| classify_auth_rate_limit_and_network | function_item | tests | [400](../../src-tauri/src/antigravity/account_test.rs#L400) |
-| assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [401](../../src-tauri/src/antigravity/account_test.rs#L401) |
+| assert_eq | macro invocation (unexpanded) | tests::probe_request_contains_hello | [394](../../src-tauri/src/antigravity/account_test.rs#L394) |
+| assert_eq | macro invocation (unexpanded) | tests::probe_request_contains_hello | [395](../../src-tauri/src/antigravity/account_test.rs#L395) |
+| classify_auth_rate_limit_and_network | function_item | tests | [404](../../src-tauri/src/antigravity/account_test.rs#L404) |
 | assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [405](../../src-tauri/src/antigravity/account_test.rs#L405) |
 | assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [409](../../src-tauri/src/antigravity/account_test.rs#L409) |
 | assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [413](../../src-tauri/src/antigravity/account_test.rs#L413) |
 | assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [417](../../src-tauri/src/antigravity/account_test.rs#L417) |
-| assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [418](../../src-tauri/src/antigravity/account_test.rs#L418) |
-| assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [419](../../src-tauri/src/antigravity/account_test.rs#L419) |
-| extract_reply_skips_thoughts_and_truncates | function_item | tests | [426](../../src-tauri/src/antigravity/account_test.rs#L426) |
-| json | macro invocation (unexpanded) | tests::extract_reply_skips_thoughts_and_truncates | [427](../../src-tauri/src/antigravity/account_test.rs#L427) |
-| assert_eq | macro invocation (unexpanded) | tests::extract_reply_skips_thoughts_and_truncates | [437](../../src-tauri/src/antigravity/account_test.rs#L437) |
+| assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [421](../../src-tauri/src/antigravity/account_test.rs#L421) |
+| assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [422](../../src-tauri/src/antigravity/account_test.rs#L422) |
+| assert_eq | macro invocation (unexpanded) | tests::classify_auth_rate_limit_and_network | [423](../../src-tauri/src/antigravity/account_test.rs#L423) |
+| extract_reply_skips_thoughts_and_truncates | function_item | tests | [430](../../src-tauri/src/antigravity/account_test.rs#L430) |
+| json | macro invocation (unexpanded) | tests::extract_reply_skips_thoughts_and_truncates | [431](../../src-tauri/src/antigravity/account_test.rs#L431) |
+| assert_eq | macro invocation (unexpanded) | tests::extract_reply_skips_thoughts_and_truncates | [441](../../src-tauri/src/antigravity/account_test.rs#L441) |

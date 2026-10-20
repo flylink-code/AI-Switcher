@@ -4,32 +4,32 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/quota_sync.rs) · page 1/1
 
-Source SHA-256: ba480c49467b2ba8c7912600380977d4899eb66f286584dcdd76edf1b1837cff
+Source SHA-256: 340db5f7c53ce9770aa7b9b3019dfe720bab5d103bded79aa47acc710587a306
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| QUOTA_REFRESH_INTERVAL_SECS | const_item |  | [11](../../src-tauri/src/antigravity/quota_sync.rs#L11) |
-| QUOTA_REFRESH_EVENT | const_item |  | [12](../../src-tauri/src/antigravity/quota_sync.rs#L12) |
-| ACCOUNT_QUOTA_BUDGET | const_item |  | [13](../../src-tauri/src/antigravity/quota_sync.rs#L13) |
-| REFRESH_RUNNING | static_item |  | [15](../../src-tauri/src/antigravity/quota_sync.rs#L15) |
-| QuotaRefreshSummary | struct_item |  | [18](../../src-tauri/src/antigravity/quota_sync.rs#L18) |
-| attempted | field_declaration | QuotaRefreshSummary | [19](../../src-tauri/src/antigravity/quota_sync.rs#L19) |
-| succeeded | field_declaration | QuotaRefreshSummary | [20](../../src-tauri/src/antigravity/quota_sync.rs#L20) |
-| failed | field_declaration | QuotaRefreshSummary | [21](../../src-tauri/src/antigravity/quota_sync.rs#L21) |
-| RefreshGuard | struct_item |  | [24](../../src-tauri/src/antigravity/quota_sync.rs#L24) |
-| Drop for RefreshGuard | impl |  | [26](../../src-tauri/src/antigravity/quota_sync.rs#L26) |
-| drop | function_item | Drop for RefreshGuard | [27](../../src-tauri/src/antigravity/quota_sync.rs#L27) |
-| try_acquire_refresh_lock | function_item |  | [32](../../src-tauri/src/antigravity/quota_sync.rs#L32) |
-| refresh_one_account_quota | function_item |  | [42](../../src-tauri/src/antigravity/quota_sync.rs#L42) |
-| format | macro invocation (unexpanded) | refresh_one_account_quota | [47](../../src-tauri/src/antigravity/quota_sync.rs#L47) |
-| format | macro invocation (unexpanded) | refresh_one_account_quota | [55](../../src-tauri/src/antigravity/quota_sync.rs#L55) |
-| log::info | macro invocation (unexpanded) | refresh_one_account_quota | [65](../../src-tauri/src/antigravity/quota_sync.rs#L65) |
-| format | macro invocation (unexpanded) | refresh_one_account_quota | [74](../../src-tauri/src/antigravity/quota_sync.rs#L74) |
-| format | macro invocation (unexpanded) | refresh_one_account_quota | [84](../../src-tauri/src/antigravity/quota_sync.rs#L84) |
-| format | macro invocation (unexpanded) | refresh_one_account_quota | [98](../../src-tauri/src/antigravity/quota_sync.rs#L98) |
-| refresh_all_account_quotas | function_item |  | [111](../../src-tauri/src/antigravity/quota_sync.rs#L111) |
-| log::warn | macro invocation (unexpanded) | refresh_all_account_quotas | [126](../../src-tauri/src/antigravity/quota_sync.rs#L126) |
-| format | macro invocation (unexpanded) | refresh_all_account_quotas | [127](../../src-tauri/src/antigravity/quota_sync.rs#L127) |
-| format | macro invocation (unexpanded) | refresh_all_account_quotas | [149](../../src-tauri/src/antigravity/quota_sync.rs#L149) |
-| try_refresh_all_quotas | function_item |  | [158](../../src-tauri/src/antigravity/quota_sync.rs#L158) |
-| log::warn | macro invocation (unexpanded) | try_refresh_all_quotas | [181](../../src-tauri/src/antigravity/quota_sync.rs#L181) |
+| QUOTA_REFRESH_INTERVAL_SECS | const_item |  | [12](../../src-tauri/src/antigravity/quota_sync.rs#L12) |
+| QUOTA_REFRESH_EVENT | const_item |  | [13](../../src-tauri/src/antigravity/quota_sync.rs#L13) |
+| ACCOUNT_QUOTA_BUDGET | const_item |  | [14](../../src-tauri/src/antigravity/quota_sync.rs#L14) |
+| REFRESH_RUNNING | static_item |  | [16](../../src-tauri/src/antigravity/quota_sync.rs#L16) |
+| QuotaRefreshSummary | struct_item |  | [19](../../src-tauri/src/antigravity/quota_sync.rs#L19) |
+| attempted | field_declaration | QuotaRefreshSummary | [20](../../src-tauri/src/antigravity/quota_sync.rs#L20) |
+| succeeded | field_declaration | QuotaRefreshSummary | [21](../../src-tauri/src/antigravity/quota_sync.rs#L21) |
+| failed | field_declaration | QuotaRefreshSummary | [22](../../src-tauri/src/antigravity/quota_sync.rs#L22) |
+| RefreshGuard | struct_item |  | [25](../../src-tauri/src/antigravity/quota_sync.rs#L25) |
+| Drop for RefreshGuard | impl |  | [27](../../src-tauri/src/antigravity/quota_sync.rs#L27) |
+| drop | function_item | Drop for RefreshGuard | [28](../../src-tauri/src/antigravity/quota_sync.rs#L28) |
+| try_acquire_refresh_lock | function_item |  | [33](../../src-tauri/src/antigravity/quota_sync.rs#L33) |
+| refresh_one_account_quota | function_item |  | [43](../../src-tauri/src/antigravity/quota_sync.rs#L43) |
+| format | macro invocation (unexpanded) | refresh_one_account_quota | [48](../../src-tauri/src/antigravity/quota_sync.rs#L48) |
+| format | macro invocation (unexpanded) | refresh_one_account_quota | [60](../../src-tauri/src/antigravity/quota_sync.rs#L60) |
+| log::info | macro invocation (unexpanded) | refresh_one_account_quota | [70](../../src-tauri/src/antigravity/quota_sync.rs#L70) |
+| format | macro invocation (unexpanded) | refresh_one_account_quota | [79](../../src-tauri/src/antigravity/quota_sync.rs#L79) |
+| format | macro invocation (unexpanded) | refresh_one_account_quota | [89](../../src-tauri/src/antigravity/quota_sync.rs#L89) |
+| format | macro invocation (unexpanded) | refresh_one_account_quota | [107](../../src-tauri/src/antigravity/quota_sync.rs#L107) |
+| refresh_all_account_quotas | function_item |  | [120](../../src-tauri/src/antigravity/quota_sync.rs#L120) |
+| log::warn | macro invocation (unexpanded) | refresh_all_account_quotas | [135](../../src-tauri/src/antigravity/quota_sync.rs#L135) |
+| format | macro invocation (unexpanded) | refresh_all_account_quotas | [136](../../src-tauri/src/antigravity/quota_sync.rs#L136) |
+| format | macro invocation (unexpanded) | refresh_all_account_quotas | [158](../../src-tauri/src/antigravity/quota_sync.rs#L158) |
+| try_refresh_all_quotas | function_item |  | [167](../../src-tauri/src/antigravity/quota_sync.rs#L167) |
+| log::warn | macro invocation (unexpanded) | try_refresh_all_quotas | [190](../../src-tauri/src/antigravity/quota_sync.rs#L190) |

@@ -561,6 +561,13 @@
     "usageSummary": "用量汇总",
     "usageHint": "详见侧栏 · 用量统计"
   },
+  "device": {
+    "label": "设备",
+    "followGlobal": "跟随全局时区",
+    "regenerate": "重新生成设备",
+    "regenerateConfirm": "重新生成后，该账号会以一台新设备的身份发起请求，确定继续？",
+    "saved": "设备设置已保存"
+  },
   "common": {
     "theme": "主题",
     "themeLight": "浅色",
@@ -2867,6 +2874,12 @@
     "gatewayRuntimeModeHint": "Antigravity / Kiro 反代在主程序内运行，或由独立进程承载；切换后需重启应用",
     "gatewayRuntimeModeRestart": "已保存，重启应用后生效",
     "gatewayRuntimeModeRestartNow": "立即重启",
+    "gatewayTimezone": "反代网关时区",
+    "gatewayTimezoneHint": "Antigravity / Kiro 账号默认使用的时区，用于额度重置时间显示和设备画像；账号可单独覆盖",
+    "gatewayTimezoneSystem": "跟随系统",
+    "gatewayTimezoneSaved": "时区已保存",
+    "gatewayDebugEnvRewrite": "反代环境改写调试日志",
+    "gatewayDebugEnvRewriteHint": "开启后，Antigravity / Kiro 每次把请求里的 Platform、Shell、OS Version、日期改成账号设备的值时，在日志里记录改写前后的值（不记录提示词和路径）。仅用于排查，默认关闭",
     "gatewayRuntimeModes": {
       "inproc": "主程序内",
       "sidecar": "独立进程（默认）"

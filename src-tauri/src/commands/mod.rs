@@ -41,7 +41,8 @@ pub use antigravity::{
     get_antigravity_recommended_account, import_antigravity_accounts, list_antigravity_accounts,
     list_antigravity_models, probe_antigravity_exit_latency, probe_antigravity_exit_proxy,
     refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
-    set_antigravity_account_model_access, set_antigravity_active_account,
+    set_antigravity_account_device, set_antigravity_account_model_access,
+    set_antigravity_active_account,
     set_antigravity_exit_proxy, set_antigravity_fast_path_settings,
     set_antigravity_gateway_api_key, set_antigravity_gateway_port,
     set_antigravity_limiter_settings, set_antigravity_outbound_proxy, start_antigravity_gateway,
@@ -105,7 +106,8 @@ pub use gateway::{
 pub use kiro::{
     ensure_kiro_provider, get_kiro_gateway_status, import_kiro_accounts, list_kiro_accounts,
     list_kiro_models, probe_kiro_exit_latency, probe_kiro_exit_proxy, refresh_kiro_account_quota,
-    refresh_kiro_models, refresh_kiro_quotas, remove_kiro_account, set_kiro_exit_proxy,
+    refresh_kiro_models, refresh_kiro_quotas, remove_kiro_account, set_kiro_account_device,
+    set_kiro_exit_proxy,
     set_kiro_gateway_api_key, set_kiro_gateway_port, set_kiro_outbound_proxy,
     start_kiro_builder_id_login, start_kiro_gateway, start_kiro_social_login, stop_kiro_gateway,
     submit_kiro_login_callback, test_kiro_account,
@@ -181,6 +183,8 @@ pub use sync::{
 pub use system::{
     dismiss_onboarding_tip, get_autostart_config, get_autostart_enabled, get_close_behavior,
     get_dismissed_onboarding_tips, get_gateway_runtime_mode, get_gateway_sidecar_status,
+    get_gateway_debug_env_rewrite, get_gateway_timezone, set_gateway_debug_env_rewrite,
+    set_gateway_timezone,
     get_update_mirror_settings, report_frontend_performance, report_frontend_startup,
     resolve_close_request, restart_app, restore_onboarding_tips, set_app_language,
     set_autostart_config, set_autostart_enabled, set_close_behavior, set_gateway_runtime_mode,

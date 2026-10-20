@@ -4,57 +4,60 @@
 
 [Module](web-components.md) · [Source](../../src/components/AntigravityQuotaBars.tsx) · page 1/1
 
-Source SHA-256: 4507ac09c7748010709a1f42351ec97a30506459e78054a13965174889ab6a24
+Source SHA-256: 2ed69c4c9ac9c2e5a7f0cdec8168944f5b21a271ead97811c479554b788fe144
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | quotaBarColor | FunctionDeclaration |  | [3](../../src/components/AntigravityQuotaBars.tsx#L3) |
 | formatQuotaResetTime | FunctionDeclaration |  | [11](../../src/components/AntigravityQuotaBars.tsx#L11) |
-| date | VariableDeclaration | formatQuotaResetTime | [13](../../src/components/AntigravityQuotaBars.tsx#L13) |
-| pad | VariableDeclaration | formatQuotaResetTime | [15](../../src/components/AntigravityQuotaBars.tsx#L15) |
-| hm | VariableDeclaration | formatQuotaResetTime | [16](../../src/components/AntigravityQuotaBars.tsx#L16) |
-| formatQuotaUpdatedAt | FunctionDeclaration |  | [22](../../src/components/AntigravityQuotaBars.tsx#L22) |
-| date | VariableDeclaration | formatQuotaUpdatedAt | [24](../../src/components/AntigravityQuotaBars.tsx#L24) |
-| pad | VariableDeclaration | formatQuotaUpdatedAt | [25](../../src/components/AntigravityQuotaBars.tsx#L25) |
-| QuotaMiniBar | FunctionDeclaration |  | [29](../../src/components/AntigravityQuotaBars.tsx#L29) |
-| label | BindingElement | QuotaMiniBar | [30](../../src/components/AntigravityQuotaBars.tsx#L30) |
-| percent | BindingElement | QuotaMiniBar | [31](../../src/components/AntigravityQuotaBars.tsx#L31) |
-| resetTime | BindingElement | QuotaMiniBar | [32](../../src/components/AntigravityQuotaBars.tsx#L32) |
-| label | PropertySignature | QuotaMiniBar | [34](../../src/components/AntigravityQuotaBars.tsx#L34) |
-| percent | PropertySignature | QuotaMiniBar | [35](../../src/components/AntigravityQuotaBars.tsx#L35) |
-| resetTime | PropertySignature | QuotaMiniBar | [36](../../src/components/AntigravityQuotaBars.tsx#L36) |
-| value | VariableDeclaration | QuotaMiniBar | [38](../../src/components/AntigravityQuotaBars.tsx#L38) |
-| color | VariableDeclaration | QuotaMiniBar | [39](../../src/components/AntigravityQuotaBars.tsx#L39) |
-| reset | VariableDeclaration | QuotaMiniBar | [40](../../src/components/AntigravityQuotaBars.tsx#L40) |
-| title | VariableDeclaration | QuotaMiniBar | [41](../../src/components/AntigravityQuotaBars.tsx#L41) |
-| tierTagColor | FunctionDeclaration |  | [68](../../src/components/AntigravityQuotaBars.tsx#L68) |
-| value | VariableDeclaration | tierTagColor | [69](../../src/components/AntigravityQuotaBars.tsx#L69) |
-| formatTierLabel | FunctionDeclaration |  | [76](../../src/components/AntigravityQuotaBars.tsx#L76) |
-| upper | VariableDeclaration | formatTierLabel | [78](../../src/components/AntigravityQuotaBars.tsx#L78) |
-| normalizeQuotaWindow | FunctionDeclaration |  | [87](../../src/components/AntigravityQuotaBars.tsx#L87) |
-| haystack | VariableDeclaration | normalizeQuotaWindow | [88](../../src/components/AntigravityQuotaBars.tsx#L88) |
-| QuotaFamily | TypeAliasDeclaration |  | [94](../../src/components/AntigravityQuotaBars.tsx#L94) |
-| bucketLooksGemini | FunctionDeclaration |  | [96](../../src/components/AntigravityQuotaBars.tsx#L96) |
-| bucketLooksClaudeGpt | FunctionDeclaration |  | [100](../../src/components/AntigravityQuotaBars.tsx#L100) |
-| id | VariableDeclaration | bucketLooksClaudeGpt | [101](../../src/components/AntigravityQuotaBars.tsx#L101) |
-| bucketMatchesFamily | FunctionDeclaration |  | [110](../../src/components/AntigravityQuotaBars.tsx#L110) |
-| groupIsGemini | VariableDeclaration | bucketMatchesFamily | [115](../../src/components/AntigravityQuotaBars.tsx#L115) |
-| _exhaustive | VariableDeclaration | bucketMatchesFamily | [125](../../src/components/AntigravityQuotaBars.tsx#L125) |
-| bestBucket | FunctionDeclaration |  | [131](../../src/components/AntigravityQuotaBars.tsx#L131) |
-| groups | VariableDeclaration | bestBucket | [136](../../src/components/AntigravityQuotaBars.tsx#L136) |
-| best | VariableDeclaration | bestBucket | [137](../../src/components/AntigravityQuotaBars.tsx#L137) |
-| group | VariableDeclaration | bestBucket | [138](../../src/components/AntigravityQuotaBars.tsx#L138) |
-| bucket | VariableDeclaration | bestBucket | [139](../../src/components/AntigravityQuotaBars.tsx#L139) |
-| percentFromGroups | FunctionDeclaration |  | [152](../../src/components/AntigravityQuotaBars.tsx#L152) |
-| bucket | VariableDeclaration | percentFromGroups | [157](../../src/components/AntigravityQuotaBars.tsx#L157) |
-| windowResetTime | FunctionDeclaration |  | [162](../../src/components/AntigravityQuotaBars.tsx#L162) |
-| accountQuotaSummary | FunctionDeclaration |  | [170](../../src/components/AntigravityQuotaBars.tsx#L170) |
-| geminiFiveHour | PropertySignature | accountQuotaSummary | [171](../../src/components/AntigravityQuotaBars.tsx#L171) |
-| geminiWeekly | PropertySignature | accountQuotaSummary | [172](../../src/components/AntigravityQuotaBars.tsx#L172) |
-| claudeFiveHour | PropertySignature | accountQuotaSummary | [173](../../src/components/AntigravityQuotaBars.tsx#L173) |
-| claudeWeekly | PropertySignature | accountQuotaSummary | [174](../../src/components/AntigravityQuotaBars.tsx#L174) |
-| geminiFiveHourReset | PropertySignature | accountQuotaSummary | [175](../../src/components/AntigravityQuotaBars.tsx#L175) |
-| geminiWeeklyReset | PropertySignature | accountQuotaSummary | [176](../../src/components/AntigravityQuotaBars.tsx#L176) |
-| claudeFiveHourReset | PropertySignature | accountQuotaSummary | [177](../../src/components/AntigravityQuotaBars.tsx#L177) |
-| claudeWeeklyReset | PropertySignature | accountQuotaSummary | [178](../../src/components/AntigravityQuotaBars.tsx#L178) |
-| quotaUpdatedAt | PropertySignature | accountQuotaSummary | [179](../../src/components/AntigravityQuotaBars.tsx#L179) |
+| date | VariableDeclaration | formatQuotaResetTime | [16](../../src/components/AntigravityQuotaBars.tsx#L16) |
+| parts | VariableDeclaration | formatQuotaResetTime | [18](../../src/components/AntigravityQuotaBars.tsx#L18) |
+| part | VariableDeclaration | formatQuotaResetTime | [26](../../src/components/AntigravityQuotaBars.tsx#L26) |
+| hm | VariableDeclaration | formatQuotaResetTime | [27](../../src/components/AntigravityQuotaBars.tsx#L27) |
+| formatQuotaUpdatedAt | FunctionDeclaration |  | [33](../../src/components/AntigravityQuotaBars.tsx#L33) |
+| date | VariableDeclaration | formatQuotaUpdatedAt | [35](../../src/components/AntigravityQuotaBars.tsx#L35) |
+| pad | VariableDeclaration | formatQuotaUpdatedAt | [36](../../src/components/AntigravityQuotaBars.tsx#L36) |
+| QuotaMiniBar | FunctionDeclaration |  | [40](../../src/components/AntigravityQuotaBars.tsx#L40) |
+| label | BindingElement | QuotaMiniBar | [41](../../src/components/AntigravityQuotaBars.tsx#L41) |
+| percent | BindingElement | QuotaMiniBar | [42](../../src/components/AntigravityQuotaBars.tsx#L42) |
+| resetTime | BindingElement | QuotaMiniBar | [43](../../src/components/AntigravityQuotaBars.tsx#L43) |
+| timeZone | BindingElement | QuotaMiniBar | [44](../../src/components/AntigravityQuotaBars.tsx#L44) |
+| label | PropertySignature | QuotaMiniBar | [46](../../src/components/AntigravityQuotaBars.tsx#L46) |
+| percent | PropertySignature | QuotaMiniBar | [47](../../src/components/AntigravityQuotaBars.tsx#L47) |
+| resetTime | PropertySignature | QuotaMiniBar | [48](../../src/components/AntigravityQuotaBars.tsx#L48) |
+| timeZone | PropertySignature | QuotaMiniBar | [49](../../src/components/AntigravityQuotaBars.tsx#L49) |
+| value | VariableDeclaration | QuotaMiniBar | [51](../../src/components/AntigravityQuotaBars.tsx#L51) |
+| color | VariableDeclaration | QuotaMiniBar | [52](../../src/components/AntigravityQuotaBars.tsx#L52) |
+| reset | VariableDeclaration | QuotaMiniBar | [53](../../src/components/AntigravityQuotaBars.tsx#L53) |
+| title | VariableDeclaration | QuotaMiniBar | [54](../../src/components/AntigravityQuotaBars.tsx#L54) |
+| tierTagColor | FunctionDeclaration |  | [81](../../src/components/AntigravityQuotaBars.tsx#L81) |
+| value | VariableDeclaration | tierTagColor | [82](../../src/components/AntigravityQuotaBars.tsx#L82) |
+| formatTierLabel | FunctionDeclaration |  | [89](../../src/components/AntigravityQuotaBars.tsx#L89) |
+| upper | VariableDeclaration | formatTierLabel | [91](../../src/components/AntigravityQuotaBars.tsx#L91) |
+| normalizeQuotaWindow | FunctionDeclaration |  | [100](../../src/components/AntigravityQuotaBars.tsx#L100) |
+| haystack | VariableDeclaration | normalizeQuotaWindow | [101](../../src/components/AntigravityQuotaBars.tsx#L101) |
+| QuotaFamily | TypeAliasDeclaration |  | [107](../../src/components/AntigravityQuotaBars.tsx#L107) |
+| bucketLooksGemini | FunctionDeclaration |  | [109](../../src/components/AntigravityQuotaBars.tsx#L109) |
+| bucketLooksClaudeGpt | FunctionDeclaration |  | [113](../../src/components/AntigravityQuotaBars.tsx#L113) |
+| id | VariableDeclaration | bucketLooksClaudeGpt | [114](../../src/components/AntigravityQuotaBars.tsx#L114) |
+| bucketMatchesFamily | FunctionDeclaration |  | [123](../../src/components/AntigravityQuotaBars.tsx#L123) |
+| groupIsGemini | VariableDeclaration | bucketMatchesFamily | [128](../../src/components/AntigravityQuotaBars.tsx#L128) |
+| _exhaustive | VariableDeclaration | bucketMatchesFamily | [138](../../src/components/AntigravityQuotaBars.tsx#L138) |
+| bestBucket | FunctionDeclaration |  | [144](../../src/components/AntigravityQuotaBars.tsx#L144) |
+| groups | VariableDeclaration | bestBucket | [149](../../src/components/AntigravityQuotaBars.tsx#L149) |
+| best | VariableDeclaration | bestBucket | [150](../../src/components/AntigravityQuotaBars.tsx#L150) |
+| group | VariableDeclaration | bestBucket | [151](../../src/components/AntigravityQuotaBars.tsx#L151) |
+| bucket | VariableDeclaration | bestBucket | [152](../../src/components/AntigravityQuotaBars.tsx#L152) |
+| percentFromGroups | FunctionDeclaration |  | [165](../../src/components/AntigravityQuotaBars.tsx#L165) |
+| bucket | VariableDeclaration | percentFromGroups | [170](../../src/components/AntigravityQuotaBars.tsx#L170) |
+| windowResetTime | FunctionDeclaration |  | [175](../../src/components/AntigravityQuotaBars.tsx#L175) |
+| accountQuotaSummary | FunctionDeclaration |  | [183](../../src/components/AntigravityQuotaBars.tsx#L183) |
+| geminiFiveHour | PropertySignature | accountQuotaSummary | [184](../../src/components/AntigravityQuotaBars.tsx#L184) |
+| geminiWeekly | PropertySignature | accountQuotaSummary | [185](../../src/components/AntigravityQuotaBars.tsx#L185) |
+| claudeFiveHour | PropertySignature | accountQuotaSummary | [186](../../src/components/AntigravityQuotaBars.tsx#L186) |
+| claudeWeekly | PropertySignature | accountQuotaSummary | [187](../../src/components/AntigravityQuotaBars.tsx#L187) |
+| geminiFiveHourReset | PropertySignature | accountQuotaSummary | [188](../../src/components/AntigravityQuotaBars.tsx#L188) |
+| geminiWeeklyReset | PropertySignature | accountQuotaSummary | [189](../../src/components/AntigravityQuotaBars.tsx#L189) |
+| claudeFiveHourReset | PropertySignature | accountQuotaSummary | [190](../../src/components/AntigravityQuotaBars.tsx#L190) |
+| claudeWeeklyReset | PropertySignature | accountQuotaSummary | [191](../../src/components/AntigravityQuotaBars.tsx#L191) |
+| quotaUpdatedAt | PropertySignature | accountQuotaSummary | [192](../../src/components/AntigravityQuotaBars.tsx#L192) |

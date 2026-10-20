@@ -4,14 +4,16 @@
 
 [Module](web-services.md) · [Source](../../src/services/kiro.ts) · page 2/2
 
-Source SHA-256: 6d8d3fd6e9801d6fbe5dfaf9333fea21bac44054983fd60020c07025448e7c4e
+Source SHA-256: 412793b0be67b1bff0831821169ff2d8aedc5793ae734841504c662bfdc8a007
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| ensureKiroProvider | FunctionDeclaration |  | [177](../../src/services/kiro.ts#L177) |
-| refreshKiroAccountQuota | FunctionDeclaration |  | [181](../../src/services/kiro.ts#L181) |
-| refreshKiroQuotas | FunctionDeclaration |  | [185](../../src/services/kiro.ts#L185) |
-| testKiroAccount | FunctionDeclaration |  | [189](../../src/services/kiro.ts#L189) |
-| setKiroExitProxy | FunctionDeclaration |  | [201](../../src/services/kiro.ts#L201) |
-| probeKiroExitProxy | FunctionDeclaration |  | [205](../../src/services/kiro.ts#L205) |
-| probeKiroExitLatency | FunctionDeclaration |  | [209](../../src/services/kiro.ts#L209) |
+| startKiroGateway | FunctionDeclaration |  | [178](../../src/services/kiro.ts#L178) |
+| stopKiroGateway | FunctionDeclaration |  | [182](../../src/services/kiro.ts#L182) |
+| ensureKiroProvider | FunctionDeclaration |  | [186](../../src/services/kiro.ts#L186) |
+| refreshKiroAccountQuota | FunctionDeclaration |  | [190](../../src/services/kiro.ts#L190) |
+| refreshKiroQuotas | FunctionDeclaration |  | [194](../../src/services/kiro.ts#L194) |
+| testKiroAccount | FunctionDeclaration |  | [198](../../src/services/kiro.ts#L198) |
+| setKiroExitProxy | FunctionDeclaration |  | [210](../../src/services/kiro.ts#L210) |
+| probeKiroExitProxy | FunctionDeclaration |  | [214](../../src/services/kiro.ts#L214) |
+| probeKiroExitLatency | FunctionDeclaration |  | [218](../../src/services/kiro.ts#L218) |

@@ -4,7 +4,7 @@
 
 [Module](web-services.md) · [Source](../../src/services/antigravity.ts) · page 1/1
 
-Source SHA-256: 1a9e832e083e01bd1029d4283910b119a3983435593f154871da608235492a5f
+Source SHA-256: 4365f6022403b656fa04a1b5a2e4475d00197bd348298a67ca77c18a6c4f224e
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -33,25 +33,26 @@ Source SHA-256: 1a9e832e083e01bd1029d4283910b119a3983435593f154871da608235492a5f
 | setAntigravityActiveAccount | FunctionDeclaration |  | [58](../../src/services/antigravity.ts#L58) |
 | invoke | VariableDeclaration | setAntigravityActiveAccount | [59](../../src/services/antigravity.ts#L59) |
 | setAntigravityAccountModelAccess | FunctionDeclaration |  | [63](../../src/services/antigravity.ts#L63) |
-| getAntigravityGatewayStatus | FunctionDeclaration |  | [75](../../src/services/antigravity.ts#L75) |
-| setAntigravityGatewayPort | FunctionDeclaration |  | [79](../../src/services/antigravity.ts#L79) |
-| invoke | VariableDeclaration | setAntigravityGatewayPort | [80](../../src/services/antigravity.ts#L80) |
-| setAntigravityGatewayApiKey | FunctionDeclaration |  | [84](../../src/services/antigravity.ts#L84) |
-| invoke | VariableDeclaration | setAntigravityGatewayApiKey | [85](../../src/services/antigravity.ts#L85) |
-| setAntigravityOutboundProxy | FunctionDeclaration |  | [89](../../src/services/antigravity.ts#L89) |
-| setAntigravityExitProxy | FunctionDeclaration |  | [99](../../src/services/antigravity.ts#L99) |
-| probeAntigravityExitProxy | FunctionDeclaration |  | [105](../../src/services/antigravity.ts#L105) |
-| probeAntigravityExitLatency | FunctionDeclaration |  | [112](../../src/services/antigravity.ts#L112) |
-| getAntigravityLimiterSettings | FunctionDeclaration |  | [119](../../src/services/antigravity.ts#L119) |
-| setAntigravityLimiterSettings | FunctionDeclaration |  | [123](../../src/services/antigravity.ts#L123) |
-| getAntigravityFastPathSettings | FunctionDeclaration |  | [131](../../src/services/antigravity.ts#L131) |
-| setAntigravityFastPathSettings | FunctionDeclaration |  | [135](../../src/services/antigravity.ts#L135) |
-| startAntigravityGateway | FunctionDeclaration |  | [143](../../src/services/antigravity.ts#L143) |
-| stopAntigravityGateway | FunctionDeclaration |  | [151](../../src/services/antigravity.ts#L151) |
-| refreshAntigravityAccountQuota | FunctionDeclaration |  | [155](../../src/services/antigravity.ts#L155) |
-| refreshAntigravityQuotas | FunctionDeclaration |  | [163](../../src/services/antigravity.ts#L163) |
-| testAntigravityAccount | FunctionDeclaration |  | [167](../../src/services/antigravity.ts#L167) |
-| ensureAntigravityProvider | FunctionDeclaration |  | [179](../../src/services/antigravity.ts#L179) |
-| getAntigravityDefaults | FunctionDeclaration |  | [189](../../src/services/antigravity.ts#L189) |
-| getAntigravityPoolWarning | FunctionDeclaration |  | [193](../../src/services/antigravity.ts#L193) |
-| getAntigravityRecommendedAccount | FunctionDeclaration |  | [197](../../src/services/antigravity.ts#L197) |
+| setAntigravityAccountDevice | FunctionDeclaration |  | [75](../../src/services/antigravity.ts#L75) |
+| getAntigravityGatewayStatus | FunctionDeclaration |  | [87](../../src/services/antigravity.ts#L87) |
+| setAntigravityGatewayPort | FunctionDeclaration |  | [91](../../src/services/antigravity.ts#L91) |
+| invoke | VariableDeclaration | setAntigravityGatewayPort | [92](../../src/services/antigravity.ts#L92) |
+| setAntigravityGatewayApiKey | FunctionDeclaration |  | [96](../../src/services/antigravity.ts#L96) |
+| invoke | VariableDeclaration | setAntigravityGatewayApiKey | [97](../../src/services/antigravity.ts#L97) |
+| setAntigravityOutboundProxy | FunctionDeclaration |  | [101](../../src/services/antigravity.ts#L101) |
+| setAntigravityExitProxy | FunctionDeclaration |  | [111](../../src/services/antigravity.ts#L111) |
+| probeAntigravityExitProxy | FunctionDeclaration |  | [117](../../src/services/antigravity.ts#L117) |
+| probeAntigravityExitLatency | FunctionDeclaration |  | [124](../../src/services/antigravity.ts#L124) |
+| getAntigravityLimiterSettings | FunctionDeclaration |  | [131](../../src/services/antigravity.ts#L131) |
+| setAntigravityLimiterSettings | FunctionDeclaration |  | [135](../../src/services/antigravity.ts#L135) |
+| getAntigravityFastPathSettings | FunctionDeclaration |  | [143](../../src/services/antigravity.ts#L143) |
+| setAntigravityFastPathSettings | FunctionDeclaration |  | [147](../../src/services/antigravity.ts#L147) |
+| startAntigravityGateway | FunctionDeclaration |  | [155](../../src/services/antigravity.ts#L155) |
+| stopAntigravityGateway | FunctionDeclaration |  | [163](../../src/services/antigravity.ts#L163) |
+| refreshAntigravityAccountQuota | FunctionDeclaration |  | [167](../../src/services/antigravity.ts#L167) |
+| refreshAntigravityQuotas | FunctionDeclaration |  | [175](../../src/services/antigravity.ts#L175) |
+| testAntigravityAccount | FunctionDeclaration |  | [179](../../src/services/antigravity.ts#L179) |
+| ensureAntigravityProvider | FunctionDeclaration |  | [191](../../src/services/antigravity.ts#L191) |
+| getAntigravityDefaults | FunctionDeclaration |  | [201](../../src/services/antigravity.ts#L201) |
+| getAntigravityPoolWarning | FunctionDeclaration |  | [205](../../src/services/antigravity.ts#L205) |
+| getAntigravityRecommendedAccount | FunctionDeclaration |  | [209](../../src/services/antigravity.ts#L209) |

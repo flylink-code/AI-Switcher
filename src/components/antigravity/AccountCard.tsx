@@ -32,6 +32,7 @@ import {
   formatTierLabel,
   tierTagColor,
 } from "@/components/AntigravityQuotaBars";
+import { AccountDeviceRow, useEffectiveTimezone } from "@/components/AccountDeviceRow";
 import { StatusBadge } from "@/components/ui";
 import { errMsg } from "@/lib/errMsg";
 
@@ -45,6 +46,7 @@ interface AccountCardProps {
   onSetActive: (id: string) => void;
   onRemove: (id: string) => void;
   onSaveModelAccess: (id: string, mode: ModelAccessMode, patterns: string[]) => Promise<void>;
+  onSaveDevice: (id: string, timezone: string, regenerate: boolean) => Promise<void>;
   isPending?: boolean;
   quotaViewMode?: "all" | "5h" | "7d";
   models?: AntigravityCatalogModel[];
@@ -95,11 +97,13 @@ export function AccountCard({
   onSetActive,
   onRemove,
   onSaveModelAccess,
+  onSaveDevice,
   isPending = false,
   quotaViewMode = "all",
   models = [],
 }: AccountCardProps) {
   const { t } = useTranslation();
+  const timeZone = useEffectiveTimezone(account.deviceProfile);
   const [testOpen, setTestOpen] = useState(false);
   const [testModel, setTestModel] = useState(() => defaultProbeModel(models));
   const [testPrompt, setTestPrompt] = useState(DEFAULT_PROMPT);
@@ -237,10 +241,10 @@ export function AccountCard({
         {account.disabledReason && <Text type="danger" style={{ fontSize: 12 }}>{account.disabledReason}。{t("antigravity.reauthorizeHint")}</Text>}
         {!account.hasProjectId && !account.disabled && <Text type="secondary" style={{ fontSize: 12 }}>{t("antigravity.quotaNeedsProject")}</Text>}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {(quotaViewMode === "all" || quotaViewMode === "5h") && <QuotaMiniBar label={t("antigravity.quotaGemini5h")} percent={geminiFiveHour} resetTime={geminiFiveHourReset} />}
-          {(quotaViewMode === "all" || quotaViewMode === "7d") && <QuotaMiniBar label={t("antigravity.quotaGemini7d")} percent={geminiWeekly} resetTime={geminiWeeklyReset} />}
-          {(quotaViewMode === "all" || quotaViewMode === "5h") && <QuotaMiniBar label={t("antigravity.quotaClaude5h")} percent={claudeFiveHour} resetTime={claudeFiveHourReset} />}
-          {(quotaViewMode === "all" || quotaViewMode === "7d") && <QuotaMiniBar label={t("antigravity.quotaClaude7d")} percent={claudeWeekly} resetTime={claudeWeeklyReset} />}
+          {(quotaViewMode === "all" || quotaViewMode === "5h") && <QuotaMiniBar label={t("antigravity.quotaGemini5h")} percent={geminiFiveHour} resetTime={geminiFiveHourReset} timeZone={timeZone} />}
+          {(quotaViewMode === "all" || quotaViewMode === "7d") && <QuotaMiniBar label={t("antigravity.quotaGemini7d")} percent={geminiWeekly} resetTime={geminiWeeklyReset} timeZone={timeZone} />}
+          {(quotaViewMode === "all" || quotaViewMode === "5h") && <QuotaMiniBar label={t("antigravity.quotaClaude5h")} percent={claudeFiveHour} resetTime={claudeFiveHourReset} timeZone={timeZone} />}
+          {(quotaViewMode === "all" || quotaViewMode === "7d") && <QuotaMiniBar label={t("antigravity.quotaClaude7d")} percent={claudeWeekly} resetTime={claudeWeeklyReset} timeZone={timeZone} />}
         </div>
 
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -253,6 +257,10 @@ export function AccountCard({
             </Tag>
             <Button size="small" onClick={openAccess}>{t("antigravity.modelAccessEdit")}</Button>
           </div>
+          <AccountDeviceRow
+            profile={account.deviceProfile}
+            onSave={(timezone, regenerate) => onSaveDevice(account.id, timezone, regenerate)}
+          />
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 12px", minHeight: 22 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>{t("antigravity.health")}: {Math.round(account.healthScore * 100)}%</Text>
             <Text type="secondary" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>

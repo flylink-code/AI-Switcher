@@ -102,6 +102,35 @@ pub fn set_gateway_runtime_mode(
     crate::sidecar::write_mode(&state.db, &mode)
 }
 
+/// IANA name used by the Antigravity / Kiro simulated devices; empty follows the system.
+#[tauri::command]
+pub fn get_gateway_timezone(state: tauri::State<'_, AppState>) -> AppResult<String> {
+    Ok(crate::device_profile::read_global_timezone(&state.db))
+}
+
+#[tauri::command]
+pub fn set_gateway_timezone(
+    timezone: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    crate::device_profile::write_global_timezone(&state.db, &timezone)
+}
+
+/// Logs the old and new value of every Platform / Shell / OS Version / date line the
+/// Antigravity and Kiro gateways rewrite. Off by default.
+#[tauri::command]
+pub fn get_gateway_debug_env_rewrite(state: tauri::State<'_, AppState>) -> AppResult<bool> {
+    Ok(crate::device_profile::read_debug_env_rewrite(&state.db))
+}
+
+#[tauri::command]
+pub fn set_gateway_debug_env_rewrite(
+    enabled: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    crate::device_profile::write_debug_env_rewrite(&state.db, enabled)
+}
+
 #[tauri::command]
 pub fn get_gateway_sidecar_status(
     state: tauri::State<'_, AppState>,

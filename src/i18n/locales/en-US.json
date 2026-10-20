@@ -561,6 +561,13 @@
     "usageSummary": "Usage summary",
     "usageHint": "See sidebar · Usage"
   },
+  "device": {
+    "label": "Device",
+    "followGlobal": "Follow global time zone",
+    "regenerate": "Regenerate device",
+    "regenerateConfirm": "After regenerating, this account will send requests as a new device. Continue?",
+    "saved": "Device settings saved"
+  },
   "common": {
     "theme": "Theme",
     "themeLight": "Light",
@@ -2867,6 +2874,12 @@
     "gatewayRuntimeModeHint": "Run the Antigravity / Kiro proxies inside the app or in a separate process; restart the app after changing",
     "gatewayRuntimeModeRestart": "Saved. Restart the app to apply.",
     "gatewayRuntimeModeRestartNow": "Restart now",
+    "gatewayTimezone": "Proxy gateway time zone",
+    "gatewayTimezoneHint": "Default time zone for Antigravity / Kiro accounts, used for quota reset times and the device profile; each account can override it",
+    "gatewayTimezoneSystem": "Follow system",
+    "gatewayTimezoneSaved": "Time zone saved",
+    "gatewayDebugEnvRewrite": "Gateway environment rewrite debug log",
+    "gatewayDebugEnvRewriteHint": "When on, Antigravity / Kiro log the old and new value each time they rewrite Platform, Shell, OS Version or the date in a request to match the account's device (prompts and paths are not logged). For troubleshooting only; off by default",
     "gatewayRuntimeModes": {
       "inproc": "In app",
       "sidecar": "Separate process (default)"

@@ -4,51 +4,54 @@
 
 [Module](web-components.md) · [Source](../../src/components/kiro/AccountCard.tsx) · page 1/1
 
-Source SHA-256: 5162226452c0998f7c9258382870b1b63c66e7c5cd16b9d0316a6c546d1c174f
+Source SHA-256: d38d8431db3f38e6053aeaca6ed20c5ecccbf73d3fb7884fe80ed0f850364eab
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| { Text } | VariableDeclaration |  | [20](../../src/components/kiro/AccountCard.tsx#L20) |
-| Text | BindingElement | { Text } | [20](../../src/components/kiro/AccountCard.tsx#L20) |
-| DEFAULT_MODEL | VariableDeclaration |  | [21](../../src/components/kiro/AccountCard.tsx#L21) |
-| AccountCardProps | InterfaceDeclaration |  | [23](../../src/components/kiro/AccountCard.tsx#L23) |
-| account | PropertySignature | AccountCardProps | [24](../../src/components/kiro/AccountCard.tsx#L24) |
-| onRemove | PropertySignature | AccountCardProps | [25](../../src/components/kiro/AccountCard.tsx#L25) |
-| isPending | PropertySignature | AccountCardProps | [26](../../src/components/kiro/AccountCard.tsx#L26) |
-| authLabel | FunctionDeclaration |  | [29](../../src/components/kiro/AccountCard.tsx#L29) |
-| value | VariableDeclaration | authLabel | [30](../../src/components/kiro/AccountCard.tsx#L30) |
-| formatCredit | FunctionDeclaration |  | [36](../../src/components/kiro/AccountCard.tsx#L36) |
-| quotaPercent | FunctionDeclaration |  | [41](../../src/components/kiro/AccountCard.tsx#L41) |
-| testChatAlertType | FunctionDeclaration |  | [46](../../src/components/kiro/AccountCard.tsx#L46) |
-| _exhaustive | VariableDeclaration | testChatAlertType | [59](../../src/components/kiro/AccountCard.tsx#L59) |
-| isTestCategory | FunctionDeclaration |  | [65](../../src/components/kiro/AccountCard.tsx#L65) |
-| AccountCard | FunctionDeclaration |  | [79](../../src/components/kiro/AccountCard.tsx#L79) |
-| account | BindingElement | AccountCard | [79](../../src/components/kiro/AccountCard.tsx#L79) |
-| onRemove | BindingElement | AccountCard | [79](../../src/components/kiro/AccountCard.tsx#L79) |
-| isPending | BindingElement | AccountCard | [79](../../src/components/kiro/AccountCard.tsx#L79) |
-| { t } | VariableDeclaration | AccountCard | [80](../../src/components/kiro/AccountCard.tsx#L80) |
-| t | BindingElement | AccountCard.{ t } | [80](../../src/components/kiro/AccountCard.tsx#L80) |
-| queryClient | VariableDeclaration | AccountCard | [81](../../src/components/kiro/AccountCard.tsx#L81) |
-| modelsQuery | VariableDeclaration | AccountCard | [82](../../src/components/kiro/AccountCard.tsx#L82) |
-| title | VariableDeclaration | AccountCard | [83](../../src/components/kiro/AccountCard.tsx#L83) |
-| [testOpen, setTestOpen] | VariableDeclaration | AccountCard | [84](../../src/components/kiro/AccountCard.tsx#L84) |
-| testOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [84](../../src/components/kiro/AccountCard.tsx#L84) |
-| setTestOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [84](../../src/components/kiro/AccountCard.tsx#L84) |
-| [testModel, setTestModel] | VariableDeclaration | AccountCard | [85](../../src/components/kiro/AccountCard.tsx#L85) |
-| testModel | BindingElement | AccountCard.[testModel, setTestModel] | [85](../../src/components/kiro/AccountCard.tsx#L85) |
-| setTestModel | BindingElement | AccountCard.[testModel, setTestModel] | [85](../../src/components/kiro/AccountCard.tsx#L85) |
-| [testPrompt, setTestPrompt] | VariableDeclaration | AccountCard | [86](../../src/components/kiro/AccountCard.tsx#L86) |
-| testPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [86](../../src/components/kiro/AccountCard.tsx#L86) |
-| setTestPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [86](../../src/components/kiro/AccountCard.tsx#L86) |
-| [testResult, setTestResult] | VariableDeclaration | AccountCard | [87](../../src/components/kiro/AccountCard.tsx#L87) |
-| testResult | BindingElement | AccountCard.[testResult, setTestResult] | [87](../../src/components/kiro/AccountCard.tsx#L87) |
-| setTestResult | BindingElement | AccountCard.[testResult, setTestResult] | [87](../../src/components/kiro/AccountCard.tsx#L87) |
-| quotaMutation | VariableDeclaration | AccountCard | [89](../../src/components/kiro/AccountCard.tsx#L89) |
-| mutationFn | PropertyAssignment | AccountCard.quotaMutation | [90](../../src/components/kiro/AccountCard.tsx#L90) |
-| onSuccess | PropertyAssignment | AccountCard.quotaMutation | [91](../../src/components/kiro/AccountCard.tsx#L91) |
-| onError | PropertyAssignment | AccountCard.quotaMutation | [95](../../src/components/kiro/AccountCard.tsx#L95) |
-| testMutation | VariableDeclaration | AccountCard | [98](../../src/components/kiro/AccountCard.tsx#L98) |
-| mutationFn | PropertyAssignment | AccountCard.testMutation | [99](../../src/components/kiro/AccountCard.tsx#L99) |
-| onSuccess | PropertyAssignment | AccountCard.testMutation | [100](../../src/components/kiro/AccountCard.tsx#L100) |
-| onError | PropertyAssignment | AccountCard.testMutation | [106](../../src/components/kiro/AccountCard.tsx#L106) |
-| quota | VariableDeclaration | AccountCard | [119](../../src/components/kiro/AccountCard.tsx#L119) |
+| { Text } | VariableDeclaration |  | [22](../../src/components/kiro/AccountCard.tsx#L22) |
+| Text | BindingElement | { Text } | [22](../../src/components/kiro/AccountCard.tsx#L22) |
+| DEFAULT_MODEL | VariableDeclaration |  | [23](../../src/components/kiro/AccountCard.tsx#L23) |
+| AccountCardProps | InterfaceDeclaration |  | [25](../../src/components/kiro/AccountCard.tsx#L25) |
+| account | PropertySignature | AccountCardProps | [26](../../src/components/kiro/AccountCard.tsx#L26) |
+| onRemove | PropertySignature | AccountCardProps | [27](../../src/components/kiro/AccountCard.tsx#L27) |
+| isPending | PropertySignature | AccountCardProps | [28](../../src/components/kiro/AccountCard.tsx#L28) |
+| authLabel | FunctionDeclaration |  | [31](../../src/components/kiro/AccountCard.tsx#L31) |
+| value | VariableDeclaration | authLabel | [32](../../src/components/kiro/AccountCard.tsx#L32) |
+| formatCredit | FunctionDeclaration |  | [38](../../src/components/kiro/AccountCard.tsx#L38) |
+| quotaPercent | FunctionDeclaration |  | [43](../../src/components/kiro/AccountCard.tsx#L43) |
+| testChatAlertType | FunctionDeclaration |  | [48](../../src/components/kiro/AccountCard.tsx#L48) |
+| _exhaustive | VariableDeclaration | testChatAlertType | [61](../../src/components/kiro/AccountCard.tsx#L61) |
+| isTestCategory | FunctionDeclaration |  | [67](../../src/components/kiro/AccountCard.tsx#L67) |
+| AccountCard | FunctionDeclaration |  | [81](../../src/components/kiro/AccountCard.tsx#L81) |
+| account | BindingElement | AccountCard | [81](../../src/components/kiro/AccountCard.tsx#L81) |
+| onRemove | BindingElement | AccountCard | [81](../../src/components/kiro/AccountCard.tsx#L81) |
+| isPending | BindingElement | AccountCard | [81](../../src/components/kiro/AccountCard.tsx#L81) |
+| { t } | VariableDeclaration | AccountCard | [82](../../src/components/kiro/AccountCard.tsx#L82) |
+| t | BindingElement | AccountCard.{ t } | [82](../../src/components/kiro/AccountCard.tsx#L82) |
+| queryClient | VariableDeclaration | AccountCard | [83](../../src/components/kiro/AccountCard.tsx#L83) |
+| modelsQuery | VariableDeclaration | AccountCard | [84](../../src/components/kiro/AccountCard.tsx#L84) |
+| title | VariableDeclaration | AccountCard | [85](../../src/components/kiro/AccountCard.tsx#L85) |
+| [testOpen, setTestOpen] | VariableDeclaration | AccountCard | [86](../../src/components/kiro/AccountCard.tsx#L86) |
+| testOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [86](../../src/components/kiro/AccountCard.tsx#L86) |
+| setTestOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [86](../../src/components/kiro/AccountCard.tsx#L86) |
+| [testModel, setTestModel] | VariableDeclaration | AccountCard | [87](../../src/components/kiro/AccountCard.tsx#L87) |
+| testModel | BindingElement | AccountCard.[testModel, setTestModel] | [87](../../src/components/kiro/AccountCard.tsx#L87) |
+| setTestModel | BindingElement | AccountCard.[testModel, setTestModel] | [87](../../src/components/kiro/AccountCard.tsx#L87) |
+| [testPrompt, setTestPrompt] | VariableDeclaration | AccountCard | [88](../../src/components/kiro/AccountCard.tsx#L88) |
+| testPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [88](../../src/components/kiro/AccountCard.tsx#L88) |
+| setTestPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [88](../../src/components/kiro/AccountCard.tsx#L88) |
+| [testResult, setTestResult] | VariableDeclaration | AccountCard | [89](../../src/components/kiro/AccountCard.tsx#L89) |
+| testResult | BindingElement | AccountCard.[testResult, setTestResult] | [89](../../src/components/kiro/AccountCard.tsx#L89) |
+| setTestResult | BindingElement | AccountCard.[testResult, setTestResult] | [89](../../src/components/kiro/AccountCard.tsx#L89) |
+| quotaMutation | VariableDeclaration | AccountCard | [91](../../src/components/kiro/AccountCard.tsx#L91) |
+| mutationFn | PropertyAssignment | AccountCard.quotaMutation | [92](../../src/components/kiro/AccountCard.tsx#L92) |
+| onSuccess | PropertyAssignment | AccountCard.quotaMutation | [93](../../src/components/kiro/AccountCard.tsx#L93) |
+| onError | PropertyAssignment | AccountCard.quotaMutation | [97](../../src/components/kiro/AccountCard.tsx#L97) |
+| testMutation | VariableDeclaration | AccountCard | [100](../../src/components/kiro/AccountCard.tsx#L100) |
+| mutationFn | PropertyAssignment | AccountCard.testMutation | [101](../../src/components/kiro/AccountCard.tsx#L101) |
+| onSuccess | PropertyAssignment | AccountCard.testMutation | [102](../../src/components/kiro/AccountCard.tsx#L102) |
+| onError | PropertyAssignment | AccountCard.testMutation | [108](../../src/components/kiro/AccountCard.tsx#L108) |
+| quota | VariableDeclaration | AccountCard | [121](../../src/components/kiro/AccountCard.tsx#L121) |
+| timeZone | VariableDeclaration | AccountCard | [122](../../src/components/kiro/AccountCard.tsx#L122) |
+| formatReset | VariableDeclaration | AccountCard | [124](../../src/components/kiro/AccountCard.tsx#L124) |
+| date | VariableDeclaration | AccountCard.formatReset | [125](../../src/components/kiro/AccountCard.tsx#L125) |

@@ -4,7 +4,7 @@
 
 [Module](web-services.md) · [Source](../../src/services/system.ts) · page 1/1
 
-Source SHA-256: d38a9dde04db6c4fcf6e5092672ef7fc3c728a918763f63519e141e4d9d953f4
+Source SHA-256: 672734804560e993c15e702fdacdeb90d98085b02222469d58ad67e29bd56a79
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -37,30 +37,34 @@ Source SHA-256: d38a9dde04db6c4fcf6e5092672ef7fc3c728a918763f63519e141e4d9d953f4
 | getGatewayRuntimeMode | FunctionDeclaration |  | [97](../../src/services/system.ts#L97) |
 | getGatewaySidecarStatus | FunctionDeclaration |  | [101](../../src/services/system.ts#L101) |
 | setGatewayRuntimeMode | FunctionDeclaration |  | [105](../../src/services/system.ts#L105) |
-| setCloseBehavior | FunctionDeclaration |  | [111](../../src/services/system.ts#L111) |
-| resolveCloseRequest | FunctionDeclaration |  | [115](../../src/services/system.ts#L115) |
-| reportFrontendStartup | FunctionDeclaration |  | [122](../../src/services/system.ts#L122) |
-| reportFrontendPerformance | FunctionDeclaration |  | [130](../../src/services/system.ts#L130) |
-| getDesktopLocalizationStatus | FunctionDeclaration |  | [142](../../src/services/system.ts#L142) |
-| getLocalizationHubStatus | FunctionDeclaration |  | [146](../../src/services/system.ts#L146) |
-| checkLocalizationUpstream | FunctionDeclaration |  | [150](../../src/services/system.ts#L150) |
-| installClaudeCodeLocalization | FunctionDeclaration |  | [154](../../src/services/system.ts#L154) |
-| updateClaudeCodeLocalization | FunctionDeclaration |  | [158](../../src/services/system.ts#L158) |
-| uninstallClaudeCodeLocalization | FunctionDeclaration |  | [162](../../src/services/system.ts#L162) |
-| installEditorLocalizationHelper | FunctionDeclaration |  | [166](../../src/services/system.ts#L166) |
-| updateEditorLocalizationHelper | FunctionDeclaration |  | [170](../../src/services/system.ts#L170) |
-| uninstallEditorLocalizationHelper | FunctionDeclaration |  | [174](../../src/services/system.ts#L174) |
-| downloadDesktopLocalizationPack | FunctionDeclaration |  | [178](../../src/services/system.ts#L178) |
-| selectDesktopLocalizationPack | FunctionDeclaration |  | [182](../../src/services/system.ts#L182) |
-| validateDesktopLocalizationPack | FunctionDeclaration |  | [186](../../src/services/system.ts#L186) |
-| installDesktopLocalization | FunctionDeclaration |  | [195](../../src/services/system.ts#L195) |
-| restoreDesktopLocalization | FunctionDeclaration |  | [203](../../src/services/system.ts#L203) |
-| updateDesktopLocalization | FunctionDeclaration |  | [207](../../src/services/system.ts#L207) |
-| setAppLanguage | FunctionDeclaration |  | [213](../../src/services/system.ts#L213) |
-| getUpdateMirrorSettings | FunctionDeclaration |  | [217](../../src/services/system.ts#L217) |
-| setUpdateMirrorSettings | FunctionDeclaration |  | [221](../../src/services/system.ts#L221) |
-| checkAppUpdate | FunctionDeclaration |  | [225](../../src/services/system.ts#L225) |
-| installAppUpdate | FunctionDeclaration |  | [229](../../src/services/system.ts#L229) |
-| getDismissedOnboardingTips | FunctionDeclaration |  | [233](../../src/services/system.ts#L233) |
-| dismissOnboardingTip | FunctionDeclaration |  | [237](../../src/services/system.ts#L237) |
-| restoreOnboardingTips | FunctionDeclaration |  | [241](../../src/services/system.ts#L241) |
+| getGatewayTimezone | FunctionDeclaration |  | [112](../../src/services/system.ts#L112) |
+| setGatewayTimezone | FunctionDeclaration |  | [116](../../src/services/system.ts#L116) |
+| getGatewayDebugEnvRewrite | FunctionDeclaration |  | [121](../../src/services/system.ts#L121) |
+| setGatewayDebugEnvRewrite | FunctionDeclaration |  | [125](../../src/services/system.ts#L125) |
+| setCloseBehavior | FunctionDeclaration |  | [129](../../src/services/system.ts#L129) |
+| resolveCloseRequest | FunctionDeclaration |  | [133](../../src/services/system.ts#L133) |
+| reportFrontendStartup | FunctionDeclaration |  | [140](../../src/services/system.ts#L140) |
+| reportFrontendPerformance | FunctionDeclaration |  | [148](../../src/services/system.ts#L148) |
+| getDesktopLocalizationStatus | FunctionDeclaration |  | [160](../../src/services/system.ts#L160) |
+| getLocalizationHubStatus | FunctionDeclaration |  | [164](../../src/services/system.ts#L164) |
+| checkLocalizationUpstream | FunctionDeclaration |  | [168](../../src/services/system.ts#L168) |
+| installClaudeCodeLocalization | FunctionDeclaration |  | [172](../../src/services/system.ts#L172) |
+| updateClaudeCodeLocalization | FunctionDeclaration |  | [176](../../src/services/system.ts#L176) |
+| uninstallClaudeCodeLocalization | FunctionDeclaration |  | [180](../../src/services/system.ts#L180) |
+| installEditorLocalizationHelper | FunctionDeclaration |  | [184](../../src/services/system.ts#L184) |
+| updateEditorLocalizationHelper | FunctionDeclaration |  | [188](../../src/services/system.ts#L188) |
+| uninstallEditorLocalizationHelper | FunctionDeclaration |  | [192](../../src/services/system.ts#L192) |
+| downloadDesktopLocalizationPack | FunctionDeclaration |  | [196](../../src/services/system.ts#L196) |
+| selectDesktopLocalizationPack | FunctionDeclaration |  | [200](../../src/services/system.ts#L200) |
+| validateDesktopLocalizationPack | FunctionDeclaration |  | [204](../../src/services/system.ts#L204) |
+| installDesktopLocalization | FunctionDeclaration |  | [213](../../src/services/system.ts#L213) |
+| restoreDesktopLocalization | FunctionDeclaration |  | [221](../../src/services/system.ts#L221) |
+| updateDesktopLocalization | FunctionDeclaration |  | [225](../../src/services/system.ts#L225) |
+| setAppLanguage | FunctionDeclaration |  | [231](../../src/services/system.ts#L231) |
+| getUpdateMirrorSettings | FunctionDeclaration |  | [235](../../src/services/system.ts#L235) |
+| setUpdateMirrorSettings | FunctionDeclaration |  | [239](../../src/services/system.ts#L239) |
+| checkAppUpdate | FunctionDeclaration |  | [243](../../src/services/system.ts#L243) |
+| installAppUpdate | FunctionDeclaration |  | [247](../../src/services/system.ts#L247) |
+| getDismissedOnboardingTips | FunctionDeclaration |  | [251](../../src/services/system.ts#L251) |
+| dismissOnboardingTip | FunctionDeclaration |  | [255](../../src/services/system.ts#L255) |
+| restoreOnboardingTips | FunctionDeclaration |  | [259](../../src/services/system.ts#L259) |

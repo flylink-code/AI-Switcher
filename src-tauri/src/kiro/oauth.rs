@@ -471,6 +471,7 @@ async fn exchange_social(
         disable_reason: String::new(),
         cooldown_until_ms: 0,
         quota: None,
+        device_profile: None,
     })
 }
 
@@ -691,6 +692,7 @@ fn account_from_token(
         disable_reason: String::new(),
         cooldown_until_ms: 0,
         quota: None,
+        device_profile: None,
     }
 }
 

@@ -9,7 +9,7 @@
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
 | [src-tauri/src/commands/agents.rs](../../src-tauri/src/commands/agents.rs) | 5 | [1](src-tauri_src_commands_agents.rs-4ace9253-1.md) |
-| [src-tauri/src/commands/antigravity.rs](../../src-tauri/src/commands/antigravity.rs) | 34 | [1](src-tauri_src_commands_antigravity.rs-a62af6c6-1.md) |
+| [src-tauri/src/commands/antigravity.rs](../../src-tauri/src/commands/antigravity.rs) | 35 | [1](src-tauri_src_commands_antigravity.rs-a62af6c6-1.md) |
 | [src-tauri/src/commands/app_update.rs](../../src-tauri/src/commands/app_update.rs) | 47 | [1](src-tauri_src_commands_app_update.rs-288936c3-1.md) |
 | [src-tauri/src/commands/backend.rs](../../src-tauri/src/commands/backend.rs) | 1 | [1](src-tauri_src_commands_backend.rs-d1253fe6-1.md) |
 | [src-tauri/src/commands/backup.rs](../../src-tauri/src/commands/backup.rs) | 26 | [1](src-tauri_src_commands_backup.rs-b31ffbda-1.md) |
@@ -28,7 +28,7 @@
 | [src-tauri/src/commands/desktop_localization_parts/tests.rs](../../src-tauri/src/commands/desktop_localization_parts/tests.rs) | 240 | [1](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-1.md) [2](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-2.md) [3](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-3.md) |
 | [src-tauri/src/commands/doctor.rs](../../src-tauri/src/commands/doctor.rs) | 89 | [1](src-tauri_src_commands_doctor.rs-2917bcc1-1.md) |
 | [src-tauri/src/commands/gateway.rs](../../src-tauri/src/commands/gateway.rs) | 48 | [1](src-tauri_src_commands_gateway.rs-6deaa692-1.md) |
-| [src-tauri/src/commands/kiro.rs](../../src-tauri/src/commands/kiro.rs) | 26 | [1](src-tauri_src_commands_kiro.rs-1c6825b3-1.md) |
+| [src-tauri/src/commands/kiro.rs](../../src-tauri/src/commands/kiro.rs) | 27 | [1](src-tauri_src_commands_kiro.rs-1c6825b3-1.md) |
 | [src-tauri/src/commands/localization.rs](../../src-tauri/src/commands/localization.rs) | 239 | [1](src-tauri_src_commands_localization.rs-412be93b-1.md) [2](src-tauri_src_commands_localization.rs-412be93b-2.md) [3](src-tauri_src_commands_localization.rs-412be93b-3.md) |
 | [src-tauri/src/commands/mcp.rs](../../src-tauri/src/commands/mcp.rs) | 12 | [1](src-tauri_src_commands_mcp.rs-cb75e6fa-1.md) |
 | [src-tauri/src/commands/mod.rs](../../src-tauri/src/commands/mod.rs) | 35 | [1](src-tauri_src_commands_mod.rs-0cf4fb10-1.md) |
@@ -52,7 +52,7 @@
 | [src-tauri/src/commands/sessions.rs](../../src-tauri/src/commands/sessions.rs) | 36 | [1](src-tauri_src_commands_sessions.rs-e0feb124-1.md) |
 | [src-tauri/src/commands/skills.rs](../../src-tauri/src/commands/skills.rs) | 20 | [1](src-tauri_src_commands_skills.rs-e6907504-1.md) |
 | [src-tauri/src/commands/sync.rs](../../src-tauri/src/commands/sync.rs) | 101 | [1](src-tauri_src_commands_sync.rs-3ef95800-1.md) [2](src-tauri_src_commands_sync.rs-3ef95800-2.md) |
-| [src-tauri/src/commands/system.rs](../../src-tauri/src/commands/system.rs) | 134 | [1](src-tauri_src_commands_system.rs-a493aece-1.md) [2](src-tauri_src_commands_system.rs-a493aece-2.md) |
+| [src-tauri/src/commands/system.rs](../../src-tauri/src/commands/system.rs) | 138 | [1](src-tauri_src_commands_system.rs-a493aece-1.md) [2](src-tauri_src_commands_system.rs-a493aece-2.md) |
 | [src-tauri/src/commands/tools.rs](../../src-tauri/src/commands/tools.rs) | 395 | [1](src-tauri_src_commands_tools.rs-5fe0ba91-1.md) [2](src-tauri_src_commands_tools.rs-5fe0ba91-2.md) [3](src-tauri_src_commands_tools.rs-5fe0ba91-3.md) [4](src-tauri_src_commands_tools.rs-5fe0ba91-4.md) |
 | [src-tauri/src/commands/usage.rs](../../src-tauri/src/commands/usage.rs) | 278 | [1](src-tauri_src_commands_usage.rs-dc05e43b-1.md) [2](src-tauri_src_commands_usage.rs-dc05e43b-2.md) [3](src-tauri_src_commands_usage.rs-dc05e43b-3.md) |
 | [src-tauri/src/commands/vscode_copilot.rs](../../src-tauri/src/commands/vscode_copilot.rs) | 66 | [1](src-tauri_src_commands_vscode_copilot.rs-6ed8aa31-1.md) |

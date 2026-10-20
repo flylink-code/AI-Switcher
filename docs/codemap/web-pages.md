@@ -13,7 +13,7 @@
 | [src/pages/AgentHubPage.tsx](../../src/pages/AgentHubPage.tsx) | 97 | [1](src_pages_AgentHubPage.tsx-0d138cfd-1.md) |
 | [src/pages/AgentToolsPage.tsx](../../src/pages/AgentToolsPage.tsx) | 144 | [1](src_pages_AgentToolsPage.tsx-dd2dd8c0-1.md) [2](src_pages_AgentToolsPage.tsx-dd2dd8c0-2.md) |
 | [src/pages/AgentsPage.tsx](../../src/pages/AgentsPage.tsx) | 42 | [1](src_pages_AgentsPage.tsx-f240be94-1.md) |
-| [src/pages/AntigravityPage.tsx](../../src/pages/AntigravityPage.tsx) | 195 | [1](src_pages_AntigravityPage.tsx-dc046080-1.md) [2](src_pages_AntigravityPage.tsx-dc046080-2.md) |
+| [src/pages/AntigravityPage.tsx](../../src/pages/AntigravityPage.tsx) | 207 | [1](src_pages_AntigravityPage.tsx-dc046080-1.md) [2](src_pages_AntigravityPage.tsx-dc046080-2.md) [3](src_pages_AntigravityPage.tsx-dc046080-3.md) |
 | [src/pages/ClaudePluginsPage.tsx](../../src/pages/ClaudePluginsPage.tsx) | 113 | [1](src_pages_ClaudePluginsPage.tsx-aa941762-1.md) [2](src_pages_ClaudePluginsPage.tsx-aa941762-2.md) |
 | [src/pages/CodexPluginsPage.tsx](../../src/pages/CodexPluginsPage.tsx) | 118 | [1](src_pages_CodexPluginsPage.tsx-83bc5d71-1.md) [2](src_pages_CodexPluginsPage.tsx-83bc5d71-2.md) |
 | [src/pages/EnvironmentPage.tsx](../../src/pages/EnvironmentPage.tsx) | 207 | [1](src_pages_EnvironmentPage.tsx-b4513710-1.md) [2](src_pages_EnvironmentPage.tsx-b4513710-2.md) [3](src_pages_EnvironmentPage.tsx-b4513710-3.md) |
@@ -25,7 +25,7 @@
 | [src/pages/PromptsPage.tsx](../../src/pages/PromptsPage.tsx) | 101 | [1](src_pages_PromptsPage.tsx-c9329c66-1.md) [2](src_pages_PromptsPage.tsx-c9329c66-2.md) |
 | [src/pages/ProvidersPage.tsx](../../src/pages/ProvidersPage.tsx) | 1 | [1](src_pages_ProvidersPage.tsx-ba6a06ab-1.md) |
 | [src/pages/SessionsPage.tsx](../../src/pages/SessionsPage.tsx) | 197 | [1](src_pages_SessionsPage.tsx-1907e29f-1.md) [2](src_pages_SessionsPage.tsx-1907e29f-2.md) |
-| [src/pages/SettingsPage.tsx](../../src/pages/SettingsPage.tsx) | 43 | [1](src_pages_SettingsPage.tsx-dd5b1d7b-1.md) |
+| [src/pages/SettingsPage.tsx](../../src/pages/SettingsPage.tsx) | 57 | [1](src_pages_SettingsPage.tsx-dd5b1d7b-1.md) |
 | [src/pages/SkillsPage.tsx](../../src/pages/SkillsPage.tsx) | 162 | [1](src_pages_SkillsPage.tsx-35b07d23-1.md) [2](src_pages_SkillsPage.tsx-35b07d23-2.md) |
 | [src/pages/UsagePage.tsx](../../src/pages/UsagePage.tsx) | 227 | [1](src_pages_UsagePage.tsx-bc1fe3a2-1.md) [2](src_pages_UsagePage.tsx-bc1fe3a2-2.md) [3](src_pages_UsagePage.tsx-bc1fe3a2-3.md) |
 | [src/pages/WorkbenchPage.tsx](../../src/pages/WorkbenchPage.tsx) | 128 | [1](src_pages_WorkbenchPage.tsx-2545ddb2-1.md) [2](src_pages_WorkbenchPage.tsx-2545ddb2-2.md) |

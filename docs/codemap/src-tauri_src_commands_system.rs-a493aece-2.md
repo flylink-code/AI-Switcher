@@ -4,41 +4,45 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/system.rs) · page 2/2
 
-Source SHA-256: cd166fd13c7662b4bee371e7f15516095105f1694aff4d1835de5a1f7bc354da
+Source SHA-256: 0ebbbf6e693494e66ee03aeb5309a29c8af8069943537223cd2f59b70c3f836f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [658](../../src-tauri/src/commands/system.rs#L658) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [659](../../src-tauri/src/commands/system.rs#L659) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [660](../../src-tauri/src/commands/system.rs#L660) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [661](../../src-tauri/src/commands/system.rs#L661) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [662](../../src-tauri/src/commands/system.rs#L662) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [663](../../src-tauri/src/commands/system.rs#L663) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [664](../../src-tauri/src/commands/system.rs#L664) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [665](../../src-tauri/src/commands/system.rs#L665) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [666](../../src-tauri/src/commands/system.rs#L666) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [667](../../src-tauri/src/commands/system.rs#L667) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [668](../../src-tauri/src/commands/system.rs#L668) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [669](../../src-tauri/src/commands/system.rs#L669) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [670](../../src-tauri/src/commands/system.rs#L670) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [671](../../src-tauri/src/commands/system.rs#L671) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [672](../../src-tauri/src/commands/system.rs#L672) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [673](../../src-tauri/src/commands/system.rs#L673) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [674](../../src-tauri/src/commands/system.rs#L674) |
-| app_language_validation_rejects_unknown_values | function_item | tests | [678](../../src-tauri/src/commands/system.rs#L678) |
-| assert | macro invocation (unexpanded) | tests::app_language_validation_rejects_unknown_values | [679](../../src-tauri/src/commands/system.rs#L679) |
-| assert | macro invocation (unexpanded) | tests::app_language_validation_rejects_unknown_values | [680](../../src-tauri/src/commands/system.rs#L680) |
-| assert | macro invocation (unexpanded) | tests::app_language_validation_rejects_unknown_values | [681](../../src-tauri/src/commands/system.rs#L681) |
-| update_mirror_requires_a_safe_https_prefix | function_item | tests | [685](../../src-tauri/src/commands/system.rs#L685) |
-| assert_eq | macro invocation (unexpanded) | tests::update_mirror_requires_a_safe_https_prefix | [691](../../src-tauri/src/commands/system.rs#L691) |
-| assert | macro invocation (unexpanded) | tests::update_mirror_requires_a_safe_https_prefix | [692](../../src-tauri/src/commands/system.rs#L692) |
-| assert | macro invocation (unexpanded) | tests::update_mirror_requires_a_safe_https_prefix | [697](../../src-tauri/src/commands/system.rs#L697) |
-| only_silent_autostart_hides_the_main_window | function_item | tests | [705](../../src-tauri/src/commands/system.rs#L705) |
-| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [706](../../src-tauri/src/commands/system.rs#L706) |
-| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [707](../../src-tauri/src/commands/system.rs#L707) |
-| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [708](../../src-tauri/src/commands/system.rs#L708) |
-| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [709](../../src-tauri/src/commands/system.rs#L709) |
-| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [710](../../src-tauri/src/commands/system.rs#L710) |
-| performance_labels_drop_sensitive_punctuation | function_item | tests | [714](../../src-tauri/src/commands/system.rs#L714) |
-| assert_eq | macro invocation (unexpanded) | tests::performance_labels_drop_sensitive_punctuation | [715](../../src-tauri/src/commands/system.rs#L715) |
-| assert_eq | macro invocation (unexpanded) | tests::performance_labels_drop_sensitive_punctuation | [719](../../src-tauri/src/commands/system.rs#L719) |
+| assert_eq | macro invocation (unexpanded) | tests::close_behaviors_use_stable_wire_values | [677](../../src-tauri/src/commands/system.rs#L677) |
+| onboarding_tip_keys_are_allowlisted | function_item | tests | [684](../../src-tauri/src/commands/system.rs#L684) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [685](../../src-tauri/src/commands/system.rs#L685) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [686](../../src-tauri/src/commands/system.rs#L686) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [687](../../src-tauri/src/commands/system.rs#L687) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [688](../../src-tauri/src/commands/system.rs#L688) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [689](../../src-tauri/src/commands/system.rs#L689) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [690](../../src-tauri/src/commands/system.rs#L690) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [691](../../src-tauri/src/commands/system.rs#L691) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [692](../../src-tauri/src/commands/system.rs#L692) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [693](../../src-tauri/src/commands/system.rs#L693) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [694](../../src-tauri/src/commands/system.rs#L694) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [695](../../src-tauri/src/commands/system.rs#L695) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [696](../../src-tauri/src/commands/system.rs#L696) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [697](../../src-tauri/src/commands/system.rs#L697) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [698](../../src-tauri/src/commands/system.rs#L698) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [699](../../src-tauri/src/commands/system.rs#L699) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [700](../../src-tauri/src/commands/system.rs#L700) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [701](../../src-tauri/src/commands/system.rs#L701) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [702](../../src-tauri/src/commands/system.rs#L702) |
+| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [703](../../src-tauri/src/commands/system.rs#L703) |
+| app_language_validation_rejects_unknown_values | function_item | tests | [707](../../src-tauri/src/commands/system.rs#L707) |
+| assert | macro invocation (unexpanded) | tests::app_language_validation_rejects_unknown_values | [708](../../src-tauri/src/commands/system.rs#L708) |
+| assert | macro invocation (unexpanded) | tests::app_language_validation_rejects_unknown_values | [709](../../src-tauri/src/commands/system.rs#L709) |
+| assert | macro invocation (unexpanded) | tests::app_language_validation_rejects_unknown_values | [710](../../src-tauri/src/commands/system.rs#L710) |
+| update_mirror_requires_a_safe_https_prefix | function_item | tests | [714](../../src-tauri/src/commands/system.rs#L714) |
+| assert_eq | macro invocation (unexpanded) | tests::update_mirror_requires_a_safe_https_prefix | [720](../../src-tauri/src/commands/system.rs#L720) |
+| assert | macro invocation (unexpanded) | tests::update_mirror_requires_a_safe_https_prefix | [721](../../src-tauri/src/commands/system.rs#L721) |
+| assert | macro invocation (unexpanded) | tests::update_mirror_requires_a_safe_https_prefix | [726](../../src-tauri/src/commands/system.rs#L726) |
+| only_silent_autostart_hides_the_main_window | function_item | tests | [734](../../src-tauri/src/commands/system.rs#L734) |
+| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [735](../../src-tauri/src/commands/system.rs#L735) |
+| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [736](../../src-tauri/src/commands/system.rs#L736) |
+| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [737](../../src-tauri/src/commands/system.rs#L737) |
+| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [738](../../src-tauri/src/commands/system.rs#L738) |
+| assert | macro invocation (unexpanded) | tests::only_silent_autostart_hides_the_main_window | [739](../../src-tauri/src/commands/system.rs#L739) |
+| performance_labels_drop_sensitive_punctuation | function_item | tests | [743](../../src-tauri/src/commands/system.rs#L743) |
+| assert_eq | macro invocation (unexpanded) | tests::performance_labels_drop_sensitive_punctuation | [744](../../src-tauri/src/commands/system.rs#L744) |
+| assert_eq | macro invocation (unexpanded) | tests::performance_labels_drop_sensitive_punctuation | [748](../../src-tauri/src/commands/system.rs#L748) |

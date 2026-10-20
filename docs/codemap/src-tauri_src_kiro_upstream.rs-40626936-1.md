@@ -4,7 +4,7 @@
 
 [Module](rust-kiro.md) · [Source](../../src-tauri/src/kiro/upstream.rs) · page 1/1
 
-Source SHA-256: 25b1d6ab715b25e3691eb804bc2b71167c2e33e7c22c69ab1e1e603879a9d741
+Source SHA-256: af82bcd23abfa01c3e6052af04107c55dee41d5de43dbe5250db9b8fa43ac8ec
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -14,6 +14,6 @@ Source SHA-256: 25b1d6ab715b25e3691eb804bc2b71167c2e33e7c22c69ab1e1e603879a9d741
 | network_error | field_declaration | UpstreamReply | [12](../../src-tauri/src/kiro/upstream.rs#L12) |
 | send_generate_request | function_item |  | [15](../../src-tauri/src/kiro/upstream.rs#L15) |
 | format | macro invocation (unexpanded) | send_generate_request | [24](../../src-tauri/src/kiro/upstream.rs#L24) |
-| format | macro invocation (unexpanded) | send_generate_request | [26](../../src-tauri/src/kiro/upstream.rs#L26) |
-| format | macro invocation (unexpanded) | send_generate_request | [31](../../src-tauri/src/kiro/upstream.rs#L31) |
-| generate | function_item |  | [47](../../src-tauri/src/kiro/upstream.rs#L47) |
+| format | macro invocation (unexpanded) | send_generate_request | [27](../../src-tauri/src/kiro/upstream.rs#L27) |
+| format | macro invocation (unexpanded) | send_generate_request | [32](../../src-tauri/src/kiro/upstream.rs#L32) |
+| generate | function_item |  | [48](../../src-tauri/src/kiro/upstream.rs#L48) |

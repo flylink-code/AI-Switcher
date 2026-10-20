@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/oauth.rs) · page 1/1
 
-Source SHA-256: bd455213ca084065645a503e454e26dae5e6d3d349c48ce124d22241229b27b7
+Source SHA-256: 74292de035011bf3aa9b4a4594d60c7ee337057621bd06c23aa07dd405cc0f4c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,29 +20,29 @@ Source SHA-256: bd455213ca084065645a503e454e26dae5e6d3d349c48ce124d22241229b27b7
 | format | macro invocation (unexpanded) | login_with_browser_inner | [45](../../src-tauri/src/antigravity/oauth.rs#L45) |
 | format | macro invocation (unexpanded) | login_with_browser_inner | [47](../../src-tauri/src/antigravity/oauth.rs#L47) |
 | format | macro invocation (unexpanded) | login_with_browser_inner | [53](../../src-tauri/src/antigravity/oauth.rs#L53) |
-| build_auth_url | function_item |  | [99](../../src-tauri/src/antigravity/oauth.rs#L99) |
-| format | macro invocation (unexpanded) | build_auth_url | [122](../../src-tauri/src/antigravity/oauth.rs#L122) |
-| wait_for_auth_code | function_item |  | [126](../../src-tauri/src/antigravity/oauth.rs#L126) |
-| format | macro invocation (unexpanded) | wait_for_auth_code | [130](../../src-tauri/src/antigravity/oauth.rs#L130) |
-| vec | macro invocation (unexpanded) | wait_for_auth_code | [131](../../src-tauri/src/antigravity/oauth.rs#L131) |
-| format | macro invocation (unexpanded) | wait_for_auth_code | [135](../../src-tauri/src/antigravity/oauth.rs#L135) |
-| format | macro invocation (unexpanded) | wait_for_auth_code | [154](../../src-tauri/src/antigravity/oauth.rs#L154) |
-| parse_query | function_item |  | [165](../../src-tauri/src/antigravity/oauth.rs#L165) |
-| urlencoding_decode | function_item |  | [179](../../src-tauri/src/antigravity/oauth.rs#L179) |
-| format | macro invocation (unexpanded) | urlencoding_decode | [191](../../src-tauri/src/antigravity/oauth.rs#L191) |
-| ExchangedToken | struct_item |  | [212](../../src-tauri/src/antigravity/oauth.rs#L212) |
-| access_token | field_declaration | ExchangedToken | [213](../../src-tauri/src/antigravity/oauth.rs#L213) |
-| refresh_token | field_declaration | ExchangedToken | [214](../../src-tauri/src/antigravity/oauth.rs#L214) |
-| expires_in | field_declaration | ExchangedToken | [215](../../src-tauri/src/antigravity/oauth.rs#L215) |
-| exchange_code | function_item |  | [218](../../src-tauri/src/antigravity/oauth.rs#L218) |
-| format | macro invocation (unexpanded) | exchange_code | [235](../../src-tauri/src/antigravity/oauth.rs#L235) |
-| format | macro invocation (unexpanded) | exchange_code | [243](../../src-tauri/src/antigravity/oauth.rs#L243) |
-| format | macro invocation (unexpanded) | exchange_code | [245](../../src-tauri/src/antigravity/oauth.rs#L245) |
-| format | macro invocation (unexpanded) | exchange_code | [252](../../src-tauri/src/antigravity/oauth.rs#L252) |
-| fetch_userinfo | function_item |  | [274](../../src-tauri/src/antigravity/oauth.rs#L274) |
-| format | macro invocation (unexpanded) | fetch_userinfo | [281](../../src-tauri/src/antigravity/oauth.rs#L281) |
-| format | macro invocation (unexpanded) | fetch_userinfo | [288](../../src-tauri/src/antigravity/oauth.rs#L288) |
-| success_html | function_item |  | [302](../../src-tauri/src/antigravity/oauth.rs#L302) |
-| fail_html | function_item |  | [311](../../src-tauri/src/antigravity/oauth.rs#L311) |
-| format | macro invocation (unexpanded) | fail_html | [312](../../src-tauri/src/antigravity/oauth.rs#L312) |
-| html_escape | function_item |  | [323](../../src-tauri/src/antigravity/oauth.rs#L323) |
+| build_auth_url | function_item |  | [100](../../src-tauri/src/antigravity/oauth.rs#L100) |
+| format | macro invocation (unexpanded) | build_auth_url | [123](../../src-tauri/src/antigravity/oauth.rs#L123) |
+| wait_for_auth_code | function_item |  | [127](../../src-tauri/src/antigravity/oauth.rs#L127) |
+| format | macro invocation (unexpanded) | wait_for_auth_code | [131](../../src-tauri/src/antigravity/oauth.rs#L131) |
+| vec | macro invocation (unexpanded) | wait_for_auth_code | [132](../../src-tauri/src/antigravity/oauth.rs#L132) |
+| format | macro invocation (unexpanded) | wait_for_auth_code | [136](../../src-tauri/src/antigravity/oauth.rs#L136) |
+| format | macro invocation (unexpanded) | wait_for_auth_code | [155](../../src-tauri/src/antigravity/oauth.rs#L155) |
+| parse_query | function_item |  | [166](../../src-tauri/src/antigravity/oauth.rs#L166) |
+| urlencoding_decode | function_item |  | [180](../../src-tauri/src/antigravity/oauth.rs#L180) |
+| format | macro invocation (unexpanded) | urlencoding_decode | [192](../../src-tauri/src/antigravity/oauth.rs#L192) |
+| ExchangedToken | struct_item |  | [213](../../src-tauri/src/antigravity/oauth.rs#L213) |
+| access_token | field_declaration | ExchangedToken | [214](../../src-tauri/src/antigravity/oauth.rs#L214) |
+| refresh_token | field_declaration | ExchangedToken | [215](../../src-tauri/src/antigravity/oauth.rs#L215) |
+| expires_in | field_declaration | ExchangedToken | [216](../../src-tauri/src/antigravity/oauth.rs#L216) |
+| exchange_code | function_item |  | [219](../../src-tauri/src/antigravity/oauth.rs#L219) |
+| format | macro invocation (unexpanded) | exchange_code | [236](../../src-tauri/src/antigravity/oauth.rs#L236) |
+| format | macro invocation (unexpanded) | exchange_code | [244](../../src-tauri/src/antigravity/oauth.rs#L244) |
+| format | macro invocation (unexpanded) | exchange_code | [246](../../src-tauri/src/antigravity/oauth.rs#L246) |
+| format | macro invocation (unexpanded) | exchange_code | [253](../../src-tauri/src/antigravity/oauth.rs#L253) |
+| fetch_userinfo | function_item |  | [275](../../src-tauri/src/antigravity/oauth.rs#L275) |
+| format | macro invocation (unexpanded) | fetch_userinfo | [282](../../src-tauri/src/antigravity/oauth.rs#L282) |
+| format | macro invocation (unexpanded) | fetch_userinfo | [289](../../src-tauri/src/antigravity/oauth.rs#L289) |
+| success_html | function_item |  | [303](../../src-tauri/src/antigravity/oauth.rs#L303) |
+| fail_html | function_item |  | [312](../../src-tauri/src/antigravity/oauth.rs#L312) |
+| format | macro invocation (unexpanded) | fail_html | [313](../../src-tauri/src/antigravity/oauth.rs#L313) |
+| html_escape | function_item |  | [324](../../src-tauri/src/antigravity/oauth.rs#L324) |

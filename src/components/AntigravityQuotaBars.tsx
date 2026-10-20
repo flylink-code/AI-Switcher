@@ -8,14 +8,25 @@ function quotaBarColor(percent: number | null | undefined): string {
 }
 
 /// ISO resetTime → 紧凑本地时间：24h 内只显时分，跨天补日期。
-export function formatQuotaResetTime(resetTime: string | null | undefined): string | null {
+export function formatQuotaResetTime(
+  resetTime: string | null | undefined,
+  timeZone?: string,
+): string | null {
   if (!resetTime) return null;
   const date = new Date(resetTime);
   if (Number.isNaN(date.getTime())) return null;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const hm = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hourCycle: "h23",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const hm = `${part("hour")}:${part("minute")}`;
   if (date.getTime() - Date.now() < 24 * 3600 * 1000) return hm;
-  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${hm}`;
+  return `${part("month")}-${part("day")} ${hm}`;
 }
 
 /// quotaUpdatedAt（unix 秒）→ 本地时分秒。
@@ -30,14 +41,16 @@ export function QuotaMiniBar({
   label,
   percent,
   resetTime,
+  timeZone,
 }: {
   label: string;
   percent: number | null | undefined;
   resetTime?: string | null;
+  timeZone?: string;
 }) {
   const value = percent == null ? null : Math.max(0, Math.min(100, percent));
   const color = quotaBarColor(value);
-  const reset = formatQuotaResetTime(resetTime);
+  const reset = formatQuotaResetTime(resetTime, timeZone);
   const title = value == null ? label : `${label}: ${value}%${reset ? ` · ↻ ${reset}` : ""}`;
   return (
     <div className="ag-quota-bar" title={title}>

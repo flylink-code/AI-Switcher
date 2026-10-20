@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Button, Checkbox, Select, Tag, message } from "antd";
+import { Button, Checkbox, Select, Switch, Tag, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -13,19 +13,24 @@ import { useNavigatePage } from "@/lib/navigation";
 import {
   autostartOptions,
   closeBehaviorOptions,
+  gatewayDebugEnvRewriteOptions,
   gatewayRuntimeModeOptions,
   gatewaySidecarStatusOptions,
+  gatewayTimezoneOptions,
 } from "@/lib/appQueries";
 import { useAppVersion } from "@/lib/useAppVersion";
 import {
   restartApp,
   setAutostartConfig,
   setCloseBehavior,
+  setGatewayDebugEnvRewrite,
   setGatewayRuntimeMode,
+  setGatewayTimezone,
   type GatewayRuntimeMode,
   type GatewaySidecarStatus,
 } from "@/services/api";
 import { SettingsSection, SettingsRow } from "@/components/settings";
+import { timezoneOptions } from "@/components/AccountDeviceRow";
 import type { AutostartMode, CloseBehavior, ProviderTarget } from "@/types/backend";
 
 /**
@@ -67,6 +72,37 @@ export default function SettingsPage() {
       void message.error(e instanceof Error ? e.message : String(e));
     } finally {
       setGatewayModeChanging(false);
+    }
+  }, [queryClient]);
+
+  const gatewayTimezoneQuery = useQuery(gatewayTimezoneOptions);
+  const [gatewayTimezoneChanging, setGatewayTimezoneChanging] = useState(false);
+
+  const onGatewayTimezoneChange = useCallback(async (timezone: string) => {
+    setGatewayTimezoneChanging(true);
+    try {
+      const saved = await setGatewayTimezone(timezone);
+      queryClient.setQueryData(gatewayTimezoneOptions.queryKey, saved);
+      void message.success(t("settings.gatewayTimezoneSaved"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGatewayTimezoneChanging(false);
+    }
+  }, [queryClient, t]);
+
+  const debugEnvRewriteQuery = useQuery(gatewayDebugEnvRewriteOptions);
+  const [debugEnvRewriteChanging, setDebugEnvRewriteChanging] = useState(false);
+
+  const onDebugEnvRewriteChange = useCallback(async (enabled: boolean) => {
+    setDebugEnvRewriteChanging(true);
+    try {
+      const saved = await setGatewayDebugEnvRewrite(enabled);
+      queryClient.setQueryData(gatewayDebugEnvRewriteOptions.queryKey, saved);
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDebugEnvRewriteChanging(false);
     }
   }, [queryClient]);
 
@@ -215,6 +251,37 @@ export default function SettingsPage() {
                 onChange={(mode) => void onGatewayModeChange(mode)}
               />
             </div>
+          }
+        />
+        <SettingsRow
+          title={t("settings.gatewayTimezone")}
+          description={t("settings.gatewayTimezoneHint")}
+          control={
+            <Select
+              showSearch
+              optionFilterProp="label"
+              value={gatewayTimezoneQuery.data ?? ""}
+              loading={gatewayTimezoneQuery.isPending || gatewayTimezoneChanging}
+              disabled={gatewayTimezoneChanging}
+              style={{ width: 190 }}
+              options={[
+                { value: "", label: t("settings.gatewayTimezoneSystem") },
+                ...timezoneOptions(),
+              ]}
+              onChange={(timezone) => void onGatewayTimezoneChange(timezone)}
+            />
+          }
+        />
+        <SettingsRow
+          title={t("settings.gatewayDebugEnvRewrite")}
+          description={t("settings.gatewayDebugEnvRewriteHint")}
+          control={
+            <Switch
+              checked={debugEnvRewriteQuery.data ?? false}
+              loading={debugEnvRewriteQuery.isPending || debugEnvRewriteChanging}
+              disabled={debugEnvRewriteChanging}
+              onChange={(enabled) => void onDebugEnvRewriteChange(enabled)}
+            />
           }
         />
         {sidecarStatusQuery.data?.supervised ? (

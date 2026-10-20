@@ -4,95 +4,98 @@
 
 [Module](web-components.md) · [Source](../../src/components/antigravity/AccountCard.tsx) · page 1/1
 
-Source SHA-256: 17afd193b7e654237d750346b4c031e6d924d223e344b2672884d51955014649
+Source SHA-256: bcf37f34d15830d66f80cce881e9dc0eb8519c8596be238acdb920581c148868
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| { Text, Paragraph } | VariableDeclaration |  | [38](../../src/components/antigravity/AccountCard.tsx#L38) |
-| Text | BindingElement | { Text, Paragraph } | [38](../../src/components/antigravity/AccountCard.tsx#L38) |
-| Paragraph | BindingElement | { Text, Paragraph } | [38](../../src/components/antigravity/AccountCard.tsx#L38) |
-| DEFAULT_PROMPT | VariableDeclaration |  | [39](../../src/components/antigravity/AccountCard.tsx#L39) |
-| ModelAccessMode | TypeAliasDeclaration |  | [41](../../src/components/antigravity/AccountCard.tsx#L41) |
-| AccountCardProps | InterfaceDeclaration |  | [43](../../src/components/antigravity/AccountCard.tsx#L43) |
-| account | PropertySignature | AccountCardProps | [44](../../src/components/antigravity/AccountCard.tsx#L44) |
-| onSetActive | PropertySignature | AccountCardProps | [45](../../src/components/antigravity/AccountCard.tsx#L45) |
-| onRemove | PropertySignature | AccountCardProps | [46](../../src/components/antigravity/AccountCard.tsx#L46) |
-| onSaveModelAccess | PropertySignature | AccountCardProps | [47](../../src/components/antigravity/AccountCard.tsx#L47) |
-| isPending | PropertySignature | AccountCardProps | [48](../../src/components/antigravity/AccountCard.tsx#L48) |
-| quotaViewMode | PropertySignature | AccountCardProps | [49](../../src/components/antigravity/AccountCard.tsx#L49) |
-| models | PropertySignature | AccountCardProps | [50](../../src/components/antigravity/AccountCard.tsx#L50) |
-| defaultProbeModel | FunctionDeclaration |  | [53](../../src/components/antigravity/AccountCard.tsx#L53) |
-| ids | VariableDeclaration | defaultProbeModel | [54](../../src/components/antigravity/AccountCard.tsx#L54) |
-| testChatAlertType | FunctionDeclaration |  | [64](../../src/components/antigravity/AccountCard.tsx#L64) |
-| _exhaustive | VariableDeclaration | testChatAlertType | [79](../../src/components/antigravity/AccountCard.tsx#L79) |
-| matchesPattern | FunctionDeclaration |  | [86](../../src/components/antigravity/AccountCard.tsx#L86) |
-| normalizedPattern | VariableDeclaration | matchesPattern | [87](../../src/components/antigravity/AccountCard.tsx#L87) |
-| normalizedModel | VariableDeclaration | matchesPattern | [88](../../src/components/antigravity/AccountCard.tsx#L88) |
-| escaped | VariableDeclaration | matchesPattern | [89](../../src/components/antigravity/AccountCard.tsx#L89) |
-| AccountCard | FunctionDeclaration |  | [93](../../src/components/antigravity/AccountCard.tsx#L93) |
-| account | BindingElement | AccountCard | [94](../../src/components/antigravity/AccountCard.tsx#L94) |
-| onSetActive | BindingElement | AccountCard | [95](../../src/components/antigravity/AccountCard.tsx#L95) |
-| onRemove | BindingElement | AccountCard | [96](../../src/components/antigravity/AccountCard.tsx#L96) |
-| onSaveModelAccess | BindingElement | AccountCard | [97](../../src/components/antigravity/AccountCard.tsx#L97) |
-| isPending | BindingElement | AccountCard | [98](../../src/components/antigravity/AccountCard.tsx#L98) |
-| quotaViewMode | BindingElement | AccountCard | [99](../../src/components/antigravity/AccountCard.tsx#L99) |
-| models | BindingElement | AccountCard | [100](../../src/components/antigravity/AccountCard.tsx#L100) |
-| { t } | VariableDeclaration | AccountCard | [102](../../src/components/antigravity/AccountCard.tsx#L102) |
-| t | BindingElement | AccountCard.{ t } | [102](../../src/components/antigravity/AccountCard.tsx#L102) |
-| [testOpen, setTestOpen] | VariableDeclaration | AccountCard | [103](../../src/components/antigravity/AccountCard.tsx#L103) |
-| testOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [103](../../src/components/antigravity/AccountCard.tsx#L103) |
-| setTestOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [103](../../src/components/antigravity/AccountCard.tsx#L103) |
-| [testModel, setTestModel] | VariableDeclaration | AccountCard | [104](../../src/components/antigravity/AccountCard.tsx#L104) |
-| testModel | BindingElement | AccountCard.[testModel, setTestModel] | [104](../../src/components/antigravity/AccountCard.tsx#L104) |
-| setTestModel | BindingElement | AccountCard.[testModel, setTestModel] | [104](../../src/components/antigravity/AccountCard.tsx#L104) |
-| [testPrompt, setTestPrompt] | VariableDeclaration | AccountCard | [105](../../src/components/antigravity/AccountCard.tsx#L105) |
-| testPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [105](../../src/components/antigravity/AccountCard.tsx#L105) |
-| setTestPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [105](../../src/components/antigravity/AccountCard.tsx#L105) |
-| [testBusy, setTestBusy] | VariableDeclaration | AccountCard | [106](../../src/components/antigravity/AccountCard.tsx#L106) |
-| testBusy | BindingElement | AccountCard.[testBusy, setTestBusy] | [106](../../src/components/antigravity/AccountCard.tsx#L106) |
-| setTestBusy | BindingElement | AccountCard.[testBusy, setTestBusy] | [106](../../src/components/antigravity/AccountCard.tsx#L106) |
-| [testResult, setTestResult] | VariableDeclaration | AccountCard | [107](../../src/components/antigravity/AccountCard.tsx#L107) |
-| testResult | BindingElement | AccountCard.[testResult, setTestResult] | [107](../../src/components/antigravity/AccountCard.tsx#L107) |
-| setTestResult | BindingElement | AccountCard.[testResult, setTestResult] | [107](../../src/components/antigravity/AccountCard.tsx#L107) |
-| [accessOpen, setAccessOpen] | VariableDeclaration | AccountCard | [108](../../src/components/antigravity/AccountCard.tsx#L108) |
-| accessOpen | BindingElement | AccountCard.[accessOpen, setAccessOpen] | [108](../../src/components/antigravity/AccountCard.tsx#L108) |
-| setAccessOpen | BindingElement | AccountCard.[accessOpen, setAccessOpen] | [108](../../src/components/antigravity/AccountCard.tsx#L108) |
-| [accessMode, setAccessMode] | VariableDeclaration | AccountCard | [109](../../src/components/antigravity/AccountCard.tsx#L109) |
-| accessMode | BindingElement | AccountCard.[accessMode, setAccessMode] | [109](../../src/components/antigravity/AccountCard.tsx#L109) |
-| setAccessMode | BindingElement | AccountCard.[accessMode, setAccessMode] | [109](../../src/components/antigravity/AccountCard.tsx#L109) |
-| [accessPatterns, setAccessPatterns] | VariableDeclaration | AccountCard | [110](../../src/components/antigravity/AccountCard.tsx#L110) |
-| accessPatterns | BindingElement | AccountCard.[accessPatterns, setAccessPatterns] | [110](../../src/components/antigravity/AccountCard.tsx#L110) |
-| setAccessPatterns | BindingElement | AccountCard.[accessPatterns, setAccessPatterns] | [110](../../src/components/antigravity/AccountCard.tsx#L110) |
-| [accessInput, setAccessInput] | VariableDeclaration | AccountCard | [111](../../src/components/antigravity/AccountCard.tsx#L111) |
-| accessInput | BindingElement | AccountCard.[accessInput, setAccessInput] | [111](../../src/components/antigravity/AccountCard.tsx#L111) |
-| setAccessInput | BindingElement | AccountCard.[accessInput, setAccessInput] | [111](../../src/components/antigravity/AccountCard.tsx#L111) |
-| [accessBusy, setAccessBusy] | VariableDeclaration | AccountCard | [112](../../src/components/antigravity/AccountCard.tsx#L112) |
-| accessBusy | BindingElement | AccountCard.[accessBusy, setAccessBusy] | [112](../../src/components/antigravity/AccountCard.tsx#L112) |
-| setAccessBusy | BindingElement | AccountCard.[accessBusy, setAccessBusy] | [112](../../src/components/antigravity/AccountCard.tsx#L112) |
-| allowedModels | VariableDeclaration | AccountCard | [115](../../src/components/antigravity/AccountCard.tsx#L115) |
-| allowed | VariableDeclaration | AccountCard.allowedModels | [116](../../src/components/antigravity/AccountCard.tsx#L116) |
-| byId | VariableDeclaration | AccountCard.allowedModels | [118](../../src/components/antigravity/AccountCard.tsx#L118) |
-| model | VariableDeclaration | AccountCard.allowedModels | [119](../../src/components/antigravity/AccountCard.tsx#L119) |
-| quota | VariableDeclaration | AccountCard.allowedModels | [122](../../src/components/antigravity/AccountCard.tsx#L122) |
-| id | VariableDeclaration | AccountCard.allowedModels | [123](../../src/components/antigravity/AccountCard.tsx#L123) |
-| tier | VariableDeclaration | AccountCard | [129](../../src/components/antigravity/AccountCard.tsx#L129) |
-| cooling | VariableDeclaration | AccountCard | [130](../../src/components/antigravity/AccountCard.tsx#L130) |
-| { geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | VariableDeclaration | AccountCard | [131](../../src/components/antigravity/AccountCard.tsx#L131) |
-| geminiFiveHour | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [132](../../src/components/antigravity/AccountCard.tsx#L132) |
-| geminiWeekly | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [133](../../src/components/antigravity/AccountCard.tsx#L133) |
-| claudeFiveHour | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [134](../../src/components/antigravity/AccountCard.tsx#L134) |
-| claudeWeekly | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [135](../../src/components/antigravity/AccountCard.tsx#L135) |
-| geminiFiveHourReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [136](../../src/components/antigravity/AccountCard.tsx#L136) |
-| geminiWeeklyReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [137](../../src/components/antigravity/AccountCard.tsx#L137) |
-| claudeFiveHourReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [138](../../src/components/antigravity/AccountCard.tsx#L138) |
-| claudeWeeklyReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [139](../../src/components/antigravity/AccountCard.tsx#L139) |
-| quotaUpdatedAt | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [140](../../src/components/antigravity/AccountCard.tsx#L140) |
-| quotaUpdated | VariableDeclaration | AccountCard | [142](../../src/components/antigravity/AccountCard.tsx#L142) |
-| openAccess | VariableDeclaration | AccountCard | [144](../../src/components/antigravity/AccountCard.tsx#L144) |
-| saveAccess | VariableDeclaration | AccountCard | [151](../../src/components/antigravity/AccountCard.tsx#L151) |
-| normalized | VariableDeclaration | AccountCard.saveAccess | [152](../../src/components/antigravity/AccountCard.tsx#L152) |
-| error | VariableDeclaration | AccountCard.saveAccess | [166](../../src/components/antigravity/AccountCard.tsx#L166) |
-| openTest | VariableDeclaration | AccountCard | [173](../../src/components/antigravity/AccountCard.tsx#L173) |
-| runTest | VariableDeclaration | AccountCard | [180](../../src/components/antigravity/AccountCard.tsx#L180) |
-| error | VariableDeclaration | AccountCard.runTest | [188](../../src/components/antigravity/AccountCard.tsx#L188) |
-| testOptions | VariableDeclaration | AccountCard | [201](../../src/components/antigravity/AccountCard.tsx#L201) |
+| { Text, Paragraph } | VariableDeclaration |  | [39](../../src/components/antigravity/AccountCard.tsx#L39) |
+| Text | BindingElement | { Text, Paragraph } | [39](../../src/components/antigravity/AccountCard.tsx#L39) |
+| Paragraph | BindingElement | { Text, Paragraph } | [39](../../src/components/antigravity/AccountCard.tsx#L39) |
+| DEFAULT_PROMPT | VariableDeclaration |  | [40](../../src/components/antigravity/AccountCard.tsx#L40) |
+| ModelAccessMode | TypeAliasDeclaration |  | [42](../../src/components/antigravity/AccountCard.tsx#L42) |
+| AccountCardProps | InterfaceDeclaration |  | [44](../../src/components/antigravity/AccountCard.tsx#L44) |
+| account | PropertySignature | AccountCardProps | [45](../../src/components/antigravity/AccountCard.tsx#L45) |
+| onSetActive | PropertySignature | AccountCardProps | [46](../../src/components/antigravity/AccountCard.tsx#L46) |
+| onRemove | PropertySignature | AccountCardProps | [47](../../src/components/antigravity/AccountCard.tsx#L47) |
+| onSaveModelAccess | PropertySignature | AccountCardProps | [48](../../src/components/antigravity/AccountCard.tsx#L48) |
+| onSaveDevice | PropertySignature | AccountCardProps | [49](../../src/components/antigravity/AccountCard.tsx#L49) |
+| isPending | PropertySignature | AccountCardProps | [50](../../src/components/antigravity/AccountCard.tsx#L50) |
+| quotaViewMode | PropertySignature | AccountCardProps | [51](../../src/components/antigravity/AccountCard.tsx#L51) |
+| models | PropertySignature | AccountCardProps | [52](../../src/components/antigravity/AccountCard.tsx#L52) |
+| defaultProbeModel | FunctionDeclaration |  | [55](../../src/components/antigravity/AccountCard.tsx#L55) |
+| ids | VariableDeclaration | defaultProbeModel | [56](../../src/components/antigravity/AccountCard.tsx#L56) |
+| testChatAlertType | FunctionDeclaration |  | [66](../../src/components/antigravity/AccountCard.tsx#L66) |
+| _exhaustive | VariableDeclaration | testChatAlertType | [81](../../src/components/antigravity/AccountCard.tsx#L81) |
+| matchesPattern | FunctionDeclaration |  | [88](../../src/components/antigravity/AccountCard.tsx#L88) |
+| normalizedPattern | VariableDeclaration | matchesPattern | [89](../../src/components/antigravity/AccountCard.tsx#L89) |
+| normalizedModel | VariableDeclaration | matchesPattern | [90](../../src/components/antigravity/AccountCard.tsx#L90) |
+| escaped | VariableDeclaration | matchesPattern | [91](../../src/components/antigravity/AccountCard.tsx#L91) |
+| AccountCard | FunctionDeclaration |  | [95](../../src/components/antigravity/AccountCard.tsx#L95) |
+| account | BindingElement | AccountCard | [96](../../src/components/antigravity/AccountCard.tsx#L96) |
+| onSetActive | BindingElement | AccountCard | [97](../../src/components/antigravity/AccountCard.tsx#L97) |
+| onRemove | BindingElement | AccountCard | [98](../../src/components/antigravity/AccountCard.tsx#L98) |
+| onSaveModelAccess | BindingElement | AccountCard | [99](../../src/components/antigravity/AccountCard.tsx#L99) |
+| onSaveDevice | BindingElement | AccountCard | [100](../../src/components/antigravity/AccountCard.tsx#L100) |
+| isPending | BindingElement | AccountCard | [101](../../src/components/antigravity/AccountCard.tsx#L101) |
+| quotaViewMode | BindingElement | AccountCard | [102](../../src/components/antigravity/AccountCard.tsx#L102) |
+| models | BindingElement | AccountCard | [103](../../src/components/antigravity/AccountCard.tsx#L103) |
+| { t } | VariableDeclaration | AccountCard | [105](../../src/components/antigravity/AccountCard.tsx#L105) |
+| t | BindingElement | AccountCard.{ t } | [105](../../src/components/antigravity/AccountCard.tsx#L105) |
+| timeZone | VariableDeclaration | AccountCard | [106](../../src/components/antigravity/AccountCard.tsx#L106) |
+| [testOpen, setTestOpen] | VariableDeclaration | AccountCard | [107](../../src/components/antigravity/AccountCard.tsx#L107) |
+| testOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [107](../../src/components/antigravity/AccountCard.tsx#L107) |
+| setTestOpen | BindingElement | AccountCard.[testOpen, setTestOpen] | [107](../../src/components/antigravity/AccountCard.tsx#L107) |
+| [testModel, setTestModel] | VariableDeclaration | AccountCard | [108](../../src/components/antigravity/AccountCard.tsx#L108) |
+| testModel | BindingElement | AccountCard.[testModel, setTestModel] | [108](../../src/components/antigravity/AccountCard.tsx#L108) |
+| setTestModel | BindingElement | AccountCard.[testModel, setTestModel] | [108](../../src/components/antigravity/AccountCard.tsx#L108) |
+| [testPrompt, setTestPrompt] | VariableDeclaration | AccountCard | [109](../../src/components/antigravity/AccountCard.tsx#L109) |
+| testPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [109](../../src/components/antigravity/AccountCard.tsx#L109) |
+| setTestPrompt | BindingElement | AccountCard.[testPrompt, setTestPrompt] | [109](../../src/components/antigravity/AccountCard.tsx#L109) |
+| [testBusy, setTestBusy] | VariableDeclaration | AccountCard | [110](../../src/components/antigravity/AccountCard.tsx#L110) |
+| testBusy | BindingElement | AccountCard.[testBusy, setTestBusy] | [110](../../src/components/antigravity/AccountCard.tsx#L110) |
+| setTestBusy | BindingElement | AccountCard.[testBusy, setTestBusy] | [110](../../src/components/antigravity/AccountCard.tsx#L110) |
+| [testResult, setTestResult] | VariableDeclaration | AccountCard | [111](../../src/components/antigravity/AccountCard.tsx#L111) |
+| testResult | BindingElement | AccountCard.[testResult, setTestResult] | [111](../../src/components/antigravity/AccountCard.tsx#L111) |
+| setTestResult | BindingElement | AccountCard.[testResult, setTestResult] | [111](../../src/components/antigravity/AccountCard.tsx#L111) |
+| [accessOpen, setAccessOpen] | VariableDeclaration | AccountCard | [112](../../src/components/antigravity/AccountCard.tsx#L112) |
+| accessOpen | BindingElement | AccountCard.[accessOpen, setAccessOpen] | [112](../../src/components/antigravity/AccountCard.tsx#L112) |
+| setAccessOpen | BindingElement | AccountCard.[accessOpen, setAccessOpen] | [112](../../src/components/antigravity/AccountCard.tsx#L112) |
+| [accessMode, setAccessMode] | VariableDeclaration | AccountCard | [113](../../src/components/antigravity/AccountCard.tsx#L113) |
+| accessMode | BindingElement | AccountCard.[accessMode, setAccessMode] | [113](../../src/components/antigravity/AccountCard.tsx#L113) |
+| setAccessMode | BindingElement | AccountCard.[accessMode, setAccessMode] | [113](../../src/components/antigravity/AccountCard.tsx#L113) |
+| [accessPatterns, setAccessPatterns] | VariableDeclaration | AccountCard | [114](../../src/components/antigravity/AccountCard.tsx#L114) |
+| accessPatterns | BindingElement | AccountCard.[accessPatterns, setAccessPatterns] | [114](../../src/components/antigravity/AccountCard.tsx#L114) |
+| setAccessPatterns | BindingElement | AccountCard.[accessPatterns, setAccessPatterns] | [114](../../src/components/antigravity/AccountCard.tsx#L114) |
+| [accessInput, setAccessInput] | VariableDeclaration | AccountCard | [115](../../src/components/antigravity/AccountCard.tsx#L115) |
+| accessInput | BindingElement | AccountCard.[accessInput, setAccessInput] | [115](../../src/components/antigravity/AccountCard.tsx#L115) |
+| setAccessInput | BindingElement | AccountCard.[accessInput, setAccessInput] | [115](../../src/components/antigravity/AccountCard.tsx#L115) |
+| [accessBusy, setAccessBusy] | VariableDeclaration | AccountCard | [116](../../src/components/antigravity/AccountCard.tsx#L116) |
+| accessBusy | BindingElement | AccountCard.[accessBusy, setAccessBusy] | [116](../../src/components/antigravity/AccountCard.tsx#L116) |
+| setAccessBusy | BindingElement | AccountCard.[accessBusy, setAccessBusy] | [116](../../src/components/antigravity/AccountCard.tsx#L116) |
+| allowedModels | VariableDeclaration | AccountCard | [119](../../src/components/antigravity/AccountCard.tsx#L119) |
+| allowed | VariableDeclaration | AccountCard.allowedModels | [120](../../src/components/antigravity/AccountCard.tsx#L120) |
+| byId | VariableDeclaration | AccountCard.allowedModels | [122](../../src/components/antigravity/AccountCard.tsx#L122) |
+| model | VariableDeclaration | AccountCard.allowedModels | [123](../../src/components/antigravity/AccountCard.tsx#L123) |
+| quota | VariableDeclaration | AccountCard.allowedModels | [126](../../src/components/antigravity/AccountCard.tsx#L126) |
+| id | VariableDeclaration | AccountCard.allowedModels | [127](../../src/components/antigravity/AccountCard.tsx#L127) |
+| tier | VariableDeclaration | AccountCard | [133](../../src/components/antigravity/AccountCard.tsx#L133) |
+| cooling | VariableDeclaration | AccountCard | [134](../../src/components/antigravity/AccountCard.tsx#L134) |
+| { geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | VariableDeclaration | AccountCard | [135](../../src/components/antigravity/AccountCard.tsx#L135) |
+| geminiFiveHour | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [136](../../src/components/antigravity/AccountCard.tsx#L136) |
+| geminiWeekly | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [137](../../src/components/antigravity/AccountCard.tsx#L137) |
+| claudeFiveHour | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [138](../../src/components/antigravity/AccountCard.tsx#L138) |
+| claudeWeekly | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [139](../../src/components/antigravity/AccountCard.tsx#L139) |
+| geminiFiveHourReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [140](../../src/components/antigravity/AccountCard.tsx#L140) |
+| geminiWeeklyReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [141](../../src/components/antigravity/AccountCard.tsx#L141) |
+| claudeFiveHourReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [142](../../src/components/antigravity/AccountCard.tsx#L142) |
+| claudeWeeklyReset | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [143](../../src/components/antigravity/AccountCard.tsx#L143) |
+| quotaUpdatedAt | BindingElement | AccountCard.{ geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly, geminiFiveHourReset, geminiWeeklyReset, claudeFiveHourReset, claudeWeeklyReset, quotaUpdatedAt, } | [144](../../src/components/antigravity/AccountCard.tsx#L144) |
+| quotaUpdated | VariableDeclaration | AccountCard | [146](../../src/components/antigravity/AccountCard.tsx#L146) |
+| openAccess | VariableDeclaration | AccountCard | [148](../../src/components/antigravity/AccountCard.tsx#L148) |
+| saveAccess | VariableDeclaration | AccountCard | [155](../../src/components/antigravity/AccountCard.tsx#L155) |
+| normalized | VariableDeclaration | AccountCard.saveAccess | [156](../../src/components/antigravity/AccountCard.tsx#L156) |
+| error | VariableDeclaration | AccountCard.saveAccess | [170](../../src/components/antigravity/AccountCard.tsx#L170) |
+| openTest | VariableDeclaration | AccountCard | [177](../../src/components/antigravity/AccountCard.tsx#L177) |
+| runTest | VariableDeclaration | AccountCard | [184](../../src/components/antigravity/AccountCard.tsx#L184) |
+| error | VariableDeclaration | AccountCard.runTest | [192](../../src/components/antigravity/AccountCard.tsx#L192) |
+| testOptions | VariableDeclaration | AccountCard | [205](../../src/components/antigravity/AccountCard.tsx#L205) |

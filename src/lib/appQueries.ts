@@ -11,6 +11,8 @@ import {
   getNodeRuntimeStatus,
   getCloseBehavior,
   getGatewayRuntimeMode,
+  getGatewayDebugEnvRewrite,
+  getGatewayTimezone,
   getGatewaySidecarStatus,
   getDbInfo,
   getDataRoot,
@@ -271,6 +273,18 @@ export const closeBehaviorOptions = queryOptions({
 export const gatewayRuntimeModeOptions = queryOptions({
   queryKey: ["environment", "gateway-runtime-mode"] as const,
   queryFn: getGatewayRuntimeMode,
+  staleTime: Number.POSITIVE_INFINITY,
+});
+
+export const gatewayTimezoneOptions = queryOptions({
+  queryKey: ["environment", "gateway-timezone"] as const,
+  queryFn: getGatewayTimezone,
+  staleTime: Number.POSITIVE_INFINITY,
+});
+
+export const gatewayDebugEnvRewriteOptions = queryOptions({
+  queryKey: ["environment", "gateway-debug-env-rewrite"] as const,
+  queryFn: getGatewayDebugEnvRewrite,
   staleTime: Number.POSITIVE_INFINITY,
 });
 

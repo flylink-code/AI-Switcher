@@ -4,33 +4,34 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/kiro.rs) · page 1/1
 
-Source SHA-256: e7d8abdaa901d51d83da39111a43d251b044b81bc62a61203167025278655240
+Source SHA-256: 74e98725714b4ecee0b7ce1a50fddbaec68a70f6bc193c701cb4408e0a87ab40
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | list_kiro_accounts | function_item |  | [21](../../src-tauri/src/commands/kiro.rs#L21) |
 | import_kiro_accounts | function_item |  | [26](../../src-tauri/src/commands/kiro.rs#L26) |
-| remove_kiro_account | function_item |  | [31](../../src-tauri/src/commands/kiro.rs#L31) |
-| start_kiro_builder_id_login | function_item |  | [36](../../src-tauri/src/commands/kiro.rs#L36) |
-| start_kiro_social_login | function_item |  | [43](../../src-tauri/src/commands/kiro.rs#L43) |
-| list_kiro_models | function_item |  | [51](../../src-tauri/src/commands/kiro.rs#L51) |
-| refresh_kiro_models | function_item |  | [57](../../src-tauri/src/commands/kiro.rs#L57) |
-| submit_kiro_login_callback | function_item |  | [64](../../src-tauri/src/commands/kiro.rs#L64) |
-| get_kiro_gateway_status | function_item |  | [69](../../src-tauri/src/commands/kiro.rs#L69) |
-| set_kiro_gateway_port | function_item |  | [74](../../src-tauri/src/commands/kiro.rs#L74) |
-| set_kiro_gateway_api_key | function_item |  | [79](../../src-tauri/src/commands/kiro.rs#L79) |
-| set_kiro_outbound_proxy | function_item |  | [84](../../src-tauri/src/commands/kiro.rs#L84) |
-| start_kiro_gateway | function_item |  | [89](../../src-tauri/src/commands/kiro.rs#L89) |
-| stop_kiro_gateway | function_item |  | [94](../../src-tauri/src/commands/kiro.rs#L94) |
-| refresh_kiro_account_quota | function_item |  | [99](../../src-tauri/src/commands/kiro.rs#L99) |
-| refresh_kiro_quotas | function_item |  | [104](../../src-tauri/src/commands/kiro.rs#L104) |
-| test_kiro_account | function_item |  | [109](../../src-tauri/src/commands/kiro.rs#L109) |
-| set_kiro_exit_proxy | function_item |  | [118](../../src-tauri/src/commands/kiro.rs#L118) |
-| probe_kiro_exit_proxy | function_item |  | [125](../../src-tauri/src/commands/kiro.rs#L125) |
-| probe_kiro_exit_latency | function_item |  | [133](../../src-tauri/src/commands/kiro.rs#L133) |
-| ensure_gateway_running_for_provider | function_item |  | [140](../../src-tauri/src/commands/kiro.rs#L140) |
-| ensure_kiro_provider | function_item |  | [154](../../src-tauri/src/commands/kiro.rs#L154) |
-| format | macro invocation (unexpanded) | ensure_kiro_provider | [171](../../src-tauri/src/commands/kiro.rs#L171) |
-| format | macro invocation (unexpanded) | ensure_kiro_provider | [188](../../src-tauri/src/commands/kiro.rs#L188) |
-| format | macro invocation (unexpanded) | ensure_kiro_provider | [193](../../src-tauri/src/commands/kiro.rs#L193) |
-| vec | macro invocation (unexpanded) | ensure_kiro_provider | [234](../../src-tauri/src/commands/kiro.rs#L234) |
+| set_kiro_account_device | function_item |  | [31](../../src-tauri/src/commands/kiro.rs#L31) |
+| remove_kiro_account | function_item |  | [40](../../src-tauri/src/commands/kiro.rs#L40) |
+| start_kiro_builder_id_login | function_item |  | [45](../../src-tauri/src/commands/kiro.rs#L45) |
+| start_kiro_social_login | function_item |  | [52](../../src-tauri/src/commands/kiro.rs#L52) |
+| list_kiro_models | function_item |  | [60](../../src-tauri/src/commands/kiro.rs#L60) |
+| refresh_kiro_models | function_item |  | [66](../../src-tauri/src/commands/kiro.rs#L66) |
+| submit_kiro_login_callback | function_item |  | [73](../../src-tauri/src/commands/kiro.rs#L73) |
+| get_kiro_gateway_status | function_item |  | [78](../../src-tauri/src/commands/kiro.rs#L78) |
+| set_kiro_gateway_port | function_item |  | [83](../../src-tauri/src/commands/kiro.rs#L83) |
+| set_kiro_gateway_api_key | function_item |  | [88](../../src-tauri/src/commands/kiro.rs#L88) |
+| set_kiro_outbound_proxy | function_item |  | [93](../../src-tauri/src/commands/kiro.rs#L93) |
+| start_kiro_gateway | function_item |  | [98](../../src-tauri/src/commands/kiro.rs#L98) |
+| stop_kiro_gateway | function_item |  | [103](../../src-tauri/src/commands/kiro.rs#L103) |
+| refresh_kiro_account_quota | function_item |  | [108](../../src-tauri/src/commands/kiro.rs#L108) |
+| refresh_kiro_quotas | function_item |  | [113](../../src-tauri/src/commands/kiro.rs#L113) |
+| test_kiro_account | function_item |  | [118](../../src-tauri/src/commands/kiro.rs#L118) |
+| set_kiro_exit_proxy | function_item |  | [127](../../src-tauri/src/commands/kiro.rs#L127) |
+| probe_kiro_exit_proxy | function_item |  | [134](../../src-tauri/src/commands/kiro.rs#L134) |
+| probe_kiro_exit_latency | function_item |  | [142](../../src-tauri/src/commands/kiro.rs#L142) |
+| ensure_gateway_running_for_provider | function_item |  | [149](../../src-tauri/src/commands/kiro.rs#L149) |
+| ensure_kiro_provider | function_item |  | [163](../../src-tauri/src/commands/kiro.rs#L163) |
+| format | macro invocation (unexpanded) | ensure_kiro_provider | [180](../../src-tauri/src/commands/kiro.rs#L180) |
+| format | macro invocation (unexpanded) | ensure_kiro_provider | [197](../../src-tauri/src/commands/kiro.rs#L197) |
+| format | macro invocation (unexpanded) | ensure_kiro_provider | [202](../../src-tauri/src/commands/kiro.rs#L202) |
+| vec | macro invocation (unexpanded) | ensure_kiro_provider | [243](../../src-tauri/src/commands/kiro.rs#L243) |

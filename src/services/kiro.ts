@@ -1,5 +1,5 @@
 import { call, getInvoke } from "./ipc";
-import type { Provider, ProviderTarget } from "@/types/backend";
+import type { AccountDeviceProfile, Provider, ProviderTarget } from "@/types/backend";
 
 export interface KiroQuotaSnapshot {
   plan: string;
@@ -23,6 +23,7 @@ export interface KiroAccountPublic {
   disableReason: string;
   hasRefreshToken: boolean;
   active: boolean;
+  deviceProfile: AccountDeviceProfile;
   quota: KiroQuotaSnapshot | null;
 }
 
@@ -94,6 +95,14 @@ export type KiroOutboundMode = "direct" | "system" | "custom";
 
 export async function listKiroAccounts(): Promise<KiroAccountPublic[]> {
   return call<KiroAccountPublic[]>("list_kiro_accounts");
+}
+
+export async function setKiroAccountDevice(
+  id: string,
+  timezone: string,
+  regenerate: boolean,
+): Promise<KiroAccountPublic> {
+  return call<KiroAccountPublic>("set_kiro_account_device", { id, timezone, regenerate });
 }
 
 export async function importKiroAccounts(raw: string): Promise<number> {

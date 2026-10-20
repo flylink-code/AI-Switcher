@@ -4,71 +4,85 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/account.rs) · page 2/2
 
-Source SHA-256: 4a803a2982e2e21f388669ba10b3bed8c41862e942b87220401b573cb43418ff
+Source SHA-256: 546dba2ff56eb572bfbd7172c3ffcf6950741ec1c58e5129f834ee7bd2489e97
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| clear_all_cooldowns | function_item | AccountStore | [507](../../src-tauri/src/antigravity/account.rs#L507) |
-| mark_success | function_item | AccountStore | [521](../../src-tauri/src/antigravity/account.rs#L521) |
-| update_project_id | function_item | AccountStore | [533](../../src-tauri/src/antigravity/account.rs#L533) |
-| update_quota | function_item | AccountStore | [543](../../src-tauri/src/antigravity/account.rs#L543) |
-| ensure_access_token | function_item | AccountStore | [574](../../src-tauri/src/antigravity/account.rs#L574) |
-| ensure_access_token_for_probe | function_item | AccountStore | [589](../../src-tauri/src/antigravity/account.rs#L589) |
-| ensure_access_token_inner | function_item | AccountStore | [605](../../src-tauri/src/antigravity/account.rs#L605) |
-| format | macro invocation (unexpanded) | AccountStore::ensure_access_token_inner | [614](../../src-tauri/src/antigravity/account.rs#L614) |
-| force_refresh_access_token | function_item | AccountStore | [633](../../src-tauri/src/antigravity/account.rs#L633) |
-| refresh_token | function_item | AccountStore | [672](../../src-tauri/src/antigravity/account.rs#L672) |
-| log::warn | macro invocation (unexpanded) | AccountStore::refresh_token | [688](../../src-tauri/src/antigravity/account.rs#L688) |
-| is_auth_failure | function_item |  | [701](../../src-tauri/src/antigravity/account.rs#L701) |
-| requires_reauthorization | function_item |  | [712](../../src-tauri/src/antigravity/account.rs#L712) |
-| auth_error | function_item |  | [717](../../src-tauri/src/antigravity/account.rs#L717) |
-| format | macro invocation (unexpanded) | auth_error | [718](../../src-tauri/src/antigravity/account.rs#L718) |
-| oauth_error_kind | function_item |  | [721](../../src-tauri/src/antigravity/account.rs#L721) |
-| refresh_token_with_client | function_item |  | [734](../../src-tauri/src/antigravity/account.rs#L734) |
-| format | macro invocation (unexpanded) | refresh_token_with_client | [757](../../src-tauri/src/antigravity/account.rs#L757) |
-| format | macro invocation (unexpanded) | refresh_token_with_client | [759](../../src-tauri/src/antigravity/account.rs#L759) |
-| format | macro invocation (unexpanded) | refresh_token_with_client | [766](../../src-tauri/src/antigravity/account.rs#L766) |
-| format | macro invocation (unexpanded) | refresh_token_with_client | [768](../../src-tauri/src/antigravity/account.rs#L768) |
-| TokenRefreshResponse | struct_item |  | [797](../../src-tauri/src/antigravity/account.rs#L797) |
-| access_token | field_declaration | TokenRefreshResponse | [798](../../src-tauri/src/antigravity/account.rs#L798) |
-| expires_in | field_declaration | TokenRefreshResponse | [799](../../src-tauri/src/antigravity/account.rs#L799) |
-| refresh_token | field_declaration | TokenRefreshResponse | [800](../../src-tauri/src/antigravity/account.rs#L800) |
-| list_accounts | function_item |  | [803](../../src-tauri/src/antigravity/account.rs#L803) |
-| remove_account | function_item |  | [807](../../src-tauri/src/antigravity/account.rs#L807) |
-| set_active_account | function_item |  | [811](../../src-tauri/src/antigravity/account.rs#L811) |
-| set_account_model_access | function_item |  | [815](../../src-tauri/src/antigravity/account.rs#L815) |
-| import_accounts_json | function_item |  | [823](../../src-tauri/src/antigravity/account.rs#L823) |
-| load_accounts | function_item |  | [827](../../src-tauri/src/antigravity/account.rs#L827) |
-| format | macro invocation (unexpanded) | load_accounts | [833](../../src-tauri/src/antigravity/account.rs#L833) |
-| format | macro invocation (unexpanded) | load_accounts | [835](../../src-tauri/src/antigravity/account.rs#L835) |
-| persist | function_item |  | [838](../../src-tauri/src/antigravity/account.rs#L838) |
-| format | macro invocation (unexpanded) | persist | [841](../../src-tauri/src/antigravity/account.rs#L841) |
-| format | macro invocation (unexpanded) | persist | [847](../../src-tauri/src/antigravity/account.rs#L847) |
-| apply_committed_snapshot | function_item |  | [856](../../src-tauri/src/antigravity/account.rs#L856) |
-| format | macro invocation (unexpanded) | apply_committed_snapshot | [863](../../src-tauri/src/antigravity/account.rs#L863) |
-| format | macro invocation (unexpanded) | apply_committed_snapshot | [874](../../src-tauri/src/antigravity/account.rs#L874) |
-| parse_import_payload | function_item |  | [883](../../src-tauri/src/antigravity/account.rs#L883) |
-| vec | macro invocation (unexpanded) | parse_import_payload | [892](../../src-tauri/src/antigravity/account.rs#L892) |
-| parse_one_account | function_item |  | [903](../../src-tauri/src/antigravity/account.rs#L903) |
-| tests | mod_item |  | [975](../../src-tauri/src/antigravity/account.rs#L975) |
-| parse_import_accepts_ag_style_account_object | function_item | tests | [979](../../src-tauri/src/antigravity/account.rs#L979) |
-| serde_json::json | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [980](../../src-tauri/src/antigravity/account.rs#L980) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [990](../../src-tauri/src/antigravity/account.rs#L990) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [991](../../src-tauri/src/antigravity/account.rs#L991) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [992](../../src-tauri/src/antigravity/account.rs#L992) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [993](../../src-tauri/src/antigravity/account.rs#L993) |
-| parse_import_accepts_accounts_array_wrapper | function_item | tests | [997](../../src-tauri/src/antigravity/account.rs#L997) |
-| serde_json::json | macro invocation (unexpanded) | tests::parse_import_accepts_accounts_array_wrapper | [998](../../src-tauri/src/antigravity/account.rs#L998) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_accounts_array_wrapper | [1006](../../src-tauri/src/antigravity/account.rs#L1006) |
-| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_accounts_array_wrapper | [1007](../../src-tauri/src/antigravity/account.rs#L1007) |
-| auth_failure_classifies_oauth_and_cloud_code_rejections | function_item | tests | [1011](../../src-tauri/src/antigravity/account.rs#L1011) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1012](../../src-tauri/src/antigravity/account.rs#L1012) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1015](../../src-tauri/src/antigravity/account.rs#L1015) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1016](../../src-tauri/src/antigravity/account.rs#L1016) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1017](../../src-tauri/src/antigravity/account.rs#L1017) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1018](../../src-tauri/src/antigravity/account.rs#L1018) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1021](../../src-tauri/src/antigravity/account.rs#L1021) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1022](../../src-tauri/src/antigravity/account.rs#L1022) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1023](../../src-tauri/src/antigravity/account.rs#L1023) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1026](../../src-tauri/src/antigravity/account.rs#L1026) |
-| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1030](../../src-tauri/src/antigravity/account.rs#L1030) |
+| mark_cooldown | function_item | AccountStore | [481](../../src-tauri/src/antigravity/account.rs#L481) |
+| mark_reauthorization_required | function_item | AccountStore | [501](../../src-tauri/src/antigravity/account.rs#L501) |
+| mark_forbidden_403 | function_item | AccountStore | [514](../../src-tauri/src/antigravity/account.rs#L514) |
+| clear_cooldown | function_item | AccountStore | [532](../../src-tauri/src/antigravity/account.rs#L532) |
+| clear_all_cooldowns | function_item | AccountStore | [544](../../src-tauri/src/antigravity/account.rs#L544) |
+| mark_success | function_item | AccountStore | [558](../../src-tauri/src/antigravity/account.rs#L558) |
+| update_project_id | function_item | AccountStore | [570](../../src-tauri/src/antigravity/account.rs#L570) |
+| update_quota | function_item | AccountStore | [580](../../src-tauri/src/antigravity/account.rs#L580) |
+| ensure_access_token | function_item | AccountStore | [611](../../src-tauri/src/antigravity/account.rs#L611) |
+| ensure_access_token_for_probe | function_item | AccountStore | [626](../../src-tauri/src/antigravity/account.rs#L626) |
+| ensure_access_token_inner | function_item | AccountStore | [642](../../src-tauri/src/antigravity/account.rs#L642) |
+| format | macro invocation (unexpanded) | AccountStore::ensure_access_token_inner | [651](../../src-tauri/src/antigravity/account.rs#L651) |
+| force_refresh_access_token | function_item | AccountStore | [670](../../src-tauri/src/antigravity/account.rs#L670) |
+| refresh_token | function_item | AccountStore | [709](../../src-tauri/src/antigravity/account.rs#L709) |
+| log::warn | macro invocation (unexpanded) | AccountStore::refresh_token | [725](../../src-tauri/src/antigravity/account.rs#L725) |
+| is_auth_failure | function_item |  | [738](../../src-tauri/src/antigravity/account.rs#L738) |
+| requires_reauthorization | function_item |  | [749](../../src-tauri/src/antigravity/account.rs#L749) |
+| auth_error | function_item |  | [754](../../src-tauri/src/antigravity/account.rs#L754) |
+| format | macro invocation (unexpanded) | auth_error | [755](../../src-tauri/src/antigravity/account.rs#L755) |
+| oauth_error_kind | function_item |  | [758](../../src-tauri/src/antigravity/account.rs#L758) |
+| refresh_token_with_client | function_item |  | [771](../../src-tauri/src/antigravity/account.rs#L771) |
+| format | macro invocation (unexpanded) | refresh_token_with_client | [794](../../src-tauri/src/antigravity/account.rs#L794) |
+| format | macro invocation (unexpanded) | refresh_token_with_client | [796](../../src-tauri/src/antigravity/account.rs#L796) |
+| format | macro invocation (unexpanded) | refresh_token_with_client | [803](../../src-tauri/src/antigravity/account.rs#L803) |
+| format | macro invocation (unexpanded) | refresh_token_with_client | [805](../../src-tauri/src/antigravity/account.rs#L805) |
+| TokenRefreshResponse | struct_item |  | [834](../../src-tauri/src/antigravity/account.rs#L834) |
+| access_token | field_declaration | TokenRefreshResponse | [835](../../src-tauri/src/antigravity/account.rs#L835) |
+| expires_in | field_declaration | TokenRefreshResponse | [836](../../src-tauri/src/antigravity/account.rs#L836) |
+| refresh_token | field_declaration | TokenRefreshResponse | [837](../../src-tauri/src/antigravity/account.rs#L837) |
+| list_accounts | function_item |  | [840](../../src-tauri/src/antigravity/account.rs#L840) |
+| remove_account | function_item |  | [844](../../src-tauri/src/antigravity/account.rs#L844) |
+| set_active_account | function_item |  | [848](../../src-tauri/src/antigravity/account.rs#L848) |
+| set_account_model_access | function_item |  | [852](../../src-tauri/src/antigravity/account.rs#L852) |
+| set_account_device | function_item |  | [860](../../src-tauri/src/antigravity/account.rs#L860) |
+| import_accounts_json | function_item |  | [868](../../src-tauri/src/antigravity/account.rs#L868) |
+| load_accounts | function_item |  | [872](../../src-tauri/src/antigravity/account.rs#L872) |
+| format | macro invocation (unexpanded) | load_accounts | [878](../../src-tauri/src/antigravity/account.rs#L878) |
+| format | macro invocation (unexpanded) | load_accounts | [880](../../src-tauri/src/antigravity/account.rs#L880) |
+| persist | function_item |  | [883](../../src-tauri/src/antigravity/account.rs#L883) |
+| format | macro invocation (unexpanded) | persist | [886](../../src-tauri/src/antigravity/account.rs#L886) |
+| format | macro invocation (unexpanded) | persist | [892](../../src-tauri/src/antigravity/account.rs#L892) |
+| apply_committed_snapshot | function_item |  | [901](../../src-tauri/src/antigravity/account.rs#L901) |
+| format | macro invocation (unexpanded) | apply_committed_snapshot | [908](../../src-tauri/src/antigravity/account.rs#L908) |
+| format | macro invocation (unexpanded) | apply_committed_snapshot | [919](../../src-tauri/src/antigravity/account.rs#L919) |
+| parse_import_payload | function_item |  | [928](../../src-tauri/src/antigravity/account.rs#L928) |
+| vec | macro invocation (unexpanded) | parse_import_payload | [937](../../src-tauri/src/antigravity/account.rs#L937) |
+| parse_one_account | function_item |  | [948](../../src-tauri/src/antigravity/account.rs#L948) |
+| tests | mod_item |  | [1021](../../src-tauri/src/antigravity/account.rs#L1021) |
+| parse_import_accepts_ag_style_account_object | function_item | tests | [1025](../../src-tauri/src/antigravity/account.rs#L1025) |
+| serde_json::json | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [1026](../../src-tauri/src/antigravity/account.rs#L1026) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [1036](../../src-tauri/src/antigravity/account.rs#L1036) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [1037](../../src-tauri/src/antigravity/account.rs#L1037) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [1038](../../src-tauri/src/antigravity/account.rs#L1038) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_ag_style_account_object | [1039](../../src-tauri/src/antigravity/account.rs#L1039) |
+| parse_import_accepts_accounts_array_wrapper | function_item | tests | [1043](../../src-tauri/src/antigravity/account.rs#L1043) |
+| serde_json::json | macro invocation (unexpanded) | tests::parse_import_accepts_accounts_array_wrapper | [1044](../../src-tauri/src/antigravity/account.rs#L1044) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_accounts_array_wrapper | [1052](../../src-tauri/src/antigravity/account.rs#L1052) |
+| assert_eq | macro invocation (unexpanded) | tests::parse_import_accepts_accounts_array_wrapper | [1053](../../src-tauri/src/antigravity/account.rs#L1053) |
+| legacy_account_without_device_gets_a_stable_derived_one | function_item | tests | [1057](../../src-tauri/src/antigravity/account.rs#L1057) |
+| serde_json::json | macro invocation (unexpanded) | tests::legacy_account_without_device_gets_a_stable_derived_one | [1058](../../src-tauri/src/antigravity/account.rs#L1058) |
+| assert | macro invocation (unexpanded) | tests::legacy_account_without_device_gets_a_stable_derived_one | [1069](../../src-tauri/src/antigravity/account.rs#L1069) |
+| assert_eq | macro invocation (unexpanded) | tests::legacy_account_without_device_gets_a_stable_derived_one | [1070](../../src-tauri/src/antigravity/account.rs#L1070) |
+| assert_eq | macro invocation (unexpanded) | tests::legacy_account_without_device_gets_a_stable_derived_one | [1072](../../src-tauri/src/antigravity/account.rs#L1072) |
+| assert | macro invocation (unexpanded) | tests::legacy_account_without_device_gets_a_stable_derived_one | [1074](../../src-tauri/src/antigravity/account.rs#L1074) |
+| imported_accounts_get_distinct_devices | function_item | tests | [1078](../../src-tauri/src/antigravity/account.rs#L1078) |
+| serde_json::json | macro invocation (unexpanded) | tests::imported_accounts_get_distinct_devices | [1079](../../src-tauri/src/antigravity/account.rs#L1079) |
+| assert_ne | macro invocation (unexpanded) | tests::imported_accounts_get_distinct_devices | [1088](../../src-tauri/src/antigravity/account.rs#L1088) |
+| auth_failure_classifies_oauth_and_cloud_code_rejections | function_item | tests | [1092](../../src-tauri/src/antigravity/account.rs#L1092) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1093](../../src-tauri/src/antigravity/account.rs#L1093) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1096](../../src-tauri/src/antigravity/account.rs#L1096) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1097](../../src-tauri/src/antigravity/account.rs#L1097) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1098](../../src-tauri/src/antigravity/account.rs#L1098) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1099](../../src-tauri/src/antigravity/account.rs#L1099) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1102](../../src-tauri/src/antigravity/account.rs#L1102) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1103](../../src-tauri/src/antigravity/account.rs#L1103) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1104](../../src-tauri/src/antigravity/account.rs#L1104) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1107](../../src-tauri/src/antigravity/account.rs#L1107) |
+| assert | macro invocation (unexpanded) | tests::auth_failure_classifies_oauth_and_cloud_code_rejections | [1111](../../src-tauri/src/antigravity/account.rs#L1111) |

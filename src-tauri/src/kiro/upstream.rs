@@ -23,9 +23,10 @@ pub async fn send_generate_request(
     };
     let url = format!("https://q.{region}.amazonaws.com/generateAssistantResponse");
     let client = build_async_client(180);
+    let device = account.effective_device();
     let user_agent = format!(
         "aws-sdk-js/1.0.34 ua/2.1 os/{} lang/js md/nodejs#20.0.0 api/codewhispererstreaming#1.0.34 m/E KiroIDE-0.7.0-{}",
-        std::env::consts::OS,
+        crate::device_profile::node_platform(&device.os),
         account.machine_id
     );
     let auth_header = format!("{} {}", "Bearer", account.access_token.trim());

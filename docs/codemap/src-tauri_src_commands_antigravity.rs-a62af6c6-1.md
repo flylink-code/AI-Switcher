@@ -4,41 +4,42 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/antigravity.rs) · page 1/1
 
-Source SHA-256: 4f3dc616842c0ba741284a3735c2c6147e128465241aafd63ed5e9f96e045a93
+Source SHA-256: fbfb167f32f82ce21c4d91858b8d4efb965d154601f289470ea803047b2dddd9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| list_antigravity_accounts | function_item |  | [22](../../src-tauri/src/commands/antigravity.rs#L22) |
-| import_antigravity_accounts | function_item |  | [27](../../src-tauri/src/commands/antigravity.rs#L27) |
-| start_antigravity_oauth_login | function_item |  | [32](../../src-tauri/src/commands/antigravity.rs#L32) |
-| remove_antigravity_account | function_item |  | [37](../../src-tauri/src/commands/antigravity.rs#L37) |
-| set_antigravity_active_account | function_item |  | [42](../../src-tauri/src/commands/antigravity.rs#L42) |
-| set_antigravity_account_model_access | function_item |  | [49](../../src-tauri/src/commands/antigravity.rs#L49) |
-| get_antigravity_gateway_status | function_item |  | [60](../../src-tauri/src/commands/antigravity.rs#L60) |
-| set_antigravity_gateway_port | function_item |  | [65](../../src-tauri/src/commands/antigravity.rs#L65) |
-| set_antigravity_gateway_api_key | function_item |  | [70](../../src-tauri/src/commands/antigravity.rs#L70) |
-| set_antigravity_outbound_proxy | function_item |  | [75](../../src-tauri/src/commands/antigravity.rs#L75) |
-| set_antigravity_exit_proxy | function_item |  | [86](../../src-tauri/src/commands/antigravity.rs#L86) |
-| probe_antigravity_exit_proxy | function_item |  | [93](../../src-tauri/src/commands/antigravity.rs#L93) |
-| probe_antigravity_exit_latency | function_item |  | [101](../../src-tauri/src/commands/antigravity.rs#L101) |
-| get_antigravity_limiter_settings | function_item |  | [109](../../src-tauri/src/commands/antigravity.rs#L109) |
-| set_antigravity_limiter_settings | function_item |  | [114](../../src-tauri/src/commands/antigravity.rs#L114) |
-| get_antigravity_fast_path_settings | function_item |  | [121](../../src-tauri/src/commands/antigravity.rs#L121) |
-| set_antigravity_fast_path_settings | function_item |  | [126](../../src-tauri/src/commands/antigravity.rs#L126) |
-| start_antigravity_gateway | function_item |  | [133](../../src-tauri/src/commands/antigravity.rs#L133) |
-| stop_antigravity_gateway | function_item |  | [138](../../src-tauri/src/commands/antigravity.rs#L138) |
-| refresh_antigravity_account_quota | function_item |  | [143](../../src-tauri/src/commands/antigravity.rs#L143) |
-| test_antigravity_account | function_item |  | [150](../../src-tauri/src/commands/antigravity.rs#L150) |
-| refresh_antigravity_quotas | function_item |  | [159](../../src-tauri/src/commands/antigravity.rs#L159) |
-| ensure_antigravity_provider | function_item |  | [164](../../src-tauri/src/commands/antigravity.rs#L164) |
-| format | macro invocation (unexpanded) | ensure_antigravity_provider | [185](../../src-tauri/src/commands/antigravity.rs#L185) |
-| format | macro invocation (unexpanded) | ensure_antigravity_provider | [218](../../src-tauri/src/commands/antigravity.rs#L218) |
-| format | macro invocation (unexpanded) | ensure_antigravity_provider | [224](../../src-tauri/src/commands/antigravity.rs#L224) |
-| matches | macro invocation (unexpanded) | ensure_antigravity_provider | [262](../../src-tauri/src/commands/antigravity.rs#L262) |
-| format | macro invocation (unexpanded) | ensure_antigravity_provider | [283](../../src-tauri/src/commands/antigravity.rs#L283) |
-| list_antigravity_models | function_item |  | [303](../../src-tauri/src/commands/antigravity.rs#L303) |
-| get_antigravity_pool_warning | function_item |  | [309](../../src-tauri/src/commands/antigravity.rs#L309) |
-| get_antigravity_recommended_account | function_item |  | [317](../../src-tauri/src/commands/antigravity.rs#L317) |
-| get_antigravity_defaults | function_item |  | [329](../../src-tauri/src/commands/antigravity.rs#L329) |
-| serde_json::json | macro invocation (unexpanded) | get_antigravity_defaults | [332](../../src-tauri/src/commands/antigravity.rs#L332) |
-| ensure_gateway_running_for_provider | function_item |  | [348](../../src-tauri/src/commands/antigravity.rs#L348) |
+| list_antigravity_accounts | function_item |  | [23](../../src-tauri/src/commands/antigravity.rs#L23) |
+| import_antigravity_accounts | function_item |  | [28](../../src-tauri/src/commands/antigravity.rs#L28) |
+| start_antigravity_oauth_login | function_item |  | [33](../../src-tauri/src/commands/antigravity.rs#L33) |
+| remove_antigravity_account | function_item |  | [38](../../src-tauri/src/commands/antigravity.rs#L38) |
+| set_antigravity_active_account | function_item |  | [43](../../src-tauri/src/commands/antigravity.rs#L43) |
+| set_antigravity_account_model_access | function_item |  | [50](../../src-tauri/src/commands/antigravity.rs#L50) |
+| set_antigravity_account_device | function_item |  | [61](../../src-tauri/src/commands/antigravity.rs#L61) |
+| get_antigravity_gateway_status | function_item |  | [70](../../src-tauri/src/commands/antigravity.rs#L70) |
+| set_antigravity_gateway_port | function_item |  | [75](../../src-tauri/src/commands/antigravity.rs#L75) |
+| set_antigravity_gateway_api_key | function_item |  | [80](../../src-tauri/src/commands/antigravity.rs#L80) |
+| set_antigravity_outbound_proxy | function_item |  | [85](../../src-tauri/src/commands/antigravity.rs#L85) |
+| set_antigravity_exit_proxy | function_item |  | [96](../../src-tauri/src/commands/antigravity.rs#L96) |
+| probe_antigravity_exit_proxy | function_item |  | [103](../../src-tauri/src/commands/antigravity.rs#L103) |
+| probe_antigravity_exit_latency | function_item |  | [111](../../src-tauri/src/commands/antigravity.rs#L111) |
+| get_antigravity_limiter_settings | function_item |  | [119](../../src-tauri/src/commands/antigravity.rs#L119) |
+| set_antigravity_limiter_settings | function_item |  | [124](../../src-tauri/src/commands/antigravity.rs#L124) |
+| get_antigravity_fast_path_settings | function_item |  | [131](../../src-tauri/src/commands/antigravity.rs#L131) |
+| set_antigravity_fast_path_settings | function_item |  | [136](../../src-tauri/src/commands/antigravity.rs#L136) |
+| start_antigravity_gateway | function_item |  | [143](../../src-tauri/src/commands/antigravity.rs#L143) |
+| stop_antigravity_gateway | function_item |  | [148](../../src-tauri/src/commands/antigravity.rs#L148) |
+| refresh_antigravity_account_quota | function_item |  | [153](../../src-tauri/src/commands/antigravity.rs#L153) |
+| test_antigravity_account | function_item |  | [160](../../src-tauri/src/commands/antigravity.rs#L160) |
+| refresh_antigravity_quotas | function_item |  | [169](../../src-tauri/src/commands/antigravity.rs#L169) |
+| ensure_antigravity_provider | function_item |  | [174](../../src-tauri/src/commands/antigravity.rs#L174) |
+| format | macro invocation (unexpanded) | ensure_antigravity_provider | [195](../../src-tauri/src/commands/antigravity.rs#L195) |
+| format | macro invocation (unexpanded) | ensure_antigravity_provider | [228](../../src-tauri/src/commands/antigravity.rs#L228) |
+| format | macro invocation (unexpanded) | ensure_antigravity_provider | [234](../../src-tauri/src/commands/antigravity.rs#L234) |
+| matches | macro invocation (unexpanded) | ensure_antigravity_provider | [272](../../src-tauri/src/commands/antigravity.rs#L272) |
+| format | macro invocation (unexpanded) | ensure_antigravity_provider | [293](../../src-tauri/src/commands/antigravity.rs#L293) |
+| list_antigravity_models | function_item |  | [313](../../src-tauri/src/commands/antigravity.rs#L313) |
+| get_antigravity_pool_warning | function_item |  | [319](../../src-tauri/src/commands/antigravity.rs#L319) |
+| get_antigravity_recommended_account | function_item |  | [327](../../src-tauri/src/commands/antigravity.rs#L327) |
+| get_antigravity_defaults | function_item |  | [339](../../src-tauri/src/commands/antigravity.rs#L339) |
+| serde_json::json | macro invocation (unexpanded) | get_antigravity_defaults | [342](../../src-tauri/src/commands/antigravity.rs#L342) |
+| ensure_gateway_running_for_provider | function_item |  | [358](../../src-tauri/src/commands/antigravity.rs#L358) |

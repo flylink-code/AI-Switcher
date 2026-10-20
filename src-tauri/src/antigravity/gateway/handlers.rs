@@ -32,9 +32,12 @@ use crate::antigravity::map::responses::{
 };
 use crate::antigravity::model_catalog;
 use crate::antigravity::upstream::{
-    classify_rate_limit_body, unwrap_v1internal, wrap_v1internal, RateLimitKind,
+    classify_rate_limit_body, unwrap_v1internal, user_agent_for, wrap_v1internal, RateLimitKind,
 };
 use crate::antigravity::usage_log::{self, WireProtocol};
+use crate::device_profile::{
+    effective_timezone, log_env_changes, read_debug_env_rewrite, rewrite_gemini_environment,
+};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 
@@ -430,9 +433,11 @@ pub async fn openai_images_generations(
         Err(error) => return error_json(StatusCode::TOO_MANY_REQUESTS, &error.to_string()),
     };
     let (access_token, account) = selected;
+    let user_agent = user_agent_for(&account.effective_device());
     let project_id = match ensure_project_id(
         &state,
         &access_token,
+        &user_agent,
         &account.id,
         account.token.project_id.as_deref(),
     )
@@ -441,10 +446,10 @@ pub async fn openai_images_generations(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_GATEWAY, &error.to_string()),
     };
-    let wrapped = wrap_v1internal(&project_id, &model, request);
+    let wrapped = wrap_v1internal(&project_id, &model, &user_agent, request);
     let upstream = match state
         .upstream
-        .generate(&access_token, &wrapped, false)
+        .generate(&access_token, &user_agent, &wrapped, false)
         .await
     {
         Ok(response) => response,
@@ -635,9 +640,14 @@ async fn dispatch_generation(
             }
         };
 
+        let device = account.effective_device();
+        let device_timezone = effective_timezone(&device.timezone, &state.db);
+        let debug_env_rewrite = read_debug_env_rewrite(&state.db);
+        let user_agent = user_agent_for(&device);
         let project_id = match ensure_project_id(
             state,
             &access_token,
+            &user_agent,
             &account.id,
             account.token.project_id.as_deref(),
         )
@@ -679,7 +689,14 @@ async fn dispatch_generation(
                 models_tried.push(current_model.clone());
             }
             last_attempted_model = current_model.clone();
-            let wrapped = wrap_v1internal(&project_id, &current_model, request.clone());
+            let mut account_request = request.clone();
+            let env_changes =
+                rewrite_gemini_environment(&mut account_request, &device, &device_timezone);
+            if debug_env_rewrite {
+                log_env_changes("Antigravity", &account.id, &user_agent, &env_changes);
+            }
+            let wrapped =
+                wrap_v1internal(&project_id, &current_model, &user_agent, account_request);
             // 500/502/504 are usually transient blips: retry the same account with
             // a short backoff before burning a rotation (503/529 already got
             // per-host backoff inside `generate`).
@@ -705,7 +722,9 @@ async fn dispatch_generation(
                 upstream_calls += 1;
                 match tokio::time::timeout(
                     attempt_timeout,
-                    state.upstream.generate(&access_token, &wrapped, stream),
+                    state
+                        .upstream
+                        .generate(&access_token, &user_agent, &wrapped, stream),
                 )
                 .await
                 {
@@ -1294,13 +1313,17 @@ async fn dispatch_generation(
 async fn ensure_project_id(
     state: &GatewayState,
     access_token: &str,
+    user_agent: &str,
     account_id: &str,
     existing: Option<&str>,
 ) -> AppResult<String> {
     if let Some(project) = existing.filter(|value| !value.trim().is_empty()) {
         return Ok(project.to_string());
     }
-    let project = state.upstream.fetch_project_id(access_token).await?;
+    let project = state
+        .upstream
+        .fetch_project_id(access_token, user_agent)
+        .await?;
     let _ = account_store().update_project_id(account_id, &project);
     Ok(project)
 }

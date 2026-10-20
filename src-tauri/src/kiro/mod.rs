@@ -19,7 +19,9 @@ pub mod token;
 pub mod upstream;
 pub mod usage_log;
 
-pub use account::{import_accounts_json, list_accounts, remove_account, KiroAccountPublic};
+pub use account::{
+    import_accounts_json, list_accounts, remove_account, set_account_device, KiroAccountPublic,
+};
 pub use gateway::{
     gateway_status, set_gateway_api_key, set_gateway_port, set_outbound_proxy, start_gateway,
     stop_gateway, KiroGatewayStatus,

@@ -4,7 +4,7 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/pool.rs) · page 1/2
 
-Source SHA-256: 69e66232a4ea9c66f8e122e9290e005cb61e613f24fc19b8a07d401cdffe0765
+Source SHA-256: bd08fda40d3f01dfeb90c2075a7f003458bb6c4b85ca69263fe0fef43021cb21
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -93,18 +93,18 @@ Source SHA-256: 69e66232a4ea9c66f8e122e9290e005cb61e613f24fc19b8a07d401cdffe0765
 | tests | mod_item |  | [1017](../../src-tauri/src/antigravity/pool.rs#L1017) |
 | sample | function_item | tests | [1022](../../src-tauri/src/antigravity/pool.rs#L1022) |
 | format | macro invocation (unexpanded) | tests::sample | [1025](../../src-tauri/src/antigravity/pool.rs#L1025) |
-| soft_selects_when_all_accounts_cooling | function_item | tests | [1055](../../src-tauri/src/antigravity/pool.rs#L1055) |
-| vec | macro invocation (unexpanded) | tests::soft_selects_when_all_accounts_cooling | [1057](../../src-tauri/src/antigravity/pool.rs#L1057) |
-| assert_eq | macro invocation (unexpanded) | tests::soft_selects_when_all_accounts_cooling | [1059](../../src-tauri/src/antigravity/pool.rs#L1059) |
-| clearing_one_session_keeps_other_sticky_bindings | function_item | tests | [1063](../../src-tauri/src/antigravity/pool.rs#L1063) |
-| assert | macro invocation (unexpanded) | tests::clearing_one_session_keeps_other_sticky_bindings | [1071](../../src-tauri/src/antigravity/pool.rs#L1071) |
-| assert_eq | macro invocation (unexpanded) | tests::clearing_one_session_keeps_other_sticky_bindings | [1072](../../src-tauri/src/antigravity/pool.rs#L1072) |
-| no_soft_select_when_one_is_ready | function_item | tests | [1076](../../src-tauri/src/antigravity/pool.rs#L1076) |
-| vec | macro invocation (unexpanded) | tests::no_soft_select_when_one_is_ready | [1078](../../src-tauri/src/antigravity/pool.rs#L1078) |
-| assert | macro invocation (unexpanded) | tests::no_soft_select_when_one_is_ready | [1079](../../src-tauri/src/antigravity/pool.rs#L1079) |
-| active_account_beats_sticky_session | function_item | tests | [1083](../../src-tauri/src/antigravity/pool.rs#L1083) |
-| vec | macro invocation (unexpanded) | tests::active_account_beats_sticky_session | [1088](../../src-tauri/src/antigravity/pool.rs#L1088) |
-| assert_eq | macro invocation (unexpanded) | tests::active_account_beats_sticky_session | [1090](../../src-tauri/src/antigravity/pool.rs#L1090) |
+| soft_selects_when_all_accounts_cooling | function_item | tests | [1056](../../src-tauri/src/antigravity/pool.rs#L1056) |
+| vec | macro invocation (unexpanded) | tests::soft_selects_when_all_accounts_cooling | [1058](../../src-tauri/src/antigravity/pool.rs#L1058) |
+| assert_eq | macro invocation (unexpanded) | tests::soft_selects_when_all_accounts_cooling | [1060](../../src-tauri/src/antigravity/pool.rs#L1060) |
+| clearing_one_session_keeps_other_sticky_bindings | function_item | tests | [1064](../../src-tauri/src/antigravity/pool.rs#L1064) |
+| assert | macro invocation (unexpanded) | tests::clearing_one_session_keeps_other_sticky_bindings | [1072](../../src-tauri/src/antigravity/pool.rs#L1072) |
+| assert_eq | macro invocation (unexpanded) | tests::clearing_one_session_keeps_other_sticky_bindings | [1073](../../src-tauri/src/antigravity/pool.rs#L1073) |
+| no_soft_select_when_one_is_ready | function_item | tests | [1077](../../src-tauri/src/antigravity/pool.rs#L1077) |
+| vec | macro invocation (unexpanded) | tests::no_soft_select_when_one_is_ready | [1079](../../src-tauri/src/antigravity/pool.rs#L1079) |
+| assert | macro invocation (unexpanded) | tests::no_soft_select_when_one_is_ready | [1080](../../src-tauri/src/antigravity/pool.rs#L1080) |
+| active_account_beats_sticky_session | function_item | tests | [1084](../../src-tauri/src/antigravity/pool.rs#L1084) |
+| vec | macro invocation (unexpanded) | tests::active_account_beats_sticky_session | [1089](../../src-tauri/src/antigravity/pool.rs#L1089) |
 | assert_eq | macro invocation (unexpanded) | tests::active_account_beats_sticky_session | [1091](../../src-tauri/src/antigravity/pool.rs#L1091) |
-| explain_unavailable_asks_relogin_when_all_disabled | function_item | tests | [1095](../../src-tauri/src/antigravity/pool.rs#L1095) |
-| assert | macro invocation (unexpanded) | tests::explain_unavailable_asks_relogin_when_all_disabled | [1101](../../src-tauri/src/antigravity/pool.rs#L1101) |
+| assert_eq | macro invocation (unexpanded) | tests::active_account_beats_sticky_session | [1092](../../src-tauri/src/antigravity/pool.rs#L1092) |
+| explain_unavailable_asks_relogin_when_all_disabled | function_item | tests | [1096](../../src-tauri/src/antigravity/pool.rs#L1096) |
+| assert | macro invocation (unexpanded) | tests::explain_unavailable_asks_relogin_when_all_disabled | [1102](../../src-tauri/src/antigravity/pool.rs#L1102) |

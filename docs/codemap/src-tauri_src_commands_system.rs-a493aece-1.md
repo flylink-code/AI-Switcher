@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/system.rs) · page 1/2
 
-Source SHA-256: cd166fd13c7662b4bee371e7f15516095105f1694aff4d1835de5a1f7bc354da
+Source SHA-256: 0ebbbf6e693494e66ee03aeb5309a29c8af8069943537223cd2f59b70c3f836f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -32,79 +32,79 @@ Source SHA-256: cd166fd13c7662b4bee371e7f15516095105f1694aff4d1835de5a1f7bc354da
 | read_close_behavior | function_item |  | [79](../../src-tauri/src/commands/system.rs#L79) |
 | get_gateway_runtime_mode | function_item |  | [93](../../src-tauri/src/commands/system.rs#L93) |
 | set_gateway_runtime_mode | function_item |  | [98](../../src-tauri/src/commands/system.rs#L98) |
-| get_gateway_sidecar_status | function_item |  | [106](../../src-tauri/src/commands/system.rs#L106) |
-| get_close_behavior | function_item |  | [113](../../src-tauri/src/commands/system.rs#L113) |
-| set_close_behavior | function_item |  | [118](../../src-tauri/src/commands/system.rs#L118) |
-| resolve_close_request | function_item |  | [126](../../src-tauri/src/commands/system.rs#L126) |
-| format | macro invocation (unexpanded) | resolve_close_request | [147](../../src-tauri/src/commands/system.rs#L147) |
-| unreachable | macro invocation (unexpanded) | resolve_close_request | [153](../../src-tauri/src/commands/system.rs#L153) |
-| read_app_language | function_item |  | [157](../../src-tauri/src/commands/system.rs#L157) |
-| set_app_language | function_item |  | [165](../../src-tauri/src/commands/system.rs#L165) |
-| restart_app | function_item |  | [176](../../src-tauri/src/commands/system.rs#L176) |
-| get_update_mirror_settings | function_item |  | [181](../../src-tauri/src/commands/system.rs#L181) |
-| set_update_mirror_settings | function_item |  | [192](../../src-tauri/src/commands/system.rs#L192) |
-| default_update_mirror_settings | function_item |  | [205](../../src-tauri/src/commands/system.rs#L205) |
-| normalize_update_mirror_settings | function_item |  | [212](../../src-tauri/src/commands/system.rs#L212) |
-| format | macro invocation (unexpanded) | normalize_update_mirror_settings | [217](../../src-tauri/src/commands/system.rs#L217) |
-| format | macro invocation (unexpanded) | normalize_update_mirror_settings | [231](../../src-tauri/src/commands/system.rs#L231) |
-| get_dismissed_onboarding_tips | function_item |  | [236](../../src-tauri/src/commands/system.rs#L236) |
-| dismiss_onboarding_tip | function_item |  | [249](../../src-tauri/src/commands/system.rs#L249) |
-| restore_onboarding_tips | function_item |  | [264](../../src-tauri/src/commands/system.rs#L264) |
-| validate_app_language | function_item |  | [268](../../src-tauri/src/commands/system.rs#L268) |
-| matches | macro invocation (unexpanded) | validate_app_language | [269](../../src-tauri/src/commands/system.rs#L269) |
-| format | macro invocation (unexpanded) | validate_app_language | [272](../../src-tauri/src/commands/system.rs#L272) |
-| validate_onboarding_tip_key | function_item |  | [276](../../src-tauri/src/commands/system.rs#L276) |
-| format | macro invocation (unexpanded) | validate_onboarding_tip_key | [280](../../src-tauri/src/commands/system.rs#L280) |
-| AutostartMode | impl |  | [284](../../src-tauri/src/commands/system.rs#L284) |
-| as_str | function_item | AutostartMode | [285](../../src-tauri/src/commands/system.rs#L285) |
-| AutostartConfig | struct_item |  | [296](../../src-tauri/src/commands/system.rs#L296) |
-| enabled | field_declaration | AutostartConfig | [297](../../src-tauri/src/commands/system.rs#L297) |
-| mode | field_declaration | AutostartConfig | [298](../../src-tauri/src/commands/system.rs#L298) |
-| registry_name | field_declaration | AutostartConfig | [299](../../src-tauri/src/commands/system.rs#L299) |
-| command | field_declaration | AutostartConfig | [301](../../src-tauri/src/commands/system.rs#L301) |
-| task_manager_disabled | field_declaration | AutostartConfig | [302](../../src-tauri/src/commands/system.rs#L302) |
-| get_autostart_config | function_item |  | [306](../../src-tauri/src/commands/system.rs#L306) |
-| set_autostart_config | function_item |  | [328](../../src-tauri/src/commands/system.rs#L328) |
-| get_autostart_enabled | function_item |  | [348](../../src-tauri/src/commands/system.rs#L348) |
-| AutostartStatus | struct_item |  | [353](../../src-tauri/src/commands/system.rs#L353) |
-| enabled | field_declaration | AutostartStatus | [354](../../src-tauri/src/commands/system.rs#L354) |
-| registry_name | field_declaration | AutostartStatus | [355](../../src-tauri/src/commands/system.rs#L355) |
-| command | field_declaration | AutostartStatus | [356](../../src-tauri/src/commands/system.rs#L356) |
-| task_manager_disabled | field_declaration | AutostartStatus | [357](../../src-tauri/src/commands/system.rs#L357) |
-| autostart_status | function_item |  | [360](../../src-tauri/src/commands/system.rs#L360) |
-| format | macro invocation (unexpanded) | autostart_status | [377](../../src-tauri/src/commands/system.rs#L377) |
-| read_linux_autostart_exec | function_item |  | [393](../../src-tauri/src/commands/system.rs#L393) |
-| read_desktop_exec | function_item |  | [427](../../src-tauri/src/commands/system.rs#L427) |
-| set_autostart_enabled | function_item |  | [439](../../src-tauri/src/commands/system.rs#L439) |
-| set_autostart_registration | function_item |  | [455](../../src-tauri/src/commands/system.rs#L455) |
-| format | macro invocation (unexpanded) | set_autostart_registration | [471](../../src-tauri/src/commands/system.rs#L471) |
-| format | macro invocation (unexpanded) | set_autostart_registration | [475](../../src-tauri/src/commands/system.rs#L475) |
-| read_mode | function_item |  | [481](../../src-tauri/src/commands/system.rs#L481) |
-| set_setting_value | function_item |  | [492](../../src-tauri/src/commands/system.rs#L492) |
-| apply_test_isolation_settings | function_item |  | [497](../../src-tauri/src/commands/system.rs#L497) |
-| log::info | macro invocation (unexpanded) | apply_test_isolation_settings | [503](../../src-tauri/src/commands/system.rs#L503) |
-| log::info | macro invocation (unexpanded) | apply_test_isolation_settings | [518](../../src-tauri/src/commands/system.rs#L518) |
-| is_silent_autostart | function_item |  | [523](../../src-tauri/src/commands/system.rs#L523) |
-| should_launch_silently | function_item |  | [530](../../src-tauri/src/commands/system.rs#L530) |
-| migrate_autostart_registration | function_item |  | [534](../../src-tauri/src/commands/system.rs#L534) |
-| log::warn | macro invocation (unexpanded) | migrate_autostart_registration | [538](../../src-tauri/src/commands/system.rs#L538) |
-| matches | macro invocation (unexpanded) | migrate_autostart_registration | [543](../../src-tauri/src/commands/system.rs#L543) |
-| log::warn | macro invocation (unexpanded) | migrate_autostart_registration | [551](../../src-tauri/src/commands/system.rs#L551) |
-| report_frontend_startup | function_item |  | [580](../../src-tauri/src/commands/system.rs#L580) |
-| log::info | macro invocation (unexpanded) | report_frontend_startup | [597](../../src-tauri/src/commands/system.rs#L597) |
-| report_frontend_performance | function_item |  | [604](../../src-tauri/src/commands/system.rs#L604) |
-| log::info | macro invocation (unexpanded) | report_frontend_performance | [607](../../src-tauri/src/commands/system.rs#L607) |
-| sanitize_performance_label | function_item |  | [610](../../src-tauri/src/commands/system.rs#L610) |
-| matches | macro invocation (unexpanded) | sanitize_performance_label | [613](../../src-tauri/src/commands/system.rs#L613) |
-| tests | mod_item |  | [619](../../src-tauri/src/commands/system.rs#L619) |
-| autostart_modes_use_stable_wire_values | function_item | tests | [623](../../src-tauri/src/commands/system.rs#L623) |
-| assert_eq | macro invocation (unexpanded) | tests::autostart_modes_use_stable_wire_values | [624](../../src-tauri/src/commands/system.rs#L624) |
-| assert_eq | macro invocation (unexpanded) | tests::autostart_modes_use_stable_wire_values | [628](../../src-tauri/src/commands/system.rs#L628) |
-| assert_eq | macro invocation (unexpanded) | tests::autostart_modes_use_stable_wire_values | [632](../../src-tauri/src/commands/system.rs#L632) |
-| close_behaviors_use_stable_wire_values | function_item | tests | [639](../../src-tauri/src/commands/system.rs#L639) |
-| assert_eq | macro invocation (unexpanded) | tests::close_behaviors_use_stable_wire_values | [640](../../src-tauri/src/commands/system.rs#L640) |
-| assert_eq | macro invocation (unexpanded) | tests::close_behaviors_use_stable_wire_values | [644](../../src-tauri/src/commands/system.rs#L644) |
-| assert_eq | macro invocation (unexpanded) | tests::close_behaviors_use_stable_wire_values | [648](../../src-tauri/src/commands/system.rs#L648) |
-| onboarding_tip_keys_are_allowlisted | function_item | tests | [655](../../src-tauri/src/commands/system.rs#L655) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [656](../../src-tauri/src/commands/system.rs#L656) |
-| assert | macro invocation (unexpanded) | tests::onboarding_tip_keys_are_allowlisted | [657](../../src-tauri/src/commands/system.rs#L657) |
+| get_gateway_timezone | function_item |  | [107](../../src-tauri/src/commands/system.rs#L107) |
+| set_gateway_timezone | function_item |  | [112](../../src-tauri/src/commands/system.rs#L112) |
+| get_gateway_debug_env_rewrite | function_item |  | [122](../../src-tauri/src/commands/system.rs#L122) |
+| set_gateway_debug_env_rewrite | function_item |  | [127](../../src-tauri/src/commands/system.rs#L127) |
+| get_gateway_sidecar_status | function_item |  | [135](../../src-tauri/src/commands/system.rs#L135) |
+| get_close_behavior | function_item |  | [142](../../src-tauri/src/commands/system.rs#L142) |
+| set_close_behavior | function_item |  | [147](../../src-tauri/src/commands/system.rs#L147) |
+| resolve_close_request | function_item |  | [155](../../src-tauri/src/commands/system.rs#L155) |
+| format | macro invocation (unexpanded) | resolve_close_request | [176](../../src-tauri/src/commands/system.rs#L176) |
+| unreachable | macro invocation (unexpanded) | resolve_close_request | [182](../../src-tauri/src/commands/system.rs#L182) |
+| read_app_language | function_item |  | [186](../../src-tauri/src/commands/system.rs#L186) |
+| set_app_language | function_item |  | [194](../../src-tauri/src/commands/system.rs#L194) |
+| restart_app | function_item |  | [205](../../src-tauri/src/commands/system.rs#L205) |
+| get_update_mirror_settings | function_item |  | [210](../../src-tauri/src/commands/system.rs#L210) |
+| set_update_mirror_settings | function_item |  | [221](../../src-tauri/src/commands/system.rs#L221) |
+| default_update_mirror_settings | function_item |  | [234](../../src-tauri/src/commands/system.rs#L234) |
+| normalize_update_mirror_settings | function_item |  | [241](../../src-tauri/src/commands/system.rs#L241) |
+| format | macro invocation (unexpanded) | normalize_update_mirror_settings | [246](../../src-tauri/src/commands/system.rs#L246) |
+| format | macro invocation (unexpanded) | normalize_update_mirror_settings | [260](../../src-tauri/src/commands/system.rs#L260) |
+| get_dismissed_onboarding_tips | function_item |  | [265](../../src-tauri/src/commands/system.rs#L265) |
+| dismiss_onboarding_tip | function_item |  | [278](../../src-tauri/src/commands/system.rs#L278) |
+| restore_onboarding_tips | function_item |  | [293](../../src-tauri/src/commands/system.rs#L293) |
+| validate_app_language | function_item |  | [297](../../src-tauri/src/commands/system.rs#L297) |
+| matches | macro invocation (unexpanded) | validate_app_language | [298](../../src-tauri/src/commands/system.rs#L298) |
+| format | macro invocation (unexpanded) | validate_app_language | [301](../../src-tauri/src/commands/system.rs#L301) |
+| validate_onboarding_tip_key | function_item |  | [305](../../src-tauri/src/commands/system.rs#L305) |
+| format | macro invocation (unexpanded) | validate_onboarding_tip_key | [309](../../src-tauri/src/commands/system.rs#L309) |
+| AutostartMode | impl |  | [313](../../src-tauri/src/commands/system.rs#L313) |
+| as_str | function_item | AutostartMode | [314](../../src-tauri/src/commands/system.rs#L314) |
+| AutostartConfig | struct_item |  | [325](../../src-tauri/src/commands/system.rs#L325) |
+| enabled | field_declaration | AutostartConfig | [326](../../src-tauri/src/commands/system.rs#L326) |
+| mode | field_declaration | AutostartConfig | [327](../../src-tauri/src/commands/system.rs#L327) |
+| registry_name | field_declaration | AutostartConfig | [328](../../src-tauri/src/commands/system.rs#L328) |
+| command | field_declaration | AutostartConfig | [330](../../src-tauri/src/commands/system.rs#L330) |
+| task_manager_disabled | field_declaration | AutostartConfig | [331](../../src-tauri/src/commands/system.rs#L331) |
+| get_autostart_config | function_item |  | [335](../../src-tauri/src/commands/system.rs#L335) |
+| set_autostart_config | function_item |  | [357](../../src-tauri/src/commands/system.rs#L357) |
+| get_autostart_enabled | function_item |  | [377](../../src-tauri/src/commands/system.rs#L377) |
+| AutostartStatus | struct_item |  | [382](../../src-tauri/src/commands/system.rs#L382) |
+| enabled | field_declaration | AutostartStatus | [383](../../src-tauri/src/commands/system.rs#L383) |
+| registry_name | field_declaration | AutostartStatus | [384](../../src-tauri/src/commands/system.rs#L384) |
+| command | field_declaration | AutostartStatus | [385](../../src-tauri/src/commands/system.rs#L385) |
+| task_manager_disabled | field_declaration | AutostartStatus | [386](../../src-tauri/src/commands/system.rs#L386) |
+| autostart_status | function_item |  | [389](../../src-tauri/src/commands/system.rs#L389) |
+| format | macro invocation (unexpanded) | autostart_status | [406](../../src-tauri/src/commands/system.rs#L406) |
+| read_linux_autostart_exec | function_item |  | [422](../../src-tauri/src/commands/system.rs#L422) |
+| read_desktop_exec | function_item |  | [456](../../src-tauri/src/commands/system.rs#L456) |
+| set_autostart_enabled | function_item |  | [468](../../src-tauri/src/commands/system.rs#L468) |
+| set_autostart_registration | function_item |  | [484](../../src-tauri/src/commands/system.rs#L484) |
+| format | macro invocation (unexpanded) | set_autostart_registration | [500](../../src-tauri/src/commands/system.rs#L500) |
+| format | macro invocation (unexpanded) | set_autostart_registration | [504](../../src-tauri/src/commands/system.rs#L504) |
+| read_mode | function_item |  | [510](../../src-tauri/src/commands/system.rs#L510) |
+| set_setting_value | function_item |  | [521](../../src-tauri/src/commands/system.rs#L521) |
+| apply_test_isolation_settings | function_item |  | [526](../../src-tauri/src/commands/system.rs#L526) |
+| log::info | macro invocation (unexpanded) | apply_test_isolation_settings | [532](../../src-tauri/src/commands/system.rs#L532) |
+| log::info | macro invocation (unexpanded) | apply_test_isolation_settings | [547](../../src-tauri/src/commands/system.rs#L547) |
+| is_silent_autostart | function_item |  | [552](../../src-tauri/src/commands/system.rs#L552) |
+| should_launch_silently | function_item |  | [559](../../src-tauri/src/commands/system.rs#L559) |
+| migrate_autostart_registration | function_item |  | [563](../../src-tauri/src/commands/system.rs#L563) |
+| log::warn | macro invocation (unexpanded) | migrate_autostart_registration | [567](../../src-tauri/src/commands/system.rs#L567) |
+| matches | macro invocation (unexpanded) | migrate_autostart_registration | [572](../../src-tauri/src/commands/system.rs#L572) |
+| log::warn | macro invocation (unexpanded) | migrate_autostart_registration | [580](../../src-tauri/src/commands/system.rs#L580) |
+| report_frontend_startup | function_item |  | [609](../../src-tauri/src/commands/system.rs#L609) |
+| log::info | macro invocation (unexpanded) | report_frontend_startup | [626](../../src-tauri/src/commands/system.rs#L626) |
+| report_frontend_performance | function_item |  | [633](../../src-tauri/src/commands/system.rs#L633) |
+| log::info | macro invocation (unexpanded) | report_frontend_performance | [636](../../src-tauri/src/commands/system.rs#L636) |
+| sanitize_performance_label | function_item |  | [639](../../src-tauri/src/commands/system.rs#L639) |
+| matches | macro invocation (unexpanded) | sanitize_performance_label | [642](../../src-tauri/src/commands/system.rs#L642) |
+| tests | mod_item |  | [648](../../src-tauri/src/commands/system.rs#L648) |
+| autostart_modes_use_stable_wire_values | function_item | tests | [652](../../src-tauri/src/commands/system.rs#L652) |
+| assert_eq | macro invocation (unexpanded) | tests::autostart_modes_use_stable_wire_values | [653](../../src-tauri/src/commands/system.rs#L653) |
+| assert_eq | macro invocation (unexpanded) | tests::autostart_modes_use_stable_wire_values | [657](../../src-tauri/src/commands/system.rs#L657) |
+| assert_eq | macro invocation (unexpanded) | tests::autostart_modes_use_stable_wire_values | [661](../../src-tauri/src/commands/system.rs#L661) |
+| close_behaviors_use_stable_wire_values | function_item | tests | [668](../../src-tauri/src/commands/system.rs#L668) |
+| assert_eq | macro invocation (unexpanded) | tests::close_behaviors_use_stable_wire_values | [669](../../src-tauri/src/commands/system.rs#L669) |
+| assert_eq | macro invocation (unexpanded) | tests::close_behaviors_use_stable_wire_values | [673](../../src-tauri/src/commands/system.rs#L673) |

@@ -4,7 +4,7 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 11/12
 
-Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
+Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -85,26 +85,26 @@ Source SHA-256: c222f78a4e398a33aab8e502aba0ac521143cad037c8f8b6383a15650f5c8ffc
 | latencyMs | PropertySignature | AntigravityAccountTestResult | [1475](../../src/types/backend.ts#L1475) |
 | reply | PropertySignature | AntigravityAccountTestResult | [1476](../../src/types/backend.ts#L1476) |
 | error | PropertySignature | AntigravityAccountTestResult | [1477](../../src/types/backend.ts#L1477) |
-| AntigravityAccountPublic | InterfaceDeclaration |  | [1480](../../src/types/backend.ts#L1480) |
-| id | PropertySignature | AntigravityAccountPublic | [1481](../../src/types/backend.ts#L1481) |
-| email | PropertySignature | AntigravityAccountPublic | [1482](../../src/types/backend.ts#L1482) |
-| name | PropertySignature | AntigravityAccountPublic | [1483](../../src/types/backend.ts#L1483) |
-| modelAccessMode | PropertySignature | AntigravityAccountPublic | [1484](../../src/types/backend.ts#L1484) |
-| allowedModelPatterns | PropertySignature | AntigravityAccountPublic | [1485](../../src/types/backend.ts#L1485) |
-| effectiveModelPatterns | PropertySignature | AntigravityAccountPublic | [1486](../../src/types/backend.ts#L1486) |
-| disabled | PropertySignature | AntigravityAccountPublic | [1487](../../src/types/backend.ts#L1487) |
-| disabledReason | PropertySignature | AntigravityAccountPublic | [1488](../../src/types/backend.ts#L1488) |
-| isActive | PropertySignature | AntigravityAccountPublic | [1489](../../src/types/backend.ts#L1489) |
-| createdAt | PropertySignature | AntigravityAccountPublic | [1490](../../src/types/backend.ts#L1490) |
-| lastUsed | PropertySignature | AntigravityAccountPublic | [1491](../../src/types/backend.ts#L1491) |
-| healthScore | PropertySignature | AntigravityAccountPublic | [1492](../../src/types/backend.ts#L1492) |
-| cooldownUntil | PropertySignature | AntigravityAccountPublic | [1493](../../src/types/backend.ts#L1493) |
-| remainingQuota | PropertySignature | AntigravityAccountPublic | [1494](../../src/types/backend.ts#L1494) |
-| hasProjectId | PropertySignature | AntigravityAccountPublic | [1495](../../src/types/backend.ts#L1495) |
-| tokenExpiresAt | PropertySignature | AntigravityAccountPublic | [1496](../../src/types/backend.ts#L1496) |
-| subscriptionTier | PropertySignature | AntigravityAccountPublic | [1497](../../src/types/backend.ts#L1497) |
-| quota5hPercent | PropertySignature | AntigravityAccountPublic | [1498](../../src/types/backend.ts#L1498) |
-| quotaWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1499](../../src/types/backend.ts#L1499) |
-| quotaGemini5hPercent | PropertySignature | AntigravityAccountPublic | [1500](../../src/types/backend.ts#L1500) |
-| quotaGeminiWeeklyPercent | PropertySignature | AntigravityAccountPublic | [1501](../../src/types/backend.ts#L1501) |
-| quotaClaude5hPercent | PropertySignature | AntigravityAccountPublic | [1502](../../src/types/backend.ts#L1502) |
+| AccountDeviceProfile | InterfaceDeclaration |  | [1480](../../src/types/backend.ts#L1480) |
+| deviceId | PropertySignature | AccountDeviceProfile | [1481](../../src/types/backend.ts#L1481) |
+| os | PropertySignature | AccountDeviceProfile | [1482](../../src/types/backend.ts#L1482) |
+| arch | PropertySignature | AccountDeviceProfile | [1483](../../src/types/backend.ts#L1483) |
+| timezone | PropertySignature | AccountDeviceProfile | [1485](../../src/types/backend.ts#L1485) |
+| AntigravityAccountPublic | InterfaceDeclaration |  | [1488](../../src/types/backend.ts#L1488) |
+| id | PropertySignature | AntigravityAccountPublic | [1489](../../src/types/backend.ts#L1489) |
+| email | PropertySignature | AntigravityAccountPublic | [1490](../../src/types/backend.ts#L1490) |
+| name | PropertySignature | AntigravityAccountPublic | [1491](../../src/types/backend.ts#L1491) |
+| deviceProfile | PropertySignature | AntigravityAccountPublic | [1492](../../src/types/backend.ts#L1492) |
+| modelAccessMode | PropertySignature | AntigravityAccountPublic | [1493](../../src/types/backend.ts#L1493) |
+| allowedModelPatterns | PropertySignature | AntigravityAccountPublic | [1494](../../src/types/backend.ts#L1494) |
+| effectiveModelPatterns | PropertySignature | AntigravityAccountPublic | [1495](../../src/types/backend.ts#L1495) |
+| disabled | PropertySignature | AntigravityAccountPublic | [1496](../../src/types/backend.ts#L1496) |
+| disabledReason | PropertySignature | AntigravityAccountPublic | [1497](../../src/types/backend.ts#L1497) |
+| isActive | PropertySignature | AntigravityAccountPublic | [1498](../../src/types/backend.ts#L1498) |
+| createdAt | PropertySignature | AntigravityAccountPublic | [1499](../../src/types/backend.ts#L1499) |
+| lastUsed | PropertySignature | AntigravityAccountPublic | [1500](../../src/types/backend.ts#L1500) |
+| healthScore | PropertySignature | AntigravityAccountPublic | [1501](../../src/types/backend.ts#L1501) |
+| cooldownUntil | PropertySignature | AntigravityAccountPublic | [1502](../../src/types/backend.ts#L1502) |
+| remainingQuota | PropertySignature | AntigravityAccountPublic | [1503](../../src/types/backend.ts#L1503) |
+| hasProjectId | PropertySignature | AntigravityAccountPublic | [1504](../../src/types/backend.ts#L1504) |
+| tokenExpiresAt | PropertySignature | AntigravityAccountPublic | [1505](../../src/types/backend.ts#L1505) |
