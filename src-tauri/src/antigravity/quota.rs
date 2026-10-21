@@ -12,10 +12,6 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 
-/// Cloud Code quota endpoints validate the native Antigravity client fingerprint.
-/// A generic `antigravity` user agent is accepted inconsistently and can return
-/// an empty/forbidden quota response despite a valid OAuth token.
-
 /// Connect / total timeouts for quota probes (Antigravity-Manager uses 15s).
 const QUOTA_CONNECT_SECS: u64 = 8;
 const QUOTA_TIMEOUT_SECS: u64 = 15;

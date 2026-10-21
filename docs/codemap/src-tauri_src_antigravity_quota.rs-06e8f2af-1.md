@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/quota.rs) · page 1/3
 
-Source SHA-256: 5697e3196f59ea44d55a21993d4a72f2f3eb751403f253cc8ecf9a24e80de25b
+Source SHA-256: 56a8611baf07bdbd0425fad08893b988e14ae43afc3d959327672e6f329e6042
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| QUOTA_CONNECT_SECS | const_item |  | [20](../../src-tauri/src/antigravity/quota.rs#L20) |
-| QUOTA_TIMEOUT_SECS | const_item |  | [21](../../src-tauri/src/antigravity/quota.rs#L21) |
-| MODELS_ENDPOINTS | const_item |  | [23](../../src-tauri/src/antigravity/quota.rs#L23) |
-| SUMMARY_ENDPOINTS | const_item |  | [29](../../src-tauri/src/antigravity/quota.rs#L29) |
-| PROJECT_ENDPOINTS | const_item |  | [35](../../src-tauri/src/antigravity/quota.rs#L35) |
-| ONBOARD_ENDPOINTS | const_item |  | [41](../../src-tauri/src/antigravity/quota.rs#L41) |
-| QuotaBucket | struct_item |  | [49](../../src-tauri/src/antigravity/quota.rs#L49) |
-| bucket_id | field_declaration | QuotaBucket | [50](../../src-tauri/src/antigravity/quota.rs#L50) |
-| window | field_declaration | QuotaBucket | [52](../../src-tauri/src/antigravity/quota.rs#L52) |
-| remaining_fraction | field_declaration | QuotaBucket | [54](../../src-tauri/src/antigravity/quota.rs#L54) |
-| reset_time | field_declaration | QuotaBucket | [55](../../src-tauri/src/antigravity/quota.rs#L55) |
-| display_name | field_declaration | QuotaBucket | [57](../../src-tauri/src/antigravity/quota.rs#L57) |
-| QuotaGroup | struct_item |  | [62](../../src-tauri/src/antigravity/quota.rs#L62) |
-| display_name | field_declaration | QuotaGroup | [63](../../src-tauri/src/antigravity/quota.rs#L63) |
-| buckets | field_declaration | QuotaGroup | [65](../../src-tauri/src/antigravity/quota.rs#L65) |
-| ModelQuota | struct_item |  | [70](../../src-tauri/src/antigravity/quota.rs#L70) |
-| name | field_declaration | ModelQuota | [71](../../src-tauri/src/antigravity/quota.rs#L71) |
-| percentage | field_declaration | ModelQuota | [73](../../src-tauri/src/antigravity/quota.rs#L73) |
-| reset_time | field_declaration | ModelQuota | [74](../../src-tauri/src/antigravity/quota.rs#L74) |
-| display_name | field_declaration | ModelQuota | [76](../../src-tauri/src/antigravity/quota.rs#L76) |
-| QuotaSnapshot | struct_item |  | [81](../../src-tauri/src/antigravity/quota.rs#L81) |
-| models | field_declaration | QuotaSnapshot | [83](../../src-tauri/src/antigravity/quota.rs#L83) |
-| groups | field_declaration | QuotaSnapshot | [85](../../src-tauri/src/antigravity/quota.rs#L85) |
-| last_updated | field_declaration | QuotaSnapshot | [86](../../src-tauri/src/antigravity/quota.rs#L86) |
-| is_forbidden | field_declaration | QuotaSnapshot | [88](../../src-tauri/src/antigravity/quota.rs#L88) |
-| forbidden_reason | field_declaration | QuotaSnapshot | [90](../../src-tauri/src/antigravity/quota.rs#L90) |
-| subscription_tier | field_declaration | QuotaSnapshot | [92](../../src-tauri/src/antigravity/quota.rs#L92) |
-| QuotaSnapshot | impl |  | [95](../../src-tauri/src/antigravity/quota.rs#L95) |
-| empty_forbidden | function_item | QuotaSnapshot | [96](../../src-tauri/src/antigravity/quota.rs#L96) |
-| best_remaining_fraction | function_item | QuotaSnapshot | [106](../../src-tauri/src/antigravity/quota.rs#L106) |
-| remaining_hint_percent | function_item | QuotaSnapshot | [115](../../src-tauri/src/antigravity/quota.rs#L115) |
-| window_percent | function_item | QuotaSnapshot | [141](../../src-tauri/src/antigravity/quota.rs#L141) |
-| gemini_window_percent | function_item | QuotaSnapshot | [151](../../src-tauri/src/antigravity/quota.rs#L151) |
-| claude_window_percent | function_item | QuotaSnapshot | [156](../../src-tauri/src/antigravity/quota.rs#L156) |
-| group_window_percent | function_item | QuotaSnapshot | [160](../../src-tauri/src/antigravity/quota.rs#L160) |
-| has_usable_quota | function_item | QuotaSnapshot | [184](../../src-tauri/src/antigravity/quota.rs#L184) |
-| family_window_percent | function_item | QuotaSnapshot | [194](../../src-tauri/src/antigravity/quota.rs#L194) |
-| remaining_hint_for_family | function_item | QuotaSnapshot | [202](../../src-tauri/src/antigravity/quota.rs#L202) |
-| remaining_fraction_for_family | function_item | QuotaSnapshot | [210](../../src-tauri/src/antigravity/quota.rs#L210) |
-| has_usable_quota_for_family | function_item | QuotaSnapshot | [221](../../src-tauri/src/antigravity/quota.rs#L221) |
-| retain_groups_if_empty | function_item | QuotaSnapshot | [237](../../src-tauri/src/antigravity/quota.rs#L237) |
-| ProjectMeta | struct_item |  | [250](../../src-tauri/src/antigravity/quota.rs#L250) |
-| project_id | field_declaration | ProjectMeta | [251](../../src-tauri/src/antigravity/quota.rs#L251) |
-| subscription_tier | field_declaration | ProjectMeta | [252](../../src-tauri/src/antigravity/quota.rs#L252) |
-| resolve_project_id | function_item |  | [257](../../src-tauri/src/antigravity/quota.rs#L257) |
-| fetch_quota | function_item |  | [268](../../src-tauri/src/antigravity/quota.rs#L268) |
-| tokio::join | macro invocation (unexpanded) | fetch_quota | [284](../../src-tauri/src/antigravity/quota.rs#L284) |
-| tokio::join | macro invocation (unexpanded) | fetch_quota | [296](../../src-tauri/src/antigravity/quota.rs#L296) |
-| fetch_project_meta | function_item |  | [330](../../src-tauri/src/antigravity/quota.rs#L330) |
-| json | macro invocation (unexpanded) | fetch_project_meta | [335](../../src-tauri/src/antigravity/quota.rs#L335) |
-| log::warn | macro invocation (unexpanded) | fetch_project_meta | [347](../../src-tauri/src/antigravity/quota.rs#L347) |
-| log::warn | macro invocation (unexpanded) | fetch_project_meta | [354](../../src-tauri/src/antigravity/quota.rs#L354) |
-| log::info | macro invocation (unexpanded) | fetch_project_meta | [373](../../src-tauri/src/antigravity/quota.rs#L373) |
-| extract_cloudaicompanion_project | function_item |  | [386](../../src-tauri/src/antigravity/quota.rs#L386) |
-| extract_project_from_onboard | function_item |  | [414](../../src-tauri/src/antigravity/quota.rs#L414) |
-| normalize_project_id | function_item |  | [421](../../src-tauri/src/antigravity/quota.rs#L421) |
-| default_onboard_tier_id | function_item |  | [428](../../src-tauri/src/antigravity/quota.rs#L428) |
-| extract_tier_id_from_key | function_item |  | [444](../../src-tauri/src/antigravity/quota.rs#L444) |
-| tier_id_value | function_item |  | [448](../../src-tauri/src/antigravity/quota.rs#L448) |
-| onboard_user_project | function_item |  | [463](../../src-tauri/src/antigravity/quota.rs#L463) |
-| log::info | macro invocation (unexpanded) | onboard_user_project | [470](../../src-tauri/src/antigravity/quota.rs#L470) |
-| json | macro invocation (unexpanded) | onboard_user_project | [471](../../src-tauri/src/antigravity/quota.rs#L471) |
-| log::warn | macro invocation (unexpanded) | onboard_user_project | [491](../../src-tauri/src/antigravity/quota.rs#L491) |
-| log::warn | macro invocation (unexpanded) | onboard_user_project | [499](../../src-tauri/src/antigravity/quota.rs#L499) |
-| log::warn | macro invocation (unexpanded) | onboard_user_project | [506](../../src-tauri/src/antigravity/quota.rs#L506) |
-| log::info | macro invocation (unexpanded) | onboard_user_project | [513](../../src-tauri/src/antigravity/quota.rs#L513) |
-| log::warn | macro invocation (unexpanded) | onboard_user_project | [518](../../src-tauri/src/antigravity/quota.rs#L518) |
-| log::info | macro invocation (unexpanded) | onboard_user_project | [521](../../src-tauri/src/antigravity/quota.rs#L521) |
-| QuotaFamily | enum_item |  | [529](../../src-tauri/src/antigravity/quota.rs#L529) |
-| Gemini | enum_variant | QuotaFamily | [530](../../src-tauri/src/antigravity/quota.rs#L530) |
-| ClaudeGpt | enum_variant | QuotaFamily | [531](../../src-tauri/src/antigravity/quota.rs#L531) |
-| quota_family_from_model | function_item |  | [534](../../src-tauri/src/antigravity/quota.rs#L534) |
-| group_looks_gemini | function_item |  | [543](../../src-tauri/src/antigravity/quota.rs#L543) |
-| default_allowed_model_patterns | function_item |  | [547](../../src-tauri/src/antigravity/quota.rs#L547) |
-| vec | macro invocation (unexpanded) | default_allowed_model_patterns | [552](../../src-tauri/src/antigravity/quota.rs#L552) |
-| vec | macro invocation (unexpanded) | default_allowed_model_patterns | [562](../../src-tauri/src/antigravity/quota.rs#L562) |
-| model_id_for_access_match | function_item |  | [566](../../src-tauri/src/antigravity/quota.rs#L566) |
-| model_pattern_matches | function_item |  | [576](../../src-tauri/src/antigravity/quota.rs#L576) |
-| bucket_looks_gemini | function_item |  | [604](../../src-tauri/src/antigravity/quota.rs#L604) |
-| bucket_looks_claude_gpt | function_item |  | [609](../../src-tauri/src/antigravity/quota.rs#L609) |
-| normalize_quota_window | function_item |  | [616](../../src-tauri/src/antigravity/quota.rs#L616) |
-| format | macro invocation (unexpanded) | normalize_quota_window | [617](../../src-tauri/src/antigravity/quota.rs#L617) |
-| bucket_window_matches | function_item |  | [627](../../src-tauri/src/antigravity/quota.rs#L627) |
-| window_haystack_is_weekly | function_item |  | [631](../../src-tauri/src/antigravity/quota.rs#L631) |
-| window_haystack_is_five_hour | function_item |  | [642](../../src-tauri/src/antigravity/quota.rs#L642) |
-| tier_field_value | function_item |  | [651](../../src-tauri/src/antigravity/quota.rs#L651) |
-| extract_tier_from_key | function_item |  | [662](../../src-tauri/src/antigravity/quota.rs#L662) |
-| is_ineligible | function_item |  | [674](../../src-tauri/src/antigravity/quota.rs#L674) |
-| extract_default_allowed_tier | function_item |  | [681](../../src-tauri/src/antigravity/quota.rs#L681) |
-| format | macro invocation (unexpanded) | extract_default_allowed_tier | [691](../../src-tauri/src/antigravity/quota.rs#L691) |
-| extract_tier | function_item |  | [696](../../src-tauri/src/antigravity/quota.rs#L696) |
-| log::info | macro invocation (unexpanded) | extract_tier | [699](../../src-tauri/src/antigravity/quota.rs#L699) |
-| log::info | macro invocation (unexpanded) | extract_tier | [708](../../src-tauri/src/antigravity/quota.rs#L708) |
-| log::info | macro invocation (unexpanded) | extract_tier | [713](../../src-tauri/src/antigravity/quota.rs#L713) |
-| normalize_tier_label | function_item |  | [722](../../src-tauri/src/antigravity/quota.rs#L722) |
-| fetch_models_quota | function_item |  | [741](../../src-tauri/src/antigravity/quota.rs#L741) |
-| json | macro invocation (unexpanded) | fetch_models_quota | [749](../../src-tauri/src/antigravity/quota.rs#L749) |
-| json | macro invocation (unexpanded) | fetch_models_quota | [751](../../src-tauri/src/antigravity/quota.rs#L751) |
-| json | macro invocation (unexpanded) | fetch_models_quota | [772](../../src-tauri/src/antigravity/quota.rs#L772) |
-| format | macro invocation (unexpanded) | fetch_models_quota | [781](../../src-tauri/src/antigravity/quota.rs#L781) |
+| QUOTA_CONNECT_SECS | const_item |  | [16](../../src-tauri/src/antigravity/quota.rs#L16) |
+| QUOTA_TIMEOUT_SECS | const_item |  | [17](../../src-tauri/src/antigravity/quota.rs#L17) |
+| MODELS_ENDPOINTS | const_item |  | [19](../../src-tauri/src/antigravity/quota.rs#L19) |
+| SUMMARY_ENDPOINTS | const_item |  | [25](../../src-tauri/src/antigravity/quota.rs#L25) |
+| PROJECT_ENDPOINTS | const_item |  | [31](../../src-tauri/src/antigravity/quota.rs#L31) |
+| ONBOARD_ENDPOINTS | const_item |  | [37](../../src-tauri/src/antigravity/quota.rs#L37) |
+| QuotaBucket | struct_item |  | [45](../../src-tauri/src/antigravity/quota.rs#L45) |
+| bucket_id | field_declaration | QuotaBucket | [46](../../src-tauri/src/antigravity/quota.rs#L46) |
+| window | field_declaration | QuotaBucket | [48](../../src-tauri/src/antigravity/quota.rs#L48) |
+| remaining_fraction | field_declaration | QuotaBucket | [50](../../src-tauri/src/antigravity/quota.rs#L50) |
+| reset_time | field_declaration | QuotaBucket | [51](../../src-tauri/src/antigravity/quota.rs#L51) |
+| display_name | field_declaration | QuotaBucket | [53](../../src-tauri/src/antigravity/quota.rs#L53) |
+| QuotaGroup | struct_item |  | [58](../../src-tauri/src/antigravity/quota.rs#L58) |
+| display_name | field_declaration | QuotaGroup | [59](../../src-tauri/src/antigravity/quota.rs#L59) |
+| buckets | field_declaration | QuotaGroup | [61](../../src-tauri/src/antigravity/quota.rs#L61) |
+| ModelQuota | struct_item |  | [66](../../src-tauri/src/antigravity/quota.rs#L66) |
+| name | field_declaration | ModelQuota | [67](../../src-tauri/src/antigravity/quota.rs#L67) |
+| percentage | field_declaration | ModelQuota | [69](../../src-tauri/src/antigravity/quota.rs#L69) |
+| reset_time | field_declaration | ModelQuota | [70](../../src-tauri/src/antigravity/quota.rs#L70) |
+| display_name | field_declaration | ModelQuota | [72](../../src-tauri/src/antigravity/quota.rs#L72) |
+| QuotaSnapshot | struct_item |  | [77](../../src-tauri/src/antigravity/quota.rs#L77) |
+| models | field_declaration | QuotaSnapshot | [79](../../src-tauri/src/antigravity/quota.rs#L79) |
+| groups | field_declaration | QuotaSnapshot | [81](../../src-tauri/src/antigravity/quota.rs#L81) |
+| last_updated | field_declaration | QuotaSnapshot | [82](../../src-tauri/src/antigravity/quota.rs#L82) |
+| is_forbidden | field_declaration | QuotaSnapshot | [84](../../src-tauri/src/antigravity/quota.rs#L84) |
+| forbidden_reason | field_declaration | QuotaSnapshot | [86](../../src-tauri/src/antigravity/quota.rs#L86) |
+| subscription_tier | field_declaration | QuotaSnapshot | [88](../../src-tauri/src/antigravity/quota.rs#L88) |
+| QuotaSnapshot | impl |  | [91](../../src-tauri/src/antigravity/quota.rs#L91) |
+| empty_forbidden | function_item | QuotaSnapshot | [92](../../src-tauri/src/antigravity/quota.rs#L92) |
+| best_remaining_fraction | function_item | QuotaSnapshot | [102](../../src-tauri/src/antigravity/quota.rs#L102) |
+| remaining_hint_percent | function_item | QuotaSnapshot | [111](../../src-tauri/src/antigravity/quota.rs#L111) |
+| window_percent | function_item | QuotaSnapshot | [137](../../src-tauri/src/antigravity/quota.rs#L137) |
+| gemini_window_percent | function_item | QuotaSnapshot | [147](../../src-tauri/src/antigravity/quota.rs#L147) |
+| claude_window_percent | function_item | QuotaSnapshot | [152](../../src-tauri/src/antigravity/quota.rs#L152) |
+| group_window_percent | function_item | QuotaSnapshot | [156](../../src-tauri/src/antigravity/quota.rs#L156) |
+| has_usable_quota | function_item | QuotaSnapshot | [180](../../src-tauri/src/antigravity/quota.rs#L180) |
+| family_window_percent | function_item | QuotaSnapshot | [190](../../src-tauri/src/antigravity/quota.rs#L190) |
+| remaining_hint_for_family | function_item | QuotaSnapshot | [198](../../src-tauri/src/antigravity/quota.rs#L198) |
+| remaining_fraction_for_family | function_item | QuotaSnapshot | [206](../../src-tauri/src/antigravity/quota.rs#L206) |
+| has_usable_quota_for_family | function_item | QuotaSnapshot | [217](../../src-tauri/src/antigravity/quota.rs#L217) |
+| retain_groups_if_empty | function_item | QuotaSnapshot | [233](../../src-tauri/src/antigravity/quota.rs#L233) |
+| ProjectMeta | struct_item |  | [246](../../src-tauri/src/antigravity/quota.rs#L246) |
+| project_id | field_declaration | ProjectMeta | [247](../../src-tauri/src/antigravity/quota.rs#L247) |
+| subscription_tier | field_declaration | ProjectMeta | [248](../../src-tauri/src/antigravity/quota.rs#L248) |
+| resolve_project_id | function_item |  | [253](../../src-tauri/src/antigravity/quota.rs#L253) |
+| fetch_quota | function_item |  | [264](../../src-tauri/src/antigravity/quota.rs#L264) |
+| tokio::join | macro invocation (unexpanded) | fetch_quota | [280](../../src-tauri/src/antigravity/quota.rs#L280) |
+| tokio::join | macro invocation (unexpanded) | fetch_quota | [292](../../src-tauri/src/antigravity/quota.rs#L292) |
+| fetch_project_meta | function_item |  | [326](../../src-tauri/src/antigravity/quota.rs#L326) |
+| json | macro invocation (unexpanded) | fetch_project_meta | [331](../../src-tauri/src/antigravity/quota.rs#L331) |
+| log::warn | macro invocation (unexpanded) | fetch_project_meta | [343](../../src-tauri/src/antigravity/quota.rs#L343) |
+| log::warn | macro invocation (unexpanded) | fetch_project_meta | [350](../../src-tauri/src/antigravity/quota.rs#L350) |
+| log::info | macro invocation (unexpanded) | fetch_project_meta | [369](../../src-tauri/src/antigravity/quota.rs#L369) |
+| extract_cloudaicompanion_project | function_item |  | [382](../../src-tauri/src/antigravity/quota.rs#L382) |
+| extract_project_from_onboard | function_item |  | [410](../../src-tauri/src/antigravity/quota.rs#L410) |
+| normalize_project_id | function_item |  | [417](../../src-tauri/src/antigravity/quota.rs#L417) |
+| default_onboard_tier_id | function_item |  | [424](../../src-tauri/src/antigravity/quota.rs#L424) |
+| extract_tier_id_from_key | function_item |  | [440](../../src-tauri/src/antigravity/quota.rs#L440) |
+| tier_id_value | function_item |  | [444](../../src-tauri/src/antigravity/quota.rs#L444) |
+| onboard_user_project | function_item |  | [459](../../src-tauri/src/antigravity/quota.rs#L459) |
+| log::info | macro invocation (unexpanded) | onboard_user_project | [466](../../src-tauri/src/antigravity/quota.rs#L466) |
+| json | macro invocation (unexpanded) | onboard_user_project | [467](../../src-tauri/src/antigravity/quota.rs#L467) |
+| log::warn | macro invocation (unexpanded) | onboard_user_project | [487](../../src-tauri/src/antigravity/quota.rs#L487) |
+| log::warn | macro invocation (unexpanded) | onboard_user_project | [495](../../src-tauri/src/antigravity/quota.rs#L495) |
+| log::warn | macro invocation (unexpanded) | onboard_user_project | [502](../../src-tauri/src/antigravity/quota.rs#L502) |
+| log::info | macro invocation (unexpanded) | onboard_user_project | [509](../../src-tauri/src/antigravity/quota.rs#L509) |
+| log::warn | macro invocation (unexpanded) | onboard_user_project | [514](../../src-tauri/src/antigravity/quota.rs#L514) |
+| log::info | macro invocation (unexpanded) | onboard_user_project | [517](../../src-tauri/src/antigravity/quota.rs#L517) |
+| QuotaFamily | enum_item |  | [525](../../src-tauri/src/antigravity/quota.rs#L525) |
+| Gemini | enum_variant | QuotaFamily | [526](../../src-tauri/src/antigravity/quota.rs#L526) |
+| ClaudeGpt | enum_variant | QuotaFamily | [527](../../src-tauri/src/antigravity/quota.rs#L527) |
+| quota_family_from_model | function_item |  | [530](../../src-tauri/src/antigravity/quota.rs#L530) |
+| group_looks_gemini | function_item |  | [539](../../src-tauri/src/antigravity/quota.rs#L539) |
+| default_allowed_model_patterns | function_item |  | [543](../../src-tauri/src/antigravity/quota.rs#L543) |
+| vec | macro invocation (unexpanded) | default_allowed_model_patterns | [548](../../src-tauri/src/antigravity/quota.rs#L548) |
+| vec | macro invocation (unexpanded) | default_allowed_model_patterns | [558](../../src-tauri/src/antigravity/quota.rs#L558) |
+| model_id_for_access_match | function_item |  | [562](../../src-tauri/src/antigravity/quota.rs#L562) |
+| model_pattern_matches | function_item |  | [572](../../src-tauri/src/antigravity/quota.rs#L572) |
+| bucket_looks_gemini | function_item |  | [600](../../src-tauri/src/antigravity/quota.rs#L600) |
+| bucket_looks_claude_gpt | function_item |  | [605](../../src-tauri/src/antigravity/quota.rs#L605) |
+| normalize_quota_window | function_item |  | [612](../../src-tauri/src/antigravity/quota.rs#L612) |
+| format | macro invocation (unexpanded) | normalize_quota_window | [613](../../src-tauri/src/antigravity/quota.rs#L613) |
+| bucket_window_matches | function_item |  | [623](../../src-tauri/src/antigravity/quota.rs#L623) |
+| window_haystack_is_weekly | function_item |  | [627](../../src-tauri/src/antigravity/quota.rs#L627) |
+| window_haystack_is_five_hour | function_item |  | [638](../../src-tauri/src/antigravity/quota.rs#L638) |
+| tier_field_value | function_item |  | [647](../../src-tauri/src/antigravity/quota.rs#L647) |
+| extract_tier_from_key | function_item |  | [658](../../src-tauri/src/antigravity/quota.rs#L658) |
+| is_ineligible | function_item |  | [670](../../src-tauri/src/antigravity/quota.rs#L670) |
+| extract_default_allowed_tier | function_item |  | [677](../../src-tauri/src/antigravity/quota.rs#L677) |
+| format | macro invocation (unexpanded) | extract_default_allowed_tier | [687](../../src-tauri/src/antigravity/quota.rs#L687) |
+| extract_tier | function_item |  | [692](../../src-tauri/src/antigravity/quota.rs#L692) |
+| log::info | macro invocation (unexpanded) | extract_tier | [695](../../src-tauri/src/antigravity/quota.rs#L695) |
+| log::info | macro invocation (unexpanded) | extract_tier | [704](../../src-tauri/src/antigravity/quota.rs#L704) |
+| log::info | macro invocation (unexpanded) | extract_tier | [709](../../src-tauri/src/antigravity/quota.rs#L709) |
+| normalize_tier_label | function_item |  | [718](../../src-tauri/src/antigravity/quota.rs#L718) |
+| fetch_models_quota | function_item |  | [737](../../src-tauri/src/antigravity/quota.rs#L737) |
+| json | macro invocation (unexpanded) | fetch_models_quota | [745](../../src-tauri/src/antigravity/quota.rs#L745) |
+| json | macro invocation (unexpanded) | fetch_models_quota | [747](../../src-tauri/src/antigravity/quota.rs#L747) |
+| json | macro invocation (unexpanded) | fetch_models_quota | [768](../../src-tauri/src/antigravity/quota.rs#L768) |
+| format | macro invocation (unexpanded) | fetch_models_quota | [777](../../src-tauri/src/antigravity/quota.rs#L777) |

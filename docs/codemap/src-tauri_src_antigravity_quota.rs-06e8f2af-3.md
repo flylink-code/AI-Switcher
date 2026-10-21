@@ -4,38 +4,38 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/quota.rs) · page 3/3
 
-Source SHA-256: 5697e3196f59ea44d55a21993d4a72f2f3eb751403f253cc8ecf9a24e80de25b
+Source SHA-256: 56a8611baf07bdbd0425fad08893b988e14ae43afc3d959327672e6f329e6042
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| vec | macro invocation (unexpanded) | tests::family_bars | [1409](../../src-tauri/src/antigravity/quota.rs#L1409) |
-| quota_family_from_model_splits_gemini_and_claude | function_item | tests | [1454](../../src-tauri/src/antigravity/quota.rs#L1454) |
+| vec | macro invocation (unexpanded) | tests::family_bars | [1405](../../src-tauri/src/antigravity/quota.rs#L1405) |
+| quota_family_from_model_splits_gemini_and_claude | function_item | tests | [1450](../../src-tauri/src/antigravity/quota.rs#L1450) |
+| assert_eq | macro invocation (unexpanded) | tests::quota_family_from_model_splits_gemini_and_claude | [1451](../../src-tauri/src/antigravity/quota.rs#L1451) |
 | assert_eq | macro invocation (unexpanded) | tests::quota_family_from_model_splits_gemini_and_claude | [1455](../../src-tauri/src/antigravity/quota.rs#L1455) |
 | assert_eq | macro invocation (unexpanded) | tests::quota_family_from_model_splits_gemini_and_claude | [1459](../../src-tauri/src/antigravity/quota.rs#L1459) |
-| assert_eq | macro invocation (unexpanded) | tests::quota_family_from_model_splits_gemini_and_claude | [1463](../../src-tauri/src/antigravity/quota.rs#L1463) |
-| family_quota_ignores_the_other_bucket | function_item | tests | [1467](../../src-tauri/src/antigravity/quota.rs#L1467) |
-| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1469](../../src-tauri/src/antigravity/quota.rs#L1469) |
-| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1470](../../src-tauri/src/antigravity/quota.rs#L1470) |
-| assert_eq | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1471](../../src-tauri/src/antigravity/quota.rs#L1471) |
-| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1477](../../src-tauri/src/antigravity/quota.rs#L1477) |
-| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1478](../../src-tauri/src/antigravity/quota.rs#L1478) |
-| assert_eq | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1479](../../src-tauri/src/antigravity/quota.rs#L1479) |
-| unknown_family_bars_remain_usable | function_item | tests | [1486](../../src-tauri/src/antigravity/quota.rs#L1486) |
-| assert | macro invocation (unexpanded) | tests::unknown_family_bars_remain_usable | [1488](../../src-tauri/src/antigravity/quota.rs#L1488) |
-| assert | macro invocation (unexpanded) | tests::unknown_family_bars_remain_usable | [1489](../../src-tauri/src/antigravity/quota.rs#L1489) |
-| gemini_five_hour_empty_is_unusable_while_weekly_remains | function_item | tests | [1493](../../src-tauri/src/antigravity/quota.rs#L1493) |
-| assert | macro invocation (unexpanded) | tests::gemini_five_hour_empty_is_unusable_while_weekly_remains | [1495](../../src-tauri/src/antigravity/quota.rs#L1495) |
-| assert | macro invocation (unexpanded) | tests::gemini_five_hour_empty_is_unusable_while_weekly_remains | [1496](../../src-tauri/src/antigravity/quota.rs#L1496) |
-| gemini_weekly_empty_is_unusable_even_if_five_hour_remains | function_item | tests | [1500](../../src-tauri/src/antigravity/quota.rs#L1500) |
-| assert | macro invocation (unexpanded) | tests::gemini_weekly_empty_is_unusable_even_if_five_hour_remains | [1502](../../src-tauri/src/antigravity/quota.rs#L1502) |
-| assert | macro invocation (unexpanded) | tests::gemini_weekly_empty_is_unusable_even_if_five_hour_remains | [1503](../../src-tauri/src/antigravity/quota.rs#L1503) |
-| family_becomes_usable_again_after_bars_recover | function_item | tests | [1507](../../src-tauri/src/antigravity/quota.rs#L1507) |
-| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1509](../../src-tauri/src/antigravity/quota.rs#L1509) |
-| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1511](../../src-tauri/src/antigravity/quota.rs#L1511) |
-| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1514](../../src-tauri/src/antigravity/quota.rs#L1514) |
-| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1516](../../src-tauri/src/antigravity/quota.rs#L1516) |
-| single_known_window_must_be_positive | function_item | tests | [1520](../../src-tauri/src/antigravity/quota.rs#L1520) |
-| vec | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1523](../../src-tauri/src/antigravity/quota.rs#L1523) |
-| assert | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1535](../../src-tauri/src/antigravity/quota.rs#L1535) |
-| vec | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1539](../../src-tauri/src/antigravity/quota.rs#L1539) |
-| assert | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1551](../../src-tauri/src/antigravity/quota.rs#L1551) |
+| family_quota_ignores_the_other_bucket | function_item | tests | [1463](../../src-tauri/src/antigravity/quota.rs#L1463) |
+| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1465](../../src-tauri/src/antigravity/quota.rs#L1465) |
+| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1466](../../src-tauri/src/antigravity/quota.rs#L1466) |
+| assert_eq | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1467](../../src-tauri/src/antigravity/quota.rs#L1467) |
+| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1473](../../src-tauri/src/antigravity/quota.rs#L1473) |
+| assert | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1474](../../src-tauri/src/antigravity/quota.rs#L1474) |
+| assert_eq | macro invocation (unexpanded) | tests::family_quota_ignores_the_other_bucket | [1475](../../src-tauri/src/antigravity/quota.rs#L1475) |
+| unknown_family_bars_remain_usable | function_item | tests | [1482](../../src-tauri/src/antigravity/quota.rs#L1482) |
+| assert | macro invocation (unexpanded) | tests::unknown_family_bars_remain_usable | [1484](../../src-tauri/src/antigravity/quota.rs#L1484) |
+| assert | macro invocation (unexpanded) | tests::unknown_family_bars_remain_usable | [1485](../../src-tauri/src/antigravity/quota.rs#L1485) |
+| gemini_five_hour_empty_is_unusable_while_weekly_remains | function_item | tests | [1489](../../src-tauri/src/antigravity/quota.rs#L1489) |
+| assert | macro invocation (unexpanded) | tests::gemini_five_hour_empty_is_unusable_while_weekly_remains | [1491](../../src-tauri/src/antigravity/quota.rs#L1491) |
+| assert | macro invocation (unexpanded) | tests::gemini_five_hour_empty_is_unusable_while_weekly_remains | [1492](../../src-tauri/src/antigravity/quota.rs#L1492) |
+| gemini_weekly_empty_is_unusable_even_if_five_hour_remains | function_item | tests | [1496](../../src-tauri/src/antigravity/quota.rs#L1496) |
+| assert | macro invocation (unexpanded) | tests::gemini_weekly_empty_is_unusable_even_if_five_hour_remains | [1498](../../src-tauri/src/antigravity/quota.rs#L1498) |
+| assert | macro invocation (unexpanded) | tests::gemini_weekly_empty_is_unusable_even_if_five_hour_remains | [1499](../../src-tauri/src/antigravity/quota.rs#L1499) |
+| family_becomes_usable_again_after_bars_recover | function_item | tests | [1503](../../src-tauri/src/antigravity/quota.rs#L1503) |
+| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1505](../../src-tauri/src/antigravity/quota.rs#L1505) |
+| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1507](../../src-tauri/src/antigravity/quota.rs#L1507) |
+| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1510](../../src-tauri/src/antigravity/quota.rs#L1510) |
+| assert | macro invocation (unexpanded) | tests::family_becomes_usable_again_after_bars_recover | [1512](../../src-tauri/src/antigravity/quota.rs#L1512) |
+| single_known_window_must_be_positive | function_item | tests | [1516](../../src-tauri/src/antigravity/quota.rs#L1516) |
+| vec | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1519](../../src-tauri/src/antigravity/quota.rs#L1519) |
+| assert | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1531](../../src-tauri/src/antigravity/quota.rs#L1531) |
+| vec | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1535](../../src-tauri/src/antigravity/quota.rs#L1535) |
+| assert | macro invocation (unexpanded) | tests::single_known_window_must_be_positive | [1547](../../src-tauri/src/antigravity/quota.rs#L1547) |
