@@ -9,7 +9,9 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 use crate::backup::backup_file_named;
-use crate::config::{get_home_dir, read_json_file, write_json_file};
+#[cfg(any(windows, target_os = "macos"))]
+use crate::config::get_home_dir;
+use crate::config::{read_json_file, write_json_file};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
