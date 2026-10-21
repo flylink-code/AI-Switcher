@@ -52,12 +52,9 @@ impl ClaudeDesktopPaths {
 }
 
 /// Whether Claude Desktop config management is supported on this OS.
+/// Linux is intentionally excluded: the Ubuntu build hides Claude Desktop.
 pub fn is_supported_platform() -> bool {
-    cfg!(any(
-        target_os = "windows",
-        target_os = "macos",
-        target_os = "linux"
-    ))
+    cfg!(any(target_os = "windows", target_os = "macos"))
 }
 
 /// Resolve platform paths. On supported platforms this always returns concrete
@@ -74,12 +71,6 @@ pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
         paths_from_dirs(app_support.join("Claude"), app_support.join("Claude-3p"))
     }
 
-    #[cfg(target_os = "linux")]
-    {
-        let config = linux_config_home();
-        paths_from_dirs(config.join("Claude"), config.join("Claude-3p"))
-    }
-
     #[cfg(windows)]
     {
         let local_app_data = windows_local_app_data_dir();
@@ -91,19 +82,8 @@ pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
         paths_from_dirs(normal_dir, threep_dir)
     }
 
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     ClaudeDesktopPaths::unsupported()
-}
-
-#[cfg(target_os = "linux")]
-fn linux_config_home() -> PathBuf {
-    if crate::config::paths::test_isolation_enabled() {
-        return get_home_dir().join(".config");
-    }
-    std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .filter(|path| !path.as_os_str().is_empty())
-        .unwrap_or_else(|| get_home_dir().join(".config"))
 }
 
 #[cfg(windows)]

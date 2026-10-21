@@ -10,7 +10,7 @@
 | --- | ---: | --- |
 | [src-tauri/src/config/atomic.rs](../../src-tauri/src/config/atomic.rs) | 44 | [1](src-tauri_src_config_atomic.rs-82575591-1.md) |
 | [src-tauri/src/config/claude_code.rs](../../src-tauri/src/config/claude_code.rs) | 217 | [1](src-tauri_src_config_claude_code.rs-bc16b90a-1.md) [2](src-tauri_src_config_claude_code.rs-bc16b90a-2.md) [3](src-tauri_src_config_claude_code.rs-bc16b90a-3.md) |
-| [src-tauri/src/config/claude_desktop.rs](../../src-tauri/src/config/claude_desktop.rs) | 171 | [1](src-tauri_src_config_claude_desktop.rs-5c281339-1.md) [2](src-tauri_src_config_claude_desktop.rs-5c281339-2.md) |
+| [src-tauri/src/config/claude_desktop.rs](../../src-tauri/src/config/claude_desktop.rs) | 170 | [1](src-tauri_src_config_claude_desktop.rs-5c281339-1.md) [2](src-tauri_src_config_claude_desktop.rs-5c281339-2.md) |
 | [src-tauri/src/config/cline.rs](../../src-tauri/src/config/cline.rs) | 35 | [1](src-tauri_src_config_cline.rs-90a1a3a5-1.md) |
 | [src-tauri/src/config/codex.rs](../../src-tauri/src/config/codex.rs) | 269 | [1](src-tauri_src_config_codex.rs-b1b3d74c-1.md) [2](src-tauri_src_config_codex.rs-b1b3d74c-2.md) [3](src-tauri_src_config_codex.rs-b1b3d74c-3.md) |
 | [src-tauri/src/config/codex_provider_sync.rs](../../src-tauri/src/config/codex_provider_sync.rs) | 102 | [1](src-tauri_src_config_codex_provider_sync.rs-55d00b72-1.md) [2](src-tauri_src_config_codex_provider_sync.rs-55d00b72-2.md) |

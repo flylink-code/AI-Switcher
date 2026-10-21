@@ -4,107 +4,107 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/gateway/handlers.rs) · page 2/3
 
-Source SHA-256: 899f974e31bf0aa41441c0b1c901ca7f23fbe0f302c25bb99f396eee7e21b2a9
+Source SHA-256: 005f04e3985029ed995135a629f5fab5bc130227b6e15addc6bcf9145631653a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| Drop for StreamState | impl |  | [1451](../../src-tauri/src/antigravity/gateway/handlers.rs#L1451) |
-| drop | function_item | Drop for StreamState | [1452](../../src-tauri/src/antigravity/gateway/handlers.rs#L1452) |
-| log::info | macro invocation (unexpanded) | Drop for StreamState::drop | [1454](../../src-tauri/src/antigravity/gateway/handlers.rs#L1454) |
-| SseLineBuffer | struct_item |  | [1468](../../src-tauri/src/antigravity/gateway/handlers.rs#L1468) |
-| bytes | field_declaration | SseLineBuffer | [1469](../../src-tauri/src/antigravity/gateway/handlers.rs#L1469) |
-| SseLineBuffer | impl |  | [1472](../../src-tauri/src/antigravity/gateway/handlers.rs#L1472) |
-| new | function_item | SseLineBuffer | [1473](../../src-tauri/src/antigravity/gateway/handlers.rs#L1473) |
-| push | function_item | SseLineBuffer | [1477](../../src-tauri/src/antigravity/gateway/handlers.rs#L1477) |
-| take_line | function_item | SseLineBuffer | [1481](../../src-tauri/src/antigravity/gateway/handlers.rs#L1481) |
-| finish | function_item | SseLineBuffer | [1496](../../src-tauri/src/antigravity/gateway/handlers.rs#L1496) |
-| StreamState | struct_item |  | [1503](../../src-tauri/src/antigravity/gateway/handlers.rs#L1503) |
-| upstream | field_declaration | StreamState | [1504](../../src-tauri/src/antigravity/gateway/handlers.rs#L1504) |
-| buffer | field_declaration | StreamState | [1505](../../src-tauri/src/antigravity/gateway/handlers.rs#L1505) |
-| model | field_declaration | StreamState | [1506](../../src-tauri/src/antigravity/gateway/handlers.rs#L1506) |
-| protocol | field_declaration | StreamState | [1507](../../src-tauri/src/antigravity/gateway/handlers.rs#L1507) |
-| initial_flushed | field_declaration | StreamState | [1508](../../src-tauri/src/antigravity/gateway/handlers.rs#L1508) |
-| finished | field_declaration | StreamState | [1509](../../src-tauri/src/antigravity/gateway/handlers.rs#L1509) |
-| saw_finish | field_declaration | StreamState | [1510](../../src-tauri/src/antigravity/gateway/handlers.rs#L1510) |
-| anthropic | field_declaration | StreamState | [1512](../../src-tauri/src/antigravity/gateway/handlers.rs#L1512) |
-| openai_chat | field_declaration | StreamState | [1514](../../src-tauri/src/antigravity/gateway/handlers.rs#L1514) |
-| db | field_declaration | StreamState | [1515](../../src-tauri/src/antigravity/gateway/handlers.rs#L1515) |
-| log_id | field_declaration | StreamState | [1516](../../src-tauri/src/antigravity/gateway/handlers.rs#L1516) |
-| account_id | field_declaration | StreamState | [1517](../../src-tauri/src/antigravity/gateway/handlers.rs#L1517) |
-| session_key | field_declaration | StreamState | [1518](../../src-tauri/src/antigravity/gateway/handlers.rs#L1518) |
-| thoughts_allowed | field_declaration | StreamState | [1519](../../src-tauri/src/antigravity/gateway/handlers.rs#L1519) |
-| tool_params | field_declaration | StreamState | [1521](../../src-tauri/src/antigravity/gateway/handlers.rs#L1521) |
-| last_input | field_declaration | StreamState | [1522](../../src-tauri/src/antigravity/gateway/handlers.rs#L1522) |
-| last_output | field_declaration | StreamState | [1523](../../src-tauri/src/antigravity/gateway/handlers.rs#L1523) |
-| last_cached | field_declaration | StreamState | [1524](../../src-tauri/src/antigravity/gateway/handlers.rs#L1524) |
-| usage_flushed | field_declaration | StreamState | [1525](../../src-tauri/src/antigravity/gateway/handlers.rs#L1525) |
-| responses_encoder | field_declaration | StreamState | [1526](../../src-tauri/src/antigravity/gateway/handlers.rs#L1526) |
-| _limiter_permit | field_declaration | StreamState | [1527](../../src-tauri/src/antigravity/gateway/handlers.rs#L1527) |
-| StreamState | impl |  | [1530](../../src-tauri/src/antigravity/gateway/handlers.rs#L1530) |
-| note_usage | function_item | StreamState | [1531](../../src-tauri/src/antigravity/gateway/handlers.rs#L1531) |
-| flush_usage | function_item | StreamState | [1544](../../src-tauri/src/antigravity/gateway/handlers.rs#L1544) |
-| flush_usage_with_outcome | function_item | StreamState | [1548](../../src-tauri/src/antigravity/gateway/handlers.rs#L1548) |
-| take_initial_event | function_item | StreamState | [1581](../../src-tauri/src/antigravity/gateway/handlers.rs#L1581) |
-| take_line_event | function_item | StreamState | [1604](../../src-tauri/src/antigravity/gateway/handlers.rs#L1604) |
-| finish_events | function_item | StreamState | [1676](../../src-tauri/src/antigravity/gateway/handlers.rs#L1676) |
-| format | macro invocation (unexpanded) | StreamState::finish_events | [1697](../../src-tauri/src/antigravity/gateway/handlers.rs#L1697) |
-| sse_data | function_item |  | [1720](../../src-tauri/src/antigravity/gateway/handlers.rs#L1720) |
-| format | macro invocation (unexpanded) | sse_data | [1721](../../src-tauri/src/antigravity/gateway/handlers.rs#L1721) |
-| anthropic_sse | function_item |  | [1727](../../src-tauri/src/antigravity/gateway/handlers.rs#L1727) |
-| format | macro invocation (unexpanded) | anthropic_sse | [1732](../../src-tauri/src/antigravity/gateway/handlers.rs#L1732) |
-| session_key_from_request | function_item |  | [1735](../../src-tauri/src/antigravity/gateway/handlers.rs#L1735) |
-| format | macro invocation (unexpanded) | session_key_from_request | [1760](../../src-tauri/src/antigravity/gateway/handlers.rs#L1760) |
-| format | macro invocation (unexpanded) | session_key_from_request | [1761](../../src-tauri/src/antigravity/gateway/handlers.rs#L1761) |
-| format | macro invocation (unexpanded) | session_key_from_request | [1778](../../src-tauri/src/antigravity/gateway/handlers.rs#L1778) |
-| format | macro invocation (unexpanded) | session_key_from_request | [1779](../../src-tauri/src/antigravity/gateway/handlers.rs#L1779) |
-| is_subagent_request | function_item |  | [1787](../../src-tauri/src/antigravity/gateway/handlers.rs#L1787) |
-| retry_deadline_for | function_item |  | [1801](../../src-tauri/src/antigravity/gateway/handlers.rs#L1801) |
-| past_retry_deadline | function_item |  | [1811](../../src-tauri/src/antigravity/gateway/handlers.rs#L1811) |
-| remaining_until | function_item |  | [1815](../../src-tauri/src/antigravity/gateway/handlers.rs#L1815) |
-| upstream_attempt_timeout_for | function_item |  | [1821](../../src-tauri/src/antigravity/gateway/handlers.rs#L1821) |
-| mark_retry_budget_exhausted | function_item |  | [1831](../../src-tauri/src/antigravity/gateway/handlers.rs#L1831) |
-| format | macro invocation (unexpanded) | mark_retry_budget_exhausted | [1839](../../src-tauri/src/antigravity/gateway/handlers.rs#L1839) |
-| should_treat_as_subagent | function_item |  | [1844](../../src-tauri/src/antigravity/gateway/handlers.rs#L1844) |
-| is_short_anthropic_payload | function_item |  | [1861](../../src-tauri/src/antigravity/gateway/handlers.rs#L1861) |
-| authorize | function_item |  | [1873](../../src-tauri/src/antigravity/gateway/handlers.rs#L1873) |
-| is_request_body_status | function_item |  | [1905](../../src-tauri/src/antigravity/gateway/handlers.rs#L1905) |
-| matches | macro invocation (unexpanded) | is_request_body_status | [1906](../../src-tauri/src/antigravity/gateway/handlers.rs#L1906) |
-| claude_55_entitlement_denied | function_item |  | [1911](../../src-tauri/src/antigravity/gateway/handlers.rs#L1911) |
-| should_cool_account_on_generate_error | function_item |  | [1928](../../src-tauri/src/antigravity/gateway/handlers.rs#L1928) |
-| matches | macro invocation (unexpanded) | should_cool_account_on_generate_error | [1929](../../src-tauri/src/antigravity/gateway/handlers.rs#L1929) |
-| dispatch_error_category | function_item |  | [1932](../../src-tauri/src/antigravity/gateway/handlers.rs#L1932) |
-| fail_status_from_message | function_item |  | [1948](../../src-tauri/src/antigravity/gateway/handlers.rs#L1948) |
-| should_try_model_fallback_on_429 | function_item |  | [1958](../../src-tauri/src/antigravity/gateway/handlers.rs#L1958) |
-| matches | macro invocation (unexpanded) | should_try_model_fallback_on_429 | [1959](../../src-tauri/src/antigravity/gateway/handlers.rs#L1959) |
-| should_stop_pool_walk_after_429 | function_item |  | [1962](../../src-tauri/src/antigravity/gateway/handlers.rs#L1962) |
-| client_status_from_dispatch | function_item |  | [1966](../../src-tauri/src/antigravity/gateway/handlers.rs#L1966) |
-| matches | macro invocation (unexpanded) | client_status_from_dispatch | [1977](../../src-tauri/src/antigravity/gateway/handlers.rs#L1977) |
-| client_status_from_upstream_error | function_item |  | [1983](../../src-tauri/src/antigravity/gateway/handlers.rs#L1983) |
-| looks_like_rate_limit | function_item |  | [2009](../../src-tauri/src/antigravity/gateway/handlers.rs#L2009) |
-| looks_like_http_status | function_item |  | [2018](../../src-tauri/src/antigravity/gateway/handlers.rs#L2018) |
-| format | macro invocation (unexpanded) | looks_like_http_status | [2020](../../src-tauri/src/antigravity/gateway/handlers.rs#L2020) |
-| format | macro invocation (unexpanded) | looks_like_http_status | [2024](../../src-tauri/src/antigravity/gateway/handlers.rs#L2024) |
-| matches | macro invocation (unexpanded) | looks_like_http_status | [2030](../../src-tauri/src/antigravity/gateway/handlers.rs#L2030) |
-| error_type_for_status | function_item |  | [2036](../../src-tauri/src/antigravity/gateway/handlers.rs#L2036) |
-| retry_after_header | function_item |  | [2048](../../src-tauri/src/antigravity/gateway/handlers.rs#L2048) |
-| error_json | function_item |  | [2057](../../src-tauri/src/antigravity/gateway/handlers.rs#L2057) |
-| error_json_with_retry_after | function_item |  | [2061](../../src-tauri/src/antigravity/gateway/handlers.rs#L2061) |
-| json | macro invocation (unexpanded) | error_json_with_retry_after | [2068](../../src-tauri/src/antigravity/gateway/handlers.rs#L2068) |
-| tests | mod_item |  | [2094](../../src-tauri/src/antigravity/gateway/handlers.rs#L2094) |
-| anthropic_envelope_prefers_client_model_header | function_item | tests | [2099](../../src-tauri/src/antigravity/gateway/handlers.rs#L2099) |
-| json | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2105](../../src-tauri/src/antigravity/gateway/handlers.rs#L2105) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2106](../../src-tauri/src/antigravity/gateway/handlers.rs#L2106) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2107](../../src-tauri/src/antigravity/gateway/handlers.rs#L2107) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2115](../../src-tauri/src/antigravity/gateway/handlers.rs#L2115) |
-| direct_anthropic_request_keeps_payload_model | function_item | tests | [2126](../../src-tauri/src/antigravity/gateway/handlers.rs#L2126) |
-| json | macro invocation (unexpanded) | tests::direct_anthropic_request_keeps_payload_model | [2127](../../src-tauri/src/antigravity/gateway/handlers.rs#L2127) |
-| assert_eq | macro invocation (unexpanded) | tests::direct_anthropic_request_keeps_payload_model | [2128](../../src-tauri/src/antigravity/gateway/handlers.rs#L2128) |
-| anthropic_sse_includes_event_field_for_pi | function_item | tests | [2135](../../src-tauri/src/antigravity/gateway/handlers.rs#L2135) |
-| json | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2136](../../src-tauri/src/antigravity/gateway/handlers.rs#L2136) |
-| assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2142](../../src-tauri/src/antigravity/gateway/handlers.rs#L2142) |
-| assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2143](../../src-tauri/src/antigravity/gateway/handlers.rs#L2143) |
-| assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2144](../../src-tauri/src/antigravity/gateway/handlers.rs#L2144) |
+| Drop for StreamState | impl |  | [1454](../../src-tauri/src/antigravity/gateway/handlers.rs#L1454) |
+| drop | function_item | Drop for StreamState | [1455](../../src-tauri/src/antigravity/gateway/handlers.rs#L1455) |
+| log::info | macro invocation (unexpanded) | Drop for StreamState::drop | [1457](../../src-tauri/src/antigravity/gateway/handlers.rs#L1457) |
+| SseLineBuffer | struct_item |  | [1471](../../src-tauri/src/antigravity/gateway/handlers.rs#L1471) |
+| bytes | field_declaration | SseLineBuffer | [1472](../../src-tauri/src/antigravity/gateway/handlers.rs#L1472) |
+| SseLineBuffer | impl |  | [1475](../../src-tauri/src/antigravity/gateway/handlers.rs#L1475) |
+| new | function_item | SseLineBuffer | [1476](../../src-tauri/src/antigravity/gateway/handlers.rs#L1476) |
+| push | function_item | SseLineBuffer | [1480](../../src-tauri/src/antigravity/gateway/handlers.rs#L1480) |
+| take_line | function_item | SseLineBuffer | [1484](../../src-tauri/src/antigravity/gateway/handlers.rs#L1484) |
+| finish | function_item | SseLineBuffer | [1499](../../src-tauri/src/antigravity/gateway/handlers.rs#L1499) |
+| StreamState | struct_item |  | [1506](../../src-tauri/src/antigravity/gateway/handlers.rs#L1506) |
+| upstream | field_declaration | StreamState | [1507](../../src-tauri/src/antigravity/gateway/handlers.rs#L1507) |
+| buffer | field_declaration | StreamState | [1508](../../src-tauri/src/antigravity/gateway/handlers.rs#L1508) |
+| model | field_declaration | StreamState | [1509](../../src-tauri/src/antigravity/gateway/handlers.rs#L1509) |
+| protocol | field_declaration | StreamState | [1510](../../src-tauri/src/antigravity/gateway/handlers.rs#L1510) |
+| initial_flushed | field_declaration | StreamState | [1511](../../src-tauri/src/antigravity/gateway/handlers.rs#L1511) |
+| finished | field_declaration | StreamState | [1512](../../src-tauri/src/antigravity/gateway/handlers.rs#L1512) |
+| saw_finish | field_declaration | StreamState | [1513](../../src-tauri/src/antigravity/gateway/handlers.rs#L1513) |
+| anthropic | field_declaration | StreamState | [1515](../../src-tauri/src/antigravity/gateway/handlers.rs#L1515) |
+| openai_chat | field_declaration | StreamState | [1517](../../src-tauri/src/antigravity/gateway/handlers.rs#L1517) |
+| db | field_declaration | StreamState | [1518](../../src-tauri/src/antigravity/gateway/handlers.rs#L1518) |
+| log_id | field_declaration | StreamState | [1519](../../src-tauri/src/antigravity/gateway/handlers.rs#L1519) |
+| account_id | field_declaration | StreamState | [1520](../../src-tauri/src/antigravity/gateway/handlers.rs#L1520) |
+| session_key | field_declaration | StreamState | [1521](../../src-tauri/src/antigravity/gateway/handlers.rs#L1521) |
+| thoughts_allowed | field_declaration | StreamState | [1522](../../src-tauri/src/antigravity/gateway/handlers.rs#L1522) |
+| tool_params | field_declaration | StreamState | [1524](../../src-tauri/src/antigravity/gateway/handlers.rs#L1524) |
+| last_input | field_declaration | StreamState | [1525](../../src-tauri/src/antigravity/gateway/handlers.rs#L1525) |
+| last_output | field_declaration | StreamState | [1526](../../src-tauri/src/antigravity/gateway/handlers.rs#L1526) |
+| last_cached | field_declaration | StreamState | [1527](../../src-tauri/src/antigravity/gateway/handlers.rs#L1527) |
+| usage_flushed | field_declaration | StreamState | [1528](../../src-tauri/src/antigravity/gateway/handlers.rs#L1528) |
+| responses_encoder | field_declaration | StreamState | [1529](../../src-tauri/src/antigravity/gateway/handlers.rs#L1529) |
+| _limiter_permit | field_declaration | StreamState | [1530](../../src-tauri/src/antigravity/gateway/handlers.rs#L1530) |
+| StreamState | impl |  | [1533](../../src-tauri/src/antigravity/gateway/handlers.rs#L1533) |
+| note_usage | function_item | StreamState | [1534](../../src-tauri/src/antigravity/gateway/handlers.rs#L1534) |
+| flush_usage | function_item | StreamState | [1547](../../src-tauri/src/antigravity/gateway/handlers.rs#L1547) |
+| flush_usage_with_outcome | function_item | StreamState | [1551](../../src-tauri/src/antigravity/gateway/handlers.rs#L1551) |
+| take_initial_event | function_item | StreamState | [1584](../../src-tauri/src/antigravity/gateway/handlers.rs#L1584) |
+| take_line_event | function_item | StreamState | [1607](../../src-tauri/src/antigravity/gateway/handlers.rs#L1607) |
+| finish_events | function_item | StreamState | [1679](../../src-tauri/src/antigravity/gateway/handlers.rs#L1679) |
+| format | macro invocation (unexpanded) | StreamState::finish_events | [1700](../../src-tauri/src/antigravity/gateway/handlers.rs#L1700) |
+| sse_data | function_item |  | [1723](../../src-tauri/src/antigravity/gateway/handlers.rs#L1723) |
+| format | macro invocation (unexpanded) | sse_data | [1724](../../src-tauri/src/antigravity/gateway/handlers.rs#L1724) |
+| anthropic_sse | function_item |  | [1730](../../src-tauri/src/antigravity/gateway/handlers.rs#L1730) |
+| format | macro invocation (unexpanded) | anthropic_sse | [1735](../../src-tauri/src/antigravity/gateway/handlers.rs#L1735) |
+| session_key_from_request | function_item |  | [1738](../../src-tauri/src/antigravity/gateway/handlers.rs#L1738) |
+| format | macro invocation (unexpanded) | session_key_from_request | [1763](../../src-tauri/src/antigravity/gateway/handlers.rs#L1763) |
+| format | macro invocation (unexpanded) | session_key_from_request | [1764](../../src-tauri/src/antigravity/gateway/handlers.rs#L1764) |
+| format | macro invocation (unexpanded) | session_key_from_request | [1781](../../src-tauri/src/antigravity/gateway/handlers.rs#L1781) |
+| format | macro invocation (unexpanded) | session_key_from_request | [1782](../../src-tauri/src/antigravity/gateway/handlers.rs#L1782) |
+| is_subagent_request | function_item |  | [1790](../../src-tauri/src/antigravity/gateway/handlers.rs#L1790) |
+| retry_deadline_for | function_item |  | [1804](../../src-tauri/src/antigravity/gateway/handlers.rs#L1804) |
+| past_retry_deadline | function_item |  | [1814](../../src-tauri/src/antigravity/gateway/handlers.rs#L1814) |
+| remaining_until | function_item |  | [1818](../../src-tauri/src/antigravity/gateway/handlers.rs#L1818) |
+| upstream_attempt_timeout_for | function_item |  | [1824](../../src-tauri/src/antigravity/gateway/handlers.rs#L1824) |
+| mark_retry_budget_exhausted | function_item |  | [1834](../../src-tauri/src/antigravity/gateway/handlers.rs#L1834) |
+| format | macro invocation (unexpanded) | mark_retry_budget_exhausted | [1842](../../src-tauri/src/antigravity/gateway/handlers.rs#L1842) |
+| should_treat_as_subagent | function_item |  | [1847](../../src-tauri/src/antigravity/gateway/handlers.rs#L1847) |
+| is_short_anthropic_payload | function_item |  | [1864](../../src-tauri/src/antigravity/gateway/handlers.rs#L1864) |
+| authorize | function_item |  | [1876](../../src-tauri/src/antigravity/gateway/handlers.rs#L1876) |
+| is_request_body_status | function_item |  | [1908](../../src-tauri/src/antigravity/gateway/handlers.rs#L1908) |
+| matches | macro invocation (unexpanded) | is_request_body_status | [1909](../../src-tauri/src/antigravity/gateway/handlers.rs#L1909) |
+| claude_55_entitlement_denied | function_item |  | [1914](../../src-tauri/src/antigravity/gateway/handlers.rs#L1914) |
+| should_cool_account_on_generate_error | function_item |  | [1931](../../src-tauri/src/antigravity/gateway/handlers.rs#L1931) |
+| matches | macro invocation (unexpanded) | should_cool_account_on_generate_error | [1932](../../src-tauri/src/antigravity/gateway/handlers.rs#L1932) |
+| dispatch_error_category | function_item |  | [1935](../../src-tauri/src/antigravity/gateway/handlers.rs#L1935) |
+| fail_status_from_message | function_item |  | [1951](../../src-tauri/src/antigravity/gateway/handlers.rs#L1951) |
+| should_try_model_fallback_on_429 | function_item |  | [1961](../../src-tauri/src/antigravity/gateway/handlers.rs#L1961) |
+| matches | macro invocation (unexpanded) | should_try_model_fallback_on_429 | [1962](../../src-tauri/src/antigravity/gateway/handlers.rs#L1962) |
+| should_stop_pool_walk_after_429 | function_item |  | [1965](../../src-tauri/src/antigravity/gateway/handlers.rs#L1965) |
+| client_status_from_dispatch | function_item |  | [1969](../../src-tauri/src/antigravity/gateway/handlers.rs#L1969) |
+| matches | macro invocation (unexpanded) | client_status_from_dispatch | [1980](../../src-tauri/src/antigravity/gateway/handlers.rs#L1980) |
+| client_status_from_upstream_error | function_item |  | [1986](../../src-tauri/src/antigravity/gateway/handlers.rs#L1986) |
+| looks_like_rate_limit | function_item |  | [2012](../../src-tauri/src/antigravity/gateway/handlers.rs#L2012) |
+| looks_like_http_status | function_item |  | [2021](../../src-tauri/src/antigravity/gateway/handlers.rs#L2021) |
+| format | macro invocation (unexpanded) | looks_like_http_status | [2023](../../src-tauri/src/antigravity/gateway/handlers.rs#L2023) |
+| format | macro invocation (unexpanded) | looks_like_http_status | [2027](../../src-tauri/src/antigravity/gateway/handlers.rs#L2027) |
+| matches | macro invocation (unexpanded) | looks_like_http_status | [2033](../../src-tauri/src/antigravity/gateway/handlers.rs#L2033) |
+| error_type_for_status | function_item |  | [2039](../../src-tauri/src/antigravity/gateway/handlers.rs#L2039) |
+| retry_after_header | function_item |  | [2051](../../src-tauri/src/antigravity/gateway/handlers.rs#L2051) |
+| error_json | function_item |  | [2060](../../src-tauri/src/antigravity/gateway/handlers.rs#L2060) |
+| error_json_with_retry_after | function_item |  | [2064](../../src-tauri/src/antigravity/gateway/handlers.rs#L2064) |
+| json | macro invocation (unexpanded) | error_json_with_retry_after | [2071](../../src-tauri/src/antigravity/gateway/handlers.rs#L2071) |
+| tests | mod_item |  | [2097](../../src-tauri/src/antigravity/gateway/handlers.rs#L2097) |
+| anthropic_envelope_prefers_client_model_header | function_item | tests | [2102](../../src-tauri/src/antigravity/gateway/handlers.rs#L2102) |
+| json | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2108](../../src-tauri/src/antigravity/gateway/handlers.rs#L2108) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2109](../../src-tauri/src/antigravity/gateway/handlers.rs#L2109) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2110](../../src-tauri/src/antigravity/gateway/handlers.rs#L2110) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_envelope_prefers_client_model_header | [2118](../../src-tauri/src/antigravity/gateway/handlers.rs#L2118) |
+| direct_anthropic_request_keeps_payload_model | function_item | tests | [2129](../../src-tauri/src/antigravity/gateway/handlers.rs#L2129) |
+| json | macro invocation (unexpanded) | tests::direct_anthropic_request_keeps_payload_model | [2130](../../src-tauri/src/antigravity/gateway/handlers.rs#L2130) |
+| assert_eq | macro invocation (unexpanded) | tests::direct_anthropic_request_keeps_payload_model | [2131](../../src-tauri/src/antigravity/gateway/handlers.rs#L2131) |
+| anthropic_sse_includes_event_field_for_pi | function_item | tests | [2138](../../src-tauri/src/antigravity/gateway/handlers.rs#L2138) |
+| json | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2139](../../src-tauri/src/antigravity/gateway/handlers.rs#L2139) |
 | assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2145](../../src-tauri/src/antigravity/gateway/handlers.rs#L2145) |
-| client_status_preserves_upstream_429 | function_item | tests | [2149](../../src-tauri/src/antigravity/gateway/handlers.rs#L2149) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2150](../../src-tauri/src/antigravity/gateway/handlers.rs#L2150) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2156](../../src-tauri/src/antigravity/gateway/handlers.rs#L2156) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2146](../../src-tauri/src/antigravity/gateway/handlers.rs#L2146) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2147](../../src-tauri/src/antigravity/gateway/handlers.rs#L2147) |
+| assert | macro invocation (unexpanded) | tests::anthropic_sse_includes_event_field_for_pi | [2148](../../src-tauri/src/antigravity/gateway/handlers.rs#L2148) |
+| client_status_preserves_upstream_429 | function_item | tests | [2152](../../src-tauri/src/antigravity/gateway/handlers.rs#L2152) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2153](../../src-tauri/src/antigravity/gateway/handlers.rs#L2153) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2159](../../src-tauri/src/antigravity/gateway/handlers.rs#L2159) |

@@ -23,6 +23,11 @@ export async function ping(): Promise<string> {
   return call<string>("ping", {});
 }
 
+/** `windows` | `macos` | `linux`. */
+export async function getAppPlatform(): Promise<string> {
+  return call<string>("get_app_platform", {});
+}
+
 export async function restartApp(): Promise<void> {
   return call<void>("restart_app", {});
 }

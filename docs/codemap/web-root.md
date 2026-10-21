@@ -10,4 +10,4 @@
 | --- | ---: | --- |
 | [src/App.tsx](../../src/App.tsx) | 119 | [1](src_App.tsx-26ad4b83-1.md) [2](src_App.tsx-26ad4b83-2.md) |
 | [src/env.d.ts](../../src/env.d.ts) | 1 | [1](src_env.d.ts-6171211e-1.md) |
-| [src/main.tsx](../../src/main.tsx) | 0 | [1](src_main.tsx-1cd8b187-1.md) |
+| [src/main.tsx](../../src/main.tsx) | 8 | [1](src_main.tsx-1cd8b187-1.md) |

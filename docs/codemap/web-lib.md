@@ -8,7 +8,7 @@
 
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
-| [src/lib/agentVisibility.ts](../../src/lib/agentVisibility.ts) | 5 | [1](src_lib_agentVisibility.ts-409ffe67-1.md) |
+| [src/lib/agentVisibility.ts](../../src/lib/agentVisibility.ts) | 8 | [1](src_lib_agentVisibility.ts-409ffe67-1.md) |
 | [src/lib/appQueries.ts](../../src/lib/appQueries.ts) | 83 | [1](src_lib_appQueries.ts-83b16c91-1.md) |
 | [src/lib/appUpdateContext.ts](../../src/lib/appUpdateContext.ts) | 5 | [1](src_lib_appUpdateContext.ts-7b95691c-1.md) |
 | [src/lib/appUpdater.ts](../../src/lib/appUpdater.ts) | 25 | [1](src_lib_appUpdater.ts-c8b36ecc-1.md) |

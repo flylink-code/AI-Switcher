@@ -4,7 +4,7 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/claude_desktop.rs) · page 1/2
 
-Source SHA-256: b19ccd76f1a3e3db47c976b3384f158073100eee7b05f41adb594890c00d6d53
+Source SHA-256: 6fc47091f273d1a00685d7e9c4c22f7a0311d0c8a5c1ada30c09f74528aa8f83
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -20,91 +20,91 @@ Source SHA-256: b19ccd76f1a3e3db47c976b3384f158073100eee7b05f41adb594890c00d6d53
 | threep_config_path | field_declaration | ClaudeDesktopPaths | [38](../../src-tauri/src/config/claude_desktop.rs#L38) |
 | ClaudeDesktopPaths | impl |  | [41](../../src-tauri/src/config/claude_desktop.rs#L41) |
 | unsupported | function_item | ClaudeDesktopPaths | [42](../../src-tauri/src/config/claude_desktop.rs#L42) |
-| is_supported_platform | function_item |  | [55](../../src-tauri/src/config/claude_desktop.rs#L55) |
-| cfg | macro invocation (unexpanded) | is_supported_platform | [56](../../src-tauri/src/config/claude_desktop.rs#L56) |
-| detect_claude_desktop | function_item |  | [65](../../src-tauri/src/config/claude_desktop.rs#L65) |
-| linux_config_home | function_item |  | [99](../../src-tauri/src/config/claude_desktop.rs#L99) |
-| windows_local_app_data_dir | function_item |  | [110](../../src-tauri/src/config/claude_desktop.rs#L110) |
-| windows_roaming_app_data_dir | function_item |  | [120](../../src-tauri/src/config/claude_desktop.rs#L120) |
-| pick_windows_claude_dir | function_item |  | [135](../../src-tauri/src/config/claude_desktop.rs#L135) |
-| windows_msix_claude_dirs | function_item |  | [163](../../src-tauri/src/config/claude_desktop.rs#L163) |
-| all_windows_claude_dirs | function_item |  | [196](../../src-tauri/src/config/claude_desktop.rs#L196) |
-| windows_fuzzy_local_claude_dirs | function_item |  | [213](../../src-tauri/src/config/claude_desktop.rs#L213) |
-| normalize_windows_path_key | function_item |  | [236](../../src-tauri/src/config/claude_desktop.rs#L236) |
-| paths_from_dirs | function_item |  | [243](../../src-tauri/src/config/claude_desktop.rs#L243) |
-| PROFILE_ID | const_item |  | [255](../../src-tauri/src/config/claude_desktop.rs#L255) |
-| LEGACY_PROFILE_ID | const_item |  | [256](../../src-tauri/src/config/claude_desktop.rs#L256) |
-| PROFILE_NAME | const_item |  | [257](../../src-tauri/src/config/claude_desktop.rs#L257) |
-| GATEWAY_TOKEN_KEY | const_item |  | [258](../../src-tauri/src/config/claude_desktop.rs#L258) |
-| DESKTOP_AUTO_MODE_KEY | const_item |  | [259](../../src-tauri/src/config/claude_desktop.rs#L259) |
-| CLAUDE_DESKTOP_PROXY_PREFIX | const_item |  | [261](../../src-tauri/src/config/claude_desktop.rs#L261) |
-| MAX_BACKUPS | const_item |  | [262](../../src-tauri/src/config/claude_desktop.rs#L262) |
-| DESKTOP_ROLE_ROUTES | const_item |  | [263](../../src-tauri/src/config/claude_desktop.rs#L263) |
-| platform_paths | function_item |  | [270](../../src-tauri/src/config/claude_desktop.rs#L270) |
-| desktop_proxy_gateway_base_url | function_item |  | [281](../../src-tauri/src/config/claude_desktop.rs#L281) |
-| format | macro invocation (unexpanded) | desktop_proxy_gateway_base_url | [282](../../src-tauri/src/config/claude_desktop.rs#L282) |
-| validate_gateway_auth_header | function_item |  | [286](../../src-tauri/src/config/claude_desktop.rs#L286) |
-| apply_provider | function_item |  | [308](../../src-tauri/src/config/claude_desktop.rs#L308) |
-| format | macro invocation (unexpanded) | apply_provider | [336](../../src-tauri/src/config/claude_desktop.rs#L336) |
-| format | macro invocation (unexpanded) | apply_provider | [337](../../src-tauri/src/config/claude_desktop.rs#L337) |
-| format | macro invocation (unexpanded) | apply_provider | [339](../../src-tauri/src/config/claude_desktop.rs#L339) |
-| format | macro invocation (unexpanded) | apply_provider | [344](../../src-tauri/src/config/claude_desktop.rs#L344) |
-| clear_provider | function_item |  | [366](../../src-tauri/src/config/claude_desktop.rs#L366) |
-| format | macro invocation (unexpanded) | clear_provider | [385](../../src-tauri/src/config/claude_desktop.rs#L385) |
-| format | macro invocation (unexpanded) | clear_provider | [387](../../src-tauri/src/config/claude_desktop.rs#L387) |
-| sync_windows_3p_profile_copies | function_item |  | [399](../../src-tauri/src/config/claude_desktop.rs#L399) |
-| format | macro invocation (unexpanded) | sync_windows_3p_profile_copies | [410](../../src-tauri/src/config/claude_desktop.rs#L410) |
-| format | macro invocation (unexpanded) | sync_windows_3p_profile_copies | [414](../../src-tauri/src/config/claude_desktop.rs#L414) |
-| clear_windows_3p_copies | function_item |  | [429](../../src-tauri/src/config/claude_desktop.rs#L429) |
-| format | macro invocation (unexpanded) | clear_windows_3p_copies | [436](../../src-tauri/src/config/claude_desktop.rs#L436) |
-| clear_provider_restoring_applied_id | function_item |  | [453](../../src-tauri/src/config/claude_desktop.rs#L453) |
-| serde_json::json | macro invocation (unexpanded) | clear_provider_restoring_applied_id | [462](../../src-tauri/src/config/claude_desktop.rs#L462) |
-| serde_json::json | macro invocation (unexpanded) | clear_provider_restoring_applied_id | [464](../../src-tauri/src/config/claude_desktop.rs#L464) |
-| current_applied_id | function_item |  | [470](../../src-tauri/src/config/claude_desktop.rs#L470) |
-| serde_json::json | macro invocation (unexpanded) | current_applied_id | [478](../../src-tauri/src/config/claude_desktop.rs#L478) |
-| is_managed_profile_id | function_item |  | [485](../../src-tauri/src/config/claude_desktop.rs#L485) |
-| current_profile_uses_legacy_role_routes | function_item |  | [489](../../src-tauri/src/config/claude_desktop.rs#L489) |
-| profile_paths_use_legacy_role_routes | function_item |  | [494](../../src-tauri/src/config/claude_desktop.rs#L494) |
-| serde_json::json | macro invocation (unexpanded) | profile_paths_use_legacy_role_routes | [501](../../src-tauri/src/config/claude_desktop.rs#L501) |
-| format | macro invocation (unexpanded) | profile_paths_use_legacy_role_routes | [508](../../src-tauri/src/config/claude_desktop.rs#L508) |
-| profile_uses_legacy_role_routes | function_item |  | [518](../../src-tauri/src/config/claude_desktop.rs#L518) |
-| matches | macro invocation (unexpanded) | profile_uses_legacy_role_routes | [524](../../src-tauri/src/config/claude_desktop.rs#L524) |
-| read_auto_mode_enabled | function_item |  | [534](../../src-tauri/src/config/claude_desktop.rs#L534) |
-| apply_auto_mode_enabled | function_item |  | [541](../../src-tauri/src/config/claude_desktop.rs#L541) |
-| stored_auto_mode_setting | function_item |  | [551](../../src-tauri/src/config/claude_desktop.rs#L551) |
-| parse_auto_mode_setting | function_item |  | [560](../../src-tauri/src/config/claude_desktop.rs#L560) |
-| live_profile_auto_mode | function_item |  | [568](../../src-tauri/src/config/claude_desktop.rs#L568) |
-| format | macro invocation (unexpanded) | live_profile_auto_mode | [572](../../src-tauri/src/config/claude_desktop.rs#L572) |
-| patch_existing_auto_mode | function_item |  | [583](../../src-tauri/src/config/claude_desktop.rs#L583) |
-| format | macro invocation (unexpanded) | patch_existing_auto_mode | [600](../../src-tauri/src/config/claude_desktop.rs#L600) |
-| build_profile | function_item |  | [615](../../src-tauri/src/config/claude_desktop.rs#L615) |
-| serde_json::json | macro invocation (unexpanded) | build_profile | [636](../../src-tauri/src/config/claude_desktop.rs#L636) |
-| serde_json::json | macro invocation (unexpanded) | build_profile | [653](../../src-tauri/src/config/claude_desktop.rs#L653) |
-| desktop_inference_models | function_item |  | [661](../../src-tauri/src/config/claude_desktop.rs#L661) |
-| serde_json::json | macro invocation (unexpanded) | desktop_inference_models | [672](../../src-tauri/src/config/claude_desktop.rs#L672) |
-| model_list_response | function_item |  | [684](../../src-tauri/src/config/claude_desktop.rs#L684) |
-| serde_json::json | macro invocation (unexpanded) | model_list_response | [688](../../src-tauri/src/config/claude_desktop.rs#L688) |
-| serde_json::json | macro invocation (unexpanded) | model_list_response | [696](../../src-tauri/src/config/claude_desktop.rs#L696) |
-| active_profile_uses_local_proxy | function_item |  | [702](../../src-tauri/src/config/claude_desktop.rs#L702) |
-| format | macro invocation (unexpanded) | active_profile_uses_local_proxy | [713](../../src-tauri/src/config/claude_desktop.rs#L713) |
-| read_current_live_provider | function_item |  | [726](../../src-tauri/src/config/claude_desktop.rs#L726) |
-| format | macro invocation (unexpanded) | read_current_live_provider | [736](../../src-tauri/src/config/claude_desktop.rs#L736) |
-| get_or_create_gateway_token | function_item |  | [796](../../src-tauri/src/config/claude_desktop.rs#L796) |
-| format | macro invocation (unexpanded) | get_or_create_gateway_token | [806](../../src-tauri/src/config/claude_desktop.rs#L806) |
-| format | macro invocation (unexpanded) | get_or_create_gateway_token | [811](../../src-tauri/src/config/claude_desktop.rs#L811) |
-| read_json_or_empty | function_item |  | [815](../../src-tauri/src/config/claude_desktop.rs#L815) |
-| serde_json::json | macro invocation (unexpanded) | read_json_or_empty | [817](../../src-tauri/src/config/claude_desktop.rs#L817) |
-| serde_json::json | macro invocation (unexpanded) | read_json_or_empty | [819](../../src-tauri/src/config/claude_desktop.rs#L819) |
-| serde_json::json | macro invocation (unexpanded) | read_json_or_empty | [824](../../src-tauri/src/config/claude_desktop.rs#L824) |
-| write_deployment_mode | function_item |  | [828](../../src-tauri/src/config/claude_desktop.rs#L828) |
-| write_meta | function_item |  | [842](../../src-tauri/src/config/claude_desktop.rs#L842) |
-| format | macro invocation (unexpanded) | write_meta | [846](../../src-tauri/src/config/claude_desktop.rs#L846) |
-| serde_json::json | macro invocation (unexpanded) | write_meta | [862](../../src-tauri/src/config/claude_desktop.rs#L862) |
-| tests | mod_item |  | [880](../../src-tauri/src/config/claude_desktop.rs#L880) |
-| isolated_desktop_paths_ignore_host_appdata | function_item | tests | [887](../../src-tauri/src/config/claude_desktop.rs#L887) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_desktop_paths_ignore_host_appdata | [890](../../src-tauri/src/config/claude_desktop.rs#L890) |
-| assert_eq | macro invocation (unexpanded) | tests::isolated_desktop_paths_ignore_host_appdata | [894](../../src-tauri/src/config/claude_desktop.rs#L894) |
-| assert | macro invocation (unexpanded) | tests::isolated_desktop_paths_ignore_host_appdata | [898](../../src-tauri/src/config/claude_desktop.rs#L898) |
-| mapped_provider | function_item | tests | [902](../../src-tauri/src/config/claude_desktop.rs#L902) |
-| unsupported_platform_returns_none | function_item | tests | [941](../../src-tauri/src/config/claude_desktop.rs#L941) |
-| assert | macro invocation (unexpanded) | tests::unsupported_platform_returns_none | [944](../../src-tauri/src/config/claude_desktop.rs#L944) |
+| is_supported_platform | function_item |  | [56](../../src-tauri/src/config/claude_desktop.rs#L56) |
+| cfg | macro invocation (unexpanded) | is_supported_platform | [57](../../src-tauri/src/config/claude_desktop.rs#L57) |
+| detect_claude_desktop | function_item |  | [62](../../src-tauri/src/config/claude_desktop.rs#L62) |
+| windows_local_app_data_dir | function_item |  | [90](../../src-tauri/src/config/claude_desktop.rs#L90) |
+| windows_roaming_app_data_dir | function_item |  | [100](../../src-tauri/src/config/claude_desktop.rs#L100) |
+| pick_windows_claude_dir | function_item |  | [115](../../src-tauri/src/config/claude_desktop.rs#L115) |
+| windows_msix_claude_dirs | function_item |  | [143](../../src-tauri/src/config/claude_desktop.rs#L143) |
+| all_windows_claude_dirs | function_item |  | [176](../../src-tauri/src/config/claude_desktop.rs#L176) |
+| windows_fuzzy_local_claude_dirs | function_item |  | [193](../../src-tauri/src/config/claude_desktop.rs#L193) |
+| normalize_windows_path_key | function_item |  | [216](../../src-tauri/src/config/claude_desktop.rs#L216) |
+| paths_from_dirs | function_item |  | [223](../../src-tauri/src/config/claude_desktop.rs#L223) |
+| PROFILE_ID | const_item |  | [235](../../src-tauri/src/config/claude_desktop.rs#L235) |
+| LEGACY_PROFILE_ID | const_item |  | [236](../../src-tauri/src/config/claude_desktop.rs#L236) |
+| PROFILE_NAME | const_item |  | [237](../../src-tauri/src/config/claude_desktop.rs#L237) |
+| GATEWAY_TOKEN_KEY | const_item |  | [238](../../src-tauri/src/config/claude_desktop.rs#L238) |
+| DESKTOP_AUTO_MODE_KEY | const_item |  | [239](../../src-tauri/src/config/claude_desktop.rs#L239) |
+| CLAUDE_DESKTOP_PROXY_PREFIX | const_item |  | [241](../../src-tauri/src/config/claude_desktop.rs#L241) |
+| MAX_BACKUPS | const_item |  | [242](../../src-tauri/src/config/claude_desktop.rs#L242) |
+| DESKTOP_ROLE_ROUTES | const_item |  | [243](../../src-tauri/src/config/claude_desktop.rs#L243) |
+| platform_paths | function_item |  | [250](../../src-tauri/src/config/claude_desktop.rs#L250) |
+| desktop_proxy_gateway_base_url | function_item |  | [261](../../src-tauri/src/config/claude_desktop.rs#L261) |
+| format | macro invocation (unexpanded) | desktop_proxy_gateway_base_url | [262](../../src-tauri/src/config/claude_desktop.rs#L262) |
+| validate_gateway_auth_header | function_item |  | [266](../../src-tauri/src/config/claude_desktop.rs#L266) |
+| apply_provider | function_item |  | [288](../../src-tauri/src/config/claude_desktop.rs#L288) |
+| format | macro invocation (unexpanded) | apply_provider | [316](../../src-tauri/src/config/claude_desktop.rs#L316) |
+| format | macro invocation (unexpanded) | apply_provider | [317](../../src-tauri/src/config/claude_desktop.rs#L317) |
+| format | macro invocation (unexpanded) | apply_provider | [319](../../src-tauri/src/config/claude_desktop.rs#L319) |
+| format | macro invocation (unexpanded) | apply_provider | [324](../../src-tauri/src/config/claude_desktop.rs#L324) |
+| clear_provider | function_item |  | [346](../../src-tauri/src/config/claude_desktop.rs#L346) |
+| format | macro invocation (unexpanded) | clear_provider | [365](../../src-tauri/src/config/claude_desktop.rs#L365) |
+| format | macro invocation (unexpanded) | clear_provider | [367](../../src-tauri/src/config/claude_desktop.rs#L367) |
+| sync_windows_3p_profile_copies | function_item |  | [379](../../src-tauri/src/config/claude_desktop.rs#L379) |
+| format | macro invocation (unexpanded) | sync_windows_3p_profile_copies | [390](../../src-tauri/src/config/claude_desktop.rs#L390) |
+| format | macro invocation (unexpanded) | sync_windows_3p_profile_copies | [394](../../src-tauri/src/config/claude_desktop.rs#L394) |
+| clear_windows_3p_copies | function_item |  | [409](../../src-tauri/src/config/claude_desktop.rs#L409) |
+| format | macro invocation (unexpanded) | clear_windows_3p_copies | [416](../../src-tauri/src/config/claude_desktop.rs#L416) |
+| clear_provider_restoring_applied_id | function_item |  | [433](../../src-tauri/src/config/claude_desktop.rs#L433) |
+| serde_json::json | macro invocation (unexpanded) | clear_provider_restoring_applied_id | [442](../../src-tauri/src/config/claude_desktop.rs#L442) |
+| serde_json::json | macro invocation (unexpanded) | clear_provider_restoring_applied_id | [444](../../src-tauri/src/config/claude_desktop.rs#L444) |
+| current_applied_id | function_item |  | [450](../../src-tauri/src/config/claude_desktop.rs#L450) |
+| serde_json::json | macro invocation (unexpanded) | current_applied_id | [458](../../src-tauri/src/config/claude_desktop.rs#L458) |
+| is_managed_profile_id | function_item |  | [465](../../src-tauri/src/config/claude_desktop.rs#L465) |
+| current_profile_uses_legacy_role_routes | function_item |  | [469](../../src-tauri/src/config/claude_desktop.rs#L469) |
+| profile_paths_use_legacy_role_routes | function_item |  | [474](../../src-tauri/src/config/claude_desktop.rs#L474) |
+| serde_json::json | macro invocation (unexpanded) | profile_paths_use_legacy_role_routes | [481](../../src-tauri/src/config/claude_desktop.rs#L481) |
+| format | macro invocation (unexpanded) | profile_paths_use_legacy_role_routes | [488](../../src-tauri/src/config/claude_desktop.rs#L488) |
+| profile_uses_legacy_role_routes | function_item |  | [498](../../src-tauri/src/config/claude_desktop.rs#L498) |
+| matches | macro invocation (unexpanded) | profile_uses_legacy_role_routes | [504](../../src-tauri/src/config/claude_desktop.rs#L504) |
+| read_auto_mode_enabled | function_item |  | [514](../../src-tauri/src/config/claude_desktop.rs#L514) |
+| apply_auto_mode_enabled | function_item |  | [521](../../src-tauri/src/config/claude_desktop.rs#L521) |
+| stored_auto_mode_setting | function_item |  | [531](../../src-tauri/src/config/claude_desktop.rs#L531) |
+| parse_auto_mode_setting | function_item |  | [540](../../src-tauri/src/config/claude_desktop.rs#L540) |
+| live_profile_auto_mode | function_item |  | [548](../../src-tauri/src/config/claude_desktop.rs#L548) |
+| format | macro invocation (unexpanded) | live_profile_auto_mode | [552](../../src-tauri/src/config/claude_desktop.rs#L552) |
+| patch_existing_auto_mode | function_item |  | [563](../../src-tauri/src/config/claude_desktop.rs#L563) |
+| format | macro invocation (unexpanded) | patch_existing_auto_mode | [580](../../src-tauri/src/config/claude_desktop.rs#L580) |
+| build_profile | function_item |  | [595](../../src-tauri/src/config/claude_desktop.rs#L595) |
+| serde_json::json | macro invocation (unexpanded) | build_profile | [616](../../src-tauri/src/config/claude_desktop.rs#L616) |
+| serde_json::json | macro invocation (unexpanded) | build_profile | [633](../../src-tauri/src/config/claude_desktop.rs#L633) |
+| desktop_inference_models | function_item |  | [641](../../src-tauri/src/config/claude_desktop.rs#L641) |
+| serde_json::json | macro invocation (unexpanded) | desktop_inference_models | [652](../../src-tauri/src/config/claude_desktop.rs#L652) |
+| model_list_response | function_item |  | [664](../../src-tauri/src/config/claude_desktop.rs#L664) |
+| serde_json::json | macro invocation (unexpanded) | model_list_response | [668](../../src-tauri/src/config/claude_desktop.rs#L668) |
+| serde_json::json | macro invocation (unexpanded) | model_list_response | [676](../../src-tauri/src/config/claude_desktop.rs#L676) |
+| active_profile_uses_local_proxy | function_item |  | [682](../../src-tauri/src/config/claude_desktop.rs#L682) |
+| format | macro invocation (unexpanded) | active_profile_uses_local_proxy | [693](../../src-tauri/src/config/claude_desktop.rs#L693) |
+| read_current_live_provider | function_item |  | [706](../../src-tauri/src/config/claude_desktop.rs#L706) |
+| format | macro invocation (unexpanded) | read_current_live_provider | [716](../../src-tauri/src/config/claude_desktop.rs#L716) |
+| get_or_create_gateway_token | function_item |  | [776](../../src-tauri/src/config/claude_desktop.rs#L776) |
+| format | macro invocation (unexpanded) | get_or_create_gateway_token | [786](../../src-tauri/src/config/claude_desktop.rs#L786) |
+| format | macro invocation (unexpanded) | get_or_create_gateway_token | [791](../../src-tauri/src/config/claude_desktop.rs#L791) |
+| read_json_or_empty | function_item |  | [795](../../src-tauri/src/config/claude_desktop.rs#L795) |
+| serde_json::json | macro invocation (unexpanded) | read_json_or_empty | [797](../../src-tauri/src/config/claude_desktop.rs#L797) |
+| serde_json::json | macro invocation (unexpanded) | read_json_or_empty | [799](../../src-tauri/src/config/claude_desktop.rs#L799) |
+| serde_json::json | macro invocation (unexpanded) | read_json_or_empty | [804](../../src-tauri/src/config/claude_desktop.rs#L804) |
+| write_deployment_mode | function_item |  | [808](../../src-tauri/src/config/claude_desktop.rs#L808) |
+| write_meta | function_item |  | [822](../../src-tauri/src/config/claude_desktop.rs#L822) |
+| format | macro invocation (unexpanded) | write_meta | [826](../../src-tauri/src/config/claude_desktop.rs#L826) |
+| serde_json::json | macro invocation (unexpanded) | write_meta | [842](../../src-tauri/src/config/claude_desktop.rs#L842) |
+| tests | mod_item |  | [860](../../src-tauri/src/config/claude_desktop.rs#L860) |
+| isolated_desktop_paths_ignore_host_appdata | function_item | tests | [867](../../src-tauri/src/config/claude_desktop.rs#L867) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_desktop_paths_ignore_host_appdata | [870](../../src-tauri/src/config/claude_desktop.rs#L870) |
+| assert_eq | macro invocation (unexpanded) | tests::isolated_desktop_paths_ignore_host_appdata | [874](../../src-tauri/src/config/claude_desktop.rs#L874) |
+| assert | macro invocation (unexpanded) | tests::isolated_desktop_paths_ignore_host_appdata | [878](../../src-tauri/src/config/claude_desktop.rs#L878) |
+| mapped_provider | function_item | tests | [882](../../src-tauri/src/config/claude_desktop.rs#L882) |
+| unsupported_platform_returns_none | function_item | tests | [921](../../src-tauri/src/config/claude_desktop.rs#L921) |
+| assert | macro invocation (unexpanded) | tests::unsupported_platform_returns_none | [924](../../src-tauri/src/config/claude_desktop.rs#L924) |
+| supported_platform_paths_are_populated | function_item | tests | [929](../../src-tauri/src/config/claude_desktop.rs#L929) |

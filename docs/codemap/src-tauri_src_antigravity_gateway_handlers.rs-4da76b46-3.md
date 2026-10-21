@@ -4,99 +4,99 @@
 
 [Module](rust-antigravity.md) · [Source](../../src-tauri/src/antigravity/gateway/handlers.rs) · page 3/3
 
-Source SHA-256: 899f974e31bf0aa41441c0b1c901ca7f23fbe0f302c25bb99f396eee7e21b2a9
+Source SHA-256: 005f04e3985029ed995135a629f5fab5bc130227b6e15addc6bcf9145631653a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2160](../../src-tauri/src/antigravity/gateway/handlers.rs#L2160) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2164](../../src-tauri/src/antigravity/gateway/handlers.rs#L2164) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2168](../../src-tauri/src/antigravity/gateway/handlers.rs#L2168) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2172](../../src-tauri/src/antigravity/gateway/handlers.rs#L2172) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2176](../../src-tauri/src/antigravity/gateway/handlers.rs#L2176) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2182](../../src-tauri/src/antigravity/gateway/handlers.rs#L2182) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2186](../../src-tauri/src/antigravity/gateway/handlers.rs#L2186) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2192](../../src-tauri/src/antigravity/gateway/handlers.rs#L2192) |
-| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2199](../../src-tauri/src/antigravity/gateway/handlers.rs#L2199) |
-| main_session_retry_budget_is_longer_than_subagent | function_item | tests | [2206](../../src-tauri/src/antigravity/gateway/handlers.rs#L2206) |
-| assert | macro invocation (unexpanded) | tests::main_session_retry_budget_is_longer_than_subagent | [2210](../../src-tauri/src/antigravity/gateway/handlers.rs#L2210) |
-| assert_eq | macro invocation (unexpanded) | tests::main_session_retry_budget_is_longer_than_subagent | [2211](../../src-tauri/src/antigravity/gateway/handlers.rs#L2211) |
-| assert_eq | macro invocation (unexpanded) | tests::main_session_retry_budget_is_longer_than_subagent | [2212](../../src-tauri/src/antigravity/gateway/handlers.rs#L2212) |
-| classifier_attempt_timeout_leaves_budget_for_account_rotation | function_item | tests | [2216](../../src-tauri/src/antigravity/gateway/handlers.rs#L2216) |
-| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2219](../../src-tauri/src/antigravity/gateway/handlers.rs#L2219) |
-| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2223](../../src-tauri/src/antigravity/gateway/handlers.rs#L2223) |
-| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2227](../../src-tauri/src/antigravity/gateway/handlers.rs#L2227) |
-| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2231](../../src-tauri/src/antigravity/gateway/handlers.rs#L2231) |
-| timeout_is_not_reported_as_rate_limit | function_item | tests | [2238](../../src-tauri/src/antigravity/gateway/handlers.rs#L2238) |
-| assert | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2239](../../src-tauri/src/antigravity/gateway/handlers.rs#L2239) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2242](../../src-tauri/src/antigravity/gateway/handlers.rs#L2242) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2246](../../src-tauri/src/antigravity/gateway/handlers.rs#L2246) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2250](../../src-tauri/src/antigravity/gateway/handlers.rs#L2250) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2254](../../src-tauri/src/antigravity/gateway/handlers.rs#L2254) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2258](../../src-tauri/src/antigravity/gateway/handlers.rs#L2258) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2262](../../src-tauri/src/antigravity/gateway/handlers.rs#L2262) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2269](../../src-tauri/src/antigravity/gateway/handlers.rs#L2269) |
-| timeout_response_uses_timeout_error_and_short_retry_after | function_item | tests | [2279](../../src-tauri/src/antigravity/gateway/handlers.rs#L2279) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_response_uses_timeout_error_and_short_retry_after | [2284](../../src-tauri/src/antigravity/gateway/handlers.rs#L2284) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_response_uses_timeout_error_and_short_retry_after | [2285](../../src-tauri/src/antigravity/gateway/handlers.rs#L2285) |
-| assert_eq | macro invocation (unexpanded) | tests::timeout_response_uses_timeout_error_and_short_retry_after | [2296](../../src-tauri/src/antigravity/gateway/handlers.rs#L2296) |
-| upstream_429_retry_after_is_preserved | function_item | tests | [2303](../../src-tauri/src/antigravity/gateway/handlers.rs#L2303) |
-| assert_eq | macro invocation (unexpanded) | tests::upstream_429_retry_after_is_preserved | [2309](../../src-tauri/src/antigravity/gateway/handlers.rs#L2309) |
-| account_rpm_skips_same_account_model_fallback | function_item | tests | [2319](../../src-tauri/src/antigravity/gateway/handlers.rs#L2319) |
-| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2320](../../src-tauri/src/antigravity/gateway/handlers.rs#L2320) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2163](../../src-tauri/src/antigravity/gateway/handlers.rs#L2163) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2167](../../src-tauri/src/antigravity/gateway/handlers.rs#L2167) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2171](../../src-tauri/src/antigravity/gateway/handlers.rs#L2171) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2175](../../src-tauri/src/antigravity/gateway/handlers.rs#L2175) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2179](../../src-tauri/src/antigravity/gateway/handlers.rs#L2179) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2185](../../src-tauri/src/antigravity/gateway/handlers.rs#L2185) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2189](../../src-tauri/src/antigravity/gateway/handlers.rs#L2189) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2195](../../src-tauri/src/antigravity/gateway/handlers.rs#L2195) |
+| assert_eq | macro invocation (unexpanded) | tests::client_status_preserves_upstream_429 | [2202](../../src-tauri/src/antigravity/gateway/handlers.rs#L2202) |
+| main_session_retry_budget_is_longer_than_subagent | function_item | tests | [2209](../../src-tauri/src/antigravity/gateway/handlers.rs#L2209) |
+| assert | macro invocation (unexpanded) | tests::main_session_retry_budget_is_longer_than_subagent | [2213](../../src-tauri/src/antigravity/gateway/handlers.rs#L2213) |
+| assert_eq | macro invocation (unexpanded) | tests::main_session_retry_budget_is_longer_than_subagent | [2214](../../src-tauri/src/antigravity/gateway/handlers.rs#L2214) |
+| assert_eq | macro invocation (unexpanded) | tests::main_session_retry_budget_is_longer_than_subagent | [2215](../../src-tauri/src/antigravity/gateway/handlers.rs#L2215) |
+| classifier_attempt_timeout_leaves_budget_for_account_rotation | function_item | tests | [2219](../../src-tauri/src/antigravity/gateway/handlers.rs#L2219) |
+| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2222](../../src-tauri/src/antigravity/gateway/handlers.rs#L2222) |
+| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2226](../../src-tauri/src/antigravity/gateway/handlers.rs#L2226) |
+| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2230](../../src-tauri/src/antigravity/gateway/handlers.rs#L2230) |
+| assert_eq | macro invocation (unexpanded) | tests::classifier_attempt_timeout_leaves_budget_for_account_rotation | [2234](../../src-tauri/src/antigravity/gateway/handlers.rs#L2234) |
+| timeout_is_not_reported_as_rate_limit | function_item | tests | [2241](../../src-tauri/src/antigravity/gateway/handlers.rs#L2241) |
+| assert | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2242](../../src-tauri/src/antigravity/gateway/handlers.rs#L2242) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2245](../../src-tauri/src/antigravity/gateway/handlers.rs#L2245) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2249](../../src-tauri/src/antigravity/gateway/handlers.rs#L2249) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2253](../../src-tauri/src/antigravity/gateway/handlers.rs#L2253) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2257](../../src-tauri/src/antigravity/gateway/handlers.rs#L2257) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2261](../../src-tauri/src/antigravity/gateway/handlers.rs#L2261) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2265](../../src-tauri/src/antigravity/gateway/handlers.rs#L2265) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_is_not_reported_as_rate_limit | [2272](../../src-tauri/src/antigravity/gateway/handlers.rs#L2272) |
+| timeout_response_uses_timeout_error_and_short_retry_after | function_item | tests | [2282](../../src-tauri/src/antigravity/gateway/handlers.rs#L2282) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_response_uses_timeout_error_and_short_retry_after | [2287](../../src-tauri/src/antigravity/gateway/handlers.rs#L2287) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_response_uses_timeout_error_and_short_retry_after | [2288](../../src-tauri/src/antigravity/gateway/handlers.rs#L2288) |
+| assert_eq | macro invocation (unexpanded) | tests::timeout_response_uses_timeout_error_and_short_retry_after | [2299](../../src-tauri/src/antigravity/gateway/handlers.rs#L2299) |
+| upstream_429_retry_after_is_preserved | function_item | tests | [2306](../../src-tauri/src/antigravity/gateway/handlers.rs#L2306) |
+| assert_eq | macro invocation (unexpanded) | tests::upstream_429_retry_after_is_preserved | [2312](../../src-tauri/src/antigravity/gateway/handlers.rs#L2312) |
+| account_rpm_skips_same_account_model_fallback | function_item | tests | [2322](../../src-tauri/src/antigravity/gateway/handlers.rs#L2322) |
 | assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2323](../../src-tauri/src/antigravity/gateway/handlers.rs#L2323) |
-| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2324](../../src-tauri/src/antigravity/gateway/handlers.rs#L2324) |
+| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2326](../../src-tauri/src/antigravity/gateway/handlers.rs#L2326) |
 | assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2327](../../src-tauri/src/antigravity/gateway/handlers.rs#L2327) |
-| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2328](../../src-tauri/src/antigravity/gateway/handlers.rs#L2328) |
-| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2329](../../src-tauri/src/antigravity/gateway/handlers.rs#L2329) |
 | assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2330](../../src-tauri/src/antigravity/gateway/handlers.rs#L2330) |
-| model_capacity_exhausted_walks_pool_when_family_quota_empty | function_item | tests | [2334](../../src-tauri/src/antigravity/gateway/handlers.rs#L2334) |
-| assert | macro invocation (unexpanded) | tests::model_capacity_exhausted_walks_pool_when_family_quota_empty | [2335](../../src-tauri/src/antigravity/gateway/handlers.rs#L2335) |
+| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2331](../../src-tauri/src/antigravity/gateway/handlers.rs#L2331) |
+| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2332](../../src-tauri/src/antigravity/gateway/handlers.rs#L2332) |
+| assert | macro invocation (unexpanded) | tests::account_rpm_skips_same_account_model_fallback | [2333](../../src-tauri/src/antigravity/gateway/handlers.rs#L2333) |
+| model_capacity_exhausted_walks_pool_when_family_quota_empty | function_item | tests | [2337](../../src-tauri/src/antigravity/gateway/handlers.rs#L2337) |
 | assert | macro invocation (unexpanded) | tests::model_capacity_exhausted_walks_pool_when_family_quota_empty | [2338](../../src-tauri/src/antigravity/gateway/handlers.rs#L2338) |
-| assert | macro invocation (unexpanded) | tests::model_capacity_exhausted_walks_pool_when_family_quota_empty | [2339](../../src-tauri/src/antigravity/gateway/handlers.rs#L2339) |
-| network_errors_are_not_account_faults | function_item | tests | [2343](../../src-tauri/src/antigravity/gateway/handlers.rs#L2343) |
-| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2344](../../src-tauri/src/antigravity/gateway/handlers.rs#L2344) |
+| assert | macro invocation (unexpanded) | tests::model_capacity_exhausted_walks_pool_when_family_quota_empty | [2341](../../src-tauri/src/antigravity/gateway/handlers.rs#L2341) |
+| assert | macro invocation (unexpanded) | tests::model_capacity_exhausted_walks_pool_when_family_quota_empty | [2342](../../src-tauri/src/antigravity/gateway/handlers.rs#L2342) |
+| network_errors_are_not_account_faults | function_item | tests | [2346](../../src-tauri/src/antigravity/gateway/handlers.rs#L2346) |
 | assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2347](../../src-tauri/src/antigravity/gateway/handlers.rs#L2347) |
-| assert_eq | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2350](../../src-tauri/src/antigravity/gateway/handlers.rs#L2350) |
-| assert_eq | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2354](../../src-tauri/src/antigravity/gateway/handlers.rs#L2354) |
-| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2358](../../src-tauri/src/antigravity/gateway/handlers.rs#L2358) |
-| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2359](../../src-tauri/src/antigravity/gateway/handlers.rs#L2359) |
-| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2360](../../src-tauri/src/antigravity/gateway/handlers.rs#L2360) |
-| assert_eq | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2361](../../src-tauri/src/antigravity/gateway/handlers.rs#L2361) |
-| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2365](../../src-tauri/src/antigravity/gateway/handlers.rs#L2365) |
-| auth_failures_are_not_washed_into_502 | function_item | tests | [2369](../../src-tauri/src/antigravity/gateway/handlers.rs#L2369) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2370](../../src-tauri/src/antigravity/gateway/handlers.rs#L2370) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2376](../../src-tauri/src/antigravity/gateway/handlers.rs#L2376) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2383](../../src-tauri/src/antigravity/gateway/handlers.rs#L2383) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2387](../../src-tauri/src/antigravity/gateway/handlers.rs#L2387) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2391](../../src-tauri/src/antigravity/gateway/handlers.rs#L2391) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2395](../../src-tauri/src/antigravity/gateway/handlers.rs#L2395) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2396](../../src-tauri/src/antigravity/gateway/handlers.rs#L2396) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2400](../../src-tauri/src/antigravity/gateway/handlers.rs#L2400) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2407](../../src-tauri/src/antigravity/gateway/handlers.rs#L2407) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2411](../../src-tauri/src/antigravity/gateway/handlers.rs#L2411) |
-| sse_line_buffer_reassembles_split_chinese_utf8 | function_item | tests | [2418](../../src-tauri/src/antigravity/gateway/handlers.rs#L2418) |
-| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2423](../../src-tauri/src/antigravity/gateway/handlers.rs#L2423) |
-| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2424](../../src-tauri/src/antigravity/gateway/handlers.rs#L2424) |
-| assert_ne | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2425](../../src-tauri/src/antigravity/gateway/handlers.rs#L2425) |
-| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2429](../../src-tauri/src/antigravity/gateway/handlers.rs#L2429) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2432](../../src-tauri/src/antigravity/gateway/handlers.rs#L2432) |
-| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2433](../../src-tauri/src/antigravity/gateway/handlers.rs#L2433) |
-| sse_line_buffer_skips_empty_separator_and_keeps_next_frame | function_item | tests | [2437](../../src-tauri/src/antigravity/gateway/handlers.rs#L2437) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_skips_empty_separator_and_keeps_next_frame | [2440](../../src-tauri/src/antigravity/gateway/handlers.rs#L2440) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_skips_empty_separator_and_keeps_next_frame | [2441](../../src-tauri/src/antigravity/gateway/handlers.rs#L2441) |
-| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_skips_empty_separator_and_keeps_next_frame | [2442](../../src-tauri/src/antigravity/gateway/handlers.rs#L2442) |
-| lossy_utf8_on_split_chinese_would_corrupt | function_item | tests | [2446](../../src-tauri/src/antigravity/gateway/handlers.rs#L2446) |
-| format | macro invocation (unexpanded) | tests::lossy_utf8_on_split_chinese_would_corrupt | [2450](../../src-tauri/src/antigravity/gateway/handlers.rs#L2450) |
-| assert_ne | macro invocation (unexpanded) | tests::lossy_utf8_on_split_chinese_would_corrupt | [2455](../../src-tauri/src/antigravity/gateway/handlers.rs#L2455) |
-| assert | macro invocation (unexpanded) | tests::lossy_utf8_on_split_chinese_would_corrupt | [2456](../../src-tauri/src/antigravity/gateway/handlers.rs#L2456) |
-| claude_55_404_rotates_but_other_request_errors_do_not | function_item | tests | [2460](../../src-tauri/src/antigravity/gateway/handlers.rs#L2460) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2461](../../src-tauri/src/antigravity/gateway/handlers.rs#L2461) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2466](../../src-tauri/src/antigravity/gateway/handlers.rs#L2466) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2471](../../src-tauri/src/antigravity/gateway/handlers.rs#L2471) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2476](../../src-tauri/src/antigravity/gateway/handlers.rs#L2476) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2481](../../src-tauri/src/antigravity/gateway/handlers.rs#L2481) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2486](../../src-tauri/src/antigravity/gateway/handlers.rs#L2486) |
-| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2487](../../src-tauri/src/antigravity/gateway/handlers.rs#L2487) |
-| dropped_stream_flushes_accumulated_usage | function_item | tests | [2493](../../src-tauri/src/antigravity/gateway/handlers.rs#L2493) |
-| json | macro invocation (unexpanded) | tests::dropped_stream_flushes_accumulated_usage | [2531](../../src-tauri/src/antigravity/gateway/handlers.rs#L2531) |
-| assert_eq | macro invocation (unexpanded) | tests::dropped_stream_flushes_accumulated_usage | [2556](../../src-tauri/src/antigravity/gateway/handlers.rs#L2556) |
+| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2350](../../src-tauri/src/antigravity/gateway/handlers.rs#L2350) |
+| assert_eq | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2353](../../src-tauri/src/antigravity/gateway/handlers.rs#L2353) |
+| assert_eq | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2357](../../src-tauri/src/antigravity/gateway/handlers.rs#L2357) |
+| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2361](../../src-tauri/src/antigravity/gateway/handlers.rs#L2361) |
+| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2362](../../src-tauri/src/antigravity/gateway/handlers.rs#L2362) |
+| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2363](../../src-tauri/src/antigravity/gateway/handlers.rs#L2363) |
+| assert_eq | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2364](../../src-tauri/src/antigravity/gateway/handlers.rs#L2364) |
+| assert | macro invocation (unexpanded) | tests::network_errors_are_not_account_faults | [2368](../../src-tauri/src/antigravity/gateway/handlers.rs#L2368) |
+| auth_failures_are_not_washed_into_502 | function_item | tests | [2372](../../src-tauri/src/antigravity/gateway/handlers.rs#L2372) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2373](../../src-tauri/src/antigravity/gateway/handlers.rs#L2373) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2379](../../src-tauri/src/antigravity/gateway/handlers.rs#L2379) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2386](../../src-tauri/src/antigravity/gateway/handlers.rs#L2386) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2390](../../src-tauri/src/antigravity/gateway/handlers.rs#L2390) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2394](../../src-tauri/src/antigravity/gateway/handlers.rs#L2394) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2398](../../src-tauri/src/antigravity/gateway/handlers.rs#L2398) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2399](../../src-tauri/src/antigravity/gateway/handlers.rs#L2399) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2403](../../src-tauri/src/antigravity/gateway/handlers.rs#L2403) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2410](../../src-tauri/src/antigravity/gateway/handlers.rs#L2410) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_failures_are_not_washed_into_502 | [2414](../../src-tauri/src/antigravity/gateway/handlers.rs#L2414) |
+| sse_line_buffer_reassembles_split_chinese_utf8 | function_item | tests | [2421](../../src-tauri/src/antigravity/gateway/handlers.rs#L2421) |
+| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2426](../../src-tauri/src/antigravity/gateway/handlers.rs#L2426) |
+| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2427](../../src-tauri/src/antigravity/gateway/handlers.rs#L2427) |
+| assert_ne | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2428](../../src-tauri/src/antigravity/gateway/handlers.rs#L2428) |
+| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2432](../../src-tauri/src/antigravity/gateway/handlers.rs#L2432) |
+| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2435](../../src-tauri/src/antigravity/gateway/handlers.rs#L2435) |
+| assert | macro invocation (unexpanded) | tests::sse_line_buffer_reassembles_split_chinese_utf8 | [2436](../../src-tauri/src/antigravity/gateway/handlers.rs#L2436) |
+| sse_line_buffer_skips_empty_separator_and_keeps_next_frame | function_item | tests | [2440](../../src-tauri/src/antigravity/gateway/handlers.rs#L2440) |
+| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_skips_empty_separator_and_keeps_next_frame | [2443](../../src-tauri/src/antigravity/gateway/handlers.rs#L2443) |
+| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_skips_empty_separator_and_keeps_next_frame | [2444](../../src-tauri/src/antigravity/gateway/handlers.rs#L2444) |
+| assert_eq | macro invocation (unexpanded) | tests::sse_line_buffer_skips_empty_separator_and_keeps_next_frame | [2445](../../src-tauri/src/antigravity/gateway/handlers.rs#L2445) |
+| lossy_utf8_on_split_chinese_would_corrupt | function_item | tests | [2449](../../src-tauri/src/antigravity/gateway/handlers.rs#L2449) |
+| format | macro invocation (unexpanded) | tests::lossy_utf8_on_split_chinese_would_corrupt | [2453](../../src-tauri/src/antigravity/gateway/handlers.rs#L2453) |
+| assert_ne | macro invocation (unexpanded) | tests::lossy_utf8_on_split_chinese_would_corrupt | [2458](../../src-tauri/src/antigravity/gateway/handlers.rs#L2458) |
+| assert | macro invocation (unexpanded) | tests::lossy_utf8_on_split_chinese_would_corrupt | [2459](../../src-tauri/src/antigravity/gateway/handlers.rs#L2459) |
+| claude_55_404_rotates_but_other_request_errors_do_not | function_item | tests | [2463](../../src-tauri/src/antigravity/gateway/handlers.rs#L2463) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2464](../../src-tauri/src/antigravity/gateway/handlers.rs#L2464) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2469](../../src-tauri/src/antigravity/gateway/handlers.rs#L2469) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2474](../../src-tauri/src/antigravity/gateway/handlers.rs#L2474) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2479](../../src-tauri/src/antigravity/gateway/handlers.rs#L2479) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2484](../../src-tauri/src/antigravity/gateway/handlers.rs#L2484) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2489](../../src-tauri/src/antigravity/gateway/handlers.rs#L2489) |
+| assert | macro invocation (unexpanded) | tests::claude_55_404_rotates_but_other_request_errors_do_not | [2490](../../src-tauri/src/antigravity/gateway/handlers.rs#L2490) |
+| dropped_stream_flushes_accumulated_usage | function_item | tests | [2496](../../src-tauri/src/antigravity/gateway/handlers.rs#L2496) |
+| json | macro invocation (unexpanded) | tests::dropped_stream_flushes_accumulated_usage | [2534](../../src-tauri/src/antigravity/gateway/handlers.rs#L2534) |
+| assert_eq | macro invocation (unexpanded) | tests::dropped_stream_flushes_accumulated_usage | [2559](../../src-tauri/src/antigravity/gateway/handlers.rs#L2559) |

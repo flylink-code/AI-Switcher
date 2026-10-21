@@ -233,7 +233,7 @@ function writePersisted(state: PersistedPagePreferences) {
 function migrateVisibleAgents(source: readonly ProviderTarget[]): ProviderTarget[] {
   const hadCline = source.includes("cline");
   const visible = filterUiAgents(source);
-  if (hadCline && !visible.includes("claude_desktop")) {
+  if (hadCline && isAgentUiEnabled("claude_desktop") && !visible.includes("claude_desktop")) {
     const codeAt = visible.indexOf("claude_code");
     visible.splice(codeAt >= 0 ? codeAt + 1 : 0, 0, "claude_desktop");
   }

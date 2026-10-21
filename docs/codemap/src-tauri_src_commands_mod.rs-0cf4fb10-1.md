@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/mod.rs) · page 1/1
 
-Source SHA-256: 4619aca0c2b58647c5540a15ab3e88c8489ba8168e6a115205619151faae6b68
+Source SHA-256: 2d33559e83ef3654226ac621779e47bbac410a6d3cc297272ce5e6f2984d7db6
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

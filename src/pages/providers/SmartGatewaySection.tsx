@@ -22,7 +22,7 @@ import {
 
 const { Paragraph, Text } = Typography;
 
-type SnippetKind = "sdk" | "openai" | "anthropic" | "responses";
+type SnippetKind = "sdk" | "openai" | "anthropic" | "responses" | "remote";
 
 export function SmartGatewaySection() {
   const { t } = useTranslation();
@@ -76,12 +76,40 @@ export function SmartGatewaySection() {
         return `curl -s ${listenUrl}/v1/responses \\\n -H "Authorization: Bearer ${key}" \\\n -H "x-ai-switcher-target: codex" \\\n -H "content-type: application/json" \\\n -d '{"model":"<catalog-model-id>","input":"hi"}'`;
       case "openai":
         return `curl -s ${openaiUrl}/chat/completions \\\n -H "Authorization: Bearer ${key}" \\\n -H "content-type: application/json" \\\n -d '{"model":"<catalog-model-id>","messages":[{"role":"user","content":"hi"}]}'`;
+      case "remote": {
+        const remotePort = status?.port ?? port;
+        return [
+          "# 1) Windows 的 ~/.ssh/config：把远端的 127.0.0.1 端口接回本机网关",
+          "Host my-remote",
+          "  HostName <服务器地址>",
+          "  User <用户名>",
+          `  RemoteForward ${remotePort} 127.0.0.1:${remotePort}`,
+          "  ExitOnForwardFailure yes",
+          "",
+          "# 2) 远端 ~/.bashrc（或 VS Code 远程终端环境）：Claude Code",
+          `export ANTHROPIC_BASE_URL=http://127.0.0.1:${remotePort}`,
+          `export ANTHROPIC_AUTH_TOKEN=${key}`,
+          `export ANTHROPIC_API_KEY=${key}`,
+          "export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1",
+          "",
+          "# 3) 远端 ~/.codex/config.toml：Codex",
+          "model_provider = \"ai_switcher\"",
+          "[model_providers.ai_switcher]",
+          "name = \"AI-Switcher\"",
+          `base_url = "http://127.0.0.1:${remotePort}/v1"`,
+          "wire_api = \"responses\"",
+          `experimental_bearer_token = "${key}"`,
+          "http_headers = { \"x-ai-switcher-target\" = \"codex\" }",
+          "",
+          "# 注意：连着 SSH 时转发才有效；Windows 上要先启动 AI-Switcher 与网关。",
+        ].join("\n");
+      }
       default: {
         const _exhaustive: never = snippetKind;
         return _exhaustive;
       }
     }
-  }, [apiKey, listenUrl, openaiUrl, snippetKind]);
+  }, [apiKey, listenUrl, openaiUrl, port, snippetKind, status?.port]);
 
   const copyText = async (value: string) => {
     try {
@@ -240,6 +268,7 @@ export function SmartGatewaySection() {
               { value: "openai", label: "OpenAI Chat" },
               { value: "anthropic", label: "Anthropic" },
               { value: "responses", label: "Responses" },
+              { value: "remote", label: t("gateway.snippetRemote", { defaultValue: "远端使用" }) },
             ]}
           />
           <Paragraph>

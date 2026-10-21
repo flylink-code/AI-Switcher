@@ -4,67 +4,68 @@
 
 [Module](web-services.md) · [Source](../../src/services/system.ts) · page 1/1
 
-Source SHA-256: 672734804560e993c15e702fdacdeb90d98085b02222469d58ad67e29bd56a79
+Source SHA-256: ebd4acb4aeb2243411e8188649c7a4388b0c1a6039e336c60755af5004abaabc
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | ping | FunctionDeclaration |  | [22](../../src/services/system.ts#L22) |
-| restartApp | FunctionDeclaration |  | [26](../../src/services/system.ts#L26) |
-| getPaths | FunctionDeclaration |  | [30](../../src/services/system.ts#L30) |
-| getDbInfo | FunctionDeclaration |  | [34](../../src/services/system.ts#L34) |
-| runEnvironmentDoctor | FunctionDeclaration |  | [38](../../src/services/system.ts#L38) |
-| repairEnvironmentVisibility | FunctionDeclaration |  | [42](../../src/services/system.ts#L42) |
-| repairDoctorCheck | FunctionDeclaration |  | [46](../../src/services/system.ts#L46) |
-| getDataRoot | FunctionDeclaration |  | [50](../../src/services/system.ts#L50) |
-| migrateDataRoot | FunctionDeclaration |  | [54](../../src/services/system.ts#L54) |
-| backupNow | FunctionDeclaration |  | [58](../../src/services/system.ts#L58) |
-| getAutostartEnabled | FunctionDeclaration |  | [62](../../src/services/system.ts#L62) |
-| setAutostartEnabled | FunctionDeclaration |  | [66](../../src/services/system.ts#L66) |
-| getAutostartConfig | FunctionDeclaration |  | [70](../../src/services/system.ts#L70) |
-| setAutostartConfig | FunctionDeclaration |  | [74](../../src/services/system.ts#L74) |
-| getCloseBehavior | FunctionDeclaration |  | [78](../../src/services/system.ts#L78) |
-| GatewayRuntimeMode | TypeAliasDeclaration |  | [82](../../src/services/system.ts#L82) |
-| GatewaySidecarStatus | InterfaceDeclaration |  | [84](../../src/services/system.ts#L84) |
-| mode | PropertySignature | GatewaySidecarStatus | [85](../../src/services/system.ts#L85) |
-| supervised | PropertySignature | GatewaySidecarStatus | [86](../../src/services/system.ts#L86) |
-| running | PropertySignature | GatewaySidecarStatus | [87](../../src/services/system.ts#L87) |
-| pid | PropertySignature | GatewaySidecarStatus | [88](../../src/services/system.ts#L88) |
-| antigravityUp | PropertySignature | GatewaySidecarStatus | [89](../../src/services/system.ts#L89) |
-| kiroUp | PropertySignature | GatewaySidecarStatus | [90](../../src/services/system.ts#L90) |
-| restarts | PropertySignature | GatewaySidecarStatus | [91](../../src/services/system.ts#L91) |
-| lastExitCode | PropertySignature | GatewaySidecarStatus | [92](../../src/services/system.ts#L92) |
-| backoffMs | PropertySignature | GatewaySidecarStatus | [93](../../src/services/system.ts#L93) |
-| getGatewayRuntimeMode | FunctionDeclaration |  | [97](../../src/services/system.ts#L97) |
-| getGatewaySidecarStatus | FunctionDeclaration |  | [101](../../src/services/system.ts#L101) |
-| setGatewayRuntimeMode | FunctionDeclaration |  | [105](../../src/services/system.ts#L105) |
-| getGatewayTimezone | FunctionDeclaration |  | [112](../../src/services/system.ts#L112) |
-| setGatewayTimezone | FunctionDeclaration |  | [116](../../src/services/system.ts#L116) |
-| getGatewayDebugEnvRewrite | FunctionDeclaration |  | [121](../../src/services/system.ts#L121) |
-| setGatewayDebugEnvRewrite | FunctionDeclaration |  | [125](../../src/services/system.ts#L125) |
-| setCloseBehavior | FunctionDeclaration |  | [129](../../src/services/system.ts#L129) |
-| resolveCloseRequest | FunctionDeclaration |  | [133](../../src/services/system.ts#L133) |
-| reportFrontendStartup | FunctionDeclaration |  | [140](../../src/services/system.ts#L140) |
-| reportFrontendPerformance | FunctionDeclaration |  | [148](../../src/services/system.ts#L148) |
-| getDesktopLocalizationStatus | FunctionDeclaration |  | [160](../../src/services/system.ts#L160) |
-| getLocalizationHubStatus | FunctionDeclaration |  | [164](../../src/services/system.ts#L164) |
-| checkLocalizationUpstream | FunctionDeclaration |  | [168](../../src/services/system.ts#L168) |
-| installClaudeCodeLocalization | FunctionDeclaration |  | [172](../../src/services/system.ts#L172) |
-| updateClaudeCodeLocalization | FunctionDeclaration |  | [176](../../src/services/system.ts#L176) |
-| uninstallClaudeCodeLocalization | FunctionDeclaration |  | [180](../../src/services/system.ts#L180) |
-| installEditorLocalizationHelper | FunctionDeclaration |  | [184](../../src/services/system.ts#L184) |
-| updateEditorLocalizationHelper | FunctionDeclaration |  | [188](../../src/services/system.ts#L188) |
-| uninstallEditorLocalizationHelper | FunctionDeclaration |  | [192](../../src/services/system.ts#L192) |
-| downloadDesktopLocalizationPack | FunctionDeclaration |  | [196](../../src/services/system.ts#L196) |
-| selectDesktopLocalizationPack | FunctionDeclaration |  | [200](../../src/services/system.ts#L200) |
-| validateDesktopLocalizationPack | FunctionDeclaration |  | [204](../../src/services/system.ts#L204) |
-| installDesktopLocalization | FunctionDeclaration |  | [213](../../src/services/system.ts#L213) |
-| restoreDesktopLocalization | FunctionDeclaration |  | [221](../../src/services/system.ts#L221) |
-| updateDesktopLocalization | FunctionDeclaration |  | [225](../../src/services/system.ts#L225) |
-| setAppLanguage | FunctionDeclaration |  | [231](../../src/services/system.ts#L231) |
-| getUpdateMirrorSettings | FunctionDeclaration |  | [235](../../src/services/system.ts#L235) |
-| setUpdateMirrorSettings | FunctionDeclaration |  | [239](../../src/services/system.ts#L239) |
-| checkAppUpdate | FunctionDeclaration |  | [243](../../src/services/system.ts#L243) |
-| installAppUpdate | FunctionDeclaration |  | [247](../../src/services/system.ts#L247) |
-| getDismissedOnboardingTips | FunctionDeclaration |  | [251](../../src/services/system.ts#L251) |
-| dismissOnboardingTip | FunctionDeclaration |  | [255](../../src/services/system.ts#L255) |
-| restoreOnboardingTips | FunctionDeclaration |  | [259](../../src/services/system.ts#L259) |
+| getAppPlatform | FunctionDeclaration |  | [27](../../src/services/system.ts#L27) |
+| restartApp | FunctionDeclaration |  | [31](../../src/services/system.ts#L31) |
+| getPaths | FunctionDeclaration |  | [35](../../src/services/system.ts#L35) |
+| getDbInfo | FunctionDeclaration |  | [39](../../src/services/system.ts#L39) |
+| runEnvironmentDoctor | FunctionDeclaration |  | [43](../../src/services/system.ts#L43) |
+| repairEnvironmentVisibility | FunctionDeclaration |  | [47](../../src/services/system.ts#L47) |
+| repairDoctorCheck | FunctionDeclaration |  | [51](../../src/services/system.ts#L51) |
+| getDataRoot | FunctionDeclaration |  | [55](../../src/services/system.ts#L55) |
+| migrateDataRoot | FunctionDeclaration |  | [59](../../src/services/system.ts#L59) |
+| backupNow | FunctionDeclaration |  | [63](../../src/services/system.ts#L63) |
+| getAutostartEnabled | FunctionDeclaration |  | [67](../../src/services/system.ts#L67) |
+| setAutostartEnabled | FunctionDeclaration |  | [71](../../src/services/system.ts#L71) |
+| getAutostartConfig | FunctionDeclaration |  | [75](../../src/services/system.ts#L75) |
+| setAutostartConfig | FunctionDeclaration |  | [79](../../src/services/system.ts#L79) |
+| getCloseBehavior | FunctionDeclaration |  | [83](../../src/services/system.ts#L83) |
+| GatewayRuntimeMode | TypeAliasDeclaration |  | [87](../../src/services/system.ts#L87) |
+| GatewaySidecarStatus | InterfaceDeclaration |  | [89](../../src/services/system.ts#L89) |
+| mode | PropertySignature | GatewaySidecarStatus | [90](../../src/services/system.ts#L90) |
+| supervised | PropertySignature | GatewaySidecarStatus | [91](../../src/services/system.ts#L91) |
+| running | PropertySignature | GatewaySidecarStatus | [92](../../src/services/system.ts#L92) |
+| pid | PropertySignature | GatewaySidecarStatus | [93](../../src/services/system.ts#L93) |
+| antigravityUp | PropertySignature | GatewaySidecarStatus | [94](../../src/services/system.ts#L94) |
+| kiroUp | PropertySignature | GatewaySidecarStatus | [95](../../src/services/system.ts#L95) |
+| restarts | PropertySignature | GatewaySidecarStatus | [96](../../src/services/system.ts#L96) |
+| lastExitCode | PropertySignature | GatewaySidecarStatus | [97](../../src/services/system.ts#L97) |
+| backoffMs | PropertySignature | GatewaySidecarStatus | [98](../../src/services/system.ts#L98) |
+| getGatewayRuntimeMode | FunctionDeclaration |  | [102](../../src/services/system.ts#L102) |
+| getGatewaySidecarStatus | FunctionDeclaration |  | [106](../../src/services/system.ts#L106) |
+| setGatewayRuntimeMode | FunctionDeclaration |  | [110](../../src/services/system.ts#L110) |
+| getGatewayTimezone | FunctionDeclaration |  | [117](../../src/services/system.ts#L117) |
+| setGatewayTimezone | FunctionDeclaration |  | [121](../../src/services/system.ts#L121) |
+| getGatewayDebugEnvRewrite | FunctionDeclaration |  | [126](../../src/services/system.ts#L126) |
+| setGatewayDebugEnvRewrite | FunctionDeclaration |  | [130](../../src/services/system.ts#L130) |
+| setCloseBehavior | FunctionDeclaration |  | [134](../../src/services/system.ts#L134) |
+| resolveCloseRequest | FunctionDeclaration |  | [138](../../src/services/system.ts#L138) |
+| reportFrontendStartup | FunctionDeclaration |  | [145](../../src/services/system.ts#L145) |
+| reportFrontendPerformance | FunctionDeclaration |  | [153](../../src/services/system.ts#L153) |
+| getDesktopLocalizationStatus | FunctionDeclaration |  | [165](../../src/services/system.ts#L165) |
+| getLocalizationHubStatus | FunctionDeclaration |  | [169](../../src/services/system.ts#L169) |
+| checkLocalizationUpstream | FunctionDeclaration |  | [173](../../src/services/system.ts#L173) |
+| installClaudeCodeLocalization | FunctionDeclaration |  | [177](../../src/services/system.ts#L177) |
+| updateClaudeCodeLocalization | FunctionDeclaration |  | [181](../../src/services/system.ts#L181) |
+| uninstallClaudeCodeLocalization | FunctionDeclaration |  | [185](../../src/services/system.ts#L185) |
+| installEditorLocalizationHelper | FunctionDeclaration |  | [189](../../src/services/system.ts#L189) |
+| updateEditorLocalizationHelper | FunctionDeclaration |  | [193](../../src/services/system.ts#L193) |
+| uninstallEditorLocalizationHelper | FunctionDeclaration |  | [197](../../src/services/system.ts#L197) |
+| downloadDesktopLocalizationPack | FunctionDeclaration |  | [201](../../src/services/system.ts#L201) |
+| selectDesktopLocalizationPack | FunctionDeclaration |  | [205](../../src/services/system.ts#L205) |
+| validateDesktopLocalizationPack | FunctionDeclaration |  | [209](../../src/services/system.ts#L209) |
+| installDesktopLocalization | FunctionDeclaration |  | [218](../../src/services/system.ts#L218) |
+| restoreDesktopLocalization | FunctionDeclaration |  | [226](../../src/services/system.ts#L226) |
+| updateDesktopLocalization | FunctionDeclaration |  | [230](../../src/services/system.ts#L230) |
+| setAppLanguage | FunctionDeclaration |  | [236](../../src/services/system.ts#L236) |
+| getUpdateMirrorSettings | FunctionDeclaration |  | [240](../../src/services/system.ts#L240) |
+| setUpdateMirrorSettings | FunctionDeclaration |  | [244](../../src/services/system.ts#L244) |
+| checkAppUpdate | FunctionDeclaration |  | [248](../../src/services/system.ts#L248) |
+| installAppUpdate | FunctionDeclaration |  | [252](../../src/services/system.ts#L252) |
+| getDismissedOnboardingTips | FunctionDeclaration |  | [256](../../src/services/system.ts#L256) |
+| dismissOnboardingTip | FunctionDeclaration |  | [260](../../src/services/system.ts#L260) |
+| restoreOnboardingTips | FunctionDeclaration |  | [264](../../src/services/system.ts#L264) |

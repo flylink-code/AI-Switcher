@@ -66,7 +66,7 @@ export function BindAppsCard({
         </div>
 
         {accountCount === 0 && (
-          <Text type="danger" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
             {t("antigravity.bindNeedsAccount")}
           </Text>
         )}

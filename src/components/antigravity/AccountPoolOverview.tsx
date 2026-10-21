@@ -71,7 +71,7 @@ export function AccountPoolOverview({ accounts, status }: AccountPoolOverviewPro
           {t("antigravity.rotationStrategy")}: {t("antigravity.rotationWeighted")}
         </Text>
       </Inline>
-      {warning?.hasWarning && (
+      {warning?.hasWarning && totalCount > 0 && (
         <Alert
           type={warning.warningLevel === "exhausted" ? "error" : "warning"}
           showIcon

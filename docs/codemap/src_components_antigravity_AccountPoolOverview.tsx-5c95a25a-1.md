@@ -4,7 +4,7 @@
 
 [Module](web-components.md) · [Source](../../src/components/antigravity/AccountPoolOverview.tsx) · page 1/1
 
-Source SHA-256: c6656139ec6ce1db131ab02d95388c16c58376641571a139b07623a078a26250
+Source SHA-256: 815d5ff1d3e86f9b00f965047cf8c1b98f816e79db3884d6938bf7873544281c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -4,104 +4,104 @@
 
 [Module](web-pages.md) · [Source](../../src/pages/AgentHubPage.tsx) · page 1/1
 
-Source SHA-256: 526abbe8b2eb7d50ffd44f5a8f2d64f42734c73dba86ba2c6aef648d29c23da9
+Source SHA-256: 40f0c71b89b35e812a26b4a37de4221086df031967185702b01ee89c6c17dbe3
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| { Text } | VariableDeclaration |  | [54](../../src/pages/AgentHubPage.tsx#L54) |
-| Text | BindingElement | { Text } | [54](../../src/pages/AgentHubPage.tsx#L54) |
-| livePromptBlocksAgentTeams | FunctionDeclaration |  | [56](../../src/pages/AgentHubPage.tsx#L56) |
-| ToolTarget | TypeAliasDeclaration |  | [61](../../src/pages/AgentHubPage.tsx#L61) |
-| BusyTarget | TypeAliasDeclaration |  | [62](../../src/pages/AgentHubPage.tsx#L62) |
-| AgentHubPage | FunctionDeclaration |  | [64](../../src/pages/AgentHubPage.tsx#L64) |
-| { t } | VariableDeclaration | AgentHubPage | [65](../../src/pages/AgentHubPage.tsx#L65) |
-| t | BindingElement | AgentHubPage.{ t } | [65](../../src/pages/AgentHubPage.tsx#L65) |
-| navigate | VariableDeclaration | AgentHubPage | [66](../../src/pages/AgentHubPage.tsx#L66) |
-| queryClient | VariableDeclaration | AgentHubPage | [67](../../src/pages/AgentHubPage.tsx#L67) |
-| setWorkspaceTarget | VariableDeclaration | AgentHubPage | [68](../../src/pages/AgentHubPage.tsx#L68) |
-| showLocalization | VariableDeclaration | AgentHubPage | [70](../../src/pages/AgentHubPage.tsx#L70) |
-| [piThinkingLevel, setPiThinkingLevel] | VariableDeclaration | AgentHubPage | [71](../../src/pages/AgentHubPage.tsx#L71) |
-| piThinkingLevel | BindingElement | AgentHubPage.[piThinkingLevel, setPiThinkingLevel] | [71](../../src/pages/AgentHubPage.tsx#L71) |
-| setPiThinkingLevel | BindingElement | AgentHubPage.[piThinkingLevel, setPiThinkingLevel] | [71](../../src/pages/AgentHubPage.tsx#L71) |
-| [busyTarget, setBusyTarget] | VariableDeclaration | AgentHubPage | [72](../../src/pages/AgentHubPage.tsx#L72) |
-| busyTarget | BindingElement | AgentHubPage.[busyTarget, setBusyTarget] | [72](../../src/pages/AgentHubPage.tsx#L72) |
-| setBusyTarget | BindingElement | AgentHubPage.[busyTarget, setBusyTarget] | [72](../../src/pages/AgentHubPage.tsx#L72) |
-| [installingNode, setInstallingNode] | VariableDeclaration | AgentHubPage | [73](../../src/pages/AgentHubPage.tsx#L73) |
-| installingNode | BindingElement | AgentHubPage.[installingNode, setInstallingNode] | [73](../../src/pages/AgentHubPage.tsx#L73) |
-| setInstallingNode | BindingElement | AgentHubPage.[installingNode, setInstallingNode] | [73](../../src/pages/AgentHubPage.tsx#L73) |
-| [opencodeSwitchOpen, setOpencodeSwitchOpen] | VariableDeclaration | AgentHubPage | [74](../../src/pages/AgentHubPage.tsx#L74) |
-| opencodeSwitchOpen | BindingElement | AgentHubPage.[opencodeSwitchOpen, setOpencodeSwitchOpen] | [74](../../src/pages/AgentHubPage.tsx#L74) |
-| setOpencodeSwitchOpen | BindingElement | AgentHubPage.[opencodeSwitchOpen, setOpencodeSwitchOpen] | [74](../../src/pages/AgentHubPage.tsx#L74) |
-| nodeQuery | VariableDeclaration | AgentHubPage | [76](../../src/pages/AgentHubPage.tsx#L76) |
-| claudeQuery | VariableDeclaration | AgentHubPage | [77](../../src/pages/AgentHubPage.tsx#L77) |
-| placeholderData | PropertyAssignment | AgentHubPage.claudeQuery | [77](../../src/pages/AgentHubPage.tsx#L77) |
-| localClaudeQuery | VariableDeclaration | AgentHubPage | [78](../../src/pages/AgentHubPage.tsx#L78) |
-| codexQuery | VariableDeclaration | AgentHubPage | [79](../../src/pages/AgentHubPage.tsx#L79) |
-| placeholderData | PropertyAssignment | AgentHubPage.codexQuery | [79](../../src/pages/AgentHubPage.tsx#L79) |
-| localCodexQuery | VariableDeclaration | AgentHubPage | [80](../../src/pages/AgentHubPage.tsx#L80) |
-| opencodeQuery | VariableDeclaration | AgentHubPage | [81](../../src/pages/AgentHubPage.tsx#L81) |
-| placeholderData | PropertyAssignment | AgentHubPage.opencodeQuery | [81](../../src/pages/AgentHubPage.tsx#L81) |
-| localOpenCodeQuery | VariableDeclaration | AgentHubPage | [82](../../src/pages/AgentHubPage.tsx#L82) |
-| piQuery | VariableDeclaration | AgentHubPage | [83](../../src/pages/AgentHubPage.tsx#L83) |
-| placeholderData | PropertyAssignment | AgentHubPage.piQuery | [83](../../src/pages/AgentHubPage.tsx#L83) |
-| localPiQuery | VariableDeclaration | AgentHubPage | [84](../../src/pages/AgentHubPage.tsx#L84) |
-| desktopQuery | VariableDeclaration | AgentHubPage | [85](../../src/pages/AgentHubPage.tsx#L85) |
-| claudeInfo | VariableDeclaration | AgentHubPage | [87](../../src/pages/AgentHubPage.tsx#L87) |
-| codexInfo | VariableDeclaration | AgentHubPage | [88](../../src/pages/AgentHubPage.tsx#L88) |
-| opencodeInfo | VariableDeclaration | AgentHubPage | [89](../../src/pages/AgentHubPage.tsx#L89) |
-| piInfo | VariableDeclaration | AgentHubPage | [90](../../src/pages/AgentHubPage.tsx#L90) |
-| desktopInfo | VariableDeclaration | AgentHubPage | [91](../../src/pages/AgentHubPage.tsx#L91) |
-| opencodeAction | VariableDeclaration | AgentHubPage | [92](../../src/pages/AgentHubPage.tsx#L92) |
-| desktopAutoModeQuery | VariableDeclaration | AgentHubPage | [94](../../src/pages/AgentHubPage.tsx#L94) |
-| defaultPermissionModeQuery | VariableDeclaration | AgentHubPage | [98](../../src/pages/AgentHubPage.tsx#L98) |
-| agentSettingsQuery | VariableDeclaration | AgentHubPage | [102](../../src/pages/AgentHubPage.tsx#L102) |
-| opencodePermissionQuery | VariableDeclaration | AgentHubPage | [106](../../src/pages/AgentHubPage.tsx#L106) |
-| piSettingsQuery | VariableDeclaration | AgentHubPage | [110](../../src/pages/AgentHubPage.tsx#L110) |
-| queryFn | PropertyAssignment | AgentHubPage.piSettingsQuery | [112](../../src/pages/AgentHubPage.tsx#L112) |
-| result | VariableDeclaration | AgentHubPage.piSettingsQuery.queryFn | [113](../../src/pages/AgentHubPage.tsx#L113) |
-| livePromptQuery | VariableDeclaration | AgentHubPage | [120](../../src/pages/AgentHubPage.tsx#L120) |
-| queryFn | PropertyAssignment | AgentHubPage.livePromptQuery | [122](../../src/pages/AgentHubPage.tsx#L122) |
-| toolInfo | VariableDeclaration | AgentHubPage | [125](../../src/pages/AgentHubPage.tsx#L125) |
-| _exhaustive | VariableDeclaration | AgentHubPage.toolInfo | [142](../../src/pages/AgentHubPage.tsx#L142) |
-| refreshTool | VariableDeclaration | AgentHubPage | [148](../../src/pages/AgentHubPage.tsx#L148) |
-| key | VariableDeclaration | AgentHubPage.refreshTool | [149](../../src/pages/AgentHubPage.tsx#L149) |
-| runToolUpdate | VariableDeclaration | AgentHubPage | [160](../../src/pages/AgentHubPage.tsx#L160) |
-| result | VariableDeclaration | AgentHubPage.runToolUpdate | [167](../../src/pages/AgentHubPage.tsx#L167) |
-| error | VariableDeclaration | AgentHubPage.runToolUpdate | [177](../../src/pages/AgentHubPage.tsx#L177) |
-| runDesktopUpdate | VariableDeclaration | AgentHubPage | [184](../../src/pages/AgentHubPage.tsx#L184) |
-| error | VariableDeclaration | AgentHubPage.runDesktopUpdate | [188](../../src/pages/AgentHubPage.tsx#L188) |
-| result | VariableDeclaration | AgentHubPage.runDesktopUpdate | [195](../../src/pages/AgentHubPage.tsx#L195) |
-| error | VariableDeclaration | AgentHubPage.runDesktopUpdate | [198](../../src/pages/AgentHubPage.tsx#L198) |
-| installNode | VariableDeclaration | AgentHubPage | [205](../../src/pages/AgentHubPage.tsx#L205) |
-| status | VariableDeclaration | AgentHubPage.installNode | [208](../../src/pages/AgentHubPage.tsx#L208) |
-| error | VariableDeclaration | AgentHubPage.installNode | [215](../../src/pages/AgentHubPage.tsx#L215) |
-| handleDesktopAutoModeChange | VariableDeclaration | AgentHubPage | [222](../../src/pages/AgentHubPage.tsx#L222) |
-| error | VariableDeclaration | AgentHubPage.handleDesktopAutoModeChange | [227](../../src/pages/AgentHubPage.tsx#L227) |
-| handleDefaultPermissionModeChange | VariableDeclaration | AgentHubPage | [232](../../src/pages/AgentHubPage.tsx#L232) |
-| error | VariableDeclaration | AgentHubPage.handleDefaultPermissionModeChange | [237](../../src/pages/AgentHubPage.tsx#L237) |
-| handleAgentSettingsChange | VariableDeclaration | AgentHubPage | [242](../../src/pages/AgentHubPage.tsx#L242) |
-| current | VariableDeclaration | AgentHubPage.handleAgentSettingsChange | [243](../../src/pages/AgentHubPage.tsx#L243) |
-| next | VariableDeclaration | AgentHubPage.handleAgentSettingsChange | [245](../../src/pages/AgentHubPage.tsx#L245) |
-| error | VariableDeclaration | AgentHubPage.handleAgentSettingsChange | [253](../../src/pages/AgentHubPage.tsx#L253) |
-| installed | VariableDeclaration | AgentHubPage | [258](../../src/pages/AgentHubPage.tsx#L258) |
-| updateStateFor | VariableDeclaration | AgentHubPage | [266](../../src/pages/AgentHubPage.tsx#L266) |
-| renderHeaderExtra | VariableDeclaration | AgentHubPage | [281](../../src/pages/AgentHubPage.tsx#L281) |
-| info | VariableDeclaration | AgentHubPage.renderHeaderExtra | [282](../../src/pages/AgentHubPage.tsx#L282) |
-| updateState | VariableDeclaration | AgentHubPage.renderHeaderExtra | [307](../../src/pages/AgentHubPage.tsx#L307) |
-| replacingV1 | VariableDeclaration | AgentHubPage.renderHeaderExtra | [308](../../src/pages/AgentHubPage.tsx#L308) |
-| isCliTarget | VariableDeclaration | AgentHubPage.renderHeaderExtra | [309](../../src/pages/AgentHubPage.tsx#L309) |
-| renderAdvanced | VariableDeclaration | AgentHubPage | [348](../../src/pages/AgentHubPage.tsx#L348) |
-| info | VariableDeclaration | AgentHubPage.renderAdvanced | [376](../../src/pages/AgentHubPage.tsx#L376) |
-| updateState | VariableDeclaration | AgentHubPage.renderAdvanced | [377](../../src/pages/AgentHubPage.tsx#L377) |
-| replacingV1 | VariableDeclaration | AgentHubPage.renderAdvanced | [378](../../src/pages/AgentHubPage.tsx#L378) |
-| upgradeButton | VariableDeclaration | AgentHubPage.renderAdvanced | [379](../../src/pages/AgentHubPage.tsx#L379) |
-| codexCliMissing | VariableDeclaration | AgentHubPage.renderAdvanced | [381](../../src/pages/AgentHubPage.tsx#L381) |
-| upgradeLabel | VariableDeclaration | AgentHubPage.renderAdvanced | [382](../../src/pages/AgentHubPage.tsx#L382) |
-| maintenance | VariableDeclaration | AgentHubPage.renderAdvanced | [385](../../src/pages/AgentHubPage.tsx#L385) |
-| level | VariableDeclaration | AgentHubPage.renderAdvanced | [515](../../src/pages/AgentHubPage.tsx#L515) |
-| node | VariableDeclaration | AgentHubPage | [539](../../src/pages/AgentHubPage.tsx#L539) |
-| SettingRow | FunctionDeclaration |  | [606](../../src/pages/AgentHubPage.tsx#L606) |
-| label | BindingElement | SettingRow | [606](../../src/pages/AgentHubPage.tsx#L606) |
-| children | BindingElement | SettingRow | [606](../../src/pages/AgentHubPage.tsx#L606) |
-| label | PropertySignature | SettingRow | [606](../../src/pages/AgentHubPage.tsx#L606) |
-| children | PropertySignature | SettingRow | [606](../../src/pages/AgentHubPage.tsx#L606) |
+| { Text } | VariableDeclaration |  | [55](../../src/pages/AgentHubPage.tsx#L55) |
+| Text | BindingElement | { Text } | [55](../../src/pages/AgentHubPage.tsx#L55) |
+| livePromptBlocksAgentTeams | FunctionDeclaration |  | [57](../../src/pages/AgentHubPage.tsx#L57) |
+| ToolTarget | TypeAliasDeclaration |  | [62](../../src/pages/AgentHubPage.tsx#L62) |
+| BusyTarget | TypeAliasDeclaration |  | [63](../../src/pages/AgentHubPage.tsx#L63) |
+| AgentHubPage | FunctionDeclaration |  | [65](../../src/pages/AgentHubPage.tsx#L65) |
+| { t } | VariableDeclaration | AgentHubPage | [66](../../src/pages/AgentHubPage.tsx#L66) |
+| t | BindingElement | AgentHubPage.{ t } | [66](../../src/pages/AgentHubPage.tsx#L66) |
+| navigate | VariableDeclaration | AgentHubPage | [67](../../src/pages/AgentHubPage.tsx#L67) |
+| queryClient | VariableDeclaration | AgentHubPage | [68](../../src/pages/AgentHubPage.tsx#L68) |
+| setWorkspaceTarget | VariableDeclaration | AgentHubPage | [69](../../src/pages/AgentHubPage.tsx#L69) |
+| showLocalization | VariableDeclaration | AgentHubPage | [71](../../src/pages/AgentHubPage.tsx#L71) |
+| [piThinkingLevel, setPiThinkingLevel] | VariableDeclaration | AgentHubPage | [72](../../src/pages/AgentHubPage.tsx#L72) |
+| piThinkingLevel | BindingElement | AgentHubPage.[piThinkingLevel, setPiThinkingLevel] | [72](../../src/pages/AgentHubPage.tsx#L72) |
+| setPiThinkingLevel | BindingElement | AgentHubPage.[piThinkingLevel, setPiThinkingLevel] | [72](../../src/pages/AgentHubPage.tsx#L72) |
+| [busyTarget, setBusyTarget] | VariableDeclaration | AgentHubPage | [73](../../src/pages/AgentHubPage.tsx#L73) |
+| busyTarget | BindingElement | AgentHubPage.[busyTarget, setBusyTarget] | [73](../../src/pages/AgentHubPage.tsx#L73) |
+| setBusyTarget | BindingElement | AgentHubPage.[busyTarget, setBusyTarget] | [73](../../src/pages/AgentHubPage.tsx#L73) |
+| [installingNode, setInstallingNode] | VariableDeclaration | AgentHubPage | [74](../../src/pages/AgentHubPage.tsx#L74) |
+| installingNode | BindingElement | AgentHubPage.[installingNode, setInstallingNode] | [74](../../src/pages/AgentHubPage.tsx#L74) |
+| setInstallingNode | BindingElement | AgentHubPage.[installingNode, setInstallingNode] | [74](../../src/pages/AgentHubPage.tsx#L74) |
+| [opencodeSwitchOpen, setOpencodeSwitchOpen] | VariableDeclaration | AgentHubPage | [75](../../src/pages/AgentHubPage.tsx#L75) |
+| opencodeSwitchOpen | BindingElement | AgentHubPage.[opencodeSwitchOpen, setOpencodeSwitchOpen] | [75](../../src/pages/AgentHubPage.tsx#L75) |
+| setOpencodeSwitchOpen | BindingElement | AgentHubPage.[opencodeSwitchOpen, setOpencodeSwitchOpen] | [75](../../src/pages/AgentHubPage.tsx#L75) |
+| nodeQuery | VariableDeclaration | AgentHubPage | [77](../../src/pages/AgentHubPage.tsx#L77) |
+| claudeQuery | VariableDeclaration | AgentHubPage | [78](../../src/pages/AgentHubPage.tsx#L78) |
+| placeholderData | PropertyAssignment | AgentHubPage.claudeQuery | [78](../../src/pages/AgentHubPage.tsx#L78) |
+| localClaudeQuery | VariableDeclaration | AgentHubPage | [79](../../src/pages/AgentHubPage.tsx#L79) |
+| codexQuery | VariableDeclaration | AgentHubPage | [80](../../src/pages/AgentHubPage.tsx#L80) |
+| placeholderData | PropertyAssignment | AgentHubPage.codexQuery | [80](../../src/pages/AgentHubPage.tsx#L80) |
+| localCodexQuery | VariableDeclaration | AgentHubPage | [81](../../src/pages/AgentHubPage.tsx#L81) |
+| opencodeQuery | VariableDeclaration | AgentHubPage | [82](../../src/pages/AgentHubPage.tsx#L82) |
+| placeholderData | PropertyAssignment | AgentHubPage.opencodeQuery | [82](../../src/pages/AgentHubPage.tsx#L82) |
+| localOpenCodeQuery | VariableDeclaration | AgentHubPage | [83](../../src/pages/AgentHubPage.tsx#L83) |
+| piQuery | VariableDeclaration | AgentHubPage | [84](../../src/pages/AgentHubPage.tsx#L84) |
+| placeholderData | PropertyAssignment | AgentHubPage.piQuery | [84](../../src/pages/AgentHubPage.tsx#L84) |
+| localPiQuery | VariableDeclaration | AgentHubPage | [85](../../src/pages/AgentHubPage.tsx#L85) |
+| desktopQuery | VariableDeclaration | AgentHubPage | [86](../../src/pages/AgentHubPage.tsx#L86) |
+| claudeInfo | VariableDeclaration | AgentHubPage | [91](../../src/pages/AgentHubPage.tsx#L91) |
+| codexInfo | VariableDeclaration | AgentHubPage | [92](../../src/pages/AgentHubPage.tsx#L92) |
+| opencodeInfo | VariableDeclaration | AgentHubPage | [93](../../src/pages/AgentHubPage.tsx#L93) |
+| piInfo | VariableDeclaration | AgentHubPage | [94](../../src/pages/AgentHubPage.tsx#L94) |
+| desktopInfo | VariableDeclaration | AgentHubPage | [95](../../src/pages/AgentHubPage.tsx#L95) |
+| opencodeAction | VariableDeclaration | AgentHubPage | [96](../../src/pages/AgentHubPage.tsx#L96) |
+| desktopAutoModeQuery | VariableDeclaration | AgentHubPage | [98](../../src/pages/AgentHubPage.tsx#L98) |
+| defaultPermissionModeQuery | VariableDeclaration | AgentHubPage | [102](../../src/pages/AgentHubPage.tsx#L102) |
+| agentSettingsQuery | VariableDeclaration | AgentHubPage | [106](../../src/pages/AgentHubPage.tsx#L106) |
+| opencodePermissionQuery | VariableDeclaration | AgentHubPage | [110](../../src/pages/AgentHubPage.tsx#L110) |
+| piSettingsQuery | VariableDeclaration | AgentHubPage | [114](../../src/pages/AgentHubPage.tsx#L114) |
+| queryFn | PropertyAssignment | AgentHubPage.piSettingsQuery | [116](../../src/pages/AgentHubPage.tsx#L116) |
+| result | VariableDeclaration | AgentHubPage.piSettingsQuery.queryFn | [117](../../src/pages/AgentHubPage.tsx#L117) |
+| livePromptQuery | VariableDeclaration | AgentHubPage | [124](../../src/pages/AgentHubPage.tsx#L124) |
+| queryFn | PropertyAssignment | AgentHubPage.livePromptQuery | [126](../../src/pages/AgentHubPage.tsx#L126) |
+| toolInfo | VariableDeclaration | AgentHubPage | [129](../../src/pages/AgentHubPage.tsx#L129) |
+| _exhaustive | VariableDeclaration | AgentHubPage.toolInfo | [146](../../src/pages/AgentHubPage.tsx#L146) |
+| refreshTool | VariableDeclaration | AgentHubPage | [152](../../src/pages/AgentHubPage.tsx#L152) |
+| key | VariableDeclaration | AgentHubPage.refreshTool | [153](../../src/pages/AgentHubPage.tsx#L153) |
+| runToolUpdate | VariableDeclaration | AgentHubPage | [164](../../src/pages/AgentHubPage.tsx#L164) |
+| result | VariableDeclaration | AgentHubPage.runToolUpdate | [171](../../src/pages/AgentHubPage.tsx#L171) |
+| error | VariableDeclaration | AgentHubPage.runToolUpdate | [181](../../src/pages/AgentHubPage.tsx#L181) |
+| runDesktopUpdate | VariableDeclaration | AgentHubPage | [188](../../src/pages/AgentHubPage.tsx#L188) |
+| error | VariableDeclaration | AgentHubPage.runDesktopUpdate | [192](../../src/pages/AgentHubPage.tsx#L192) |
+| result | VariableDeclaration | AgentHubPage.runDesktopUpdate | [199](../../src/pages/AgentHubPage.tsx#L199) |
+| error | VariableDeclaration | AgentHubPage.runDesktopUpdate | [202](../../src/pages/AgentHubPage.tsx#L202) |
+| installNode | VariableDeclaration | AgentHubPage | [209](../../src/pages/AgentHubPage.tsx#L209) |
+| status | VariableDeclaration | AgentHubPage.installNode | [212](../../src/pages/AgentHubPage.tsx#L212) |
+| error | VariableDeclaration | AgentHubPage.installNode | [219](../../src/pages/AgentHubPage.tsx#L219) |
+| handleDesktopAutoModeChange | VariableDeclaration | AgentHubPage | [226](../../src/pages/AgentHubPage.tsx#L226) |
+| error | VariableDeclaration | AgentHubPage.handleDesktopAutoModeChange | [231](../../src/pages/AgentHubPage.tsx#L231) |
+| handleDefaultPermissionModeChange | VariableDeclaration | AgentHubPage | [236](../../src/pages/AgentHubPage.tsx#L236) |
+| error | VariableDeclaration | AgentHubPage.handleDefaultPermissionModeChange | [241](../../src/pages/AgentHubPage.tsx#L241) |
+| handleAgentSettingsChange | VariableDeclaration | AgentHubPage | [246](../../src/pages/AgentHubPage.tsx#L246) |
+| current | VariableDeclaration | AgentHubPage.handleAgentSettingsChange | [247](../../src/pages/AgentHubPage.tsx#L247) |
+| next | VariableDeclaration | AgentHubPage.handleAgentSettingsChange | [249](../../src/pages/AgentHubPage.tsx#L249) |
+| error | VariableDeclaration | AgentHubPage.handleAgentSettingsChange | [257](../../src/pages/AgentHubPage.tsx#L257) |
+| installed | VariableDeclaration | AgentHubPage | [262](../../src/pages/AgentHubPage.tsx#L262) |
+| updateStateFor | VariableDeclaration | AgentHubPage | [270](../../src/pages/AgentHubPage.tsx#L270) |
+| renderHeaderExtra | VariableDeclaration | AgentHubPage | [285](../../src/pages/AgentHubPage.tsx#L285) |
+| info | VariableDeclaration | AgentHubPage.renderHeaderExtra | [286](../../src/pages/AgentHubPage.tsx#L286) |
+| updateState | VariableDeclaration | AgentHubPage.renderHeaderExtra | [311](../../src/pages/AgentHubPage.tsx#L311) |
+| replacingV1 | VariableDeclaration | AgentHubPage.renderHeaderExtra | [312](../../src/pages/AgentHubPage.tsx#L312) |
+| isCliTarget | VariableDeclaration | AgentHubPage.renderHeaderExtra | [313](../../src/pages/AgentHubPage.tsx#L313) |
+| renderAdvanced | VariableDeclaration | AgentHubPage | [352](../../src/pages/AgentHubPage.tsx#L352) |
+| info | VariableDeclaration | AgentHubPage.renderAdvanced | [380](../../src/pages/AgentHubPage.tsx#L380) |
+| updateState | VariableDeclaration | AgentHubPage.renderAdvanced | [381](../../src/pages/AgentHubPage.tsx#L381) |
+| replacingV1 | VariableDeclaration | AgentHubPage.renderAdvanced | [382](../../src/pages/AgentHubPage.tsx#L382) |
+| upgradeButton | VariableDeclaration | AgentHubPage.renderAdvanced | [383](../../src/pages/AgentHubPage.tsx#L383) |
+| codexCliMissing | VariableDeclaration | AgentHubPage.renderAdvanced | [385](../../src/pages/AgentHubPage.tsx#L385) |
+| upgradeLabel | VariableDeclaration | AgentHubPage.renderAdvanced | [386](../../src/pages/AgentHubPage.tsx#L386) |
+| maintenance | VariableDeclaration | AgentHubPage.renderAdvanced | [389](../../src/pages/AgentHubPage.tsx#L389) |
+| level | VariableDeclaration | AgentHubPage.renderAdvanced | [519](../../src/pages/AgentHubPage.tsx#L519) |
+| node | VariableDeclaration | AgentHubPage | [543](../../src/pages/AgentHubPage.tsx#L543) |
+| SettingRow | FunctionDeclaration |  | [610](../../src/pages/AgentHubPage.tsx#L610) |
+| label | BindingElement | SettingRow | [610](../../src/pages/AgentHubPage.tsx#L610) |
+| children | BindingElement | SettingRow | [610](../../src/pages/AgentHubPage.tsx#L610) |
+| label | PropertySignature | SettingRow | [610](../../src/pages/AgentHubPage.tsx#L610) |
+| children | PropertySignature | SettingRow | [610](../../src/pages/AgentHubPage.tsx#L610) |

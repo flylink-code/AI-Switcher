@@ -27,6 +27,7 @@ import {
   opencodePackageName,
 } from "@/lib/cliUpdate";
 import { errMsg } from "@/lib/errMsg";
+import { isAgentUiEnabled } from "@/lib/agentVisibility";
 import { useNavigatePage } from "@/lib/navigation";
 import { useAppStore } from "@/stores/appStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -82,7 +83,10 @@ export default function AgentHubPage() {
   const localOpenCodeQuery = useQuery(localOpenCodeCliVersionOptions);
   const piQuery = useQuery({ ...piCliVersionOptions, placeholderData: () => queryClient.getQueryData(localPiCliVersionOptions.queryKey) });
   const localPiQuery = useQuery(localPiCliVersionOptions);
-  const desktopQuery = useQuery(claudeDesktopAppOptions);
+  const desktopQuery = useQuery({
+    ...claudeDesktopAppOptions,
+    enabled: isAgentUiEnabled("claude_desktop"),
+  });
 
   const claudeInfo = claudeQuery.data ?? localClaudeQuery.data;
   const codexInfo = codexQuery.data ?? localCodexQuery.data;

@@ -773,7 +773,10 @@ async fn dispatch_generation(
                     }
                     state.pool.clear_session(session_key.as_deref());
                     log::warn!(
-                        "Antigravity upstream attempt timeout on {account_email} model={last_attempted_model}; rotating account without cooldown"
+                        "Antigravity upstream attempt timeout on {account_email} model={last_attempted_model} stream={stream} subagent={is_subagent} limit_ms={} elapsed_ms={} upstream_calls={upstream_calls} body_bytes={}; rotating account without cooldown",
+                        timeout.as_millis(),
+                        started.elapsed().as_millis(),
+                        wrapped.to_string().len()
                     );
                     break 'levels Err(());
                 }

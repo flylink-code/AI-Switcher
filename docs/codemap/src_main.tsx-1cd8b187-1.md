@@ -4,8 +4,15 @@
 
 [Module](web-root.md) · [Source](../../src/main.tsx) · page 1/1
 
-Source SHA-256: eedde33a3b9bf7e2a7adf416073e8590dbe3d22d2f1cf51a0259e2dde4fabbe6
+Source SHA-256: d32c56264c84b9bc6faf48cf338751cd4073f206596e6e09fa64c59cc2b50d1a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| (no extracted declarations) | | | |
+| bootstrap | FunctionDeclaration |  | [13](../../src/main.tsx#L13) |
+| [{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }] | VariableDeclaration | bootstrap | [15](../../src/main.tsx#L15) |
+| { default: App } | BindingElement | bootstrap.[{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }] | [15](../../src/main.tsx#L15) |
+| App | BindingElement | bootstrap.[{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }].{ default: App } | [15](../../src/main.tsx#L15) |
+| { initializeProviderHealthEvents } | BindingElement | bootstrap.[{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }] | [15](../../src/main.tsx#L15) |
+| initializeProviderHealthEvents | BindingElement | bootstrap.[{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }].{ initializeProviderHealthEvents } | [15](../../src/main.tsx#L15) |
+| { initializeProxyStatusEvents } | BindingElement | bootstrap.[{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }] | [15](../../src/main.tsx#L15) |
+| initializeProxyStatusEvents | BindingElement | bootstrap.[{ default: App }, { initializeProviderHealthEvents }, { initializeProxyStatusEvents }].{ initializeProxyStatusEvents } | [15](../../src/main.tsx#L15) |

@@ -4,12 +4,15 @@
 
 [Module](web-lib.md) · [Source](../../src/lib/agentVisibility.ts) · page 1/1
 
-Source SHA-256: 509f648a5942915efe8cebedee7eed00ab77af6514270b085555e54939172c7f
+Source SHA-256: 318f15c1878d04ca34ec6655a30e1feb1ad7dbcb5534e89140874d339b0cb88a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | RETIRED_UI_AGENTS | VariableDeclaration |  | [4](../../src/lib/agentVisibility.ts#L4) |
-| isAgentUiEnabled | FunctionDeclaration |  | [6](../../src/lib/agentVisibility.ts#L6) |
-| filterUiAgents | FunctionDeclaration |  | [10](../../src/lib/agentVisibility.ts#L10) |
-| T | TypeParameter | filterUiAgents | [10](../../src/lib/agentVisibility.ts#L10) |
-| coerceUiAgent | FunctionDeclaration |  | [14](../../src/lib/agentVisibility.ts#L14) |
+| UNSUPPORTED_ON_PLATFORM | VariableDeclaration |  | [7](../../src/lib/agentVisibility.ts#L7) |
+| platformHidden | VariableDeclaration |  | [10](../../src/lib/agentVisibility.ts#L10) |
+| applyPlatformAgentVisibility | FunctionDeclaration |  | [12](../../src/lib/agentVisibility.ts#L12) |
+| isAgentUiEnabled | FunctionDeclaration |  | [16](../../src/lib/agentVisibility.ts#L16) |
+| filterUiAgents | FunctionDeclaration |  | [20](../../src/lib/agentVisibility.ts#L20) |
+| T | TypeParameter | filterUiAgents | [20](../../src/lib/agentVisibility.ts#L20) |
+| coerceUiAgent | FunctionDeclaration |  | [24](../../src/lib/agentVisibility.ts#L24) |

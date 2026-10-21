@@ -30,4 +30,4 @@
 | [src/pages/UsagePage.tsx](../../src/pages/UsagePage.tsx) | 227 | [1](src_pages_UsagePage.tsx-bc1fe3a2-1.md) [2](src_pages_UsagePage.tsx-bc1fe3a2-2.md) [3](src_pages_UsagePage.tsx-bc1fe3a2-3.md) |
 | [src/pages/WorkbenchPage.tsx](../../src/pages/WorkbenchPage.tsx) | 128 | [1](src_pages_WorkbenchPage.tsx-2545ddb2-1.md) [2](src_pages_WorkbenchPage.tsx-2545ddb2-2.md) |
 | [src/pages/WorkspacePage.tsx](../../src/pages/WorkspacePage.tsx) | 28 | [1](src_pages_WorkspacePage.tsx-1102cf1e-1.md) |
-| [src/pages/providers/SmartGatewaySection.tsx](../../src/pages/providers/SmartGatewaySection.tsx) | 46 | [1](src_pages_providers_SmartGatewaySection.tsx-cd7223fa-1.md) |
+| [src/pages/providers/SmartGatewaySection.tsx](../../src/pages/providers/SmartGatewaySection.tsx) | 47 | [1](src_pages_providers_SmartGatewaySection.tsx-cd7223fa-1.md) |

@@ -4,7 +4,7 @@
 
 [Module](web-components.md) · [Source](../../src/components/antigravity/BindAppsCard.tsx) · page 1/1
 
-Source SHA-256: 034ccedeab0846ddf1cbf63dd102c8abf09628f7dd0134d348d027ce46726290
+Source SHA-256: 93b8418dae33a2cbd792c2ed1ffc8cb96c1bae38893f0552e9fd811b494edbff
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

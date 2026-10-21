@@ -4,8 +4,9 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/backend.rs) · page 1/1
 
-Source SHA-256: 2ec342896fe680a0328b519b5e30ab28157c508a511f2b5483673809dd1e57ff
+Source SHA-256: 8b62c32c98fbe0e1ef65db8b24bae9c1c090d0a3442534a107567e7b6d491163
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | ping | function_item |  | [5](../../src-tauri/src/commands/backend.rs#L5) |
+| get_app_platform | function_item |  | [11](../../src-tauri/src/commands/backend.rs#L11) |

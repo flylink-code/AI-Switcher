@@ -20,6 +20,6 @@
 | [src/services/quota.ts](../../src/services/quota.ts) | 2 | [1](src_services_quota.ts-23b148ed-1.md) |
 | [src/services/sessions.ts](../../src/services/sessions.ts) | 22 | [1](src_services_sessions.ts-554e4dcb-1.md) |
 | [src/services/skills.ts](../../src/services/skills.ts) | 54 | [1](src_services_skills.ts-014f47c0-1.md) |
-| [src/services/system.ts](../../src/services/system.ts) | 60 | [1](src_services_system.ts-cf5070e7-1.md) |
+| [src/services/system.ts](../../src/services/system.ts) | 61 | [1](src_services_system.ts-cf5070e7-1.md) |
 | [src/services/tools.ts](../../src/services/tools.ts) | 18 | [1](src_services_tools.ts-42b2317d-1.md) |
 | [src/services/usage.ts](../../src/services/usage.ts) | 43 | [1](src_services_usage.ts-51edd548-1.md) |

@@ -49,7 +49,7 @@ pub use antigravity::{
     start_antigravity_oauth_login, stop_antigravity_gateway, test_antigravity_account,
 };
 pub use app_update::{check_app_update, install_app_update};
-pub use backend::ping;
+pub use backend::{get_app_platform, ping};
 pub use backup::{
     backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings,
     preview_library_backup, restore_library_backup, restore_library_from_webdav,

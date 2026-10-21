@@ -4,7 +4,7 @@
 
 [Module](web-stores.md) · [Source](../../src/stores/pagePreferencesStore.ts) · page 1/2
 
-Source SHA-256: be3891a44c22497995207154adc6694bfdc78e2d5bc570ddb8240b965558b344
+Source SHA-256: 87c87ef1618405d8e52033504b4d65c89007c4b2d7631394faa9a34eb030dc52
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

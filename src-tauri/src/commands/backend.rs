@@ -5,3 +5,9 @@
 pub fn ping() -> String {
     "pong".to_string()
 }
+
+/// `windows` | `macos` | `linux`: the OS this build runs on.
+#[tauri::command]
+pub fn get_app_platform() -> String {
+    std::env::consts::OS.to_string()
+}

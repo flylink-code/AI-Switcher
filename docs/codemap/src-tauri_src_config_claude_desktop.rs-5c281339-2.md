@@ -4,78 +4,77 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/claude_desktop.rs) · page 2/2
 
-Source SHA-256: b19ccd76f1a3e3db47c976b3384f158073100eee7b05f41adb594890c00d6d53
+Source SHA-256: 6fc47091f273d1a00685d7e9c4c22f7a0311d0c8a5c1ada30c09f74528aa8f83
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| supported_platform_paths_are_populated | function_item | tests | [949](../../src-tauri/src/config/claude_desktop.rs#L949) |
-| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [952](../../src-tauri/src/config/claude_desktop.rs#L952) |
-| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [953](../../src-tauri/src/config/claude_desktop.rs#L953) |
-| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [954](../../src-tauri/src/config/claude_desktop.rs#L954) |
-| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [955](../../src-tauri/src/config/claude_desktop.rs#L955) |
-| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [956](../../src-tauri/src/config/claude_desktop.rs#L956) |
-| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [957](../../src-tauri/src/config/claude_desktop.rs#L957) |
-| desktop_catalog_uses_safe_routes_and_upstream_labels | function_item | tests | [962](../../src-tauri/src/config/claude_desktop.rs#L962) |
-| assert | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [964](../../src-tauri/src/config/claude_desktop.rs#L964) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [966](../../src-tauri/src/config/claude_desktop.rs#L966) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [967](../../src-tauri/src/config/claude_desktop.rs#L967) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [968](../../src-tauri/src/config/claude_desktop.rs#L968) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [969](../../src-tauri/src/config/claude_desktop.rs#L969) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [970](../../src-tauri/src/config/claude_desktop.rs#L970) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [971](../../src-tauri/src/config/claude_desktop.rs#L971) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [972](../../src-tauri/src/config/claude_desktop.rs#L972) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [975](../../src-tauri/src/config/claude_desktop.rs#L975) |
-| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [976](../../src-tauri/src/config/claude_desktop.rs#L976) |
-| assert | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [977](../../src-tauri/src/config/claude_desktop.rs#L977) |
-| stale_route_detection_only_applies_to_the_managed_uuid_profile | function_item | tests | [985](../../src-tauri/src/config/claude_desktop.rs#L985) |
-| format | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [991](../../src-tauri/src/config/claude_desktop.rs#L991) |
-| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [995](../../src-tauri/src/config/claude_desktop.rs#L995) |
-| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1003](../../src-tauri/src/config/claude_desktop.rs#L1003) |
-| assert | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1013](../../src-tauri/src/config/claude_desktop.rs#L1013) |
-| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1017](../../src-tauri/src/config/claude_desktop.rs#L1017) |
-| assert | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1027](../../src-tauri/src/config/claude_desktop.rs#L1027) |
-| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1031](../../src-tauri/src/config/claude_desktop.rs#L1031) |
-| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1039](../../src-tauri/src/config/claude_desktop.rs#L1039) |
-| assert | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1044](../../src-tauri/src/config/claude_desktop.rs#L1044) |
-| proxy_profile_uses_claude_desktop_gateway_prefix | function_item | tests | [1048](../../src-tauri/src/config/claude_desktop.rs#L1048) |
-| assert_eq | macro invocation (unexpanded) | tests::proxy_profile_uses_claude_desktop_gateway_prefix | [1085](../../src-tauri/src/config/claude_desktop.rs#L1085) |
-| assert_eq | macro invocation (unexpanded) | tests::proxy_profile_uses_claude_desktop_gateway_prefix | [1089](../../src-tauri/src/config/claude_desktop.rs#L1089) |
-| assert_eq | macro invocation (unexpanded) | tests::proxy_profile_uses_claude_desktop_gateway_prefix | [1093](../../src-tauri/src/config/claude_desktop.rs#L1093) |
-| smart_gateway_profile_uses_entry_token_and_claude_auto | function_item | tests | [1097](../../src-tauri/src/config/claude_desktop.rs#L1097) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1103](../../src-tauri/src/config/claude_desktop.rs#L1103) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1107](../../src-tauri/src/config/claude_desktop.rs#L1107) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1111](../../src-tauri/src/config/claude_desktop.rs#L1111) |
-| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1113](../../src-tauri/src/config/claude_desktop.rs#L1113) |
+| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [932](../../src-tauri/src/config/claude_desktop.rs#L932) |
+| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [933](../../src-tauri/src/config/claude_desktop.rs#L933) |
+| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [934](../../src-tauri/src/config/claude_desktop.rs#L934) |
+| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [935](../../src-tauri/src/config/claude_desktop.rs#L935) |
+| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [936](../../src-tauri/src/config/claude_desktop.rs#L936) |
+| assert | macro invocation (unexpanded) | tests::supported_platform_paths_are_populated | [937](../../src-tauri/src/config/claude_desktop.rs#L937) |
+| desktop_catalog_uses_safe_routes_and_upstream_labels | function_item | tests | [942](../../src-tauri/src/config/claude_desktop.rs#L942) |
+| assert | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [944](../../src-tauri/src/config/claude_desktop.rs#L944) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [946](../../src-tauri/src/config/claude_desktop.rs#L946) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [947](../../src-tauri/src/config/claude_desktop.rs#L947) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [948](../../src-tauri/src/config/claude_desktop.rs#L948) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [949](../../src-tauri/src/config/claude_desktop.rs#L949) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [950](../../src-tauri/src/config/claude_desktop.rs#L950) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [951](../../src-tauri/src/config/claude_desktop.rs#L951) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [952](../../src-tauri/src/config/claude_desktop.rs#L952) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [955](../../src-tauri/src/config/claude_desktop.rs#L955) |
+| assert_eq | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [956](../../src-tauri/src/config/claude_desktop.rs#L956) |
+| assert | macro invocation (unexpanded) | tests::desktop_catalog_uses_safe_routes_and_upstream_labels | [957](../../src-tauri/src/config/claude_desktop.rs#L957) |
+| stale_route_detection_only_applies_to_the_managed_uuid_profile | function_item | tests | [965](../../src-tauri/src/config/claude_desktop.rs#L965) |
+| format | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [971](../../src-tauri/src/config/claude_desktop.rs#L971) |
+| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [975](../../src-tauri/src/config/claude_desktop.rs#L975) |
+| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [983](../../src-tauri/src/config/claude_desktop.rs#L983) |
+| assert | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [993](../../src-tauri/src/config/claude_desktop.rs#L993) |
+| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [997](../../src-tauri/src/config/claude_desktop.rs#L997) |
+| assert | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1007](../../src-tauri/src/config/claude_desktop.rs#L1007) |
+| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1011](../../src-tauri/src/config/claude_desktop.rs#L1011) |
+| serde_json::json | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1019](../../src-tauri/src/config/claude_desktop.rs#L1019) |
+| assert | macro invocation (unexpanded) | tests::stale_route_detection_only_applies_to_the_managed_uuid_profile | [1024](../../src-tauri/src/config/claude_desktop.rs#L1024) |
+| proxy_profile_uses_claude_desktop_gateway_prefix | function_item | tests | [1028](../../src-tauri/src/config/claude_desktop.rs#L1028) |
+| assert_eq | macro invocation (unexpanded) | tests::proxy_profile_uses_claude_desktop_gateway_prefix | [1065](../../src-tauri/src/config/claude_desktop.rs#L1065) |
+| assert_eq | macro invocation (unexpanded) | tests::proxy_profile_uses_claude_desktop_gateway_prefix | [1069](../../src-tauri/src/config/claude_desktop.rs#L1069) |
+| assert_eq | macro invocation (unexpanded) | tests::proxy_profile_uses_claude_desktop_gateway_prefix | [1073](../../src-tauri/src/config/claude_desktop.rs#L1073) |
+| smart_gateway_profile_uses_entry_token_and_claude_auto | function_item | tests | [1077](../../src-tauri/src/config/claude_desktop.rs#L1077) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1083](../../src-tauri/src/config/claude_desktop.rs#L1083) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1087](../../src-tauri/src/config/claude_desktop.rs#L1087) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1091](../../src-tauri/src/config/claude_desktop.rs#L1091) |
+| assert_eq | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1093](../../src-tauri/src/config/claude_desktop.rs#L1093) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1094](../../src-tauri/src/config/claude_desktop.rs#L1094) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1098](../../src-tauri/src/config/claude_desktop.rs#L1098) |
+| vec | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1100](../../src-tauri/src/config/claude_desktop.rs#L1100) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1105](../../src-tauri/src/config/claude_desktop.rs#L1105) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1107](../../src-tauri/src/config/claude_desktop.rs#L1107) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1108](../../src-tauri/src/config/claude_desktop.rs#L1108) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1113](../../src-tauri/src/config/claude_desktop.rs#L1113) |
 | assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1114](../../src-tauri/src/config/claude_desktop.rs#L1114) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1118](../../src-tauri/src/config/claude_desktop.rs#L1118) |
-| vec | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1120](../../src-tauri/src/config/claude_desktop.rs#L1120) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1125](../../src-tauri/src/config/claude_desktop.rs#L1125) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1127](../../src-tauri/src/config/claude_desktop.rs#L1127) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1128](../../src-tauri/src/config/claude_desktop.rs#L1128) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1133](../../src-tauri/src/config/claude_desktop.rs#L1133) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_uses_entry_token_and_claude_auto | [1134](../../src-tauri/src/config/claude_desktop.rs#L1134) |
-| smart_gateway_profile_rejects_keyring_ref | function_item | tests | [1138](../../src-tauri/src/config/claude_desktop.rs#L1138) |
-| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_rejects_keyring_ref | [1143](../../src-tauri/src/config/claude_desktop.rs#L1143) |
-| paths_from_dirs_uses_threep_for_config_library | function_item | tests | [1147](../../src-tauri/src/config/claude_desktop.rs#L1147) |
-| assert_eq | macro invocation (unexpanded) | tests::paths_from_dirs_uses_threep_for_config_library | [1152](../../src-tauri/src/config/claude_desktop.rs#L1152) |
-| assert_eq | macro invocation (unexpanded) | tests::paths_from_dirs_uses_threep_for_config_library | [1153](../../src-tauri/src/config/claude_desktop.rs#L1153) |
-| assert_eq | macro invocation (unexpanded) | tests::paths_from_dirs_uses_threep_for_config_library | [1154](../../src-tauri/src/config/claude_desktop.rs#L1154) |
-| windows_picker_prefers_msix_config_over_empty_local_dir | function_item | tests | [1162](../../src-tauri/src/config/claude_desktop.rs#L1162) |
-| assert_eq | macro invocation (unexpanded) | tests::windows_picker_prefers_msix_config_over_empty_local_dir | [1179](../../src-tauri/src/config/claude_desktop.rs#L1179) |
-| windows_picker_keeps_local_when_it_owns_the_config | function_item | tests | [1184](../../src-tauri/src/config/claude_desktop.rs#L1184) |
-| assert_eq | macro invocation (unexpanded) | tests::windows_picker_keeps_local_when_it_owns_the_config | [1202](../../src-tauri/src/config/claude_desktop.rs#L1202) |
-| windows_msix_dirs_matches_official_package_for_both_1p_and_3p | function_item | tests | [1207](../../src-tauri/src/config/claude_desktop.rs#L1207) |
-| assert_eq | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1214](../../src-tauri/src/config/claude_desktop.rs#L1214) |
-| assert | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1215](../../src-tauri/src/config/claude_desktop.rs#L1215) |
-| assert_eq | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1218](../../src-tauri/src/config/claude_desktop.rs#L1218) |
-| assert | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1219](../../src-tauri/src/config/claude_desktop.rs#L1219) |
-| managed_profile_id_is_a_stable_uuid | function_item | tests | [1223](../../src-tauri/src/config/claude_desktop.rs#L1223) |
-| assert | macro invocation (unexpanded) | tests::managed_profile_id_is_a_stable_uuid | [1224](../../src-tauri/src/config/claude_desktop.rs#L1224) |
-| assert | macro invocation (unexpanded) | tests::managed_profile_id_is_a_stable_uuid | [1225](../../src-tauri/src/config/claude_desktop.rs#L1225) |
-| assert | macro invocation (unexpanded) | tests::managed_profile_id_is_a_stable_uuid | [1226](../../src-tauri/src/config/claude_desktop.rs#L1226) |
-| write_meta_replaces_legacy_profile_entry | function_item | tests | [1230](../../src-tauri/src/config/claude_desktop.rs#L1230) |
-| serde_json::json | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1235](../../src-tauri/src/config/claude_desktop.rs#L1235) |
-| assert_eq | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1249](../../src-tauri/src/config/claude_desktop.rs#L1249) |
-| assert | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1251](../../src-tauri/src/config/claude_desktop.rs#L1251) |
-| assert | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1254](../../src-tauri/src/config/claude_desktop.rs#L1254) |
-| assert | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1257](../../src-tauri/src/config/claude_desktop.rs#L1257) |
+| smart_gateway_profile_rejects_keyring_ref | function_item | tests | [1118](../../src-tauri/src/config/claude_desktop.rs#L1118) |
+| assert | macro invocation (unexpanded) | tests::smart_gateway_profile_rejects_keyring_ref | [1123](../../src-tauri/src/config/claude_desktop.rs#L1123) |
+| paths_from_dirs_uses_threep_for_config_library | function_item | tests | [1127](../../src-tauri/src/config/claude_desktop.rs#L1127) |
+| assert_eq | macro invocation (unexpanded) | tests::paths_from_dirs_uses_threep_for_config_library | [1132](../../src-tauri/src/config/claude_desktop.rs#L1132) |
+| assert_eq | macro invocation (unexpanded) | tests::paths_from_dirs_uses_threep_for_config_library | [1133](../../src-tauri/src/config/claude_desktop.rs#L1133) |
+| assert_eq | macro invocation (unexpanded) | tests::paths_from_dirs_uses_threep_for_config_library | [1134](../../src-tauri/src/config/claude_desktop.rs#L1134) |
+| windows_picker_prefers_msix_config_over_empty_local_dir | function_item | tests | [1142](../../src-tauri/src/config/claude_desktop.rs#L1142) |
+| assert_eq | macro invocation (unexpanded) | tests::windows_picker_prefers_msix_config_over_empty_local_dir | [1159](../../src-tauri/src/config/claude_desktop.rs#L1159) |
+| windows_picker_keeps_local_when_it_owns_the_config | function_item | tests | [1164](../../src-tauri/src/config/claude_desktop.rs#L1164) |
+| assert_eq | macro invocation (unexpanded) | tests::windows_picker_keeps_local_when_it_owns_the_config | [1182](../../src-tauri/src/config/claude_desktop.rs#L1182) |
+| windows_msix_dirs_matches_official_package_for_both_1p_and_3p | function_item | tests | [1187](../../src-tauri/src/config/claude_desktop.rs#L1187) |
+| assert_eq | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1194](../../src-tauri/src/config/claude_desktop.rs#L1194) |
+| assert | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1195](../../src-tauri/src/config/claude_desktop.rs#L1195) |
+| assert_eq | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1198](../../src-tauri/src/config/claude_desktop.rs#L1198) |
+| assert | macro invocation (unexpanded) | tests::windows_msix_dirs_matches_official_package_for_both_1p_and_3p | [1199](../../src-tauri/src/config/claude_desktop.rs#L1199) |
+| managed_profile_id_is_a_stable_uuid | function_item | tests | [1203](../../src-tauri/src/config/claude_desktop.rs#L1203) |
+| assert | macro invocation (unexpanded) | tests::managed_profile_id_is_a_stable_uuid | [1204](../../src-tauri/src/config/claude_desktop.rs#L1204) |
+| assert | macro invocation (unexpanded) | tests::managed_profile_id_is_a_stable_uuid | [1205](../../src-tauri/src/config/claude_desktop.rs#L1205) |
+| assert | macro invocation (unexpanded) | tests::managed_profile_id_is_a_stable_uuid | [1206](../../src-tauri/src/config/claude_desktop.rs#L1206) |
+| write_meta_replaces_legacy_profile_entry | function_item | tests | [1210](../../src-tauri/src/config/claude_desktop.rs#L1210) |
+| serde_json::json | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1215](../../src-tauri/src/config/claude_desktop.rs#L1215) |
+| assert_eq | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1229](../../src-tauri/src/config/claude_desktop.rs#L1229) |
+| assert | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1231](../../src-tauri/src/config/claude_desktop.rs#L1231) |
+| assert | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1234](../../src-tauri/src/config/claude_desktop.rs#L1234) |
+| assert | macro invocation (unexpanded) | tests::write_meta_replaces_legacy_profile_entry | [1237](../../src-tauri/src/config/claude_desktop.rs#L1237) |

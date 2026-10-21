@@ -4,16 +4,16 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/lib.rs) · page 2/2
 
-Source SHA-256: 423031d6d16f1235693afbf8c1c87ae2fc7b8cb72a536ce5e62ead1f480f59c6
+Source SHA-256: a22147bfaf40a84e792d78ccc598cb96f52491b78e44fb5f1d645399db775af1
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| log::warn | macro invocation (unexpanded) | spawn_dsh_session_usage_sync | [997](../../src-tauri/src/lib.rs#L997) |
-| log::warn | macro invocation (unexpanded) | spawn_dsh_session_usage_sync | [999](../../src-tauri/src/lib.rs#L999) |
-| spawn_antigravity_quota_refresh | function_item |  | [1007](../../src-tauri/src/lib.rs#L1007) |
-| log::info | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1017](../../src-tauri/src/lib.rs#L1017) |
-| log::debug | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1024](../../src-tauri/src/lib.rs#L1024) |
-| log::warn | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1028](../../src-tauri/src/lib.rs#L1028) |
-| on_window_event | function_item |  | [1034](../../src-tauri/src/lib.rs#L1034) |
-| log::error | macro invocation (unexpanded) | on_window_event | [1044](../../src-tauri/src/lib.rs#L1044) |
-| box_app_error | function_item |  | [1058](../../src-tauri/src/lib.rs#L1058) |
+| log::warn | macro invocation (unexpanded) | spawn_dsh_session_usage_sync | [998](../../src-tauri/src/lib.rs#L998) |
+| log::warn | macro invocation (unexpanded) | spawn_dsh_session_usage_sync | [1000](../../src-tauri/src/lib.rs#L1000) |
+| spawn_antigravity_quota_refresh | function_item |  | [1008](../../src-tauri/src/lib.rs#L1008) |
+| log::info | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1018](../../src-tauri/src/lib.rs#L1018) |
+| log::debug | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1025](../../src-tauri/src/lib.rs#L1025) |
+| log::warn | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1029](../../src-tauri/src/lib.rs#L1029) |
+| on_window_event | function_item |  | [1035](../../src-tauri/src/lib.rs#L1035) |
+| log::error | macro invocation (unexpanded) | on_window_event | [1045](../../src-tauri/src/lib.rs#L1045) |
+| box_app_error | function_item |  | [1059](../../src-tauri/src/lib.rs#L1059) |

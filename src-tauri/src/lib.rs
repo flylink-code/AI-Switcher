@@ -123,7 +123,7 @@ use crate::commands::{
     list_providers, list_proxy_request_logs_cmd, list_session_backups, list_skill_repositories,
     list_skills, list_smart_gateway_bindings, list_sync_targets, list_trashed_sessions,
     list_upstream_daily_usage_stats, load_session_messages, maintain_proxy_logs, migrate_data_root,
-    ping, poll_codex_oauth_login, preview_config_backup, preview_import_text,
+    get_app_platform, ping, poll_codex_oauth_login, preview_config_backup, preview_import_text,
     preview_library_backup, preview_model_pricing_xlsx, preview_proxy_log_maintenance,
     preview_sync, probe_antigravity_exit_latency, probe_antigravity_exit_proxy,
     probe_kiro_exit_latency, probe_kiro_exit_proxy, push_sync_archive, read_live_prompt,
@@ -224,6 +224,7 @@ pub fn run() {
         .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
             ping,
+            get_app_platform,
             detect_pi_cli,
             install_pi_cli,
             get_pi_settings,

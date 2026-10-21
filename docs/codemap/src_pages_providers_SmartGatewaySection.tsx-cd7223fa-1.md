@@ -4,7 +4,7 @@
 
 [Module](web-pages.md) · [Source](../../src/pages/providers/SmartGatewaySection.tsx) · page 1/1
 
-Source SHA-256: e9170303cee3a25fadf72531a884f6c0ffae0aaada3f3f0649b4c963731b0175
+Source SHA-256: 421ccc75fb7ff5e10a846d35b2b24bb3a435d000bee6eb791dc988a59afe6861
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -45,12 +45,13 @@ Source SHA-256: e9170303cee3a25fadf72531a884f6c0ffae0aaada3f3f0649b4c963731b0175
 | models | VariableDeclaration | SmartGatewaySection | [54](../../src/pages/providers/SmartGatewaySection.tsx#L54) |
 | curlSnippet | VariableDeclaration | SmartGatewaySection | [63](../../src/pages/providers/SmartGatewaySection.tsx#L63) |
 | key | VariableDeclaration | SmartGatewaySection.curlSnippet | [64](../../src/pages/providers/SmartGatewaySection.tsx#L64) |
-| _exhaustive | VariableDeclaration | SmartGatewaySection.curlSnippet | [80](../../src/pages/providers/SmartGatewaySection.tsx#L80) |
-| copyText | VariableDeclaration | SmartGatewaySection | [86](../../src/pages/providers/SmartGatewaySection.tsx#L86) |
-| error | VariableDeclaration | SmartGatewaySection.copyText | [90](../../src/pages/providers/SmartGatewaySection.tsx#L90) |
-| handleStart | VariableDeclaration | SmartGatewaySection | [95](../../src/pages/providers/SmartGatewaySection.tsx#L95) |
-| next | VariableDeclaration | SmartGatewaySection.handleStart | [99](../../src/pages/providers/SmartGatewaySection.tsx#L99) |
-| error | VariableDeclaration | SmartGatewaySection.handleStart | [102](../../src/pages/providers/SmartGatewaySection.tsx#L102) |
-| handleStop | VariableDeclaration | SmartGatewaySection | [109](../../src/pages/providers/SmartGatewaySection.tsx#L109) |
-| next | VariableDeclaration | SmartGatewaySection.handleStop | [112](../../src/pages/providers/SmartGatewaySection.tsx#L112) |
-| error | VariableDeclaration | SmartGatewaySection.handleStop | [114](../../src/pages/providers/SmartGatewaySection.tsx#L114) |
+| remotePort | VariableDeclaration | SmartGatewaySection.curlSnippet | [80](../../src/pages/providers/SmartGatewaySection.tsx#L80) |
+| _exhaustive | VariableDeclaration | SmartGatewaySection.curlSnippet | [108](../../src/pages/providers/SmartGatewaySection.tsx#L108) |
+| copyText | VariableDeclaration | SmartGatewaySection | [114](../../src/pages/providers/SmartGatewaySection.tsx#L114) |
+| error | VariableDeclaration | SmartGatewaySection.copyText | [118](../../src/pages/providers/SmartGatewaySection.tsx#L118) |
+| handleStart | VariableDeclaration | SmartGatewaySection | [123](../../src/pages/providers/SmartGatewaySection.tsx#L123) |
+| next | VariableDeclaration | SmartGatewaySection.handleStart | [127](../../src/pages/providers/SmartGatewaySection.tsx#L127) |
+| error | VariableDeclaration | SmartGatewaySection.handleStart | [130](../../src/pages/providers/SmartGatewaySection.tsx#L130) |
+| handleStop | VariableDeclaration | SmartGatewaySection | [137](../../src/pages/providers/SmartGatewaySection.tsx#L137) |
+| next | VariableDeclaration | SmartGatewaySection.handleStop | [140](../../src/pages/providers/SmartGatewaySection.tsx#L140) |
+| error | VariableDeclaration | SmartGatewaySection.handleStop | [142](../../src/pages/providers/SmartGatewaySection.tsx#L142) |

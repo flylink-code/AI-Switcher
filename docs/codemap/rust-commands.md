@@ -11,7 +11,7 @@
 | [src-tauri/src/commands/agents.rs](../../src-tauri/src/commands/agents.rs) | 5 | [1](src-tauri_src_commands_agents.rs-4ace9253-1.md) |
 | [src-tauri/src/commands/antigravity.rs](../../src-tauri/src/commands/antigravity.rs) | 35 | [1](src-tauri_src_commands_antigravity.rs-a62af6c6-1.md) |
 | [src-tauri/src/commands/app_update.rs](../../src-tauri/src/commands/app_update.rs) | 47 | [1](src-tauri_src_commands_app_update.rs-288936c3-1.md) |
-| [src-tauri/src/commands/backend.rs](../../src-tauri/src/commands/backend.rs) | 1 | [1](src-tauri_src_commands_backend.rs-d1253fe6-1.md) |
+| [src-tauri/src/commands/backend.rs](../../src-tauri/src/commands/backend.rs) | 2 | [1](src-tauri_src_commands_backend.rs-d1253fe6-1.md) |
 | [src-tauri/src/commands/backup.rs](../../src-tauri/src/commands/backup.rs) | 26 | [1](src-tauri_src_commands_backup.rs-b31ffbda-1.md) |
 | [src-tauri/src/commands/claude_plugins.rs](../../src-tauri/src/commands/claude_plugins.rs) | 12 | [1](src-tauri_src_commands_claude_plugins.rs-23c01374-1.md) |
 | [src-tauri/src/commands/codex.rs](../../src-tauri/src/commands/codex.rs) | 6 | [1](src-tauri_src_commands_codex.rs-ae8960f8-1.md) |
