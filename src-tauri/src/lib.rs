@@ -1035,6 +1035,20 @@ fn spawn_antigravity_quota_refresh(app: tauri::AppHandle) {
     });
 }
 fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
+    if window.label() == "panel" {
+        match event {
+            WindowEvent::Focused(false) => {
+                window.hide().ok();
+            }
+            WindowEvent::CloseRequested { api, .. } => {
+                api.prevent_close();
+                window.hide().ok();
+            }
+            _ => {}
+        }
+        return;
+    }
+
     if let WindowEvent::CloseRequested { api, .. } = event {
         api.prevent_close();
         let app = window.app_handle();

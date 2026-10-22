@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/tray.rs) · page 1/2
 
-Source SHA-256: 9ce32b3128eb4d7bd3d15299796b952bfc3ffb66890b70470e2001e716f974d8
+Source SHA-256: 36a8e1ac05f4f8ab8122a379a01bdd7882032ba59dd550b4103806931e054839
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -25,86 +25,86 @@ Source SHA-256: 9ce32b3128eb4d7bd3d15299796b952bfc3ffb66890b70470e2001e716f974d8
 | log::error | macro invocation (unexpanded) | build_tray | [102](../../src-tauri/src/tray.rs#L102) |
 | log::error | macro invocation (unexpanded) | build_tray | [114](../../src-tauri/src/tray.rs#L114) |
 | log::error | macro invocation (unexpanded) | build_tray | [128](../../src-tauri/src/tray.rs#L128) |
-| matches | macro invocation (unexpanded) | build_tray | [137](../../src-tauri/src/tray.rs#L137) |
-| refresh_tray_menu | function_item |  | [153](../../src-tauri/src/tray.rs#L153) |
-| format | macro invocation (unexpanded) | refresh_tray_menu | [159](../../src-tauri/src/tray.rs#L159) |
-| refresh_tray_on_switch | function_item |  | [162](../../src-tauri/src/tray.rs#L162) |
-| log::warn | macro invocation (unexpanded) | refresh_tray_on_switch | [167](../../src-tauri/src/tray.rs#L167) |
-| log::warn | macro invocation (unexpanded) | refresh_tray_on_switch | [171](../../src-tauri/src/tray.rs#L171) |
-| create_tray_menu | function_item |  | [176](../../src-tauri/src/tray.rs#L176) |
-| TrayLabels | struct_item |  | [223](../../src-tauri/src/tray.rs#L223) |
-| show | field_declaration | TrayLabels | [224](../../src-tauri/src/tray.rs#L224) |
-| official | field_declaration | TrayLabels | [225](../../src-tauri/src/tray.rs#L225) |
-| projects | field_declaration | TrayLabels | [226](../../src-tauri/src/tray.rs#L226) |
-| quit | field_declaration | TrayLabels | [227](../../src-tauri/src/tray.rs#L227) |
-| manage_providers | field_declaration | TrayLabels | [228](../../src-tauri/src/tray.rs#L228) |
-| tray_labels | function_item |  | [231](../../src-tauri/src/tray.rs#L231) |
-| is_upstream_valid_for_direct_target | function_item |  | [251](../../src-tauri/src/tray.rs#L251) |
-| matches | macro invocation (unexpanded) | is_upstream_valid_for_direct_target | [261](../../src-tauri/src/tray.rs#L261) |
-| target_provider_prefix_and_ids | function_item |  | [269](../../src-tauri/src/tray.rs#L269) |
-| build_provider_menu | function_item |  | [289](../../src-tauri/src/tray.rs#L289) |
-| format | macro invocation (unexpanded) | build_provider_menu | [319](../../src-tauri/src/tray.rs#L319) |
-| format | macro invocation (unexpanded) | build_provider_menu | [332](../../src-tauri/src/tray.rs#L332) |
-| format | macro invocation (unexpanded) | build_provider_menu | [342](../../src-tauri/src/tray.rs#L342) |
-| format | macro invocation (unexpanded) | build_provider_menu | [349](../../src-tauri/src/tray.rs#L349) |
-| vec | macro invocation (unexpanded) | build_provider_menu | [358](../../src-tauri/src/tray.rs#L358) |
-| build_t2_menu | function_item |  | [367](../../src-tauri/src/tray.rs#L367) |
-| format | macro invocation (unexpanded) | build_t2_menu | [373](../../src-tauri/src/tray.rs#L373) |
-| build_profiles_menu | function_item |  | [380](../../src-tauri/src/tray.rs#L380) |
-| format | macro invocation (unexpanded) | build_profiles_menu | [387](../../src-tauri/src/tray.rs#L387) |
-| format | macro invocation (unexpanded) | build_profiles_menu | [394](../../src-tauri/src/tray.rs#L394) |
-| show_main_window | function_item |  | [415](../../src-tauri/src/tray.rs#L415) |
-| navigate_to_providers | function_item |  | [423](../../src-tauri/src/tray.rs#L423) |
-| switch_provider | function_item |  | [429](../../src-tauri/src/tray.rs#L429) |
-| switch_to_official | function_item |  | [451](../../src-tauri/src/tray.rs#L451) |
-| apply_profile_from_tray | function_item |  | [459](../../src-tauri/src/tray.rs#L459) |
-| log::warn | macro invocation (unexpanded) | apply_profile_from_tray | [463](../../src-tauri/src/tray.rs#L463) |
-| tests | mod_item |  | [473](../../src-tauri/src/tray.rs#L473) |
-| tray_labels_follow_the_selected_language | function_item | tests | [477](../../src-tauri/src/tray.rs#L477) |
-| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [478](../../src-tauri/src/tray.rs#L478) |
-| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [479](../../src-tauri/src/tray.rs#L479) |
-| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [480](../../src-tauri/src/tray.rs#L480) |
-| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [481](../../src-tauri/src/tray.rs#L481) |
-| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [482](../../src-tauri/src/tray.rs#L482) |
-| upstream_validation_for_direct_target_enforces_agent_boundaries | function_item | tests | [486](../../src-tauri/src/tray.rs#L486) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [488](../../src-tauri/src/tray.rs#L488) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [493](../../src-tauri/src/tray.rs#L493) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [498](../../src-tauri/src/tray.rs#L498) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [503](../../src-tauri/src/tray.rs#L503) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [510](../../src-tauri/src/tray.rs#L510) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [515](../../src-tauri/src/tray.rs#L515) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [520](../../src-tauri/src/tray.rs#L520) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [525](../../src-tauri/src/tray.rs#L525) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [530](../../src-tauri/src/tray.rs#L530) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [544](../../src-tauri/src/tray.rs#L544) |
-| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [549](../../src-tauri/src/tray.rs#L549) |
-| target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | function_item | tests | [558](../../src-tauri/src/tray.rs#L558) |
-| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [561](../../src-tauri/src/tray.rs#L561) |
-| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [562](../../src-tauri/src/tray.rs#L562) |
-| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [563](../../src-tauri/src/tray.rs#L563) |
-| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [567](../../src-tauri/src/tray.rs#L567) |
-| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [568](../../src-tauri/src/tray.rs#L568) |
-| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [569](../../src-tauri/src/tray.rs#L569) |
-| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [572](../../src-tauri/src/tray.rs#L572) |
-| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [573](../../src-tauri/src/tray.rs#L573) |
-| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [576](../../src-tauri/src/tray.rs#L576) |
-| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [577](../../src-tauri/src/tray.rs#L577) |
-| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [578](../../src-tauri/src/tray.rs#L578) |
-| menu_id_prefixes_do_not_collide | function_item | tests | [582](../../src-tauri/src/tray.rs#L582) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [583](../../src-tauri/src/tray.rs#L583) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [584](../../src-tauri/src/tray.rs#L584) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [585](../../src-tauri/src/tray.rs#L585) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [586](../../src-tauri/src/tray.rs#L586) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [587](../../src-tauri/src/tray.rs#L587) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [588](../../src-tauri/src/tray.rs#L588) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [590](../../src-tauri/src/tray.rs#L590) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [591](../../src-tauri/src/tray.rs#L591) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [592](../../src-tauri/src/tray.rs#L592) |
-| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [593](../../src-tauri/src/tray.rs#L593) |
-| t2_navigation_ids_format_correctly | function_item | tests | [597](../../src-tauri/src/tray.rs#L597) |
-| format | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [598](../../src-tauri/src/tray.rs#L598) |
-| format | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [599](../../src-tauri/src/tray.rs#L599) |
-| format | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [600](../../src-tauri/src/tray.rs#L600) |
-| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [602](../../src-tauri/src/tray.rs#L602) |
-| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [603](../../src-tauri/src/tray.rs#L603) |
-| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [604](../../src-tauri/src/tray.rs#L604) |
+| refresh_tray_menu | function_item |  | [162](../../src-tauri/src/tray.rs#L162) |
+| format | macro invocation (unexpanded) | refresh_tray_menu | [168](../../src-tauri/src/tray.rs#L168) |
+| refresh_tray_on_switch | function_item |  | [171](../../src-tauri/src/tray.rs#L171) |
+| log::warn | macro invocation (unexpanded) | refresh_tray_on_switch | [176](../../src-tauri/src/tray.rs#L176) |
+| log::warn | macro invocation (unexpanded) | refresh_tray_on_switch | [180](../../src-tauri/src/tray.rs#L180) |
+| create_tray_menu | function_item |  | [185](../../src-tauri/src/tray.rs#L185) |
+| TrayLabels | struct_item |  | [232](../../src-tauri/src/tray.rs#L232) |
+| show | field_declaration | TrayLabels | [233](../../src-tauri/src/tray.rs#L233) |
+| official | field_declaration | TrayLabels | [234](../../src-tauri/src/tray.rs#L234) |
+| projects | field_declaration | TrayLabels | [235](../../src-tauri/src/tray.rs#L235) |
+| quit | field_declaration | TrayLabels | [236](../../src-tauri/src/tray.rs#L236) |
+| manage_providers | field_declaration | TrayLabels | [237](../../src-tauri/src/tray.rs#L237) |
+| tray_labels | function_item |  | [240](../../src-tauri/src/tray.rs#L240) |
+| is_upstream_valid_for_direct_target | function_item |  | [260](../../src-tauri/src/tray.rs#L260) |
+| matches | macro invocation (unexpanded) | is_upstream_valid_for_direct_target | [270](../../src-tauri/src/tray.rs#L270) |
+| target_provider_prefix_and_ids | function_item |  | [278](../../src-tauri/src/tray.rs#L278) |
+| build_provider_menu | function_item |  | [298](../../src-tauri/src/tray.rs#L298) |
+| format | macro invocation (unexpanded) | build_provider_menu | [328](../../src-tauri/src/tray.rs#L328) |
+| format | macro invocation (unexpanded) | build_provider_menu | [341](../../src-tauri/src/tray.rs#L341) |
+| format | macro invocation (unexpanded) | build_provider_menu | [351](../../src-tauri/src/tray.rs#L351) |
+| format | macro invocation (unexpanded) | build_provider_menu | [358](../../src-tauri/src/tray.rs#L358) |
+| vec | macro invocation (unexpanded) | build_provider_menu | [367](../../src-tauri/src/tray.rs#L367) |
+| build_t2_menu | function_item |  | [376](../../src-tauri/src/tray.rs#L376) |
+| format | macro invocation (unexpanded) | build_t2_menu | [382](../../src-tauri/src/tray.rs#L382) |
+| build_profiles_menu | function_item |  | [389](../../src-tauri/src/tray.rs#L389) |
+| format | macro invocation (unexpanded) | build_profiles_menu | [396](../../src-tauri/src/tray.rs#L396) |
+| format | macro invocation (unexpanded) | build_profiles_menu | [403](../../src-tauri/src/tray.rs#L403) |
+| show_main_window | function_item |  | [424](../../src-tauri/src/tray.rs#L424) |
+| navigate_to_providers | function_item |  | [432](../../src-tauri/src/tray.rs#L432) |
+| switch_provider | function_item |  | [438](../../src-tauri/src/tray.rs#L438) |
+| switch_to_official | function_item |  | [460](../../src-tauri/src/tray.rs#L460) |
+| apply_profile_from_tray | function_item |  | [468](../../src-tauri/src/tray.rs#L468) |
+| log::warn | macro invocation (unexpanded) | apply_profile_from_tray | [472](../../src-tauri/src/tray.rs#L472) |
+| toggle_panel_window | function_item |  | [481](../../src-tauri/src/tray.rs#L481) |
+| tests | mod_item |  | [540](../../src-tauri/src/tray.rs#L540) |
+| tray_labels_follow_the_selected_language | function_item | tests | [544](../../src-tauri/src/tray.rs#L544) |
+| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [545](../../src-tauri/src/tray.rs#L545) |
+| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [546](../../src-tauri/src/tray.rs#L546) |
+| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [547](../../src-tauri/src/tray.rs#L547) |
+| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [548](../../src-tauri/src/tray.rs#L548) |
+| assert_eq | macro invocation (unexpanded) | tests::tray_labels_follow_the_selected_language | [549](../../src-tauri/src/tray.rs#L549) |
+| upstream_validation_for_direct_target_enforces_agent_boundaries | function_item | tests | [553](../../src-tauri/src/tray.rs#L553) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [555](../../src-tauri/src/tray.rs#L555) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [560](../../src-tauri/src/tray.rs#L560) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [565](../../src-tauri/src/tray.rs#L565) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [570](../../src-tauri/src/tray.rs#L570) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [577](../../src-tauri/src/tray.rs#L577) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [582](../../src-tauri/src/tray.rs#L582) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [587](../../src-tauri/src/tray.rs#L587) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [592](../../src-tauri/src/tray.rs#L592) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [597](../../src-tauri/src/tray.rs#L597) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [611](../../src-tauri/src/tray.rs#L611) |
+| assert | macro invocation (unexpanded) | tests::upstream_validation_for_direct_target_enforces_agent_boundaries | [616](../../src-tauri/src/tray.rs#L616) |
+| target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | function_item | tests | [625](../../src-tauri/src/tray.rs#L625) |
+| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [628](../../src-tauri/src/tray.rs#L628) |
+| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [629](../../src-tauri/src/tray.rs#L629) |
+| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [630](../../src-tauri/src/tray.rs#L630) |
+| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [634](../../src-tauri/src/tray.rs#L634) |
+| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [635](../../src-tauri/src/tray.rs#L635) |
+| assert_eq | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [636](../../src-tauri/src/tray.rs#L636) |
+| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [639](../../src-tauri/src/tray.rs#L639) |
+| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [640](../../src-tauri/src/tray.rs#L640) |
+| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [643](../../src-tauri/src/tray.rs#L643) |
+| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [644](../../src-tauri/src/tray.rs#L644) |
+| assert | macro invocation (unexpanded) | tests::target_provider_prefix_and_ids_distinguishes_t1_and_rejects_others | [645](../../src-tauri/src/tray.rs#L645) |
+| menu_id_prefixes_do_not_collide | function_item | tests | [649](../../src-tauri/src/tray.rs#L649) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [650](../../src-tauri/src/tray.rs#L650) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [651](../../src-tauri/src/tray.rs#L651) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [652](../../src-tauri/src/tray.rs#L652) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [653](../../src-tauri/src/tray.rs#L653) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [654](../../src-tauri/src/tray.rs#L654) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [655](../../src-tauri/src/tray.rs#L655) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [657](../../src-tauri/src/tray.rs#L657) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [658](../../src-tauri/src/tray.rs#L658) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [659](../../src-tauri/src/tray.rs#L659) |
+| assert | macro invocation (unexpanded) | tests::menu_id_prefixes_do_not_collide | [660](../../src-tauri/src/tray.rs#L660) |
+| t2_navigation_ids_format_correctly | function_item | tests | [664](../../src-tauri/src/tray.rs#L664) |
+| format | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [665](../../src-tauri/src/tray.rs#L665) |
+| format | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [666](../../src-tauri/src/tray.rs#L666) |
+| format | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [667](../../src-tauri/src/tray.rs#L667) |
+| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [669](../../src-tauri/src/tray.rs#L669) |
+| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [670](../../src-tauri/src/tray.rs#L670) |
+| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [671](../../src-tauri/src/tray.rs#L671) |

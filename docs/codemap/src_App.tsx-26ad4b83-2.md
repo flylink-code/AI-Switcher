@@ -4,26 +4,27 @@
 
 [Module](web-root.md) · [Source](../../src/App.tsx) · page 2/2
 
-Source SHA-256: aaadda21f3125249b54f9072f08e20e90c5015f6690d1c022b487dd1fd293561
+Source SHA-256: eb4b9c92d1916b8e245795363f54a2e5adda51ae2ba79f29d0a135344a58eafa
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| pageKey | BindingElement | ActivePage | [530](../../src/App.tsx#L530) |
-| onPaint | BindingElement | ActivePage | [531](../../src/App.tsx#L531) |
-| pageKey | PropertySignature | ActivePage | [533](../../src/App.tsx#L533) |
-| onPaint | PropertySignature | ActivePage | [534](../../src/App.tsx#L534) |
-| { t } | VariableDeclaration | ActivePage | [536](../../src/App.tsx#L536) |
-| t | BindingElement | ActivePage.{ t } | [536](../../src/App.tsx#L536) |
-| layoutMode | VariableDeclaration | ActivePage | [537](../../src/App.tsx#L537) |
-| [, rerender] | VariableDeclaration | ActivePage | [538](../../src/App.tsx#L538) |
-| rerender | BindingElement | ActivePage.[, rerender] | [538](../../src/App.tsx#L538) |
-| [loadAttempt, retryLoad] | VariableDeclaration | ActivePage | [539](../../src/App.tsx#L539) |
-| loadAttempt | BindingElement | ActivePage.[loadAttempt, retryLoad] | [539](../../src/App.tsx#L539) |
-| retryLoad | BindingElement | ActivePage.[loadAttempt, retryLoad] | [539](../../src/App.tsx#L539) |
-| [loadError, setLoadError] | VariableDeclaration | ActivePage | [540](../../src/App.tsx#L540) |
-| loadError | BindingElement | ActivePage.[loadError, setLoadError] | [540](../../src/App.tsx#L540) |
-| setLoadError | BindingElement | ActivePage.[loadError, setLoadError] | [540](../../src/App.tsx#L540) |
-| Page | VariableDeclaration | ActivePage | [541](../../src/App.tsx#L541) |
-| renderStartedAt | VariableDeclaration | ActivePage | [542](../../src/App.tsx#L542) |
-| active | VariableDeclaration | ActivePage | [546](../../src/App.tsx#L546) |
-| frame | VariableDeclaration | ActivePage | [566](../../src/App.tsx#L566) |
+| ActivePage | FunctionDeclaration |  | [544](../../src/App.tsx#L544) |
+| pageKey | BindingElement | ActivePage | [545](../../src/App.tsx#L545) |
+| onPaint | BindingElement | ActivePage | [546](../../src/App.tsx#L546) |
+| pageKey | PropertySignature | ActivePage | [548](../../src/App.tsx#L548) |
+| onPaint | PropertySignature | ActivePage | [549](../../src/App.tsx#L549) |
+| { t } | VariableDeclaration | ActivePage | [551](../../src/App.tsx#L551) |
+| t | BindingElement | ActivePage.{ t } | [551](../../src/App.tsx#L551) |
+| layoutMode | VariableDeclaration | ActivePage | [552](../../src/App.tsx#L552) |
+| [, rerender] | VariableDeclaration | ActivePage | [553](../../src/App.tsx#L553) |
+| rerender | BindingElement | ActivePage.[, rerender] | [553](../../src/App.tsx#L553) |
+| [loadAttempt, retryLoad] | VariableDeclaration | ActivePage | [554](../../src/App.tsx#L554) |
+| loadAttempt | BindingElement | ActivePage.[loadAttempt, retryLoad] | [554](../../src/App.tsx#L554) |
+| retryLoad | BindingElement | ActivePage.[loadAttempt, retryLoad] | [554](../../src/App.tsx#L554) |
+| [loadError, setLoadError] | VariableDeclaration | ActivePage | [555](../../src/App.tsx#L555) |
+| loadError | BindingElement | ActivePage.[loadError, setLoadError] | [555](../../src/App.tsx#L555) |
+| setLoadError | BindingElement | ActivePage.[loadError, setLoadError] | [555](../../src/App.tsx#L555) |
+| Page | VariableDeclaration | ActivePage | [556](../../src/App.tsx#L556) |
+| renderStartedAt | VariableDeclaration | ActivePage | [557](../../src/App.tsx#L557) |
+| active | VariableDeclaration | ActivePage | [561](../../src/App.tsx#L561) |
+| frame | VariableDeclaration | ActivePage | [581](../../src/App.tsx#L581) |

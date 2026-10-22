@@ -81,6 +81,7 @@ import {
 } from "@/lib/pageRegistry";
 import { NavigationContext, resolvePageNavigation } from "@/lib/navigation";
 import { AppUpdatePromptContext } from "@/lib/appUpdateContext";
+import { QuickPanel } from "@/components/panel/QuickPanel";
 import type { ImportPreview } from "@/types/backend";
 import { message as staticMessage } from "antd";
 
@@ -422,6 +423,20 @@ export default function App() {
       setDeeplinkConfirming(false);
     }
   }, [deeplinkPreview, t]);
+
+  const isPanelMode = useMemo(() => {
+    return new URLSearchParams(window.location.search).get("mode") === "panel";
+  }, []);
+
+  if (isPanelMode) {
+    return (
+      <ConfigProvider csp={csp} locale={antdLocale} theme={themeConfig}>
+        <AntApp>
+          <QuickPanel />
+        </AntApp>
+      </ConfigProvider>
+    );
+  }
 
   return (
     <ConfigProvider csp={csp} locale={antdLocale} theme={themeConfig}>

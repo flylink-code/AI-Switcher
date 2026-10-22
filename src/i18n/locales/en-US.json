@@ -2145,6 +2145,11 @@
     "changelogTitle": "What’s new",
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
+      "1_6_6": [
+        "Added system tray left-click Quick Panel: inspired by magpie, featuring bottom-right taskbar auto-docking and focus-lost auto-hide for quickly switching Claude Code and Codex modes.",
+        "Integrated today's usage overview (requests, token volume, estimated cost) and gateway status cards into the quick panel, displaying smart gateway, Antigravity, and Kiro health and account counts on demand.",
+        "Enhanced panel-to-main window transitions with one-click full console access and tray double-click activation."
+      ],
       "1_6_5": [
         "Added per-account device profiles to the reverse-proxy gateways: each Antigravity and Kiro account now has its own device ID, OS and architecture, and the outbound User-Agent follows the account. Existing accounts derive a stable device from their ID with no migration, and a device can be regenerated from the account card.",
         "Added a gateway time zone: the global default is Asia/Singapore and each account can override it. Quota reset times use the account's effective time zone, and the Platform / Shell / OS Version lines and today's date in requests are rewritten to match the account's device and time zone. Working-directory paths are left unchanged.",

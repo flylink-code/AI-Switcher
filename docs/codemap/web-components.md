@@ -56,6 +56,7 @@
 | [src/components/layout/TitlebarVersionButton.tsx](../../src/components/layout/TitlebarVersionButton.tsx) | 20 | [1](src_components_layout_TitlebarVersionButton.tsx-f9b0034a-1.md) |
 | [src/components/layout/WindowChrome.tsx](../../src/components/layout/WindowChrome.tsx) | 12 | [1](src_components_layout_WindowChrome.tsx-346229cb-1.md) |
 | [src/components/layout/navItems.tsx](../../src/components/layout/navItems.tsx) | 7 | [1](src_components_layout_navItems.tsx-af6da78b-1.md) |
+| [src/components/panel/QuickPanel.tsx](../../src/components/panel/QuickPanel.tsx) | 39 | [1](src_components_panel_QuickPanel.tsx-dfac4cd1-1.md) |
 | [src/components/proxy/CatalogModelOptionContent.tsx](../../src/components/proxy/CatalogModelOptionContent.tsx) | 25 | [1](src_components_proxy_CatalogModelOptionContent.tsx-4cecdb8f-1.md) |
 | [src/components/proxy/GatewayLimitsCard.tsx](../../src/components/proxy/GatewayLimitsCard.tsx) | 20 | [1](src_components_proxy_GatewayLimitsCard.tsx-6a532280-1.md) |
 | [src/components/proxy/GatewayUpstreamPanel.tsx](../../src/components/proxy/GatewayUpstreamPanel.tsx) | 279 | [1](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-1.md) [2](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-2.md) [3](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-3.md) |

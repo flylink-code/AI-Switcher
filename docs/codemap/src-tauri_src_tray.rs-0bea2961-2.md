@@ -4,10 +4,10 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/tray.rs) · page 2/2
 
-Source SHA-256: 9ce32b3128eb4d7bd3d15299796b952bfc3ffb66890b70470e2001e716f974d8
+Source SHA-256: 36a8e1ac05f4f8ab8122a379a01bdd7882032ba59dd550b4103806931e054839
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [606](../../src-tauri/src/tray.rs#L606) |
-| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [607](../../src-tauri/src/tray.rs#L607) |
-| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [608](../../src-tauri/src/tray.rs#L608) |
+| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [673](../../src-tauri/src/tray.rs#L673) |
+| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [674](../../src-tauri/src/tray.rs#L674) |
+| assert_eq | macro invocation (unexpanded) | tests::t2_navigation_ids_format_correctly | [675](../../src-tauri/src/tray.rs#L675) |

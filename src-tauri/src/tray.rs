@@ -2,8 +2,8 @@
 
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Runtime,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager, PhysicalPosition, Runtime,
 };
 
 use crate::database::dao;
@@ -134,14 +134,23 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
             }
         })
         .on_tray_icon_event(|tray, event| {
-            if matches!(
-                event,
+            match event {
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    rect,
+                    position,
+                    ..
+                } => {
+                    toggle_panel_window(tray.app_handle(), position, rect);
+                }
                 TrayIconEvent::DoubleClick {
                     button: MouseButton::Left,
                     ..
+                } => {
+                    show_main_window(tray.app_handle());
                 }
-            ) {
-                show_main_window(tray.app_handle());
+                _ => {}
             }
         })
         .build(app)
@@ -467,6 +476,64 @@ async fn apply_profile_from_tray<R: Runtime>(app: &AppHandle<R>, id: &str) -> Ap
         );
     }
     Ok(())
+}
+
+fn toggle_panel_window<R: Runtime>(
+    app: &AppHandle<R>,
+    _click_pos: PhysicalPosition<f64>,
+    icon_rect: tauri::Rect,
+) {
+    if let Some(panel) = app.get_webview_window("panel") {
+        if panel.is_visible().unwrap_or(false) {
+            let _ = panel.hide();
+            return;
+        }
+
+        if let Ok(Some(monitor)) = panel.current_monitor() {
+            let scale_factor = monitor.scale_factor();
+            let panel_w = (360.0 * scale_factor) as i32;
+            let panel_h = (520.0 * scale_factor) as i32;
+
+            let mon_pos = monitor.position();
+            let mon_size = monitor.size();
+            let margin = (12.0 * scale_factor) as i32;
+
+            let phys_pos = icon_rect.position.to_physical::<i32>(scale_factor);
+            let phys_size = icon_rect.size.to_physical::<u32>(scale_factor);
+
+            let (target_x, target_y) = if phys_size.width > 0 && phys_size.height > 0 {
+                let rect_x = phys_pos.x;
+                let rect_y = phys_pos.y;
+                let rect_w = phys_size.width as i32;
+
+                let mut x = rect_x + (rect_w - panel_w) / 2;
+                let max_x = mon_pos.x + mon_size.width as i32 - panel_w - margin;
+                let min_x = mon_pos.x + margin;
+                if x > max_x {
+                    x = max_x;
+                }
+                if x < min_x {
+                    x = min_x;
+                }
+
+                let y = if rect_y - panel_h - margin >= mon_pos.y {
+                    rect_y - panel_h - (6.0 * scale_factor) as i32
+                } else {
+                    rect_y + phys_size.height as i32 + (6.0 * scale_factor) as i32
+                };
+                (x, y)
+            } else {
+                let x = mon_pos.x + mon_size.width as i32 - panel_w - margin;
+                let y = mon_pos.y + mon_size.height as i32 - panel_h - margin;
+                (x, y)
+            };
+
+            let _ = panel.set_position(PhysicalPosition::new(target_x, target_y));
+        }
+
+        let _ = panel.show();
+        let _ = panel.set_focus();
+    }
 }
 
 #[cfg(test)]

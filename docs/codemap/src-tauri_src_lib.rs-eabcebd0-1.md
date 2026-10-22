@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/lib.rs) · page 1/2
 
-Source SHA-256: bbc9bbeb3493321d65fa62ac09bf2b664d5d88aadc274f3b69a67df836f4659c
+Source SHA-256: 7b4570165300a41702968ba734e196661e62d608d47fcb8d66631d6e90eaf947
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/lib.rs) · page 2/2
 
-Source SHA-256: bbc9bbeb3493321d65fa62ac09bf2b664d5d88aadc274f3b69a67df836f4659c
+Source SHA-256: 7b4570165300a41702968ba734e196661e62d608d47fcb8d66631d6e90eaf947
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -15,5 +15,5 @@ Source SHA-256: bbc9bbeb3493321d65fa62ac09bf2b664d5d88aadc274f3b69a67df836f4659c
 | log::debug | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1027](../../src-tauri/src/lib.rs#L1027) |
 | log::warn | macro invocation (unexpanded) | spawn_antigravity_quota_refresh | [1031](../../src-tauri/src/lib.rs#L1031) |
 | on_window_event | function_item |  | [1037](../../src-tauri/src/lib.rs#L1037) |
-| log::error | macro invocation (unexpanded) | on_window_event | [1047](../../src-tauri/src/lib.rs#L1047) |
-| box_app_error | function_item |  | [1061](../../src-tauri/src/lib.rs#L1061) |
+| log::error | macro invocation (unexpanded) | on_window_event | [1061](../../src-tauri/src/lib.rs#L1061) |
+| box_app_error | function_item |  | [1075](../../src-tauri/src/lib.rs#L1075) |
