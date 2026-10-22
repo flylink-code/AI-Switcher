@@ -242,7 +242,9 @@ pub fn list_gateway_catalog_entries(
         .iter()
         .map(|(provider, _)| (provider.id.clone(), provider.name.clone()))
         .collect();
-    let options = build_catalog_with(style, &pairs, hide_official)
+    let options = state.db.with_read_conn(|conn| {
+        catalog::build_catalog_with_cached_metadata(conn, style, &pairs, hide_official)
+    })?
         .into_iter()
         .map(|entry| {
             let inferred = crate::gateway::metadata::infer(&entry.public_id);

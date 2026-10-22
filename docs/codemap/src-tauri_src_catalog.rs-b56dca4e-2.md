@@ -4,107 +4,107 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/catalog.rs) · page 2/4
 
-Source SHA-256: 745482fa6af494d436ad731e45ab00a5dff7bebb795b3abedcad10274b5fa89b
+Source SHA-256: 53b13708e2f79d7359849282234a816d9ce8228c0e97bc65ee30cb2fe8a8a5d9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| normalize_client_request_with | function_item |  | [1090](../../src-tauri/src/catalog.rs#L1090) |
-| failover_upstream_for_provider | function_item |  | [1144](../../src-tauri/src/catalog.rs#L1144) |
-| is_explicit_saved_model | function_item |  | [1169](../../src-tauri/src/catalog.rs#L1169) |
-| is_explicit_visible_cached_model | function_item |  | [1187](../../src-tauri/src/catalog.rs#L1187) |
-| catalog_model_stem | function_item |  | [1205](../../src-tauri/src/catalog.rs#L1205) |
-| is_official_openai_builtin | function_item |  | [1219](../../src-tauri/src/catalog.rs#L1219) |
-| unique_public_id | function_item |  | [1237](../../src-tauri/src/catalog.rs#L1237) |
-| format | macro invocation (unexpanded) | unique_public_id | [1250](../../src-tauri/src/catalog.rs#L1250) |
-| format | macro invocation (unexpanded) | unique_public_id | [1258](../../src-tauri/src/catalog.rs#L1258) |
-| format | macro invocation (unexpanded) | unique_public_id | [1259](../../src-tauri/src/catalog.rs#L1259) |
-| format | macro invocation (unexpanded) | unique_public_id | [1266](../../src-tauri/src/catalog.rs#L1266) |
-| is_claude_role_request | function_item |  | [1274](../../src-tauri/src/catalog.rs#L1274) |
-| matches | macro invocation (unexpanded) | is_claude_role_request | [1276](../../src-tauri/src/catalog.rs#L1276) |
-| claude_alias_candidates | function_item |  | [1296](../../src-tauri/src/catalog.rs#L1296) |
-| vec | macro invocation (unexpanded) | claude_alias_candidates | [1300](../../src-tauri/src/catalog.rs#L1300) |
-| provider_qualified_model | function_item |  | [1308](../../src-tauri/src/catalog.rs#L1308) |
-| uses_antigravity_catalog | function_item |  | [1316](../../src-tauri/src/catalog.rs#L1316) |
-| matches | macro invocation (unexpanded) | uses_antigravity_catalog | [1326](../../src-tauri/src/catalog.rs#L1326) |
-| uses_kiro_catalog | function_item |  | [1337](../../src-tauri/src/catalog.rs#L1337) |
-| matches | macro invocation (unexpanded) | uses_kiro_catalog | [1347](../../src-tauri/src/catalog.rs#L1347) |
-| extend_unique | function_item |  | [1353](../../src-tauri/src/catalog.rs#L1353) |
-| tests | mod_item |  | [1363](../../src-tauri/src/catalog.rs#L1363) |
-| provider | function_item | tests | [1367](../../src-tauri/src/catalog.rs#L1367) |
-| claude_non_claude_slugs_get_discovery_prefix | function_item | tests | [1400](../../src-tauri/src/catalog.rs#L1400) |
-| vec | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1402](../../src-tauri/src/catalog.rs#L1402) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1403](../../src-tauri/src/catalog.rs#L1403) |
-| assert | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1404](../../src-tauri/src/catalog.rs#L1404) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1405](../../src-tauri/src/catalog.rs#L1405) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1407](../../src-tauri/src/catalog.rs#L1407) |
-| claude_display_name_is_bare_unless_model_is_shared | function_item | tests | [1411](../../src-tauri/src/catalog.rs#L1411) |
-| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1414](../../src-tauri/src/catalog.rs#L1414) |
-| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1414](../../src-tauri/src/catalog.rs#L1414) |
-| assert_eq | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1416](../../src-tauri/src/catalog.rs#L1416) |
-| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1421](../../src-tauri/src/catalog.rs#L1421) |
-| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1421](../../src-tauri/src/catalog.rs#L1421) |
-| assert | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1423](../../src-tauri/src/catalog.rs#L1423) |
-| assert | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1424](../../src-tauri/src/catalog.rs#L1424) |
-| builtin_antigravity_models_use_their_own_context_window | function_item | tests | [1428](../../src-tauri/src/catalog.rs#L1428) |
-| vec | macro invocation (unexpanded) | tests::builtin_antigravity_models_use_their_own_context_window | [1433](../../src-tauri/src/catalog.rs#L1433) |
-| assert_eq | macro invocation (unexpanded) | tests::builtin_antigravity_models_use_their_own_context_window | [1438](../../src-tauri/src/catalog.rs#L1438) |
-| assert_eq | macro invocation (unexpanded) | tests::builtin_antigravity_models_use_their_own_context_window | [1443](../../src-tauri/src/catalog.rs#L1443) |
-| explicit_window_label_wins_over_builtin_inference | function_item | tests | [1447](../../src-tauri/src/catalog.rs#L1447) |
-| assert_eq | macro invocation (unexpanded) | tests::explicit_window_label_wins_over_builtin_inference | [1450](../../src-tauri/src/catalog.rs#L1450) |
-| kiro_gateway_uses_local_catalog_not_gemini | function_item | tests | [1457](../../src-tauri/src/catalog.rs#L1457) |
-| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1462](../../src-tauri/src/catalog.rs#L1462) |
-| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1463](../../src-tauri/src/catalog.rs#L1463) |
-| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1464](../../src-tauri/src/catalog.rs#L1464) |
-| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1469](../../src-tauri/src/catalog.rs#L1469) |
-| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1470](../../src-tauri/src/catalog.rs#L1470) |
-| same_name_claude_models_get_provider_prefixed_ids | function_item | tests | [1474](../../src-tauri/src/catalog.rs#L1474) |
-| vec | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1480](../../src-tauri/src/catalog.rs#L1480) |
-| vec | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1480](../../src-tauri/src/catalog.rs#L1480) |
-| vec | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1480](../../src-tauri/src/catalog.rs#L1480) |
-| assert_eq | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1486](../../src-tauri/src/catalog.rs#L1486) |
-| assert_eq | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1495](../../src-tauri/src/catalog.rs#L1495) |
-| assert_eq | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1496](../../src-tauri/src/catalog.rs#L1496) |
-| same_name_codex_models_get_provider_prefixed_ids | function_item | tests | [1500](../../src-tauri/src/catalog.rs#L1500) |
-| vec | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1506](../../src-tauri/src/catalog.rs#L1506) |
-| vec | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1506](../../src-tauri/src/catalog.rs#L1506) |
-| vec | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1506](../../src-tauri/src/catalog.rs#L1506) |
-| assert_eq | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1512](../../src-tauri/src/catalog.rs#L1512) |
-| a_provider_with_one_source_per_model_stays_bare | function_item | tests | [1519](../../src-tauri/src/catalog.rs#L1519) |
-| vec | macro invocation (unexpanded) | tests::a_provider_with_one_source_per_model_stays_bare | [1521](../../src-tauri/src/catalog.rs#L1521) |
-| assert_eq | macro invocation (unexpanded) | tests::a_provider_with_one_source_per_model_stays_bare | [1522](../../src-tauri/src/catalog.rs#L1522) |
-| assert_eq | macro invocation (unexpanded) | tests::a_provider_with_one_source_per_model_stays_bare | [1523](../../src-tauri/src/catalog.rs#L1523) |
-| model_names_with_dots_resolve_and_legacy_ids_still_work | function_item | tests | [1527](../../src-tauri/src/catalog.rs#L1527) |
-| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1530](../../src-tauri/src/catalog.rs#L1530) |
-| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1531](../../src-tauri/src/catalog.rs#L1531) |
-| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1531](../../src-tauri/src/catalog.rs#L1531) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1532](../../src-tauri/src/catalog.rs#L1532) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1533](../../src-tauri/src/catalog.rs#L1533) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1538](../../src-tauri/src/catalog.rs#L1538) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1542](../../src-tauri/src/catalog.rs#L1542) |
-| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1549](../../src-tauri/src/catalog.rs#L1549) |
-| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1550](../../src-tauri/src/catalog.rs#L1550) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1553](../../src-tauri/src/catalog.rs#L1553) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1557](../../src-tauri/src/catalog.rs#L1557) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1561](../../src-tauri/src/catalog.rs#L1561) |
-| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1565](../../src-tauri/src/catalog.rs#L1565) |
-| assert | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1570](../../src-tauri/src/catalog.rs#L1570) |
-| prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | function_item | tests | [1577](../../src-tauri/src/catalog.rs#L1577) |
-| vec | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1580](../../src-tauri/src/catalog.rs#L1580) |
-| vec | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1581](../../src-tauri/src/catalog.rs#L1581) |
-| vec | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1581](../../src-tauri/src/catalog.rs#L1581) |
-| assert_eq | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1582](../../src-tauri/src/catalog.rs#L1582) |
-| assert_eq | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1586](../../src-tauri/src/catalog.rs#L1586) |
-| assert_eq | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1591](../../src-tauri/src/catalog.rs#L1591) |
-| assert_eq | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1595](../../src-tauri/src/catalog.rs#L1595) |
-| resolve_prefers_public_id_then_upstream | function_item | tests | [1602](../../src-tauri/src/catalog.rs#L1602) |
-| vec | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1605](../../src-tauri/src/catalog.rs#L1605) |
-| vec | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1606](../../src-tauri/src/catalog.rs#L1606) |
-| vec | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1606](../../src-tauri/src/catalog.rs#L1606) |
-| assert_eq | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1607](../../src-tauri/src/catalog.rs#L1607) |
-| assert_eq | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1611](../../src-tauri/src/catalog.rs#L1611) |
-| assert_eq | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1615](../../src-tauri/src/catalog.rs#L1615) |
-| vec | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1621](../../src-tauri/src/catalog.rs#L1621) |
-| assert_eq | macro invocation (unexpanded) | tests::resolve_prefers_public_id_then_upstream | [1622](../../src-tauri/src/catalog.rs#L1622) |
-| claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream | function_item | tests | [1629](../../src-tauri/src/catalog.rs#L1629) |
-| vec | macro invocation (unexpanded) | tests::claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream | [1633](../../src-tauri/src/catalog.rs#L1633) |
-| vec | macro invocation (unexpanded) | tests::claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream | [1636](../../src-tauri/src/catalog.rs#L1636) |
+| catalog_fallback_id | function_item |  | [1078](../../src-tauri/src/catalog.rs#L1078) |
+| catalog_subagent_target | function_item |  | [1104](../../src-tauri/src/catalog.rs#L1104) |
+| normalize_client_request | function_item |  | [1113](../../src-tauri/src/catalog.rs#L1113) |
+| normalize_client_request_with | function_item |  | [1138](../../src-tauri/src/catalog.rs#L1138) |
+| failover_upstream_for_provider | function_item |  | [1192](../../src-tauri/src/catalog.rs#L1192) |
+| is_explicit_saved_model | function_item |  | [1217](../../src-tauri/src/catalog.rs#L1217) |
+| is_explicit_visible_cached_model | function_item |  | [1235](../../src-tauri/src/catalog.rs#L1235) |
+| catalog_model_stem | function_item |  | [1253](../../src-tauri/src/catalog.rs#L1253) |
+| is_official_openai_builtin | function_item |  | [1267](../../src-tauri/src/catalog.rs#L1267) |
+| unique_public_id | function_item |  | [1285](../../src-tauri/src/catalog.rs#L1285) |
+| format | macro invocation (unexpanded) | unique_public_id | [1298](../../src-tauri/src/catalog.rs#L1298) |
+| format | macro invocation (unexpanded) | unique_public_id | [1306](../../src-tauri/src/catalog.rs#L1306) |
+| format | macro invocation (unexpanded) | unique_public_id | [1307](../../src-tauri/src/catalog.rs#L1307) |
+| format | macro invocation (unexpanded) | unique_public_id | [1314](../../src-tauri/src/catalog.rs#L1314) |
+| is_claude_role_request | function_item |  | [1322](../../src-tauri/src/catalog.rs#L1322) |
+| matches | macro invocation (unexpanded) | is_claude_role_request | [1324](../../src-tauri/src/catalog.rs#L1324) |
+| claude_alias_candidates | function_item |  | [1344](../../src-tauri/src/catalog.rs#L1344) |
+| vec | macro invocation (unexpanded) | claude_alias_candidates | [1348](../../src-tauri/src/catalog.rs#L1348) |
+| provider_qualified_model | function_item |  | [1356](../../src-tauri/src/catalog.rs#L1356) |
+| uses_antigravity_catalog | function_item |  | [1364](../../src-tauri/src/catalog.rs#L1364) |
+| matches | macro invocation (unexpanded) | uses_antigravity_catalog | [1374](../../src-tauri/src/catalog.rs#L1374) |
+| uses_kiro_catalog | function_item |  | [1385](../../src-tauri/src/catalog.rs#L1385) |
+| matches | macro invocation (unexpanded) | uses_kiro_catalog | [1395](../../src-tauri/src/catalog.rs#L1395) |
+| extend_unique | function_item |  | [1401](../../src-tauri/src/catalog.rs#L1401) |
+| tests | mod_item |  | [1411](../../src-tauri/src/catalog.rs#L1411) |
+| provider | function_item | tests | [1415](../../src-tauri/src/catalog.rs#L1415) |
+| discovered_windows_survive_cache_and_remain_provider_specific | function_item | tests | [1448](../../src-tauri/src/catalog.rs#L1448) |
+| vec | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1456](../../src-tauri/src/catalog.rs#L1456) |
+| json | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1458](../../src-tauri/src/catalog.rs#L1458) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1469](../../src-tauri/src/catalog.rs#L1469) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1470](../../src-tauri/src/catalog.rs#L1470) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1471](../../src-tauri/src/catalog.rs#L1471) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1472](../../src-tauri/src/catalog.rs#L1472) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1473](../../src-tauri/src/catalog.rs#L1473) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1474](../../src-tauri/src/catalog.rs#L1474) |
+| vec | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1478](../../src-tauri/src/catalog.rs#L1478) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1479](../../src-tauri/src/catalog.rs#L1479) |
+| vec | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1482](../../src-tauri/src/catalog.rs#L1482) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1483](../../src-tauri/src/catalog.rs#L1483) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1489](../../src-tauri/src/catalog.rs#L1489) |
+| assert | macro invocation (unexpanded) | tests::discovered_windows_survive_cache_and_remain_provider_specific | [1490](../../src-tauri/src/catalog.rs#L1490) |
+| claude_non_claude_slugs_get_discovery_prefix | function_item | tests | [1496](../../src-tauri/src/catalog.rs#L1496) |
+| vec | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1498](../../src-tauri/src/catalog.rs#L1498) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1499](../../src-tauri/src/catalog.rs#L1499) |
+| assert | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1500](../../src-tauri/src/catalog.rs#L1500) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1501](../../src-tauri/src/catalog.rs#L1501) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_non_claude_slugs_get_discovery_prefix | [1503](../../src-tauri/src/catalog.rs#L1503) |
+| claude_display_name_is_bare_unless_model_is_shared | function_item | tests | [1507](../../src-tauri/src/catalog.rs#L1507) |
+| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1510](../../src-tauri/src/catalog.rs#L1510) |
+| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1510](../../src-tauri/src/catalog.rs#L1510) |
+| assert_eq | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1512](../../src-tauri/src/catalog.rs#L1512) |
+| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1517](../../src-tauri/src/catalog.rs#L1517) |
+| vec | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1517](../../src-tauri/src/catalog.rs#L1517) |
+| assert | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1519](../../src-tauri/src/catalog.rs#L1519) |
+| assert | macro invocation (unexpanded) | tests::claude_display_name_is_bare_unless_model_is_shared | [1520](../../src-tauri/src/catalog.rs#L1520) |
+| builtin_antigravity_models_use_their_own_context_window | function_item | tests | [1524](../../src-tauri/src/catalog.rs#L1524) |
+| vec | macro invocation (unexpanded) | tests::builtin_antigravity_models_use_their_own_context_window | [1529](../../src-tauri/src/catalog.rs#L1529) |
+| assert_eq | macro invocation (unexpanded) | tests::builtin_antigravity_models_use_their_own_context_window | [1534](../../src-tauri/src/catalog.rs#L1534) |
+| assert_eq | macro invocation (unexpanded) | tests::builtin_antigravity_models_use_their_own_context_window | [1539](../../src-tauri/src/catalog.rs#L1539) |
+| explicit_window_label_wins_over_builtin_inference | function_item | tests | [1543](../../src-tauri/src/catalog.rs#L1543) |
+| assert_eq | macro invocation (unexpanded) | tests::explicit_window_label_wins_over_builtin_inference | [1546](../../src-tauri/src/catalog.rs#L1546) |
+| kiro_gateway_uses_local_catalog_not_gemini | function_item | tests | [1553](../../src-tauri/src/catalog.rs#L1553) |
+| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1558](../../src-tauri/src/catalog.rs#L1558) |
+| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1559](../../src-tauri/src/catalog.rs#L1559) |
+| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1560](../../src-tauri/src/catalog.rs#L1560) |
+| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1565](../../src-tauri/src/catalog.rs#L1565) |
+| assert | macro invocation (unexpanded) | tests::kiro_gateway_uses_local_catalog_not_gemini | [1566](../../src-tauri/src/catalog.rs#L1566) |
+| same_name_claude_models_get_provider_prefixed_ids | function_item | tests | [1570](../../src-tauri/src/catalog.rs#L1570) |
+| vec | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1576](../../src-tauri/src/catalog.rs#L1576) |
+| vec | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1576](../../src-tauri/src/catalog.rs#L1576) |
+| vec | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1576](../../src-tauri/src/catalog.rs#L1576) |
+| assert_eq | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1582](../../src-tauri/src/catalog.rs#L1582) |
+| assert_eq | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1591](../../src-tauri/src/catalog.rs#L1591) |
+| assert_eq | macro invocation (unexpanded) | tests::same_name_claude_models_get_provider_prefixed_ids | [1592](../../src-tauri/src/catalog.rs#L1592) |
+| same_name_codex_models_get_provider_prefixed_ids | function_item | tests | [1596](../../src-tauri/src/catalog.rs#L1596) |
+| vec | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1602](../../src-tauri/src/catalog.rs#L1602) |
+| vec | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1602](../../src-tauri/src/catalog.rs#L1602) |
+| vec | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1602](../../src-tauri/src/catalog.rs#L1602) |
+| assert_eq | macro invocation (unexpanded) | tests::same_name_codex_models_get_provider_prefixed_ids | [1608](../../src-tauri/src/catalog.rs#L1608) |
+| a_provider_with_one_source_per_model_stays_bare | function_item | tests | [1615](../../src-tauri/src/catalog.rs#L1615) |
+| vec | macro invocation (unexpanded) | tests::a_provider_with_one_source_per_model_stays_bare | [1617](../../src-tauri/src/catalog.rs#L1617) |
+| assert_eq | macro invocation (unexpanded) | tests::a_provider_with_one_source_per_model_stays_bare | [1618](../../src-tauri/src/catalog.rs#L1618) |
+| assert_eq | macro invocation (unexpanded) | tests::a_provider_with_one_source_per_model_stays_bare | [1619](../../src-tauri/src/catalog.rs#L1619) |
+| model_names_with_dots_resolve_and_legacy_ids_still_work | function_item | tests | [1623](../../src-tauri/src/catalog.rs#L1623) |
+| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1626](../../src-tauri/src/catalog.rs#L1626) |
+| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1627](../../src-tauri/src/catalog.rs#L1627) |
+| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1627](../../src-tauri/src/catalog.rs#L1627) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1628](../../src-tauri/src/catalog.rs#L1628) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1629](../../src-tauri/src/catalog.rs#L1629) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1634](../../src-tauri/src/catalog.rs#L1634) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1638](../../src-tauri/src/catalog.rs#L1638) |
+| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1645](../../src-tauri/src/catalog.rs#L1645) |
+| vec | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1646](../../src-tauri/src/catalog.rs#L1646) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1649](../../src-tauri/src/catalog.rs#L1649) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1653](../../src-tauri/src/catalog.rs#L1653) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1657](../../src-tauri/src/catalog.rs#L1657) |
+| assert_eq | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1661](../../src-tauri/src/catalog.rs#L1661) |
+| assert | macro invocation (unexpanded) | tests::model_names_with_dots_resolve_and_legacy_ids_still_work | [1666](../../src-tauri/src/catalog.rs#L1666) |
+| prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | function_item | tests | [1673](../../src-tauri/src/catalog.rs#L1673) |
+| vec | macro invocation (unexpanded) | tests::prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider | [1676](../../src-tauri/src/catalog.rs#L1676) |

@@ -32,6 +32,7 @@
   - **VS Code Copilot 深度集成**：将智能网关聚合模型一键写入 VS Code 原生 `chatLanguageModels.json`（仅维护名为 `AI-Switcher` 的托管项，完整保留官方模型与用户自定义 Provider），原生支持 Gemini / Claude / GPT 多档推理等级（`low` / `medium` / `high`）选择与网关路由联动。
   - **高级设置与中文化**：支持 Claude Code / Desktop 直连角色模型映射、Codex 联网搜索与输出档位配置；内置 Claude Code、VS Code / Cursor 扩展、Claude Desktop 一键中文包安装与卸载（对照 GitHub latest）。
 - **全局供应商与智能网关（`供应商` 页 · `127.0.0.1:15828`）**：
+  - **模型上下文元数据**：刷新模型时保存上游返回的输入/输出限制，并兼容 sub2api 的 Codex manifest；按供应商发布窗口，保留手动设置，区分 Codex 默认窗口与最大窗口。升级后刷新上游模型并重启 Code/Codex 以加载新目录；上游未提供元数据时沿用原回退值。
   - **唯一上游池**：API Key 与 OAuth 账号池全局配置一次，所有 Agent 共享。支持拖拽/上下调整上游优先级（`sort_index`）、按模型粒度开启/隐藏、额度查询与无密钥元数据导入导出。
   - **同名模型自动区分**：单一来源模型保持简洁裸名；当多个上游提供同名模型时，公开目录 ID 自动附加供应商前缀（如 `<provider>.<model>`），精准命中指定上游。
   - **跨协议桥接与防断连**：支持 Anthropic Messages ↔ OpenAI Chat / Responses 双向转换、Responses API 流式即时握手、长上下文思考流保活，以及 Codex 本地环回地址（`localhost:15828`）自动绕过系统代理干扰。

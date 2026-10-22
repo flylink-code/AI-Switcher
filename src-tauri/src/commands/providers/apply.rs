@@ -158,12 +158,16 @@ pub(crate) async fn discover_provider_models_with_key(
 
     let urls = model_discovery_urls(&provider.base_url)?;
     let client = discovery_http_client(urls.first().map(String::as_str).unwrap_or(""))?;
-    let discovered = fetch_discovered_models(&client, &urls, &key, provider.custom_headers.as_ref()).await;
+    let discovered = fetch_discovered_catalog(&client, &urls, &key, provider.custom_headers.as_ref(), provider.protocol_type).await;
     match discovered {
-        Ok(models) => {
+        Ok(value) => {
+            let models = extract_model_ids(&value);
+            let metadata = extract_model_metadata(&value, &models);
             if cache_result {
                 state.db.with_conn(|conn| {
-                    dao::save_provider_model_cache(conn, &provider.id, &models, checked_at)
+                    dao::providers::save_provider_model_cache_with_metadata(
+                        conn, &provider.id, &models, &metadata, checked_at,
+                    )
                 })?;
             }
             Ok(ModelDiscoveryResult {
@@ -375,12 +379,34 @@ async fn fetch_codex_oauth_models(token: &str, account_id: &str) -> Result<Vec<S
     }
 }
 
+async fn fetch_discovered_catalog(
+    client: &reqwest::Client,
+    urls: &[String],
+    key: &str,
+    custom_headers: Option<&std::collections::HashMap<String, String>>,
+    protocol: ProtocolType,
+) -> Result<Value, String> {
+    let mut value = fetch_discovered_models(client, urls, key, custom_headers).await?;
+    if matches!(protocol, ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses) {
+        let manifest_urls: Vec<String> = urls.iter().map(|url| {
+            format!("{url}?client_version={}", crate::codex_oauth::CLIENT_VERSION)
+        }).collect();
+        if let Ok(manifest) = fetch_discovered_models(client, &manifest_urls, key, custom_headers).await {
+            // Keep the ordinary list: a relay's Codex manifest may contain only a subset.
+            if let Some(items) = manifest.get("models").and_then(Value::as_array) {
+                value["codex_models"] = Value::Array(items.clone());
+            }
+        }
+    }
+    Ok(value)
+}
+
 async fn fetch_discovered_models(
     client: &reqwest::Client,
     urls: &[String],
     key: &str,
     custom_headers: Option<&std::collections::HashMap<String, String>>,
-) -> Result<Vec<String>, String> {
+) -> Result<Value, String> {
     let mut last_error = "无法连接模型发现端点".to_string();
     for url in urls {
         let mut request = client
@@ -408,7 +434,7 @@ async fn fetch_discovered_models(
                             if models.is_empty() {
                                 Err("供应商没有返回可用的模型".to_string())
                             } else {
-                                Ok(models)
+                                Ok(value)
                             }
                         }
                         Err(_) => Err("模型发现响应不是有效 JSON".to_string()),
@@ -439,6 +465,38 @@ async fn fetch_discovered_models(
     Err(last_error)
 }
 
+fn extract_model_metadata(
+    value: &Value,
+    models: &[String],
+) -> BTreeMap<String, crate::gateway::metadata::DiscoveredModelMeta> {
+    let mut metadata = BTreeMap::new();
+    for field in ["codex_models", "models", "data"] {
+        if let Some(items) = value.get(field).and_then(Value::as_array) {
+            for item in items {
+                let Some(id) = item.get("id").or_else(|| item.get("slug"))
+                    .or_else(|| item.get("name")).and_then(Value::as_str) else { continue };
+                let id = id.trim();
+                if !models.iter().any(|model| model == id) {
+                    continue;
+                }
+                let mut meta = crate::gateway::metadata::DiscoveredModelMeta::from_model(item);
+                if let Some(previous) = metadata.get(id) {
+                    let previous: &crate::gateway::metadata::DiscoveredModelMeta = previous;
+                    meta.priority_supported = meta.priority_supported.or(previous.priority_supported);
+                    meta.context_window = meta.context_window.or(previous.context_window);
+                    meta.max_output_tokens = meta.max_output_tokens.or(previous.max_output_tokens);
+                    meta.max_context_window = meta.max_context_window.or(previous.max_context_window);
+                    meta.effective_context_window_percent = meta.effective_context_window_percent.or(previous.effective_context_window_percent);
+                }
+                if meta.context_window.is_some() || meta.max_output_tokens.is_some() || meta.priority_supported.is_some() {
+                    metadata.insert(id.to_string(), meta);
+                }
+            }
+        }
+    }
+    metadata
+}
+
 fn extract_model_ids(value: &Value) -> Vec<String> {
     let mut models = BTreeSet::new();
     if let Some(items) = value
@@ -449,6 +507,7 @@ fn extract_model_ids(value: &Value) -> Vec<String> {
         for item in items {
             let value = item.as_str().or_else(|| {
                 item.get("id")
+                    .or_else(|| item.get("slug"))
                     .or_else(|| item.get("name"))
                     .and_then(Value::as_str)
             });

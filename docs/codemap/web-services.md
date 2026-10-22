@@ -15,7 +15,7 @@
 | [src/services/kiro.ts](../../src/services/kiro.ts) | 109 | [1](src_services_kiro.ts-26874166-1.md) [2](src_services_kiro.ts-26874166-2.md) |
 | [src/services/mcp.ts](../../src/services/mcp.ts) | 12 | [1](src_services_mcp.ts-604925b8-1.md) |
 | [src/services/prompts.ts](../../src/services/prompts.ts) | 14 | [1](src_services_prompts.ts-4b63e19a-1.md) |
-| [src/services/providers.ts](../../src/services/providers.ts) | 76 | [1](src_services_providers.ts-74a6d045-1.md) |
+| [src/services/providers.ts](../../src/services/providers.ts) | 77 | [1](src_services_providers.ts-74a6d045-1.md) |
 | [src/services/proxy.ts](../../src/services/proxy.ts) | 13 | [1](src_services_proxy.ts-72b507ca-1.md) |
 | [src/services/quota.ts](../../src/services/quota.ts) | 2 | [1](src_services_quota.ts-23b148ed-1.md) |
 | [src/services/sessions.ts](../../src/services/sessions.ts) | 22 | [1](src_services_sessions.ts-554e4dcb-1.md) |

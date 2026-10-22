@@ -663,7 +663,7 @@ dependencies = [
 
 [[package]]
 name = "claude-switcher"
-version = "1.6.5"
+version = "1.6.5-beta.7"
 dependencies = [
  "axum",
  "base64 0.22.1",

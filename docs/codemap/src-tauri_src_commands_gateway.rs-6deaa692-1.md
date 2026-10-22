@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/gateway.rs) · page 1/1
 
-Source SHA-256: bbabff3179fe93ded4776a9bf01cb3ee3d4cae886e2bbe8cc79ac92dbbd7e8dc
+Source SHA-256: a66bcccc2852c7a09a0488f12bb14b25dcbb5650e051d6795094727eaad1b7db
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -21,38 +21,39 @@ Source SHA-256: bbabff3179fe93ded4776a9bf01cb3ee3d4cae886e2bbe8cc79ac92dbbd7e8dc
 | list_gateway_upstream_models | function_item |  | [223](../../src-tauri/src/commands/gateway.rs#L223) |
 | format | macro invocation (unexpanded) | list_gateway_upstream_models | [229](../../src-tauri/src/commands/gateway.rs#L229) |
 | set_gateway_upstream_model_visible | function_item |  | [235](../../src-tauri/src/commands/gateway.rs#L235) |
-| discover_gateway_upstream_models | function_item |  | [257](../../src-tauri/src/commands/gateway.rs#L257) |
-| GatewayUpstreamDiscoverItem | struct_item |  | [266](../../src-tauri/src/commands/gateway.rs#L266) |
-| id | field_declaration | GatewayUpstreamDiscoverItem | [267](../../src-tauri/src/commands/gateway.rs#L267) |
-| name | field_declaration | GatewayUpstreamDiscoverItem | [268](../../src-tauri/src/commands/gateway.rs#L268) |
-| result | field_declaration | GatewayUpstreamDiscoverItem | [269](../../src-tauri/src/commands/gateway.rs#L269) |
-| discover_gateway_upstream_models_batch | function_item |  | [273](../../src-tauri/src/commands/gateway.rs#L273) |
-| discover_one_upstream | function_item |  | [298](../../src-tauri/src/commands/gateway.rs#L298) |
-| format | macro invocation (unexpanded) | discover_one_upstream | [301](../../src-tauri/src/commands/gateway.rs#L301) |
-| delete_gateway_upstream | function_item |  | [326](../../src-tauri/src/commands/gateway.rs#L326) |
-| add_antigravity_gateway_upstream | function_item |  | [339](../../src-tauri/src/commands/gateway.rs#L339) |
-| format | macro invocation (unexpanded) | add_antigravity_gateway_upstream | [348](../../src-tauri/src/commands/gateway.rs#L348) |
-| format | macro invocation (unexpanded) | add_antigravity_gateway_upstream | [360](../../src-tauri/src/commands/gateway.rs#L360) |
-| add_kiro_gateway_upstream | function_item |  | [397](../../src-tauri/src/commands/gateway.rs#L397) |
-| format | macro invocation (unexpanded) | add_kiro_gateway_upstream | [406](../../src-tauri/src/commands/gateway.rs#L406) |
-| format | macro invocation (unexpanded) | add_kiro_gateway_upstream | [418](../../src-tauri/src/commands/gateway.rs#L418) |
-| vec | macro invocation (unexpanded) | add_kiro_gateway_upstream | [442](../../src-tauri/src/commands/gateway.rs#L442) |
-| get_smart_gateway_status | function_item |  | [458](../../src-tauri/src/commands/gateway.rs#L458) |
-| set_smart_gateway_port | function_item |  | [463](../../src-tauri/src/commands/gateway.rs#L463) |
-| set_smart_gateway_api_key | function_item |  | [468](../../src-tauri/src/commands/gateway.rs#L468) |
-| rotate_smart_gateway_api_key | function_item |  | [477](../../src-tauri/src/commands/gateway.rs#L477) |
-| start_smart_gateway | function_item |  | [485](../../src-tauri/src/commands/gateway.rs#L485) |
-| stop_smart_gateway | function_item |  | [496](../../src-tauri/src/commands/gateway.rs#L496) |
-| list_smart_gateway_bindings | function_item |  | [505](../../src-tauri/src/commands/gateway.rs#L505) |
-| bind_smart_gateway | function_item |  | [514](../../src-tauri/src/commands/gateway.rs#L514) |
-| unbind_smart_gateway | function_item |  | [530](../../src-tauri/src/commands/gateway.rs#L530) |
-| list_upstream_daily_usage_stats | function_item |  | [570](../../src-tauri/src/commands/gateway.rs#L570) |
-| format | macro invocation (unexpanded) | list_upstream_daily_usage_stats | [582](../../src-tauri/src/commands/gateway.rs#L582) |
-| list_gateway_upstream_health | function_item |  | [586](../../src-tauri/src/commands/gateway.rs#L586) |
-| get_gateway_upstream_policy | function_item |  | [599](../../src-tauri/src/commands/gateway.rs#L599) |
-| set_gateway_upstream_policy | function_item |  | [612](../../src-tauri/src/commands/gateway.rs#L612) |
-| list_gateway_upstream_pressure | function_item |  | [628](../../src-tauri/src/commands/gateway.rs#L628) |
-| get_smart_gateway_inbound_limits | function_item |  | [635](../../src-tauri/src/commands/gateway.rs#L635) |
-| set_smart_gateway_inbound_limits | function_item |  | [642](../../src-tauri/src/commands/gateway.rs#L642) |
-| get_smart_gateway_health_probe_secs | function_item |  | [650](../../src-tauri/src/commands/gateway.rs#L650) |
-| set_smart_gateway_health_probe_secs | function_item |  | [655](../../src-tauri/src/commands/gateway.rs#L655) |
+| set_gateway_upstream_models_fast | function_item |  | [257](../../src-tauri/src/commands/gateway.rs#L257) |
+| discover_gateway_upstream_models | function_item |  | [271](../../src-tauri/src/commands/gateway.rs#L271) |
+| GatewayUpstreamDiscoverItem | struct_item |  | [280](../../src-tauri/src/commands/gateway.rs#L280) |
+| id | field_declaration | GatewayUpstreamDiscoverItem | [281](../../src-tauri/src/commands/gateway.rs#L281) |
+| name | field_declaration | GatewayUpstreamDiscoverItem | [282](../../src-tauri/src/commands/gateway.rs#L282) |
+| result | field_declaration | GatewayUpstreamDiscoverItem | [283](../../src-tauri/src/commands/gateway.rs#L283) |
+| discover_gateway_upstream_models_batch | function_item |  | [287](../../src-tauri/src/commands/gateway.rs#L287) |
+| discover_one_upstream | function_item |  | [312](../../src-tauri/src/commands/gateway.rs#L312) |
+| format | macro invocation (unexpanded) | discover_one_upstream | [315](../../src-tauri/src/commands/gateway.rs#L315) |
+| delete_gateway_upstream | function_item |  | [340](../../src-tauri/src/commands/gateway.rs#L340) |
+| add_antigravity_gateway_upstream | function_item |  | [353](../../src-tauri/src/commands/gateway.rs#L353) |
+| format | macro invocation (unexpanded) | add_antigravity_gateway_upstream | [362](../../src-tauri/src/commands/gateway.rs#L362) |
+| format | macro invocation (unexpanded) | add_antigravity_gateway_upstream | [374](../../src-tauri/src/commands/gateway.rs#L374) |
+| add_kiro_gateway_upstream | function_item |  | [411](../../src-tauri/src/commands/gateway.rs#L411) |
+| format | macro invocation (unexpanded) | add_kiro_gateway_upstream | [420](../../src-tauri/src/commands/gateway.rs#L420) |
+| format | macro invocation (unexpanded) | add_kiro_gateway_upstream | [432](../../src-tauri/src/commands/gateway.rs#L432) |
+| vec | macro invocation (unexpanded) | add_kiro_gateway_upstream | [456](../../src-tauri/src/commands/gateway.rs#L456) |
+| get_smart_gateway_status | function_item |  | [472](../../src-tauri/src/commands/gateway.rs#L472) |
+| set_smart_gateway_port | function_item |  | [477](../../src-tauri/src/commands/gateway.rs#L477) |
+| set_smart_gateway_api_key | function_item |  | [482](../../src-tauri/src/commands/gateway.rs#L482) |
+| rotate_smart_gateway_api_key | function_item |  | [491](../../src-tauri/src/commands/gateway.rs#L491) |
+| start_smart_gateway | function_item |  | [499](../../src-tauri/src/commands/gateway.rs#L499) |
+| stop_smart_gateway | function_item |  | [510](../../src-tauri/src/commands/gateway.rs#L510) |
+| list_smart_gateway_bindings | function_item |  | [519](../../src-tauri/src/commands/gateway.rs#L519) |
+| bind_smart_gateway | function_item |  | [528](../../src-tauri/src/commands/gateway.rs#L528) |
+| unbind_smart_gateway | function_item |  | [544](../../src-tauri/src/commands/gateway.rs#L544) |
+| list_upstream_daily_usage_stats | function_item |  | [584](../../src-tauri/src/commands/gateway.rs#L584) |
+| format | macro invocation (unexpanded) | list_upstream_daily_usage_stats | [596](../../src-tauri/src/commands/gateway.rs#L596) |
+| list_gateway_upstream_health | function_item |  | [600](../../src-tauri/src/commands/gateway.rs#L600) |
+| get_gateway_upstream_policy | function_item |  | [613](../../src-tauri/src/commands/gateway.rs#L613) |
+| set_gateway_upstream_policy | function_item |  | [626](../../src-tauri/src/commands/gateway.rs#L626) |
+| list_gateway_upstream_pressure | function_item |  | [642](../../src-tauri/src/commands/gateway.rs#L642) |
+| get_smart_gateway_inbound_limits | function_item |  | [649](../../src-tauri/src/commands/gateway.rs#L649) |
+| set_smart_gateway_inbound_limits | function_item |  | [656](../../src-tauri/src/commands/gateway.rs#L656) |
+| get_smart_gateway_health_probe_secs | function_item |  | [664](../../src-tauri/src/commands/gateway.rs#L664) |
+| set_smart_gateway_health_probe_secs | function_item |  | [669](../../src-tauri/src/commands/gateway.rs#L669) |

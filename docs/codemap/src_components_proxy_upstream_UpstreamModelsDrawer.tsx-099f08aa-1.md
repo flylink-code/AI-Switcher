@@ -4,26 +4,46 @@
 
 [Module](web-components.md) · [Source](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx) · page 1/1
 
-Source SHA-256: 8a88f6f589f97b4c5df19b901acc11f9a171b72dbf82a84e86cc548ab56a03dd
+Source SHA-256: ad5800eabc53c76cdfcfb1d984e995f50704bad84179b6c0fa9a895ff9cd1980
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| { Text } | VariableDeclaration |  | [5](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L5) |
-| Text | BindingElement | { Text } | [5](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L5) |
-| UpstreamModelsDrawerProps | InterfaceDeclaration |  | [7](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L7) |
-| upstream | PropertySignature | UpstreamModelsDrawerProps | [8](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L8) |
-| models | PropertySignature | UpstreamModelsDrawerProps | [9](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L9) |
-| saving | PropertySignature | UpstreamModelsDrawerProps | [10](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L10) |
-| onClose | PropertySignature | UpstreamModelsDrawerProps | [11](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L11) |
-| onRefresh | PropertySignature | UpstreamModelsDrawerProps | [12](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L12) |
-| onToggleModel | PropertySignature | UpstreamModelsDrawerProps | [13](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L13) |
-| UpstreamModelsDrawer | FunctionDeclaration |  | [16](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L16) |
-| upstream | BindingElement | UpstreamModelsDrawer | [17](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L17) |
-| models | BindingElement | UpstreamModelsDrawer | [18](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L18) |
-| saving | BindingElement | UpstreamModelsDrawer | [19](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L19) |
-| onClose | BindingElement | UpstreamModelsDrawer | [20](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L20) |
-| onRefresh | BindingElement | UpstreamModelsDrawer | [21](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L21) |
-| onToggleModel | BindingElement | UpstreamModelsDrawer | [22](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L22) |
-| { t } | VariableDeclaration | UpstreamModelsDrawer | [24](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L24) |
-| t | BindingElement | UpstreamModelsDrawer.{ t } | [24](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L24) |
-| isDefault | VariableDeclaration | UpstreamModelsDrawer | [47](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L47) |
+| { Text } | VariableDeclaration |  | [6](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L6) |
+| Text | BindingElement | { Text } | [6](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L6) |
+| UpstreamModelsDrawerProps | InterfaceDeclaration |  | [8](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L8) |
+| upstream | PropertySignature | UpstreamModelsDrawerProps | [9](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L9) |
+| models | PropertySignature | UpstreamModelsDrawerProps | [10](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L10) |
+| saving | PropertySignature | UpstreamModelsDrawerProps | [11](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L11) |
+| onClose | PropertySignature | UpstreamModelsDrawerProps | [12](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L12) |
+| onRefresh | PropertySignature | UpstreamModelsDrawerProps | [13](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L13) |
+| onToggleModel | PropertySignature | UpstreamModelsDrawerProps | [14](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L14) |
+| onSetFast | PropertySignature | UpstreamModelsDrawerProps | [15](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L15) |
+| UpstreamModelsDrawer | FunctionDeclaration |  | [18](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L18) |
+| upstream | BindingElement | UpstreamModelsDrawer | [19](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L19) |
+| models | BindingElement | UpstreamModelsDrawer | [20](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L20) |
+| saving | BindingElement | UpstreamModelsDrawer | [21](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L21) |
+| onClose | BindingElement | UpstreamModelsDrawer | [22](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L22) |
+| onRefresh | BindingElement | UpstreamModelsDrawer | [23](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L23) |
+| onToggleModel | BindingElement | UpstreamModelsDrawer | [24](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L24) |
+| onSetFast | BindingElement | UpstreamModelsDrawer | [25](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L25) |
+| { t } | VariableDeclaration | UpstreamModelsDrawer | [27](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L27) |
+| t | BindingElement | UpstreamModelsDrawer.{ t } | [27](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L27) |
+| [selected, setSelected] | VariableDeclaration | UpstreamModelsDrawer | [28](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L28) |
+| selected | BindingElement | UpstreamModelsDrawer.[selected, setSelected] | [28](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L28) |
+| setSelected | BindingElement | UpstreamModelsDrawer.[selected, setSelected] | [28](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L28) |
+| [search, setSearch] | VariableDeclaration | UpstreamModelsDrawer | [29](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L29) |
+| search | BindingElement | UpstreamModelsDrawer.[search, setSearch] | [29](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L29) |
+| setSearch | BindingElement | UpstreamModelsDrawer.[search, setSearch] | [29](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L29) |
+| openai | VariableDeclaration | UpstreamModelsDrawer | [30](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L30) |
+| selectedRows | VariableDeclaration | UpstreamModelsDrawer | [31](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L31) |
+| eligibleIds | VariableDeclaration | UpstreamModelsDrawer | [32](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L32) |
+| unknownSelected | VariableDeclaration | UpstreamModelsDrawer | [33](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L33) |
+| enableButton | VariableDeclaration | UpstreamModelsDrawer | [34](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L34) |
+| onChange | PropertyAssignment | UpstreamModelsDrawer | [81](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L81) |
+| getCheckboxProps | PropertyAssignment | UpstreamModelsDrawer | [82](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L82) |
+| render | PropertyAssignment | UpstreamModelsDrawer | [84](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L84) |
+| render | PropertyAssignment | UpstreamModelsDrawer | [90](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L90) |
+| render | PropertyAssignment | UpstreamModelsDrawer | [95](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L95) |
+| render | PropertyAssignment | UpstreamModelsDrawer | [101](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L101) |
+| needsConfirmation | VariableDeclaration | UpstreamModelsDrawer.render | [102](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L102) |
+| toggle | VariableDeclaration | UpstreamModelsDrawer.render | [103](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx#L103) |

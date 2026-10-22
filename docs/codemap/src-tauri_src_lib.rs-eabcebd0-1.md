@@ -4,7 +4,7 @@
 
 [Module](rust-root.md) · [Source](../../src-tauri/src/lib.rs) · page 1/2
 
-Source SHA-256: a22147bfaf40a84e792d78ccc598cb96f52491b78e44fb5f1d645399db775af1
+Source SHA-256: bbc9bbeb3493321d65fa62ac09bf2b664d5d88aadc274f3b69a67df836f4659c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -49,62 +49,62 @@ Source SHA-256: a22147bfaf40a84e792d78ccc598cb96f52491b78e44fb5f1d645399db775af1
 | usage | mod_item |  | [58](../../src-tauri/src/lib.rs#L58) |
 | usage_events | mod_item |  | [59](../../src-tauri/src/lib.rs#L59) |
 | wsl_direct | mod_item |  | [60](../../src-tauri/src/lib.rs#L60) |
-| SESSION_USAGE_SYNC_INTERVAL | const_item |  | [187](../../src-tauri/src/lib.rs#L187) |
-| run | function_item |  | [189](../../src-tauri/src/lib.rs#L189) |
-| format | macro invocation (unexpanded) | run | [194](../../src-tauri/src/lib.rs#L194) |
-| cfg | macro invocation (unexpanded) | run | [200](../../src-tauri/src/lib.rs#L200) |
-| tauri::generate_handler | macro invocation (unexpanded) | run | [225](../../src-tauri/src/lib.rs#L225) |
-| tauri::generate_context | macro invocation (unexpanded) | run | [597](../../src-tauri/src/lib.rs#L597) |
-| matches | macro invocation (unexpanded) | run | [599](../../src-tauri/src/lib.rs#L599) |
-| run_gateway_sidecar_if_requested | function_item |  | [608](../../src-tauri/src/lib.rs#L608) |
-| run_supervisor_selftest_if_requested | function_item |  | [612](../../src-tauri/src/lib.rs#L612) |
-| run_localization_worker_if_requested | function_item |  | [615](../../src-tauri/src/lib.rs#L615) |
-| report_startup_failure | function_item |  | [620](../../src-tauri/src/lib.rs#L620) |
-| format | macro invocation (unexpanded) | report_startup_failure | [624](../../src-tauri/src/lib.rs#L624) |
-| eprintln | macro invocation (unexpanded) | report_startup_failure | [629](../../src-tauri/src/lib.rs#L629) |
-| add_single_instance | function_item |  | [633](../../src-tauri/src/lib.rs#L633) |
-| add_single_instance | function_item |  | [659](../../src-tauri/src/lib.rs#L659) |
-| setup | function_item |  | [662](../../src-tauri/src/lib.rs#L662) |
-| log::info | macro invocation (unexpanded) | setup | [668](../../src-tauri/src/lib.rs#L668) |
-| log::info | macro invocation (unexpanded) | setup | [680](../../src-tauri/src/lib.rs#L680) |
-| log::warn | macro invocation (unexpanded) | setup | [685](../../src-tauri/src/lib.rs#L685) |
-| log::warn | macro invocation (unexpanded) | setup | [689](../../src-tauri/src/lib.rs#L689) |
-| log::info | macro invocation (unexpanded) | setup | [692](../../src-tauri/src/lib.rs#L692) |
-| log::error | macro invocation (unexpanded) | setup | [697](../../src-tauri/src/lib.rs#L697) |
-| log::info | macro invocation (unexpanded) | setup | [709](../../src-tauri/src/lib.rs#L709) |
-| log::info | macro invocation (unexpanded) | setup | [727](../../src-tauri/src/lib.rs#L727) |
-| log::error | macro invocation (unexpanded) | setup | [738](../../src-tauri/src/lib.rs#L738) |
-| log::error | macro invocation (unexpanded) | setup | [741](../../src-tauri/src/lib.rs#L741) |
-| log::error | macro invocation (unexpanded) | setup | [744](../../src-tauri/src/lib.rs#L744) |
-| log::warn | macro invocation (unexpanded) | setup | [747](../../src-tauri/src/lib.rs#L747) |
-| log::warn | macro invocation (unexpanded) | setup | [750](../../src-tauri/src/lib.rs#L750) |
-| log::warn | macro invocation (unexpanded) | setup | [753](../../src-tauri/src/lib.rs#L753) |
-| log::warn | macro invocation (unexpanded) | setup | [756](../../src-tauri/src/lib.rs#L756) |
-| log::info | macro invocation (unexpanded) | setup | [758](../../src-tauri/src/lib.rs#L758) |
-| log::info | macro invocation (unexpanded) | setup | [774](../../src-tauri/src/lib.rs#L774) |
-| log::error | macro invocation (unexpanded) | setup | [789](../../src-tauri/src/lib.rs#L789) |
-| log::info | macro invocation (unexpanded) | setup | [796](../../src-tauri/src/lib.rs#L796) |
-| log::warn | macro invocation (unexpanded) | setup | [803](../../src-tauri/src/lib.rs#L803) |
-| log::info | macro invocation (unexpanded) | setup | [813](../../src-tauri/src/lib.rs#L813) |
-| spawn_codex_session_usage_sync | function_item |  | [822](../../src-tauri/src/lib.rs#L822) |
-| log::info | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [835](../../src-tauri/src/lib.rs#L835) |
-| log::debug | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [842](../../src-tauri/src/lib.rs#L842) |
-| log::warn | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [850](../../src-tauri/src/lib.rs#L850) |
-| log::warn | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [853](../../src-tauri/src/lib.rs#L853) |
-| spawn_claude_code_session_usage_sync | function_item |  | [861](../../src-tauri/src/lib.rs#L861) |
-| log::info | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [874](../../src-tauri/src/lib.rs#L874) |
-| log::debug | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [881](../../src-tauri/src/lib.rs#L881) |
-| log::warn | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [889](../../src-tauri/src/lib.rs#L889) |
-| log::warn | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [892](../../src-tauri/src/lib.rs#L892) |
-| spawn_opencode_session_usage_sync | function_item |  | [900](../../src-tauri/src/lib.rs#L900) |
-| log::info | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [913](../../src-tauri/src/lib.rs#L913) |
-| log::debug | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [920](../../src-tauri/src/lib.rs#L920) |
-| log::warn | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [928](../../src-tauri/src/lib.rs#L928) |
-| log::warn | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [931](../../src-tauri/src/lib.rs#L931) |
-| spawn_pi_session_usage_sync | function_item |  | [939](../../src-tauri/src/lib.rs#L939) |
-| log::info | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [952](../../src-tauri/src/lib.rs#L952) |
-| log::debug | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [959](../../src-tauri/src/lib.rs#L959) |
-| log::warn | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [967](../../src-tauri/src/lib.rs#L967) |
-| log::warn | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [970](../../src-tauri/src/lib.rs#L970) |
-| spawn_dsh_session_usage_sync | function_item |  | [978](../../src-tauri/src/lib.rs#L978) |
-| log::info | macro invocation (unexpanded) | spawn_dsh_session_usage_sync | [990](../../src-tauri/src/lib.rs#L990) |
+| SESSION_USAGE_SYNC_INTERVAL | const_item |  | [188](../../src-tauri/src/lib.rs#L188) |
+| run | function_item |  | [190](../../src-tauri/src/lib.rs#L190) |
+| format | macro invocation (unexpanded) | run | [195](../../src-tauri/src/lib.rs#L195) |
+| cfg | macro invocation (unexpanded) | run | [201](../../src-tauri/src/lib.rs#L201) |
+| tauri::generate_handler | macro invocation (unexpanded) | run | [226](../../src-tauri/src/lib.rs#L226) |
+| tauri::generate_context | macro invocation (unexpanded) | run | [599](../../src-tauri/src/lib.rs#L599) |
+| matches | macro invocation (unexpanded) | run | [601](../../src-tauri/src/lib.rs#L601) |
+| run_gateway_sidecar_if_requested | function_item |  | [610](../../src-tauri/src/lib.rs#L610) |
+| run_supervisor_selftest_if_requested | function_item |  | [614](../../src-tauri/src/lib.rs#L614) |
+| run_localization_worker_if_requested | function_item |  | [617](../../src-tauri/src/lib.rs#L617) |
+| report_startup_failure | function_item |  | [622](../../src-tauri/src/lib.rs#L622) |
+| format | macro invocation (unexpanded) | report_startup_failure | [626](../../src-tauri/src/lib.rs#L626) |
+| eprintln | macro invocation (unexpanded) | report_startup_failure | [631](../../src-tauri/src/lib.rs#L631) |
+| add_single_instance | function_item |  | [635](../../src-tauri/src/lib.rs#L635) |
+| add_single_instance | function_item |  | [661](../../src-tauri/src/lib.rs#L661) |
+| setup | function_item |  | [664](../../src-tauri/src/lib.rs#L664) |
+| log::info | macro invocation (unexpanded) | setup | [670](../../src-tauri/src/lib.rs#L670) |
+| log::info | macro invocation (unexpanded) | setup | [682](../../src-tauri/src/lib.rs#L682) |
+| log::warn | macro invocation (unexpanded) | setup | [687](../../src-tauri/src/lib.rs#L687) |
+| log::warn | macro invocation (unexpanded) | setup | [691](../../src-tauri/src/lib.rs#L691) |
+| log::info | macro invocation (unexpanded) | setup | [694](../../src-tauri/src/lib.rs#L694) |
+| log::error | macro invocation (unexpanded) | setup | [699](../../src-tauri/src/lib.rs#L699) |
+| log::info | macro invocation (unexpanded) | setup | [711](../../src-tauri/src/lib.rs#L711) |
+| log::info | macro invocation (unexpanded) | setup | [729](../../src-tauri/src/lib.rs#L729) |
+| log::error | macro invocation (unexpanded) | setup | [740](../../src-tauri/src/lib.rs#L740) |
+| log::error | macro invocation (unexpanded) | setup | [743](../../src-tauri/src/lib.rs#L743) |
+| log::error | macro invocation (unexpanded) | setup | [746](../../src-tauri/src/lib.rs#L746) |
+| log::warn | macro invocation (unexpanded) | setup | [749](../../src-tauri/src/lib.rs#L749) |
+| log::warn | macro invocation (unexpanded) | setup | [752](../../src-tauri/src/lib.rs#L752) |
+| log::warn | macro invocation (unexpanded) | setup | [755](../../src-tauri/src/lib.rs#L755) |
+| log::warn | macro invocation (unexpanded) | setup | [758](../../src-tauri/src/lib.rs#L758) |
+| log::info | macro invocation (unexpanded) | setup | [760](../../src-tauri/src/lib.rs#L760) |
+| log::info | macro invocation (unexpanded) | setup | [776](../../src-tauri/src/lib.rs#L776) |
+| log::error | macro invocation (unexpanded) | setup | [791](../../src-tauri/src/lib.rs#L791) |
+| log::info | macro invocation (unexpanded) | setup | [798](../../src-tauri/src/lib.rs#L798) |
+| log::warn | macro invocation (unexpanded) | setup | [805](../../src-tauri/src/lib.rs#L805) |
+| log::info | macro invocation (unexpanded) | setup | [815](../../src-tauri/src/lib.rs#L815) |
+| spawn_codex_session_usage_sync | function_item |  | [824](../../src-tauri/src/lib.rs#L824) |
+| log::info | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [837](../../src-tauri/src/lib.rs#L837) |
+| log::debug | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [844](../../src-tauri/src/lib.rs#L844) |
+| log::warn | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [852](../../src-tauri/src/lib.rs#L852) |
+| log::warn | macro invocation (unexpanded) | spawn_codex_session_usage_sync | [855](../../src-tauri/src/lib.rs#L855) |
+| spawn_claude_code_session_usage_sync | function_item |  | [863](../../src-tauri/src/lib.rs#L863) |
+| log::info | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [876](../../src-tauri/src/lib.rs#L876) |
+| log::debug | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [883](../../src-tauri/src/lib.rs#L883) |
+| log::warn | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [891](../../src-tauri/src/lib.rs#L891) |
+| log::warn | macro invocation (unexpanded) | spawn_claude_code_session_usage_sync | [894](../../src-tauri/src/lib.rs#L894) |
+| spawn_opencode_session_usage_sync | function_item |  | [902](../../src-tauri/src/lib.rs#L902) |
+| log::info | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [915](../../src-tauri/src/lib.rs#L915) |
+| log::debug | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [922](../../src-tauri/src/lib.rs#L922) |
+| log::warn | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [930](../../src-tauri/src/lib.rs#L930) |
+| log::warn | macro invocation (unexpanded) | spawn_opencode_session_usage_sync | [933](../../src-tauri/src/lib.rs#L933) |
+| spawn_pi_session_usage_sync | function_item |  | [941](../../src-tauri/src/lib.rs#L941) |
+| log::info | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [954](../../src-tauri/src/lib.rs#L954) |
+| log::debug | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [961](../../src-tauri/src/lib.rs#L961) |
+| log::warn | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [969](../../src-tauri/src/lib.rs#L969) |
+| log::warn | macro invocation (unexpanded) | spawn_pi_session_usage_sync | [972](../../src-tauri/src/lib.rs#L972) |
+| spawn_dsh_session_usage_sync | function_item |  | [980](../../src-tauri/src/lib.rs#L980) |
+| log::info | macro invocation (unexpanded) | spawn_dsh_session_usage_sync | [992](../../src-tauri/src/lib.rs#L992) |

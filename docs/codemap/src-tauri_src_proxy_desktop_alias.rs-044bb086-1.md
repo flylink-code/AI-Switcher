@@ -4,7 +4,7 @@
 
 [Module](rust-proxy.md) · [Source](../../src-tauri/src/proxy/desktop_alias.rs) · page 1/1
 
-Source SHA-256: 75c00b3270f37176273641dba5654d11da534b6e61b58c45d48e300b92841188
+Source SHA-256: 626ca50c5869ef263b7396c4d74d4fd74dc38b4149df27f86689b0c311f7f6de
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -50,42 +50,42 @@ Source SHA-256: 75c00b3270f37176273641dba5654d11da534b6e61b58c45d48e300b92841188
 | tests | mod_item |  | [391](../../src-tauri/src/proxy/desktop_alias.rs#L391) |
 | entry | function_item | tests | [394](../../src-tauri/src/proxy/desktop_alias.rs#L394) |
 | format | macro invocation (unexpanded) | tests::entry | [397](../../src-tauri/src/proxy/desktop_alias.rs#L397) |
-| id_scheme_migration_clears_the_old_selection_once | function_item | tests | [407](../../src-tauri/src/proxy/desktop_alias.rs#L407) |
-| assert_eq | macro invocation (unexpanded) | tests::id_scheme_migration_clears_the_old_selection_once | [415](../../src-tauri/src/proxy/desktop_alias.rs#L415) |
-| assert_eq | macro invocation (unexpanded) | tests::id_scheme_migration_clears_the_old_selection_once | [424](../../src-tauri/src/proxy/desktop_alias.rs#L424) |
-| every_catalog_id_is_listed_as_an_alias_and_maps_back | function_item | tests | [428](../../src-tauri/src/proxy/desktop_alias.rs#L428) |
-| vec | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [431](../../src-tauri/src/proxy/desktop_alias.rs#L431) |
-| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [443](../../src-tauri/src/proxy/desktop_alias.rs#L443) |
-| assert | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [444](../../src-tauri/src/proxy/desktop_alias.rs#L444) |
+| id_scheme_migration_clears_the_old_selection_once | function_item | tests | [408](../../src-tauri/src/proxy/desktop_alias.rs#L408) |
+| assert_eq | macro invocation (unexpanded) | tests::id_scheme_migration_clears_the_old_selection_once | [416](../../src-tauri/src/proxy/desktop_alias.rs#L416) |
+| assert_eq | macro invocation (unexpanded) | tests::id_scheme_migration_clears_the_old_selection_once | [425](../../src-tauri/src/proxy/desktop_alias.rs#L425) |
+| every_catalog_id_is_listed_as_an_alias_and_maps_back | function_item | tests | [429](../../src-tauri/src/proxy/desktop_alias.rs#L429) |
+| vec | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [432](../../src-tauri/src/proxy/desktop_alias.rs#L432) |
+| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [444](../../src-tauri/src/proxy/desktop_alias.rs#L444) |
 | assert | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [445](../../src-tauri/src/proxy/desktop_alias.rs#L445) |
-| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [449](../../src-tauri/src/proxy/desktop_alias.rs#L449) |
+| assert | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [446](../../src-tauri/src/proxy/desktop_alias.rs#L446) |
 | assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [450](../../src-tauri/src/proxy/desktop_alias.rs#L450) |
-| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [457](../../src-tauri/src/proxy/desktop_alias.rs#L457) |
+| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [451](../../src-tauri/src/proxy/desktop_alias.rs#L451) |
 | assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [458](../../src-tauri/src/proxy/desktop_alias.rs#L458) |
-| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [462](../../src-tauri/src/proxy/desktop_alias.rs#L462) |
-| unlisted_desktop_defaults_follow_the_last_selected_model | function_item | tests | [469](../../src-tauri/src/proxy/desktop_alias.rs#L469) |
-| vec | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [472](../../src-tauri/src/proxy/desktop_alias.rs#L472) |
-| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [476](../../src-tauri/src/proxy/desktop_alias.rs#L476) |
-| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [487](../../src-tauri/src/proxy/desktop_alias.rs#L487) |
-| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [494](../../src-tauri/src/proxy/desktop_alias.rs#L494) |
-| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [496](../../src-tauri/src/proxy/desktop_alias.rs#L496) |
-| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [499](../../src-tauri/src/proxy/desktop_alias.rs#L499) |
-| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [505](../../src-tauri/src/proxy/desktop_alias.rs#L505) |
-| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [510](../../src-tauri/src/proxy/desktop_alias.rs#L510) |
-| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [514](../../src-tauri/src/proxy/desktop_alias.rs#L514) |
-| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [515](../../src-tauri/src/proxy/desktop_alias.rs#L515) |
+| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [459](../../src-tauri/src/proxy/desktop_alias.rs#L459) |
+| assert_eq | macro invocation (unexpanded) | tests::every_catalog_id_is_listed_as_an_alias_and_maps_back | [463](../../src-tauri/src/proxy/desktop_alias.rs#L463) |
+| unlisted_desktop_defaults_follow_the_last_selected_model | function_item | tests | [470](../../src-tauri/src/proxy/desktop_alias.rs#L470) |
+| vec | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [473](../../src-tauri/src/proxy/desktop_alias.rs#L473) |
+| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [477](../../src-tauri/src/proxy/desktop_alias.rs#L477) |
+| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [488](../../src-tauri/src/proxy/desktop_alias.rs#L488) |
+| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [495](../../src-tauri/src/proxy/desktop_alias.rs#L495) |
+| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [497](../../src-tauri/src/proxy/desktop_alias.rs#L497) |
+| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [500](../../src-tauri/src/proxy/desktop_alias.rs#L500) |
+| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [506](../../src-tauri/src/proxy/desktop_alias.rs#L506) |
+| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [511](../../src-tauri/src/proxy/desktop_alias.rs#L511) |
+| assert_eq | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [515](../../src-tauri/src/proxy/desktop_alias.rs#L515) |
 | assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [516](../../src-tauri/src/proxy/desktop_alias.rs#L516) |
-| subagent_and_webfetch_inherit_main_thread_selected_effort | function_item | tests | [520](../../src-tauri/src/proxy/desktop_alias.rs#L520) |
-| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [525](../../src-tauri/src/proxy/desktop_alias.rs#L525) |
-| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [535](../../src-tauri/src/proxy/desktop_alias.rs#L535) |
+| assert | macro invocation (unexpanded) | tests::unlisted_desktop_defaults_follow_the_last_selected_model | [517](../../src-tauri/src/proxy/desktop_alias.rs#L517) |
+| subagent_and_webfetch_inherit_main_thread_selected_effort | function_item | tests | [521](../../src-tauri/src/proxy/desktop_alias.rs#L521) |
+| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [526](../../src-tauri/src/proxy/desktop_alias.rs#L526) |
 | assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [536](../../src-tauri/src/proxy/desktop_alias.rs#L536) |
-| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [540](../../src-tauri/src/proxy/desktop_alias.rs#L540) |
-| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [546](../../src-tauri/src/proxy/desktop_alias.rs#L546) |
-| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [550](../../src-tauri/src/proxy/desktop_alias.rs#L550) |
-| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [560](../../src-tauri/src/proxy/desktop_alias.rs#L560) |
-| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [563](../../src-tauri/src/proxy/desktop_alias.rs#L563) |
-| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [569](../../src-tauri/src/proxy/desktop_alias.rs#L569) |
-| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [573](../../src-tauri/src/proxy/desktop_alias.rs#L573) |
-| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [579](../../src-tauri/src/proxy/desktop_alias.rs#L579) |
-| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [581](../../src-tauri/src/proxy/desktop_alias.rs#L581) |
-| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [587](../../src-tauri/src/proxy/desktop_alias.rs#L587) |
+| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [537](../../src-tauri/src/proxy/desktop_alias.rs#L537) |
+| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [541](../../src-tauri/src/proxy/desktop_alias.rs#L541) |
+| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [547](../../src-tauri/src/proxy/desktop_alias.rs#L547) |
+| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [551](../../src-tauri/src/proxy/desktop_alias.rs#L551) |
+| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [561](../../src-tauri/src/proxy/desktop_alias.rs#L561) |
+| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [564](../../src-tauri/src/proxy/desktop_alias.rs#L564) |
+| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [570](../../src-tauri/src/proxy/desktop_alias.rs#L570) |
+| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [574](../../src-tauri/src/proxy/desktop_alias.rs#L574) |
+| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [580](../../src-tauri/src/proxy/desktop_alias.rs#L580) |
+| json | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [582](../../src-tauri/src/proxy/desktop_alias.rs#L582) |
+| assert_eq | macro invocation (unexpanded) | tests::subagent_and_webfetch_inherit_main_thread_selected_effort | [588](../../src-tauri/src/proxy/desktop_alias.rs#L588) |

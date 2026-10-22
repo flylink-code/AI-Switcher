@@ -4,7 +4,7 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/codex.rs) · page 1/3
 
-Source SHA-256: 4947839b8276e75dd2c5d96afc1e8b7bffad0209a234fd942c16840485778635
+Source SHA-256: 35b4ef1e217b178c306dc47c4d8b62f1375bb95caa9dab1f14c09c967b16f6b9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -62,49 +62,49 @@ Source SHA-256: 4947839b8276e75dd2c5d96afc1e8b7bffad0209a234fd942c16840485778635
 | should_inject_openai_model_suggestions | function_item |  | [527](../../src-tauri/src/config/codex.rs#L527) |
 | codex_model_display_name | function_item |  | [533](../../src-tauri/src/config/codex.rs#L533) |
 | write_catalog_entries | function_item |  | [549](../../src-tauri/src/config/codex.rs#L549) |
+| serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [566](../../src-tauri/src/config/codex.rs#L566) |
+| serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [567](../../src-tauri/src/config/codex.rs#L567) |
+| serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [568](../../src-tauri/src/config/codex.rs#L568) |
+| serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [568](../../src-tauri/src/config/codex.rs#L568) |
+| serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [571](../../src-tauri/src/config/codex.rs#L571) |
 | serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [574](../../src-tauri/src/config/codex.rs#L574) |
-| codex_model_catalog_entry | function_item |  | [583](../../src-tauri/src/config/codex.rs#L583) |
-| serde_json::json | macro invocation (unexpanded) | codex_model_catalog_entry | [591](../../src-tauri/src/config/codex.rs#L591) |
-| serde_json::json | macro invocation (unexpanded) | codex_model_catalog_entry | [638](../../src-tauri/src/config/codex.rs#L638) |
-| serde_json::json | macro invocation (unexpanded) | codex_model_catalog_entry | [643](../../src-tauri/src/config/codex.rs#L643) |
-| remove_legacy_managed_providers | function_item |  | [648](../../src-tauri/src/config/codex.rs#L648) |
-| restore_official | function_item |  | [662](../../src-tauri/src/config/codex.rs#L662) |
-| log::info | macro invocation (unexpanded) | restore_official | [676](../../src-tauri/src/config/codex.rs#L676) |
-| auth_restore_would_downgrade_login | function_item |  | [692](../../src-tauri/src/config/codex.rs#L692) |
-| read_current_upstream_for_import | function_item |  | [703](../../src-tauri/src/config/codex.rs#L703) |
-| read_current_live_provider | function_item |  | [764](../../src-tauri/src/config/codex.rs#L764) |
-| CodexWebSearchMode | enum_item |  | [796](../../src-tauri/src/config/codex.rs#L796) |
-| Disabled | enum_variant | CodexWebSearchMode | [797](../../src-tauri/src/config/codex.rs#L797) |
-| Cached | enum_variant | CodexWebSearchMode | [798](../../src-tauri/src/config/codex.rs#L798) |
-| Indexed | enum_variant | CodexWebSearchMode | [799](../../src-tauri/src/config/codex.rs#L799) |
-| Live | enum_variant | CodexWebSearchMode | [800](../../src-tauri/src/config/codex.rs#L800) |
-| CodexWebSearchMode | impl |  | [803](../../src-tauri/src/config/codex.rs#L803) |
-| as_str | function_item | CodexWebSearchMode | [804](../../src-tauri/src/config/codex.rs#L804) |
-| parse | function_item | CodexWebSearchMode | [813](../../src-tauri/src/config/codex.rs#L813) |
-| CodexWebSearchSnapshot | struct_item |  | [826](../../src-tauri/src/config/codex.rs#L826) |
-| mode | field_declaration | CodexWebSearchSnapshot | [827](../../src-tauri/src/config/codex.rs#L827) |
-| config_path | field_declaration | CodexWebSearchSnapshot | [828](../../src-tauri/src/config/codex.rs#L828) |
-| set_in_config | field_declaration | CodexWebSearchSnapshot | [829](../../src-tauri/src/config/codex.rs#L829) |
-| get_web_search_mode | function_item |  | [832](../../src-tauri/src/config/codex.rs#L832) |
-| format | macro invocation (unexpanded) | get_web_search_mode | [840](../../src-tauri/src/config/codex.rs#L840) |
-| set_web_search_mode | function_item |  | [854](../../src-tauri/src/config/codex.rs#L854) |
-| CodexOutputProfile | enum_item |  | [881](../../src-tauri/src/config/codex.rs#L881) |
-| Default | enum_variant | CodexOutputProfile | [882](../../src-tauri/src/config/codex.rs#L882) |
-| Concise | enum_variant | CodexOutputProfile | [883](../../src-tauri/src/config/codex.rs#L883) |
-| Full | enum_variant | CodexOutputProfile | [884](../../src-tauri/src/config/codex.rs#L884) |
-| CodexOutputProfile | impl |  | [887](../../src-tauri/src/config/codex.rs#L887) |
-| as_str | function_item | CodexOutputProfile | [888](../../src-tauri/src/config/codex.rs#L888) |
-| parse | function_item | CodexOutputProfile | [896](../../src-tauri/src/config/codex.rs#L896) |
-| catalog_defaults | function_item | CodexOutputProfile | [905](../../src-tauri/src/config/codex.rs#L905) |
-| config_keys | function_item | CodexOutputProfile | [913](../../src-tauri/src/config/codex.rs#L913) |
-| CodexOutputProfileSnapshot | struct_item |  | [925](../../src-tauri/src/config/codex.rs#L925) |
-| profile | field_declaration | CodexOutputProfileSnapshot | [926](../../src-tauri/src/config/codex.rs#L926) |
-| show_raw_reasoning | field_declaration | CodexOutputProfileSnapshot | [927](../../src-tauri/src/config/codex.rs#L927) |
-| config_path | field_declaration | CodexOutputProfileSnapshot | [928](../../src-tauri/src/config/codex.rs#L928) |
-| set_in_config | field_declaration | CodexOutputProfileSnapshot | [929](../../src-tauri/src/config/codex.rs#L929) |
-| toml_bool | function_item |  | [932](../../src-tauri/src/config/codex.rs#L932) |
-| toml_str_owned | function_item |  | [936](../../src-tauri/src/config/codex.rs#L936) |
-| infer_output_profile | function_item |  | [944](../../src-tauri/src/config/codex.rs#L944) |
-| output_profile_catalog_defaults | function_item |  | [965](../../src-tauri/src/config/codex.rs#L965) |
-| apply_output_defaults_to_catalog | function_item |  | [971](../../src-tauri/src/config/codex.rs#L971) |
-| get_output_profile | function_item |  | [996](../../src-tauri/src/config/codex.rs#L996) |
+| serde_json::json | macro invocation (unexpanded) | write_catalog_entries | [588](../../src-tauri/src/config/codex.rs#L588) |
+| codex_model_catalog_entry | function_item |  | [597](../../src-tauri/src/config/codex.rs#L597) |
+| serde_json::json | macro invocation (unexpanded) | codex_model_catalog_entry | [605](../../src-tauri/src/config/codex.rs#L605) |
+| serde_json::json | macro invocation (unexpanded) | codex_model_catalog_entry | [652](../../src-tauri/src/config/codex.rs#L652) |
+| serde_json::json | macro invocation (unexpanded) | codex_model_catalog_entry | [657](../../src-tauri/src/config/codex.rs#L657) |
+| remove_legacy_managed_providers | function_item |  | [662](../../src-tauri/src/config/codex.rs#L662) |
+| restore_official | function_item |  | [676](../../src-tauri/src/config/codex.rs#L676) |
+| log::info | macro invocation (unexpanded) | restore_official | [690](../../src-tauri/src/config/codex.rs#L690) |
+| auth_restore_would_downgrade_login | function_item |  | [706](../../src-tauri/src/config/codex.rs#L706) |
+| read_current_upstream_for_import | function_item |  | [717](../../src-tauri/src/config/codex.rs#L717) |
+| read_current_live_provider | function_item |  | [778](../../src-tauri/src/config/codex.rs#L778) |
+| CodexWebSearchMode | enum_item |  | [810](../../src-tauri/src/config/codex.rs#L810) |
+| Disabled | enum_variant | CodexWebSearchMode | [811](../../src-tauri/src/config/codex.rs#L811) |
+| Cached | enum_variant | CodexWebSearchMode | [812](../../src-tauri/src/config/codex.rs#L812) |
+| Indexed | enum_variant | CodexWebSearchMode | [813](../../src-tauri/src/config/codex.rs#L813) |
+| Live | enum_variant | CodexWebSearchMode | [814](../../src-tauri/src/config/codex.rs#L814) |
+| CodexWebSearchMode | impl |  | [817](../../src-tauri/src/config/codex.rs#L817) |
+| as_str | function_item | CodexWebSearchMode | [818](../../src-tauri/src/config/codex.rs#L818) |
+| parse | function_item | CodexWebSearchMode | [827](../../src-tauri/src/config/codex.rs#L827) |
+| CodexWebSearchSnapshot | struct_item |  | [840](../../src-tauri/src/config/codex.rs#L840) |
+| mode | field_declaration | CodexWebSearchSnapshot | [841](../../src-tauri/src/config/codex.rs#L841) |
+| config_path | field_declaration | CodexWebSearchSnapshot | [842](../../src-tauri/src/config/codex.rs#L842) |
+| set_in_config | field_declaration | CodexWebSearchSnapshot | [843](../../src-tauri/src/config/codex.rs#L843) |
+| get_web_search_mode | function_item |  | [846](../../src-tauri/src/config/codex.rs#L846) |
+| format | macro invocation (unexpanded) | get_web_search_mode | [854](../../src-tauri/src/config/codex.rs#L854) |
+| set_web_search_mode | function_item |  | [868](../../src-tauri/src/config/codex.rs#L868) |
+| CodexOutputProfile | enum_item |  | [895](../../src-tauri/src/config/codex.rs#L895) |
+| Default | enum_variant | CodexOutputProfile | [896](../../src-tauri/src/config/codex.rs#L896) |
+| Concise | enum_variant | CodexOutputProfile | [897](../../src-tauri/src/config/codex.rs#L897) |
+| Full | enum_variant | CodexOutputProfile | [898](../../src-tauri/src/config/codex.rs#L898) |
+| CodexOutputProfile | impl |  | [901](../../src-tauri/src/config/codex.rs#L901) |
+| as_str | function_item | CodexOutputProfile | [902](../../src-tauri/src/config/codex.rs#L902) |
+| parse | function_item | CodexOutputProfile | [910](../../src-tauri/src/config/codex.rs#L910) |
+| catalog_defaults | function_item | CodexOutputProfile | [919](../../src-tauri/src/config/codex.rs#L919) |
+| config_keys | function_item | CodexOutputProfile | [927](../../src-tauri/src/config/codex.rs#L927) |
+| CodexOutputProfileSnapshot | struct_item |  | [939](../../src-tauri/src/config/codex.rs#L939) |
+| profile | field_declaration | CodexOutputProfileSnapshot | [940](../../src-tauri/src/config/codex.rs#L940) |
+| show_raw_reasoning | field_declaration | CodexOutputProfileSnapshot | [941](../../src-tauri/src/config/codex.rs#L941) |
+| config_path | field_declaration | CodexOutputProfileSnapshot | [942](../../src-tauri/src/config/codex.rs#L942) |
+| set_in_config | field_declaration | CodexOutputProfileSnapshot | [943](../../src-tauri/src/config/codex.rs#L943) |

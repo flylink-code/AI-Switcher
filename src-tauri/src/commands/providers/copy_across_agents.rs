@@ -66,6 +66,101 @@ mod tests {
         assert_eq!(smart_gateway_default_model(None, &[]), "");
     }
 
+    #[tokio::test]
+    async fn discovery_fetches_sub2api_manifest_and_falls_back_when_unsupported() {
+        use axum::{extract::Query, routing::get, Json, Router};
+        for supported in [true, false] {
+            let app = Router::new().route("/v1/models", get(move |Query(query): Query<std::collections::HashMap<String, String>>| async move {
+                if query.contains_key("client_version") {
+                    if supported {
+                        return Ok(Json(serde_json::json!({"models": [
+                            {"slug": "gpt-fixture", "context_window": 400000, "max_context_window": 1050000}
+                        ]})));
+                    }
+                    return Err(axum::http::StatusCode::BAD_REQUEST);
+                }
+                Ok(Json(serde_json::json!({"data": [{"id": "gpt-fixture"}, {"id": "other"}]})))
+            }));
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}/v1/models", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let client = reqwest::Client::builder().no_proxy().build().unwrap();
+            let response = fetch_discovered_catalog(&client, &[url], "fixture", None, ProtocolType::OpenAiResponses).await;
+            server.abort();
+            let value = response.unwrap();
+            let models = extract_model_ids(&value);
+            assert_eq!(models, vec!["gpt-fixture", "other"]);
+            let metadata = extract_model_metadata(&value, &models);
+            if supported {
+                assert_eq!(metadata["gpt-fixture"].context_window, Some(400000));
+            } else {
+                assert!(metadata.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn fast_mode_discovery_merges_capability_without_losing_windows() {
+        let value = serde_json::json!({
+            "data": [{"id": "known", "service_tiers": ["priority"]}, {"id": "unknown"}, {"id": "denied", "service_tiers": []}],
+            "codex_models": [
+                {"slug": "known", "context_window": 272000},
+                {"slug": "denied", "service_tiers": ["priority"]},
+                {"slug": "not-listed", "service_tiers": ["priority"]}
+            ]
+        });
+        let models = extract_model_ids(&value);
+        let metadata = extract_model_metadata(&value, &models);
+        assert_eq!(metadata["known"].priority_supported, Some(true));
+        assert_eq!(metadata["known"].context_window, Some(272000));
+        assert_eq!(metadata["denied"].priority_supported, Some(false));
+        assert!(!metadata.contains_key("unknown"));
+        assert!(!metadata.contains_key("not-listed"));
+        let manifest = serde_json::json!({"data": [{"id": "known", "context_window": 400000}],
+            "codex_models": [{"slug": "known", "service_tiers": [{"id": "priority"}]}]});
+        let metadata = extract_model_metadata(&manifest, &extract_model_ids(&manifest));
+        assert_eq!(metadata["known"].priority_supported, Some(true));
+        assert_eq!(metadata["known"].context_window, Some(400000));
+    }
+
+    #[test]
+    fn discovery_preserves_manifest_windows_without_changing_model_ids() {
+        let value = serde_json::json!({
+            "data": [{"id": "gpt-fixture"}, {"id": "other"}],
+            "codex_models": [
+                {"slug": "gpt-fixture", "context_window": 272000,
+                 "max_context_window": 872000, "effective_context_window_percent": 95},
+                {"slug": "not-in-list", "context_window": 999999}
+            ]
+        });
+        let models = extract_model_ids(&value);
+        let metadata = extract_model_metadata(&value, &models);
+        assert_eq!(models, vec!["gpt-fixture", "other"]);
+        assert_eq!(metadata.len(), 1);
+        assert_eq!(metadata["gpt-fixture"].context_window, Some(272000));
+        assert_eq!(metadata["gpt-fixture"].max_context_window, Some(872000));
+        assert_eq!(metadata["gpt-fixture"].effective_context_window_percent, Some(95));
+        let manifest = serde_json::json!({"models": [{"slug": "gpt-fixture", "context_window": 400000}]});
+        assert_eq!(extract_model_ids(&manifest), vec!["gpt-fixture"]);
+        assert_eq!(extract_model_metadata(&manifest, &models)["gpt-fixture"].context_window, Some(400000));
+    }
+
+    #[test]
+    fn discovery_prefers_api_metadata_and_bounds_input_to_total_context() {
+        let value = serde_json::json!({
+            "data": [{"id": "gpt-fixture", "limit": {"context": 1050000, "input": 922000, "output": 128000}}],
+            "codex_models": [{"slug": "gpt-fixture", "context_window": 272000}]
+        });
+        let metadata = extract_model_metadata(&value, &extract_model_ids(&value));
+        assert_eq!(metadata["gpt-fixture"].context_window, Some(922000));
+        assert_eq!(metadata["gpt-fixture"].max_output_tokens, Some(128000));
+        let bounded = crate::gateway::metadata::DiscoveredModelMeta::from_model(&serde_json::json!({
+            "context_length": 128000, "max_input_tokens": 200000, "max_output_tokens": 0
+        }));
+        assert_eq!(bounded.context_window, Some(128000));
+        assert_eq!(bounded.max_output_tokens, None);
+    }
+
     #[test]
     fn discovered_models_are_trimmed_deduplicated_and_sorted() {
         let value = serde_json::json!({
@@ -245,6 +340,7 @@ mod tests {
         let result = model_result_from_cache(
             Some(dao::providers::ProviderModelCache {
                 models: vec!["cached-model".to_string()],
+                metadata: Default::default(),
                 checked_at: Utc::now().timestamp_millis() - MODEL_CACHE_TTL_MS - 1,
             }),
             "cached",

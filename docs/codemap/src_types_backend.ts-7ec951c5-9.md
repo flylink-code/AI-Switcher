@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 9/12
 
-Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
+Source SHA-256: 44a8497cfa06ab7a03c4c3543fa59d712f4520672485a28d4cf2415a3b2a034b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| SyncTargetKind | TypeAliasDeclaration |  | [1107](../../src/types/backend.ts#L1107) |
-| SyncItem | TypeAliasDeclaration |  | [1108](../../src/types/backend.ts#L1108) |
-| PathMapping | InterfaceDeclaration |  | [1110](../../src/types/backend.ts#L1110) |
-| windowsPath | PropertySignature | PathMapping | [1111](../../src/types/backend.ts#L1111) |
-| remotePath | PropertySignature | PathMapping | [1112](../../src/types/backend.ts#L1112) |
-| SyncTarget | InterfaceDeclaration |  | [1115](../../src/types/backend.ts#L1115) |
-| id | PropertySignature | SyncTarget | [1116](../../src/types/backend.ts#L1116) |
-| name | PropertySignature | SyncTarget | [1117](../../src/types/backend.ts#L1117) |
-| kind | PropertySignature | SyncTarget | [1118](../../src/types/backend.ts#L1118) |
-| wslDistribution | PropertySignature | SyncTarget | [1119](../../src/types/backend.ts#L1119) |
-| sshHost | PropertySignature | SyncTarget | [1120](../../src/types/backend.ts#L1120) |
-| sshPort | PropertySignature | SyncTarget | [1121](../../src/types/backend.ts#L1121) |
-| remoteRoot | PropertySignature | SyncTarget | [1122](../../src/types/backend.ts#L1122) |
-| pathMappings | PropertySignature | SyncTarget | [1123](../../src/types/backend.ts#L1123) |
-| items | PropertySignature | SyncTarget | [1124](../../src/types/backend.ts#L1124) |
-| lastSyncedAt | PropertySignature | SyncTarget | [1125](../../src/types/backend.ts#L1125) |
-| SyncPreviewChange | InterfaceDeclaration |  | [1128](../../src/types/backend.ts#L1128) |
-| item | PropertySignature | SyncPreviewChange | [1129](../../src/types/backend.ts#L1129) |
-| sourcePath | PropertySignature | SyncPreviewChange | [1130](../../src/types/backend.ts#L1130) |
-| remotePath | PropertySignature | SyncPreviewChange | [1131](../../src/types/backend.ts#L1131) |
-| status | PropertySignature | SyncPreviewChange | [1132](../../src/types/backend.ts#L1132) |
-| SyncPreview | InterfaceDeclaration |  | [1135](../../src/types/backend.ts#L1135) |
-| target | PropertySignature | SyncPreview | [1136](../../src/types/backend.ts#L1136) |
-| changes | PropertySignature | SyncPreview | [1137](../../src/types/backend.ts#L1137) |
-| warnings | PropertySignature | SyncPreview | [1138](../../src/types/backend.ts#L1138) |
-| SyncPushResult | InterfaceDeclaration |  | [1141](../../src/types/backend.ts#L1141) |
-| targetId | PropertySignature | SyncPushResult | [1142](../../src/types/backend.ts#L1142) |
-| archivePath | PropertySignature | SyncPushResult | [1143](../../src/types/backend.ts#L1143) |
-| remotePath | PropertySignature | SyncPushResult | [1144](../../src/types/backend.ts#L1144) |
-| bytes | PropertySignature | SyncPushResult | [1145](../../src/types/backend.ts#L1145) |
-| WslRuntimeStatus | InterfaceDeclaration |  | [1148](../../src/types/backend.ts#L1148) |
-| location | PropertySignature | WslRuntimeStatus | [1149](../../src/types/backend.ts#L1149) |
-| distro | PropertySignature | WslRuntimeStatus | [1150](../../src/types/backend.ts#L1150) |
-| linuxHome | PropertySignature | WslRuntimeStatus | [1151](../../src/types/backend.ts#L1151) |
-| skipCopy | PropertySignature | WslRuntimeStatus | [1152](../../src/types/backend.ts#L1152) |
-| claudeUnc | PropertySignature | WslRuntimeStatus | [1153](../../src/types/backend.ts#L1153) |
-| codexUnc | PropertySignature | WslRuntimeStatus | [1154](../../src/types/backend.ts#L1154) |
-| WebDavSettings | InterfaceDeclaration |  | [1157](../../src/types/backend.ts#L1157) |
-| url | PropertySignature | WebDavSettings | [1158](../../src/types/backend.ts#L1158) |
-| username | PropertySignature | WebDavSettings | [1159](../../src/types/backend.ts#L1159) |
-| remotePath | PropertySignature | WebDavSettings | [1160](../../src/types/backend.ts#L1160) |
-| passwordSet | PropertySignature | WebDavSettings | [1161](../../src/types/backend.ts#L1161) |
-| LogMaintenanceResult | InterfaceDeclaration |  | [1164](../../src/types/backend.ts#L1164) |
-| deleted | PropertySignature | LogMaintenanceResult | [1165](../../src/types/backend.ts#L1165) |
-| deletedByAge | PropertySignature | LogMaintenanceResult | [1166](../../src/types/backend.ts#L1166) |
-| deletedByLimit | PropertySignature | LogMaintenanceResult | [1167](../../src/types/backend.ts#L1167) |
-| integrityOk | PropertySignature | LogMaintenanceResult | [1168](../../src/types/backend.ts#L1168) |
-| LogMaintenancePolicy | InterfaceDeclaration |  | [1171](../../src/types/backend.ts#L1171) |
-| retentionDays | PropertySignature | LogMaintenancePolicy | [1172](../../src/types/backend.ts#L1172) |
-| maxRows | PropertySignature | LogMaintenancePolicy | [1173](../../src/types/backend.ts#L1173) |
-| autoMaintain | PropertySignature | LogMaintenancePolicy | [1174](../../src/types/backend.ts#L1174) |
-| LogMaintenancePreview | InterfaceDeclaration |  | [1177](../../src/types/backend.ts#L1177) |
-| totalRows | PropertySignature | LogMaintenancePreview | [1178](../../src/types/backend.ts#L1178) |
-| deleteByAge | PropertySignature | LogMaintenancePreview | [1179](../../src/types/backend.ts#L1179) |
-| deleteByLimit | PropertySignature | LogMaintenancePreview | [1180](../../src/types/backend.ts#L1180) |
-| ProxyLogListInput | InterfaceDeclaration |  | [1187](../../src/types/backend.ts#L1187) |
-| days | PropertySignature | ProxyLogListInput | [1188](../../src/types/backend.ts#L1188) |
-| hours | PropertySignature | ProxyLogListInput | [1189](../../src/types/backend.ts#L1189) |
-| today | PropertySignature | ProxyLogListInput | [1190](../../src/types/backend.ts#L1190) |
-| targetApp | PropertySignature | ProxyLogListInput | [1191](../../src/types/backend.ts#L1191) |
-| statusCode | PropertySignature | ProxyLogListInput | [1192](../../src/types/backend.ts#L1192) |
-| onlyFailures | PropertySignature | ProxyLogListInput | [1193](../../src/types/backend.ts#L1193) |
-| onlyGateway | PropertySignature | ProxyLogListInput | [1194](../../src/types/backend.ts#L1194) |
-| page | PropertySignature | ProxyLogListInput | [1195](../../src/types/backend.ts#L1195) |
-| pageSize | PropertySignature | ProxyLogListInput | [1196](../../src/types/backend.ts#L1196) |
-| ClaudeCodeVersionInfo | InterfaceDeclaration |  | [1199](../../src/types/backend.ts#L1199) |
-| installed | PropertySignature | ClaudeCodeVersionInfo | [1200](../../src/types/backend.ts#L1200) |
-| currentVersion | PropertySignature | ClaudeCodeVersionInfo | [1201](../../src/types/backend.ts#L1201) |
-| latestVersion | PropertySignature | ClaudeCodeVersionInfo | [1202](../../src/types/backend.ts#L1202) |
-| updateAvailable | PropertySignature | ClaudeCodeVersionInfo | [1203](../../src/types/backend.ts#L1203) |
-| installCommand | PropertySignature | ClaudeCodeVersionInfo | [1204](../../src/types/backend.ts#L1204) |
-| updateCommand | PropertySignature | ClaudeCodeVersionInfo | [1205](../../src/types/backend.ts#L1205) |
-| error | PropertySignature | ClaudeCodeVersionInfo | [1206](../../src/types/backend.ts#L1206) |
-| executablePath | PropertySignature | ClaudeCodeVersionInfo | [1207](../../src/types/backend.ts#L1207) |
-| source | PropertySignature | ClaudeCodeVersionInfo | [1208](../../src/types/backend.ts#L1208) |
-| environment | PropertySignature | ClaudeCodeVersionInfo | [1209](../../src/types/backend.ts#L1209) |
-| installedButBroken | PropertySignature | ClaudeCodeVersionInfo | [1210](../../src/types/backend.ts#L1210) |
-| wslDistro | PropertySignature | ClaudeCodeVersionInfo | [1211](../../src/types/backend.ts#L1211) |
-| CodexCliVersionInfo | InterfaceDeclaration |  | [1214](../../src/types/backend.ts#L1214) |
-| installed | PropertySignature | CodexCliVersionInfo | [1215](../../src/types/backend.ts#L1215) |
-| currentVersion | PropertySignature | CodexCliVersionInfo | [1216](../../src/types/backend.ts#L1216) |
-| latestVersion | PropertySignature | CodexCliVersionInfo | [1217](../../src/types/backend.ts#L1217) |
-| updateAvailable | PropertySignature | CodexCliVersionInfo | [1218](../../src/types/backend.ts#L1218) |
-| installCommand | PropertySignature | CodexCliVersionInfo | [1219](../../src/types/backend.ts#L1219) |
-| updateCommand | PropertySignature | CodexCliVersionInfo | [1220](../../src/types/backend.ts#L1220) |
-| error | PropertySignature | CodexCliVersionInfo | [1221](../../src/types/backend.ts#L1221) |
-| executablePath | PropertySignature | CodexCliVersionInfo | [1222](../../src/types/backend.ts#L1222) |
-| source | PropertySignature | CodexCliVersionInfo | [1223](../../src/types/backend.ts#L1223) |
-| environment | PropertySignature | CodexCliVersionInfo | [1224](../../src/types/backend.ts#L1224) |
-| installedButBroken | PropertySignature | CodexCliVersionInfo | [1225](../../src/types/backend.ts#L1225) |
-| OpenCodeCliVersionInfo | InterfaceDeclaration |  | [1228](../../src/types/backend.ts#L1228) |
-| installed | PropertySignature | OpenCodeCliVersionInfo | [1229](../../src/types/backend.ts#L1229) |
-| currentVersion | PropertySignature | OpenCodeCliVersionInfo | [1230](../../src/types/backend.ts#L1230) |
-| channel | PropertySignature | OpenCodeCliVersionInfo | [1231](../../src/types/backend.ts#L1231) |
-| latestVersion | PropertySignature | OpenCodeCliVersionInfo | [1232](../../src/types/backend.ts#L1232) |
-| v1LatestVersion | PropertySignature | OpenCodeCliVersionInfo | [1233](../../src/types/backend.ts#L1233) |
-| v2LatestVersion | PropertySignature | OpenCodeCliVersionInfo | [1234](../../src/types/backend.ts#L1234) |
-| updateAvailable | PropertySignature | OpenCodeCliVersionInfo | [1235](../../src/types/backend.ts#L1235) |
-| installCommand | PropertySignature | OpenCodeCliVersionInfo | [1236](../../src/types/backend.ts#L1236) |
-| updateCommand | PropertySignature | OpenCodeCliVersionInfo | [1237](../../src/types/backend.ts#L1237) |
+| version | PropertySignature | PricingCatalog | [1105](../../src/types/backend.ts#L1105) |
+| entries | PropertySignature | PricingCatalog | [1106](../../src/types/backend.ts#L1106) |
+| SyncTargetKind | TypeAliasDeclaration |  | [1109](../../src/types/backend.ts#L1109) |
+| SyncItem | TypeAliasDeclaration |  | [1110](../../src/types/backend.ts#L1110) |
+| PathMapping | InterfaceDeclaration |  | [1112](../../src/types/backend.ts#L1112) |
+| windowsPath | PropertySignature | PathMapping | [1113](../../src/types/backend.ts#L1113) |
+| remotePath | PropertySignature | PathMapping | [1114](../../src/types/backend.ts#L1114) |
+| SyncTarget | InterfaceDeclaration |  | [1117](../../src/types/backend.ts#L1117) |
+| id | PropertySignature | SyncTarget | [1118](../../src/types/backend.ts#L1118) |
+| name | PropertySignature | SyncTarget | [1119](../../src/types/backend.ts#L1119) |
+| kind | PropertySignature | SyncTarget | [1120](../../src/types/backend.ts#L1120) |
+| wslDistribution | PropertySignature | SyncTarget | [1121](../../src/types/backend.ts#L1121) |
+| sshHost | PropertySignature | SyncTarget | [1122](../../src/types/backend.ts#L1122) |
+| sshPort | PropertySignature | SyncTarget | [1123](../../src/types/backend.ts#L1123) |
+| remoteRoot | PropertySignature | SyncTarget | [1124](../../src/types/backend.ts#L1124) |
+| pathMappings | PropertySignature | SyncTarget | [1125](../../src/types/backend.ts#L1125) |
+| items | PropertySignature | SyncTarget | [1126](../../src/types/backend.ts#L1126) |
+| lastSyncedAt | PropertySignature | SyncTarget | [1127](../../src/types/backend.ts#L1127) |
+| SyncPreviewChange | InterfaceDeclaration |  | [1130](../../src/types/backend.ts#L1130) |
+| item | PropertySignature | SyncPreviewChange | [1131](../../src/types/backend.ts#L1131) |
+| sourcePath | PropertySignature | SyncPreviewChange | [1132](../../src/types/backend.ts#L1132) |
+| remotePath | PropertySignature | SyncPreviewChange | [1133](../../src/types/backend.ts#L1133) |
+| status | PropertySignature | SyncPreviewChange | [1134](../../src/types/backend.ts#L1134) |
+| SyncPreview | InterfaceDeclaration |  | [1137](../../src/types/backend.ts#L1137) |
+| target | PropertySignature | SyncPreview | [1138](../../src/types/backend.ts#L1138) |
+| changes | PropertySignature | SyncPreview | [1139](../../src/types/backend.ts#L1139) |
+| warnings | PropertySignature | SyncPreview | [1140](../../src/types/backend.ts#L1140) |
+| SyncPushResult | InterfaceDeclaration |  | [1143](../../src/types/backend.ts#L1143) |
+| targetId | PropertySignature | SyncPushResult | [1144](../../src/types/backend.ts#L1144) |
+| archivePath | PropertySignature | SyncPushResult | [1145](../../src/types/backend.ts#L1145) |
+| remotePath | PropertySignature | SyncPushResult | [1146](../../src/types/backend.ts#L1146) |
+| bytes | PropertySignature | SyncPushResult | [1147](../../src/types/backend.ts#L1147) |
+| WslRuntimeStatus | InterfaceDeclaration |  | [1150](../../src/types/backend.ts#L1150) |
+| location | PropertySignature | WslRuntimeStatus | [1151](../../src/types/backend.ts#L1151) |
+| distro | PropertySignature | WslRuntimeStatus | [1152](../../src/types/backend.ts#L1152) |
+| linuxHome | PropertySignature | WslRuntimeStatus | [1153](../../src/types/backend.ts#L1153) |
+| skipCopy | PropertySignature | WslRuntimeStatus | [1154](../../src/types/backend.ts#L1154) |
+| claudeUnc | PropertySignature | WslRuntimeStatus | [1155](../../src/types/backend.ts#L1155) |
+| codexUnc | PropertySignature | WslRuntimeStatus | [1156](../../src/types/backend.ts#L1156) |
+| WebDavSettings | InterfaceDeclaration |  | [1159](../../src/types/backend.ts#L1159) |
+| url | PropertySignature | WebDavSettings | [1160](../../src/types/backend.ts#L1160) |
+| username | PropertySignature | WebDavSettings | [1161](../../src/types/backend.ts#L1161) |
+| remotePath | PropertySignature | WebDavSettings | [1162](../../src/types/backend.ts#L1162) |
+| passwordSet | PropertySignature | WebDavSettings | [1163](../../src/types/backend.ts#L1163) |
+| LogMaintenanceResult | InterfaceDeclaration |  | [1166](../../src/types/backend.ts#L1166) |
+| deleted | PropertySignature | LogMaintenanceResult | [1167](../../src/types/backend.ts#L1167) |
+| deletedByAge | PropertySignature | LogMaintenanceResult | [1168](../../src/types/backend.ts#L1168) |
+| deletedByLimit | PropertySignature | LogMaintenanceResult | [1169](../../src/types/backend.ts#L1169) |
+| integrityOk | PropertySignature | LogMaintenanceResult | [1170](../../src/types/backend.ts#L1170) |
+| LogMaintenancePolicy | InterfaceDeclaration |  | [1173](../../src/types/backend.ts#L1173) |
+| retentionDays | PropertySignature | LogMaintenancePolicy | [1174](../../src/types/backend.ts#L1174) |
+| maxRows | PropertySignature | LogMaintenancePolicy | [1175](../../src/types/backend.ts#L1175) |
+| autoMaintain | PropertySignature | LogMaintenancePolicy | [1176](../../src/types/backend.ts#L1176) |
+| LogMaintenancePreview | InterfaceDeclaration |  | [1179](../../src/types/backend.ts#L1179) |
+| totalRows | PropertySignature | LogMaintenancePreview | [1180](../../src/types/backend.ts#L1180) |
+| deleteByAge | PropertySignature | LogMaintenancePreview | [1181](../../src/types/backend.ts#L1181) |
+| deleteByLimit | PropertySignature | LogMaintenancePreview | [1182](../../src/types/backend.ts#L1182) |
+| ProxyLogListInput | InterfaceDeclaration |  | [1189](../../src/types/backend.ts#L1189) |
+| days | PropertySignature | ProxyLogListInput | [1190](../../src/types/backend.ts#L1190) |
+| hours | PropertySignature | ProxyLogListInput | [1191](../../src/types/backend.ts#L1191) |
+| today | PropertySignature | ProxyLogListInput | [1192](../../src/types/backend.ts#L1192) |
+| targetApp | PropertySignature | ProxyLogListInput | [1193](../../src/types/backend.ts#L1193) |
+| statusCode | PropertySignature | ProxyLogListInput | [1194](../../src/types/backend.ts#L1194) |
+| onlyFailures | PropertySignature | ProxyLogListInput | [1195](../../src/types/backend.ts#L1195) |
+| onlyGateway | PropertySignature | ProxyLogListInput | [1196](../../src/types/backend.ts#L1196) |
+| page | PropertySignature | ProxyLogListInput | [1197](../../src/types/backend.ts#L1197) |
+| pageSize | PropertySignature | ProxyLogListInput | [1198](../../src/types/backend.ts#L1198) |
+| ClaudeCodeVersionInfo | InterfaceDeclaration |  | [1201](../../src/types/backend.ts#L1201) |
+| installed | PropertySignature | ClaudeCodeVersionInfo | [1202](../../src/types/backend.ts#L1202) |
+| currentVersion | PropertySignature | ClaudeCodeVersionInfo | [1203](../../src/types/backend.ts#L1203) |
+| latestVersion | PropertySignature | ClaudeCodeVersionInfo | [1204](../../src/types/backend.ts#L1204) |
+| updateAvailable | PropertySignature | ClaudeCodeVersionInfo | [1205](../../src/types/backend.ts#L1205) |
+| installCommand | PropertySignature | ClaudeCodeVersionInfo | [1206](../../src/types/backend.ts#L1206) |
+| updateCommand | PropertySignature | ClaudeCodeVersionInfo | [1207](../../src/types/backend.ts#L1207) |
+| error | PropertySignature | ClaudeCodeVersionInfo | [1208](../../src/types/backend.ts#L1208) |
+| executablePath | PropertySignature | ClaudeCodeVersionInfo | [1209](../../src/types/backend.ts#L1209) |
+| source | PropertySignature | ClaudeCodeVersionInfo | [1210](../../src/types/backend.ts#L1210) |
+| environment | PropertySignature | ClaudeCodeVersionInfo | [1211](../../src/types/backend.ts#L1211) |
+| installedButBroken | PropertySignature | ClaudeCodeVersionInfo | [1212](../../src/types/backend.ts#L1212) |
+| wslDistro | PropertySignature | ClaudeCodeVersionInfo | [1213](../../src/types/backend.ts#L1213) |
+| CodexCliVersionInfo | InterfaceDeclaration |  | [1216](../../src/types/backend.ts#L1216) |
+| installed | PropertySignature | CodexCliVersionInfo | [1217](../../src/types/backend.ts#L1217) |
+| currentVersion | PropertySignature | CodexCliVersionInfo | [1218](../../src/types/backend.ts#L1218) |
+| latestVersion | PropertySignature | CodexCliVersionInfo | [1219](../../src/types/backend.ts#L1219) |
+| updateAvailable | PropertySignature | CodexCliVersionInfo | [1220](../../src/types/backend.ts#L1220) |
+| installCommand | PropertySignature | CodexCliVersionInfo | [1221](../../src/types/backend.ts#L1221) |
+| updateCommand | PropertySignature | CodexCliVersionInfo | [1222](../../src/types/backend.ts#L1222) |
+| error | PropertySignature | CodexCliVersionInfo | [1223](../../src/types/backend.ts#L1223) |
+| executablePath | PropertySignature | CodexCliVersionInfo | [1224](../../src/types/backend.ts#L1224) |
+| source | PropertySignature | CodexCliVersionInfo | [1225](../../src/types/backend.ts#L1225) |
+| environment | PropertySignature | CodexCliVersionInfo | [1226](../../src/types/backend.ts#L1226) |
+| installedButBroken | PropertySignature | CodexCliVersionInfo | [1227](../../src/types/backend.ts#L1227) |
+| OpenCodeCliVersionInfo | InterfaceDeclaration |  | [1230](../../src/types/backend.ts#L1230) |
+| installed | PropertySignature | OpenCodeCliVersionInfo | [1231](../../src/types/backend.ts#L1231) |
+| currentVersion | PropertySignature | OpenCodeCliVersionInfo | [1232](../../src/types/backend.ts#L1232) |
+| channel | PropertySignature | OpenCodeCliVersionInfo | [1233](../../src/types/backend.ts#L1233) |
+| latestVersion | PropertySignature | OpenCodeCliVersionInfo | [1234](../../src/types/backend.ts#L1234) |
+| v1LatestVersion | PropertySignature | OpenCodeCliVersionInfo | [1235](../../src/types/backend.ts#L1235) |
+| v2LatestVersion | PropertySignature | OpenCodeCliVersionInfo | [1236](../../src/types/backend.ts#L1236) |
+| updateAvailable | PropertySignature | OpenCodeCliVersionInfo | [1237](../../src/types/backend.ts#L1237) |

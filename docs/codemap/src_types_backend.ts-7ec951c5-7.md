@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 7/12
 
-Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
+Source SHA-256: 44a8497cfa06ab7a03c4c3543fa59d712f4520672485a28d4cf2415a3b2a034b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| skills | PropertySignature | Agent | [825](../../src/types/backend.ts#L825) |
-| memory | PropertySignature | Agent | [826](../../src/types/backend.ts#L826) |
-| isolation | PropertySignature | Agent | [827](../../src/types/backend.ts#L827) |
-| AgentDraft | InterfaceDeclaration |  | [830](../../src/types/backend.ts#L830) |
-| name | PropertySignature | AgentDraft | [831](../../src/types/backend.ts#L831) |
-| description | PropertySignature | AgentDraft | [832](../../src/types/backend.ts#L832) |
-| body | PropertySignature | AgentDraft | [833](../../src/types/backend.ts#L833) |
-| model | PropertySignature | AgentDraft | [834](../../src/types/backend.ts#L834) |
-| tools | PropertySignature | AgentDraft | [835](../../src/types/backend.ts#L835) |
-| disallowedTools | PropertySignature | AgentDraft | [836](../../src/types/backend.ts#L836) |
-| permissionMode | PropertySignature | AgentDraft | [837](../../src/types/backend.ts#L837) |
-| maxTurns | PropertySignature | AgentDraft | [838](../../src/types/backend.ts#L838) |
-| skills | PropertySignature | AgentDraft | [839](../../src/types/backend.ts#L839) |
-| memory | PropertySignature | AgentDraft | [840](../../src/types/backend.ts#L840) |
-| isolation | PropertySignature | AgentDraft | [841](../../src/types/backend.ts#L841) |
-| ClaudeCodeAgentSettings | InterfaceDeclaration |  | [844](../../src/types/backend.ts#L844) |
-| teamsEnabled | PropertySignature | ClaudeCodeAgentSettings | [845](../../src/types/backend.ts#L845) |
-| teammateMode | PropertySignature | ClaudeCodeAgentSettings | [846](../../src/types/backend.ts#L846) |
-| subagentModelForce | PropertySignature | ClaudeCodeAgentSettings | [847](../../src/types/backend.ts#L847) |
-| autoModeServer | PropertySignature | ClaudeCodeAgentSettings | [848](../../src/types/backend.ts#L848) |
-| tmuxSupported | PropertySignature | ClaudeCodeAgentSettings | [849](../../src/types/backend.ts#L849) |
-| CodexPlugin | InterfaceDeclaration |  | [852](../../src/types/backend.ts#L852) |
-| pluginId | PropertySignature | CodexPlugin | [853](../../src/types/backend.ts#L853) |
-| name | PropertySignature | CodexPlugin | [854](../../src/types/backend.ts#L854) |
-| marketplace | PropertySignature | CodexPlugin | [855](../../src/types/backend.ts#L855) |
-| version | PropertySignature | CodexPlugin | [856](../../src/types/backend.ts#L856) |
-| enabled | PropertySignature | CodexPlugin | [857](../../src/types/backend.ts#L857) |
-| installed | PropertySignature | CodexPlugin | [858](../../src/types/backend.ts#L858) |
-| path | PropertySignature | CodexPlugin | [859](../../src/types/backend.ts#L859) |
-| CodexPluginsSnapshot | InterfaceDeclaration |  | [862](../../src/types/backend.ts#L862) |
-| plugins | PropertySignature | CodexPluginsSnapshot | [863](../../src/types/backend.ts#L863) |
-| configPath | PropertySignature | CodexPluginsSnapshot | [864](../../src/types/backend.ts#L864) |
-| cachePath | PropertySignature | CodexPluginsSnapshot | [865](../../src/types/backend.ts#L865) |
-| configPluginCount | PropertySignature | CodexPluginsSnapshot | [866](../../src/types/backend.ts#L866) |
-| cachePluginCount | PropertySignature | CodexPluginsSnapshot | [867](../../src/types/backend.ts#L867) |
-| parseOk | PropertySignature | CodexPluginsSnapshot | [868](../../src/types/backend.ts#L868) |
-| parseError | PropertySignature | CodexPluginsSnapshot | [869](../../src/types/backend.ts#L869) |
-| CodexMarketplace | InterfaceDeclaration |  | [872](../../src/types/backend.ts#L872) |
-| name | PropertySignature | CodexMarketplace | [873](../../src/types/backend.ts#L873) |
-| root | PropertySignature | CodexMarketplace | [874](../../src/types/backend.ts#L874) |
-| source | PropertySignature | CodexMarketplace | [875](../../src/types/backend.ts#L875) |
-| raw | PropertySignature | CodexMarketplace | [876](../../src/types/backend.ts#L876) |
-| CodexMarketplaceListResult | InterfaceDeclaration |  | [879](../../src/types/backend.ts#L879) |
-| marketplaces | PropertySignature | CodexMarketplaceListResult | [880](../../src/types/backend.ts#L880) |
-| rawOutput | PropertySignature | CodexMarketplaceListResult | [881](../../src/types/backend.ts#L881) |
-| usedJson | PropertySignature | CodexMarketplaceListResult | [882](../../src/types/backend.ts#L882) |
-| CodexPluginCommandResult | InterfaceDeclaration |  | [885](../../src/types/backend.ts#L885) |
-| ok | PropertySignature | CodexPluginCommandResult | [886](../../src/types/backend.ts#L886) |
-| message | PropertySignature | CodexPluginCommandResult | [887](../../src/types/backend.ts#L887) |
-| stdout | PropertySignature | CodexPluginCommandResult | [888](../../src/types/backend.ts#L888) |
-| stderr | PropertySignature | CodexPluginCommandResult | [889](../../src/types/backend.ts#L889) |
-| CodexCatalogPlugin | InterfaceDeclaration |  | [892](../../src/types/backend.ts#L892) |
-| pluginId | PropertySignature | CodexCatalogPlugin | [893](../../src/types/backend.ts#L893) |
-| name | PropertySignature | CodexCatalogPlugin | [894](../../src/types/backend.ts#L894) |
-| marketplace | PropertySignature | CodexCatalogPlugin | [895](../../src/types/backend.ts#L895) |
-| description | PropertySignature | CodexCatalogPlugin | [896](../../src/types/backend.ts#L896) |
-| category | PropertySignature | CodexCatalogPlugin | [897](../../src/types/backend.ts#L897) |
-| version | PropertySignature | CodexCatalogPlugin | [898](../../src/types/backend.ts#L898) |
-| CodexPluginCatalog | InterfaceDeclaration |  | [901](../../src/types/backend.ts#L901) |
-| plugins | PropertySignature | CodexPluginCatalog | [902](../../src/types/backend.ts#L902) |
-| marketplacesDir | PropertySignature | CodexPluginCatalog | [903](../../src/types/backend.ts#L903) |
-| CodexPluginUpdateStatus | InterfaceDeclaration |  | [906](../../src/types/backend.ts#L906) |
-| pluginId | PropertySignature | CodexPluginUpdateStatus | [907](../../src/types/backend.ts#L907) |
-| status | PropertySignature | CodexPluginUpdateStatus | [908](../../src/types/backend.ts#L908) |
-| message | PropertySignature | CodexPluginUpdateStatus | [909](../../src/types/backend.ts#L909) |
-| localVersion | PropertySignature | CodexPluginUpdateStatus | [910](../../src/types/backend.ts#L910) |
-| remoteVersion | PropertySignature | CodexPluginUpdateStatus | [911](../../src/types/backend.ts#L911) |
-| ClaudePlugin | InterfaceDeclaration |  | [914](../../src/types/backend.ts#L914) |
-| pluginId | PropertySignature | ClaudePlugin | [915](../../src/types/backend.ts#L915) |
-| name | PropertySignature | ClaudePlugin | [916](../../src/types/backend.ts#L916) |
-| marketplace | PropertySignature | ClaudePlugin | [917](../../src/types/backend.ts#L917) |
-| version | PropertySignature | ClaudePlugin | [918](../../src/types/backend.ts#L918) |
-| enabled | PropertySignature | ClaudePlugin | [919](../../src/types/backend.ts#L919) |
-| installed | PropertySignature | ClaudePlugin | [920](../../src/types/backend.ts#L920) |
-| path | PropertySignature | ClaudePlugin | [921](../../src/types/backend.ts#L921) |
-| ClaudePluginsSnapshot | InterfaceDeclaration |  | [924](../../src/types/backend.ts#L924) |
-| plugins | PropertySignature | ClaudePluginsSnapshot | [925](../../src/types/backend.ts#L925) |
-| configPath | PropertySignature | ClaudePluginsSnapshot | [926](../../src/types/backend.ts#L926) |
-| cachePath | PropertySignature | ClaudePluginsSnapshot | [927](../../src/types/backend.ts#L927) |
-| configPluginCount | PropertySignature | ClaudePluginsSnapshot | [928](../../src/types/backend.ts#L928) |
-| cachePluginCount | PropertySignature | ClaudePluginsSnapshot | [929](../../src/types/backend.ts#L929) |
-| parseOk | PropertySignature | ClaudePluginsSnapshot | [930](../../src/types/backend.ts#L930) |
-| parseError | PropertySignature | ClaudePluginsSnapshot | [931](../../src/types/backend.ts#L931) |
-| ClaudeMarketplace | InterfaceDeclaration |  | [934](../../src/types/backend.ts#L934) |
-| name | PropertySignature | ClaudeMarketplace | [935](../../src/types/backend.ts#L935) |
-| root | PropertySignature | ClaudeMarketplace | [936](../../src/types/backend.ts#L936) |
-| source | PropertySignature | ClaudeMarketplace | [937](../../src/types/backend.ts#L937) |
-| raw | PropertySignature | ClaudeMarketplace | [938](../../src/types/backend.ts#L938) |
-| ClaudeMarketplaceListResult | InterfaceDeclaration |  | [941](../../src/types/backend.ts#L941) |
-| marketplaces | PropertySignature | ClaudeMarketplaceListResult | [942](../../src/types/backend.ts#L942) |
-| rawOutput | PropertySignature | ClaudeMarketplaceListResult | [943](../../src/types/backend.ts#L943) |
-| usedJson | PropertySignature | ClaudeMarketplaceListResult | [944](../../src/types/backend.ts#L944) |
-| ClaudePluginCommandResult | InterfaceDeclaration |  | [947](../../src/types/backend.ts#L947) |
-| ok | PropertySignature | ClaudePluginCommandResult | [948](../../src/types/backend.ts#L948) |
-| message | PropertySignature | ClaudePluginCommandResult | [949](../../src/types/backend.ts#L949) |
-| stdout | PropertySignature | ClaudePluginCommandResult | [950](../../src/types/backend.ts#L950) |
-| stderr | PropertySignature | ClaudePluginCommandResult | [951](../../src/types/backend.ts#L951) |
-| ClaudeCatalogPlugin | InterfaceDeclaration |  | [954](../../src/types/backend.ts#L954) |
-| pluginId | PropertySignature | ClaudeCatalogPlugin | [955](../../src/types/backend.ts#L955) |
-| name | PropertySignature | ClaudeCatalogPlugin | [956](../../src/types/backend.ts#L956) |
+| permissionMode | PropertySignature | Agent | [825](../../src/types/backend.ts#L825) |
+| maxTurns | PropertySignature | Agent | [826](../../src/types/backend.ts#L826) |
+| skills | PropertySignature | Agent | [827](../../src/types/backend.ts#L827) |
+| memory | PropertySignature | Agent | [828](../../src/types/backend.ts#L828) |
+| isolation | PropertySignature | Agent | [829](../../src/types/backend.ts#L829) |
+| AgentDraft | InterfaceDeclaration |  | [832](../../src/types/backend.ts#L832) |
+| name | PropertySignature | AgentDraft | [833](../../src/types/backend.ts#L833) |
+| description | PropertySignature | AgentDraft | [834](../../src/types/backend.ts#L834) |
+| body | PropertySignature | AgentDraft | [835](../../src/types/backend.ts#L835) |
+| model | PropertySignature | AgentDraft | [836](../../src/types/backend.ts#L836) |
+| tools | PropertySignature | AgentDraft | [837](../../src/types/backend.ts#L837) |
+| disallowedTools | PropertySignature | AgentDraft | [838](../../src/types/backend.ts#L838) |
+| permissionMode | PropertySignature | AgentDraft | [839](../../src/types/backend.ts#L839) |
+| maxTurns | PropertySignature | AgentDraft | [840](../../src/types/backend.ts#L840) |
+| skills | PropertySignature | AgentDraft | [841](../../src/types/backend.ts#L841) |
+| memory | PropertySignature | AgentDraft | [842](../../src/types/backend.ts#L842) |
+| isolation | PropertySignature | AgentDraft | [843](../../src/types/backend.ts#L843) |
+| ClaudeCodeAgentSettings | InterfaceDeclaration |  | [846](../../src/types/backend.ts#L846) |
+| teamsEnabled | PropertySignature | ClaudeCodeAgentSettings | [847](../../src/types/backend.ts#L847) |
+| teammateMode | PropertySignature | ClaudeCodeAgentSettings | [848](../../src/types/backend.ts#L848) |
+| subagentModelForce | PropertySignature | ClaudeCodeAgentSettings | [849](../../src/types/backend.ts#L849) |
+| autoModeServer | PropertySignature | ClaudeCodeAgentSettings | [850](../../src/types/backend.ts#L850) |
+| tmuxSupported | PropertySignature | ClaudeCodeAgentSettings | [851](../../src/types/backend.ts#L851) |
+| CodexPlugin | InterfaceDeclaration |  | [854](../../src/types/backend.ts#L854) |
+| pluginId | PropertySignature | CodexPlugin | [855](../../src/types/backend.ts#L855) |
+| name | PropertySignature | CodexPlugin | [856](../../src/types/backend.ts#L856) |
+| marketplace | PropertySignature | CodexPlugin | [857](../../src/types/backend.ts#L857) |
+| version | PropertySignature | CodexPlugin | [858](../../src/types/backend.ts#L858) |
+| enabled | PropertySignature | CodexPlugin | [859](../../src/types/backend.ts#L859) |
+| installed | PropertySignature | CodexPlugin | [860](../../src/types/backend.ts#L860) |
+| path | PropertySignature | CodexPlugin | [861](../../src/types/backend.ts#L861) |
+| CodexPluginsSnapshot | InterfaceDeclaration |  | [864](../../src/types/backend.ts#L864) |
+| plugins | PropertySignature | CodexPluginsSnapshot | [865](../../src/types/backend.ts#L865) |
+| configPath | PropertySignature | CodexPluginsSnapshot | [866](../../src/types/backend.ts#L866) |
+| cachePath | PropertySignature | CodexPluginsSnapshot | [867](../../src/types/backend.ts#L867) |
+| configPluginCount | PropertySignature | CodexPluginsSnapshot | [868](../../src/types/backend.ts#L868) |
+| cachePluginCount | PropertySignature | CodexPluginsSnapshot | [869](../../src/types/backend.ts#L869) |
+| parseOk | PropertySignature | CodexPluginsSnapshot | [870](../../src/types/backend.ts#L870) |
+| parseError | PropertySignature | CodexPluginsSnapshot | [871](../../src/types/backend.ts#L871) |
+| CodexMarketplace | InterfaceDeclaration |  | [874](../../src/types/backend.ts#L874) |
+| name | PropertySignature | CodexMarketplace | [875](../../src/types/backend.ts#L875) |
+| root | PropertySignature | CodexMarketplace | [876](../../src/types/backend.ts#L876) |
+| source | PropertySignature | CodexMarketplace | [877](../../src/types/backend.ts#L877) |
+| raw | PropertySignature | CodexMarketplace | [878](../../src/types/backend.ts#L878) |
+| CodexMarketplaceListResult | InterfaceDeclaration |  | [881](../../src/types/backend.ts#L881) |
+| marketplaces | PropertySignature | CodexMarketplaceListResult | [882](../../src/types/backend.ts#L882) |
+| rawOutput | PropertySignature | CodexMarketplaceListResult | [883](../../src/types/backend.ts#L883) |
+| usedJson | PropertySignature | CodexMarketplaceListResult | [884](../../src/types/backend.ts#L884) |
+| CodexPluginCommandResult | InterfaceDeclaration |  | [887](../../src/types/backend.ts#L887) |
+| ok | PropertySignature | CodexPluginCommandResult | [888](../../src/types/backend.ts#L888) |
+| message | PropertySignature | CodexPluginCommandResult | [889](../../src/types/backend.ts#L889) |
+| stdout | PropertySignature | CodexPluginCommandResult | [890](../../src/types/backend.ts#L890) |
+| stderr | PropertySignature | CodexPluginCommandResult | [891](../../src/types/backend.ts#L891) |
+| CodexCatalogPlugin | InterfaceDeclaration |  | [894](../../src/types/backend.ts#L894) |
+| pluginId | PropertySignature | CodexCatalogPlugin | [895](../../src/types/backend.ts#L895) |
+| name | PropertySignature | CodexCatalogPlugin | [896](../../src/types/backend.ts#L896) |
+| marketplace | PropertySignature | CodexCatalogPlugin | [897](../../src/types/backend.ts#L897) |
+| description | PropertySignature | CodexCatalogPlugin | [898](../../src/types/backend.ts#L898) |
+| category | PropertySignature | CodexCatalogPlugin | [899](../../src/types/backend.ts#L899) |
+| version | PropertySignature | CodexCatalogPlugin | [900](../../src/types/backend.ts#L900) |
+| CodexPluginCatalog | InterfaceDeclaration |  | [903](../../src/types/backend.ts#L903) |
+| plugins | PropertySignature | CodexPluginCatalog | [904](../../src/types/backend.ts#L904) |
+| marketplacesDir | PropertySignature | CodexPluginCatalog | [905](../../src/types/backend.ts#L905) |
+| CodexPluginUpdateStatus | InterfaceDeclaration |  | [908](../../src/types/backend.ts#L908) |
+| pluginId | PropertySignature | CodexPluginUpdateStatus | [909](../../src/types/backend.ts#L909) |
+| status | PropertySignature | CodexPluginUpdateStatus | [910](../../src/types/backend.ts#L910) |
+| message | PropertySignature | CodexPluginUpdateStatus | [911](../../src/types/backend.ts#L911) |
+| localVersion | PropertySignature | CodexPluginUpdateStatus | [912](../../src/types/backend.ts#L912) |
+| remoteVersion | PropertySignature | CodexPluginUpdateStatus | [913](../../src/types/backend.ts#L913) |
+| ClaudePlugin | InterfaceDeclaration |  | [916](../../src/types/backend.ts#L916) |
+| pluginId | PropertySignature | ClaudePlugin | [917](../../src/types/backend.ts#L917) |
+| name | PropertySignature | ClaudePlugin | [918](../../src/types/backend.ts#L918) |
+| marketplace | PropertySignature | ClaudePlugin | [919](../../src/types/backend.ts#L919) |
+| version | PropertySignature | ClaudePlugin | [920](../../src/types/backend.ts#L920) |
+| enabled | PropertySignature | ClaudePlugin | [921](../../src/types/backend.ts#L921) |
+| installed | PropertySignature | ClaudePlugin | [922](../../src/types/backend.ts#L922) |
+| path | PropertySignature | ClaudePlugin | [923](../../src/types/backend.ts#L923) |
+| ClaudePluginsSnapshot | InterfaceDeclaration |  | [926](../../src/types/backend.ts#L926) |
+| plugins | PropertySignature | ClaudePluginsSnapshot | [927](../../src/types/backend.ts#L927) |
+| configPath | PropertySignature | ClaudePluginsSnapshot | [928](../../src/types/backend.ts#L928) |
+| cachePath | PropertySignature | ClaudePluginsSnapshot | [929](../../src/types/backend.ts#L929) |
+| configPluginCount | PropertySignature | ClaudePluginsSnapshot | [930](../../src/types/backend.ts#L930) |
+| cachePluginCount | PropertySignature | ClaudePluginsSnapshot | [931](../../src/types/backend.ts#L931) |
+| parseOk | PropertySignature | ClaudePluginsSnapshot | [932](../../src/types/backend.ts#L932) |
+| parseError | PropertySignature | ClaudePluginsSnapshot | [933](../../src/types/backend.ts#L933) |
+| ClaudeMarketplace | InterfaceDeclaration |  | [936](../../src/types/backend.ts#L936) |
+| name | PropertySignature | ClaudeMarketplace | [937](../../src/types/backend.ts#L937) |
+| root | PropertySignature | ClaudeMarketplace | [938](../../src/types/backend.ts#L938) |
+| source | PropertySignature | ClaudeMarketplace | [939](../../src/types/backend.ts#L939) |
+| raw | PropertySignature | ClaudeMarketplace | [940](../../src/types/backend.ts#L940) |
+| ClaudeMarketplaceListResult | InterfaceDeclaration |  | [943](../../src/types/backend.ts#L943) |
+| marketplaces | PropertySignature | ClaudeMarketplaceListResult | [944](../../src/types/backend.ts#L944) |
+| rawOutput | PropertySignature | ClaudeMarketplaceListResult | [945](../../src/types/backend.ts#L945) |
+| usedJson | PropertySignature | ClaudeMarketplaceListResult | [946](../../src/types/backend.ts#L946) |
+| ClaudePluginCommandResult | InterfaceDeclaration |  | [949](../../src/types/backend.ts#L949) |
+| ok | PropertySignature | ClaudePluginCommandResult | [950](../../src/types/backend.ts#L950) |
+| message | PropertySignature | ClaudePluginCommandResult | [951](../../src/types/backend.ts#L951) |
+| stdout | PropertySignature | ClaudePluginCommandResult | [952](../../src/types/backend.ts#L952) |
+| stderr | PropertySignature | ClaudePluginCommandResult | [953](../../src/types/backend.ts#L953) |
+| ClaudeCatalogPlugin | InterfaceDeclaration |  | [956](../../src/types/backend.ts#L956) |

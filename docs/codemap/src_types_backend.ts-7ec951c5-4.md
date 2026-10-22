@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 4/12
 
-Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
+Source SHA-256: 44a8497cfa06ab7a03c4c3543fa59d712f4520672485a28d4cf2415a3b2a034b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| name | PropertySignature | ImportPreviewItem | [409](../../src/types/backend.ts#L409) |
-| summary | PropertySignature | ImportPreviewItem | [410](../../src/types/backend.ts#L410) |
-| detail | PropertySignature | ImportPreviewItem | [411](../../src/types/backend.ts#L411) |
-| ImportPreview | InterfaceDeclaration |  | [414](../../src/types/backend.ts#L414) |
-| resource | PropertySignature | ImportPreview | [415](../../src/types/backend.ts#L415) |
-| source | PropertySignature | ImportPreview | [416](../../src/types/backend.ts#L416) |
-| items | PropertySignature | ImportPreview | [417](../../src/types/backend.ts#L417) |
-| warnings | PropertySignature | ImportPreview | [418](../../src/types/backend.ts#L418) |
-| payload | PropertySignature | ImportPreview | [419](../../src/types/backend.ts#L419) |
-| DeeplinkImportResult | InterfaceDeclaration |  | [422](../../src/types/backend.ts#L422) |
-| resource | PropertySignature | DeeplinkImportResult | [423](../../src/types/backend.ts#L423) |
-| imported | PropertySignature | DeeplinkImportResult | [424](../../src/types/backend.ts#L424) |
-| skipped | PropertySignature | DeeplinkImportResult | [425](../../src/types/backend.ts#L425) |
-| ConfigBackup | InterfaceDeclaration |  | [428](../../src/types/backend.ts#L428) |
-| name | PropertySignature | ConfigBackup | [429](../../src/types/backend.ts#L429) |
-| createdAt | PropertySignature | ConfigBackup | [430](../../src/types/backend.ts#L430) |
-| verified | PropertySignature | ConfigBackup | [431](../../src/types/backend.ts#L431) |
-| sourceName | PropertySignature | ConfigBackup | [432](../../src/types/backend.ts#L432) |
-| LibraryBackupInfo | InterfaceDeclaration |  | [435](../../src/types/backend.ts#L435) |
-| archivePath | PropertySignature | LibraryBackupInfo | [436](../../src/types/backend.ts#L436) |
-| createdAt | PropertySignature | LibraryBackupInfo | [437](../../src/types/backend.ts#L437) |
-| entries | PropertySignature | LibraryBackupInfo | [438](../../src/types/backend.ts#L438) |
-| LibraryArchivePreview | InterfaceDeclaration |  | [441](../../src/types/backend.ts#L441) |
-| archivePath | PropertySignature | LibraryArchivePreview | [442](../../src/types/backend.ts#L442) |
-| createdAt | PropertySignature | LibraryArchivePreview | [443](../../src/types/backend.ts#L443) |
-| schemaVersion | PropertySignature | LibraryArchivePreview | [444](../../src/types/backend.ts#L444) |
-| entries | PropertySignature | LibraryArchivePreview | [445](../../src/types/backend.ts#L445) |
-| totalBytes | PropertySignature | LibraryArchivePreview | [446](../../src/types/backend.ts#L446) |
-| credentialsIncluded | PropertySignature | LibraryArchivePreview | [447](../../src/types/backend.ts#L447) |
-| providerTargets | PropertySignature | LibraryArchivePreview | [449](../../src/types/backend.ts#L449) |
-| LibraryRestoreResult | InterfaceDeclaration |  | [452](../../src/types/backend.ts#L452) |
-| archivePath | PropertySignature | LibraryRestoreResult | [453](../../src/types/backend.ts#L453) |
-| restoredEntries | PropertySignature | LibraryRestoreResult | [454](../../src/types/backend.ts#L454) |
-| backupDbPath | PropertySignature | LibraryRestoreResult | [455](../../src/types/backend.ts#L455) |
-| restartRequired | PropertySignature | LibraryRestoreResult | [456](../../src/types/backend.ts#L456) |
-| credentialsImported | PropertySignature | LibraryRestoreResult | [457](../../src/types/backend.ts#L457) |
-| DesktopLocalizationStatus | InterfaceDeclaration |  | [460](../../src/types/backend.ts#L460) |
-| platformSupported | PropertySignature | DesktopLocalizationStatus | [461](../../src/types/backend.ts#L461) |
-| installDetected | PropertySignature | DesktopLocalizationStatus | [462](../../src/types/backend.ts#L462) |
-| installKind | PropertySignature | DesktopLocalizationStatus | [463](../../src/types/backend.ts#L463) |
-| detectionSource | PropertySignature | DesktopLocalizationStatus | [464](../../src/types/backend.ts#L464) |
-| checkedAt | PropertySignature | DesktopLocalizationStatus | [465](../../src/types/backend.ts#L465) |
-| diagnostics | PropertySignature | DesktopLocalizationStatus | [466](../../src/types/backend.ts#L466) |
-| installPath | PropertySignature | DesktopLocalizationStatus | [467](../../src/types/backend.ts#L467) |
-| resourcesPath | PropertySignature | DesktopLocalizationStatus | [468](../../src/types/backend.ts#L468) |
-| claudeVersion | PropertySignature | DesktopLocalizationStatus | [469](../../src/types/backend.ts#L469) |
-| multipleInstalls | PropertySignature | DesktopLocalizationStatus | [470](../../src/types/backend.ts#L470) |
-| state | PropertySignature | DesktopLocalizationStatus | [471](../../src/types/backend.ts#L471) |
-| configuredLocale | PropertySignature | DesktopLocalizationStatus | [472](../../src/types/backend.ts#L472) |
-| packPath | PropertySignature | DesktopLocalizationStatus | [473](../../src/types/backend.ts#L473) |
-| packValid | PropertySignature | DesktopLocalizationStatus | [474](../../src/types/backend.ts#L474) |
-| packSource | PropertySignature | DesktopLocalizationStatus | [475](../../src/types/backend.ts#L475) |
-| packVersion | PropertySignature | DesktopLocalizationStatus | [476](../../src/types/backend.ts#L476) |
-| packRevision | PropertySignature | DesktopLocalizationStatus | [477](../../src/types/backend.ts#L477) |
-| packFetchedAt | PropertySignature | DesktopLocalizationStatus | [478](../../src/types/backend.ts#L478) |
-| backupAvailable | PropertySignature | DesktopLocalizationStatus | [479](../../src/types/backend.ts#L479) |
-| message | PropertySignature | DesktopLocalizationStatus | [480](../../src/types/backend.ts#L480) |
-| partialReasons | PropertySignature | DesktopLocalizationStatus | [482](../../src/types/backend.ts#L482) |
-| patchedJsCount | PropertySignature | DesktopLocalizationStatus | [483](../../src/types/backend.ts#L483) |
-| logPath | PropertySignature | DesktopLocalizationStatus | [484](../../src/types/backend.ts#L484) |
-| lastInstalledAt | PropertySignature | DesktopLocalizationStatus | [485](../../src/types/backend.ts#L485) |
-| dynamicCatalogRequired | PropertySignature | DesktopLocalizationStatus | [486](../../src/types/backend.ts#L486) |
-| DesktopLocalizationPackInfo | InterfaceDeclaration |  | [489](../../src/types/backend.ts#L489) |
-| source | PropertySignature | DesktopLocalizationPackInfo | [490](../../src/types/backend.ts#L490) |
-| version | PropertySignature | DesktopLocalizationPackInfo | [491](../../src/types/backend.ts#L491) |
-| revision | PropertySignature | DesktopLocalizationPackInfo | [492](../../src/types/backend.ts#L492) |
-| fetchedAt | PropertySignature | DesktopLocalizationPackInfo | [493](../../src/types/backend.ts#L493) |
-| packPath | PropertySignature | DesktopLocalizationPackInfo | [494](../../src/types/backend.ts#L494) |
-| valid | PropertySignature | DesktopLocalizationPackInfo | [495](../../src/types/backend.ts#L495) |
-| DesktopLocalizationPackValidation | InterfaceDeclaration |  | [498](../../src/types/backend.ts#L498) |
-| valid | PropertySignature | DesktopLocalizationPackValidation | [499](../../src/types/backend.ts#L499) |
-| packPath | PropertySignature | DesktopLocalizationPackValidation | [500](../../src/types/backend.ts#L500) |
-| message | PropertySignature | DesktopLocalizationPackValidation | [501](../../src/types/backend.ts#L501) |
-| DesktopLocalizationActionResult | InterfaceDeclaration |  | [504](../../src/types/backend.ts#L504) |
-| ok | PropertySignature | DesktopLocalizationActionResult | [505](../../src/types/backend.ts#L505) |
-| changedFiles | PropertySignature | DesktopLocalizationActionResult | [506](../../src/types/backend.ts#L506) |
-| message | PropertySignature | DesktopLocalizationActionResult | [507](../../src/types/backend.ts#L507) |
-| logPath | PropertySignature | DesktopLocalizationActionResult | [508](../../src/types/backend.ts#L508) |
-| claudeVersion | PropertySignature | DesktopLocalizationActionResult | [509](../../src/types/backend.ts#L509) |
-| patchedJsCount | PropertySignature | DesktopLocalizationActionResult | [510](../../src/types/backend.ts#L510) |
-| restart | PropertySignature | DesktopLocalizationActionResult | [511](../../src/types/backend.ts#L511) |
-| restartDetail | PropertySignature | DesktopLocalizationActionResult | [512](../../src/types/backend.ts#L512) |
-| ClaudeCodeLocalizationStatus | InterfaceDeclaration |  | [515](../../src/types/backend.ts#L515) |
-| installed | PropertySignature | ClaudeCodeLocalizationStatus | [516](../../src/types/backend.ts#L516) |
-| version | PropertySignature | ClaudeCodeLocalizationStatus | [517](../../src/types/backend.ts#L517) |
-| executablePath | PropertySignature | ClaudeCodeLocalizationStatus | [518](../../src/types/backend.ts#L518) |
-| pluginVersion | PropertySignature | ClaudeCodeLocalizationStatus | [519](../../src/types/backend.ts#L519) |
-| pluginEnabled | PropertySignature | ClaudeCodeLocalizationStatus | [520](../../src/types/backend.ts#L520) |
-| settingsConfigured | PropertySignature | ClaudeCodeLocalizationStatus | [521](../../src/types/backend.ts#L521) |
-| message | PropertySignature | ClaudeCodeLocalizationStatus | [522](../../src/types/backend.ts#L522) |
-| EditorLocalizationStatus | InterfaceDeclaration |  | [525](../../src/types/backend.ts#L525) |
-| id | PropertySignature | EditorLocalizationStatus | [526](../../src/types/backend.ts#L526) |
-| label | PropertySignature | EditorLocalizationStatus | [527](../../src/types/backend.ts#L527) |
-| editorDetected | PropertySignature | EditorLocalizationStatus | [528](../../src/types/backend.ts#L528) |
-| editorCliPath | PropertySignature | EditorLocalizationStatus | [529](../../src/types/backend.ts#L529) |
-| claudeExtensionPath | PropertySignature | EditorLocalizationStatus | [530](../../src/types/backend.ts#L530) |
-| helperInstalled | PropertySignature | EditorLocalizationStatus | [531](../../src/types/backend.ts#L531) |
-| helperVersion | PropertySignature | EditorLocalizationStatus | [532](../../src/types/backend.ts#L532) |
-| message | PropertySignature | EditorLocalizationStatus | [533](../../src/types/backend.ts#L533) |
-| LocalizationHubStatus | InterfaceDeclaration |  | [536](../../src/types/backend.ts#L536) |
+| ImportResource | TypeAliasDeclaration |  | [408](../../src/types/backend.ts#L408) |
+| ImportPreviewItem | InterfaceDeclaration |  | [410](../../src/types/backend.ts#L410) |
+| name | PropertySignature | ImportPreviewItem | [411](../../src/types/backend.ts#L411) |
+| summary | PropertySignature | ImportPreviewItem | [412](../../src/types/backend.ts#L412) |
+| detail | PropertySignature | ImportPreviewItem | [413](../../src/types/backend.ts#L413) |
+| ImportPreview | InterfaceDeclaration |  | [416](../../src/types/backend.ts#L416) |
+| resource | PropertySignature | ImportPreview | [417](../../src/types/backend.ts#L417) |
+| source | PropertySignature | ImportPreview | [418](../../src/types/backend.ts#L418) |
+| items | PropertySignature | ImportPreview | [419](../../src/types/backend.ts#L419) |
+| warnings | PropertySignature | ImportPreview | [420](../../src/types/backend.ts#L420) |
+| payload | PropertySignature | ImportPreview | [421](../../src/types/backend.ts#L421) |
+| DeeplinkImportResult | InterfaceDeclaration |  | [424](../../src/types/backend.ts#L424) |
+| resource | PropertySignature | DeeplinkImportResult | [425](../../src/types/backend.ts#L425) |
+| imported | PropertySignature | DeeplinkImportResult | [426](../../src/types/backend.ts#L426) |
+| skipped | PropertySignature | DeeplinkImportResult | [427](../../src/types/backend.ts#L427) |
+| ConfigBackup | InterfaceDeclaration |  | [430](../../src/types/backend.ts#L430) |
+| name | PropertySignature | ConfigBackup | [431](../../src/types/backend.ts#L431) |
+| createdAt | PropertySignature | ConfigBackup | [432](../../src/types/backend.ts#L432) |
+| verified | PropertySignature | ConfigBackup | [433](../../src/types/backend.ts#L433) |
+| sourceName | PropertySignature | ConfigBackup | [434](../../src/types/backend.ts#L434) |
+| LibraryBackupInfo | InterfaceDeclaration |  | [437](../../src/types/backend.ts#L437) |
+| archivePath | PropertySignature | LibraryBackupInfo | [438](../../src/types/backend.ts#L438) |
+| createdAt | PropertySignature | LibraryBackupInfo | [439](../../src/types/backend.ts#L439) |
+| entries | PropertySignature | LibraryBackupInfo | [440](../../src/types/backend.ts#L440) |
+| LibraryArchivePreview | InterfaceDeclaration |  | [443](../../src/types/backend.ts#L443) |
+| archivePath | PropertySignature | LibraryArchivePreview | [444](../../src/types/backend.ts#L444) |
+| createdAt | PropertySignature | LibraryArchivePreview | [445](../../src/types/backend.ts#L445) |
+| schemaVersion | PropertySignature | LibraryArchivePreview | [446](../../src/types/backend.ts#L446) |
+| entries | PropertySignature | LibraryArchivePreview | [447](../../src/types/backend.ts#L447) |
+| totalBytes | PropertySignature | LibraryArchivePreview | [448](../../src/types/backend.ts#L448) |
+| credentialsIncluded | PropertySignature | LibraryArchivePreview | [449](../../src/types/backend.ts#L449) |
+| providerTargets | PropertySignature | LibraryArchivePreview | [451](../../src/types/backend.ts#L451) |
+| LibraryRestoreResult | InterfaceDeclaration |  | [454](../../src/types/backend.ts#L454) |
+| archivePath | PropertySignature | LibraryRestoreResult | [455](../../src/types/backend.ts#L455) |
+| restoredEntries | PropertySignature | LibraryRestoreResult | [456](../../src/types/backend.ts#L456) |
+| backupDbPath | PropertySignature | LibraryRestoreResult | [457](../../src/types/backend.ts#L457) |
+| restartRequired | PropertySignature | LibraryRestoreResult | [458](../../src/types/backend.ts#L458) |
+| credentialsImported | PropertySignature | LibraryRestoreResult | [459](../../src/types/backend.ts#L459) |
+| DesktopLocalizationStatus | InterfaceDeclaration |  | [462](../../src/types/backend.ts#L462) |
+| platformSupported | PropertySignature | DesktopLocalizationStatus | [463](../../src/types/backend.ts#L463) |
+| installDetected | PropertySignature | DesktopLocalizationStatus | [464](../../src/types/backend.ts#L464) |
+| installKind | PropertySignature | DesktopLocalizationStatus | [465](../../src/types/backend.ts#L465) |
+| detectionSource | PropertySignature | DesktopLocalizationStatus | [466](../../src/types/backend.ts#L466) |
+| checkedAt | PropertySignature | DesktopLocalizationStatus | [467](../../src/types/backend.ts#L467) |
+| diagnostics | PropertySignature | DesktopLocalizationStatus | [468](../../src/types/backend.ts#L468) |
+| installPath | PropertySignature | DesktopLocalizationStatus | [469](../../src/types/backend.ts#L469) |
+| resourcesPath | PropertySignature | DesktopLocalizationStatus | [470](../../src/types/backend.ts#L470) |
+| claudeVersion | PropertySignature | DesktopLocalizationStatus | [471](../../src/types/backend.ts#L471) |
+| multipleInstalls | PropertySignature | DesktopLocalizationStatus | [472](../../src/types/backend.ts#L472) |
+| state | PropertySignature | DesktopLocalizationStatus | [473](../../src/types/backend.ts#L473) |
+| configuredLocale | PropertySignature | DesktopLocalizationStatus | [474](../../src/types/backend.ts#L474) |
+| packPath | PropertySignature | DesktopLocalizationStatus | [475](../../src/types/backend.ts#L475) |
+| packValid | PropertySignature | DesktopLocalizationStatus | [476](../../src/types/backend.ts#L476) |
+| packSource | PropertySignature | DesktopLocalizationStatus | [477](../../src/types/backend.ts#L477) |
+| packVersion | PropertySignature | DesktopLocalizationStatus | [478](../../src/types/backend.ts#L478) |
+| packRevision | PropertySignature | DesktopLocalizationStatus | [479](../../src/types/backend.ts#L479) |
+| packFetchedAt | PropertySignature | DesktopLocalizationStatus | [480](../../src/types/backend.ts#L480) |
+| backupAvailable | PropertySignature | DesktopLocalizationStatus | [481](../../src/types/backend.ts#L481) |
+| message | PropertySignature | DesktopLocalizationStatus | [482](../../src/types/backend.ts#L482) |
+| partialReasons | PropertySignature | DesktopLocalizationStatus | [484](../../src/types/backend.ts#L484) |
+| patchedJsCount | PropertySignature | DesktopLocalizationStatus | [485](../../src/types/backend.ts#L485) |
+| logPath | PropertySignature | DesktopLocalizationStatus | [486](../../src/types/backend.ts#L486) |
+| lastInstalledAt | PropertySignature | DesktopLocalizationStatus | [487](../../src/types/backend.ts#L487) |
+| dynamicCatalogRequired | PropertySignature | DesktopLocalizationStatus | [488](../../src/types/backend.ts#L488) |
+| DesktopLocalizationPackInfo | InterfaceDeclaration |  | [491](../../src/types/backend.ts#L491) |
+| source | PropertySignature | DesktopLocalizationPackInfo | [492](../../src/types/backend.ts#L492) |
+| version | PropertySignature | DesktopLocalizationPackInfo | [493](../../src/types/backend.ts#L493) |
+| revision | PropertySignature | DesktopLocalizationPackInfo | [494](../../src/types/backend.ts#L494) |
+| fetchedAt | PropertySignature | DesktopLocalizationPackInfo | [495](../../src/types/backend.ts#L495) |
+| packPath | PropertySignature | DesktopLocalizationPackInfo | [496](../../src/types/backend.ts#L496) |
+| valid | PropertySignature | DesktopLocalizationPackInfo | [497](../../src/types/backend.ts#L497) |
+| DesktopLocalizationPackValidation | InterfaceDeclaration |  | [500](../../src/types/backend.ts#L500) |
+| valid | PropertySignature | DesktopLocalizationPackValidation | [501](../../src/types/backend.ts#L501) |
+| packPath | PropertySignature | DesktopLocalizationPackValidation | [502](../../src/types/backend.ts#L502) |
+| message | PropertySignature | DesktopLocalizationPackValidation | [503](../../src/types/backend.ts#L503) |
+| DesktopLocalizationActionResult | InterfaceDeclaration |  | [506](../../src/types/backend.ts#L506) |
+| ok | PropertySignature | DesktopLocalizationActionResult | [507](../../src/types/backend.ts#L507) |
+| changedFiles | PropertySignature | DesktopLocalizationActionResult | [508](../../src/types/backend.ts#L508) |
+| message | PropertySignature | DesktopLocalizationActionResult | [509](../../src/types/backend.ts#L509) |
+| logPath | PropertySignature | DesktopLocalizationActionResult | [510](../../src/types/backend.ts#L510) |
+| claudeVersion | PropertySignature | DesktopLocalizationActionResult | [511](../../src/types/backend.ts#L511) |
+| patchedJsCount | PropertySignature | DesktopLocalizationActionResult | [512](../../src/types/backend.ts#L512) |
+| restart | PropertySignature | DesktopLocalizationActionResult | [513](../../src/types/backend.ts#L513) |
+| restartDetail | PropertySignature | DesktopLocalizationActionResult | [514](../../src/types/backend.ts#L514) |
+| ClaudeCodeLocalizationStatus | InterfaceDeclaration |  | [517](../../src/types/backend.ts#L517) |
+| installed | PropertySignature | ClaudeCodeLocalizationStatus | [518](../../src/types/backend.ts#L518) |
+| version | PropertySignature | ClaudeCodeLocalizationStatus | [519](../../src/types/backend.ts#L519) |
+| executablePath | PropertySignature | ClaudeCodeLocalizationStatus | [520](../../src/types/backend.ts#L520) |
+| pluginVersion | PropertySignature | ClaudeCodeLocalizationStatus | [521](../../src/types/backend.ts#L521) |
+| pluginEnabled | PropertySignature | ClaudeCodeLocalizationStatus | [522](../../src/types/backend.ts#L522) |
+| settingsConfigured | PropertySignature | ClaudeCodeLocalizationStatus | [523](../../src/types/backend.ts#L523) |
+| message | PropertySignature | ClaudeCodeLocalizationStatus | [524](../../src/types/backend.ts#L524) |
+| EditorLocalizationStatus | InterfaceDeclaration |  | [527](../../src/types/backend.ts#L527) |
+| id | PropertySignature | EditorLocalizationStatus | [528](../../src/types/backend.ts#L528) |
+| label | PropertySignature | EditorLocalizationStatus | [529](../../src/types/backend.ts#L529) |
+| editorDetected | PropertySignature | EditorLocalizationStatus | [530](../../src/types/backend.ts#L530) |
+| editorCliPath | PropertySignature | EditorLocalizationStatus | [531](../../src/types/backend.ts#L531) |
+| claudeExtensionPath | PropertySignature | EditorLocalizationStatus | [532](../../src/types/backend.ts#L532) |
+| helperInstalled | PropertySignature | EditorLocalizationStatus | [533](../../src/types/backend.ts#L533) |
+| helperVersion | PropertySignature | EditorLocalizationStatus | [534](../../src/types/backend.ts#L534) |

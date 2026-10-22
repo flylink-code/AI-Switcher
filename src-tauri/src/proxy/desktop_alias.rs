@@ -398,6 +398,7 @@ mod tests {
             upstream_slug: slug.to_string(),
             provider_id: "up".into(),
             context_window: 200_000,
+            discovered_metadata: None,
             anthropic_upstream: false,
             web_search_enabled: false,
         }

@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/vscode_copilot.rs) · page 1/1
 
-Source SHA-256: 01b036cefd055d25557d8808dd1ae3a40889c3fd13b3bd35aa2b6047a14710b9
+Source SHA-256: 0078474decd04126bf2fe0beccb104a95bc978111e372e51e28aa8744b9bc734
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |

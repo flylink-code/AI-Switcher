@@ -1193,7 +1193,7 @@ fn prepare_codex_upstream(
                 ProtocolType::OpenAiChat | ProtocolType::Proxy | ProtocolType::Anthropic
             ));
 
-    let (request_body, is_stream, compact_fallback) = if is_compact {
+    let (mut request_body, is_stream, compact_fallback) = if is_compact {
         let mut parsed: Value = match serde_json::from_slice(&body) {
             Ok(value) => value,
             Err(_) => {
@@ -1408,6 +1408,23 @@ fn prepare_codex_upstream(
             None,
         )
     };
+
+    if !provider.is_smart_gateway()
+        && crate::gateway::fast_mode::supports_protocol(provider.protocol_type)
+        && (!is_compact || compact_fallback.is_some())
+    {
+        let incoming: Value = serde_json::from_slice(&body)
+            .map_err(|_| json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"))?;
+        let mut outgoing: Value = serde_json::from_slice(&request_body)
+            .map_err(|error| json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        let model = outgoing.get("model").and_then(Value::as_str).unwrap_or(&provider.model);
+        let enabled = state.db.with_read_conn(|conn| {
+            crate::gateway::fast_mode::is_enabled(conn, &provider.id, model)
+        }).map_err(|error| json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        crate::gateway::fast_mode::apply_request(&mut outgoing, &incoming, enabled);
+        request_body = serde_json::to_vec(&outgoing)
+            .map_err(|error| json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    }
 
     let mut request = state.client.request(reqwest::Method::POST, &upstream_url);
     if is_anthropic_upstream || matches!(compact_fallback, Some(CompactFallback::Anthropic)) {
@@ -3482,6 +3499,61 @@ mod tests {
             enabled: true,
             health_status: None,
             health_checked_at: None,
+        }
+    }
+
+    #[test]
+    fn fast_mode_reaches_native_and_bridged_codex_requests() {
+        let state = super::super::tests::circuit_test_state();
+        let mut provider = test_provider(crate::provider::ProviderKind::Standard);
+        provider.api_key = "test-fast-key".into();
+        state.db.with_conn(|conn| {
+            crate::database::dao::settings::set_setting(conn, "gateway.fast_models.test", "[\"test-model\"]")
+        }).unwrap();
+        for protocol in [ProtocolType::OpenAiChat, ProtocolType::OpenAiResponses] {
+            provider.protocol_type = protocol;
+            for route in ["/v1/responses", "/v1/chat/completions"] {
+                for stream in [false, true] {
+                    for tier in [None, Some("default"), Some("flex"), Some("ultrafast")] {
+                        let mut incoming = if route.contains("chat") {
+                            json!({"model": "test-model", "stream": stream, "messages": [{"role": "user", "content": "hi"}]})
+                        } else {
+                            json!({"model": "test-model", "stream": stream, "input": "hi"})
+                        };
+                        if let Some(tier) = tier { incoming["service_tier"] = json!(tier); }
+                        let body = Bytes::from(serde_json::to_vec(&incoming).unwrap());
+                        let prepared = prepare_codex_upstream(&state, &provider, route, &HeaderMap::new(), &body, false, false).unwrap();
+                        let sent: Value = serde_json::from_slice(&prepared.request_body).unwrap();
+                        assert_eq!(sent["service_tier"], tier.unwrap_or("priority"), "{protocol:?} {route}");
+                    }
+                }
+            }
+        }
+        provider.id = "other".into();
+        let body = Bytes::from_static(br#"{"model":"test-model","input":"hi"}"#);
+        let prepared = prepare_codex_upstream(&state, &provider, "/v1/responses", &HeaderMap::new(), &body, false, false).unwrap();
+        let sent: Value = serde_json::from_slice(&prepared.request_body).unwrap();
+        assert!(sent.get("service_tier").is_none());
+    }
+
+    #[test]
+    fn fast_mode_reaches_claude_conversion_without_changing_client_body() {
+        let mut state = super::super::tests::circuit_test_state();
+        state.request_path = "/v1/messages".into();
+        let mut provider = test_provider(crate::provider::ProviderKind::Standard);
+        provider.api_key = "test-fast-key".into();
+        state.db.with_conn(|conn| {
+            crate::database::dao::settings::set_setting(conn, "gateway.fast_models.test", "[\"test-model\"]")
+        }).unwrap();
+        let incoming = json!({"model": "test-model", "max_tokens": 32, "messages": [{"role":"user","content":"hi"}]});
+        let body = Bytes::from(serde_json::to_vec(&incoming).unwrap());
+        for protocol in [ProtocolType::OpenAiChat, ProtocolType::OpenAiResponses] {
+            provider.protocol_type = protocol;
+            let prepared = super::super::prepare_upstream_request(&state, &mut provider, &axum::http::Method::POST,
+                &HeaderMap::new(), &incoming, &body, false, "test-model").unwrap();
+            let sent: Value = serde_json::from_slice(&prepared.outgoing_body).unwrap();
+            assert_eq!(sent["service_tier"], "priority");
+            assert!(incoming.get("service_tier").is_none());
         }
     }
 

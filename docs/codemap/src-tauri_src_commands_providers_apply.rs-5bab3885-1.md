@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/apply.rs) · page 1/1
 
-Source SHA-256: f5fad9bf9864184af946a79f9f3f5a1baa5e077c28513960f3e39b88b2198c6f
+Source SHA-256: 6c7fd893e6d442f144aff40dfb26a55ce5a11dfd3414ee41e95046b1b4516ab5
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -15,38 +15,42 @@ Source SHA-256: f5fad9bf9864184af946a79f9f3f5a1baa5e077c28513960f3e39b88b2198c6f
 | discover_provider_models_input | function_item |  | [46](../../src-tauri/src/commands/providers/apply.rs#L46) |
 | discover_provider_models_with_key | function_item |  | [54](../../src-tauri/src/commands/providers/apply.rs#L54) |
 | format | macro invocation (unexpanded) | discover_provider_models_with_key | [124](../../src-tauri/src/commands/providers/apply.rs#L124) |
-| uses_antigravity_model_catalog | function_item |  | [192](../../src-tauri/src/commands/providers/apply.rs#L192) |
-| uses_kiro_model_catalog | function_item |  | [196](../../src-tauri/src/commands/providers/apply.rs#L196) |
-| is_kiro_gateway_base_url | function_item |  | [200](../../src-tauri/src/commands/providers/apply.rs#L200) |
-| matches | macro invocation (unexpanded) | is_kiro_gateway_base_url | [210](../../src-tauri/src/commands/providers/apply.rs#L210) |
-| kiro_catalog_model_ids | function_item |  | [216](../../src-tauri/src/commands/providers/apply.rs#L216) |
-| is_antigravity_gateway_base_url | function_item |  | [220](../../src-tauri/src/commands/providers/apply.rs#L220) |
-| matches | macro invocation (unexpanded) | is_antigravity_gateway_base_url | [230](../../src-tauri/src/commands/providers/apply.rs#L230) |
-| antigravity_catalog_model_ids | function_item |  | [241](../../src-tauri/src/commands/providers/apply.rs#L241) |
-| discovery_http_client | function_item |  | [247](../../src-tauri/src/commands/providers/apply.rs#L247) |
-| format | macro invocation (unexpanded) | discovery_http_client | [255](../../src-tauri/src/commands/providers/apply.rs#L255) |
-| url_targets_loopback | function_item |  | [258](../../src-tauri/src/commands/providers/apply.rs#L258) |
-| cached_or_empty_model_result | function_item |  | [265](../../src-tauri/src/commands/providers/apply.rs#L265) |
-| model_result_from_cache | function_item |  | [279](../../src-tauri/src/commands/providers/apply.rs#L279) |
-| model_discovery_urls | function_item |  | [317](../../src-tauri/src/commands/providers/apply.rs#L317) |
-| format | macro invocation (unexpanded) | model_discovery_urls | [330](../../src-tauri/src/commands/providers/apply.rs#L330) |
-| should_try_next_discovery_status | function_item |  | [340](../../src-tauri/src/commands/providers/apply.rs#L340) |
-| matches | macro invocation (unexpanded) | should_try_next_discovery_status | [341](../../src-tauri/src/commands/providers/apply.rs#L341) |
-| fetch_codex_oauth_models | function_item |  | [344](../../src-tauri/src/commands/providers/apply.rs#L344) |
-| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [349](../../src-tauri/src/commands/providers/apply.rs#L349) |
-| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [355](../../src-tauri/src/commands/providers/apply.rs#L355) |
-| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [360](../../src-tauri/src/commands/providers/apply.rs#L360) |
+| uses_antigravity_model_catalog | function_item |  | [196](../../src-tauri/src/commands/providers/apply.rs#L196) |
+| uses_kiro_model_catalog | function_item |  | [200](../../src-tauri/src/commands/providers/apply.rs#L200) |
+| is_kiro_gateway_base_url | function_item |  | [204](../../src-tauri/src/commands/providers/apply.rs#L204) |
+| matches | macro invocation (unexpanded) | is_kiro_gateway_base_url | [214](../../src-tauri/src/commands/providers/apply.rs#L214) |
+| kiro_catalog_model_ids | function_item |  | [220](../../src-tauri/src/commands/providers/apply.rs#L220) |
+| is_antigravity_gateway_base_url | function_item |  | [224](../../src-tauri/src/commands/providers/apply.rs#L224) |
+| matches | macro invocation (unexpanded) | is_antigravity_gateway_base_url | [234](../../src-tauri/src/commands/providers/apply.rs#L234) |
+| antigravity_catalog_model_ids | function_item |  | [245](../../src-tauri/src/commands/providers/apply.rs#L245) |
+| discovery_http_client | function_item |  | [251](../../src-tauri/src/commands/providers/apply.rs#L251) |
+| format | macro invocation (unexpanded) | discovery_http_client | [259](../../src-tauri/src/commands/providers/apply.rs#L259) |
+| url_targets_loopback | function_item |  | [262](../../src-tauri/src/commands/providers/apply.rs#L262) |
+| cached_or_empty_model_result | function_item |  | [269](../../src-tauri/src/commands/providers/apply.rs#L269) |
+| model_result_from_cache | function_item |  | [283](../../src-tauri/src/commands/providers/apply.rs#L283) |
+| model_discovery_urls | function_item |  | [321](../../src-tauri/src/commands/providers/apply.rs#L321) |
+| format | macro invocation (unexpanded) | model_discovery_urls | [334](../../src-tauri/src/commands/providers/apply.rs#L334) |
+| should_try_next_discovery_status | function_item |  | [344](../../src-tauri/src/commands/providers/apply.rs#L344) |
+| matches | macro invocation (unexpanded) | should_try_next_discovery_status | [345](../../src-tauri/src/commands/providers/apply.rs#L345) |
+| fetch_codex_oauth_models | function_item |  | [348](../../src-tauri/src/commands/providers/apply.rs#L348) |
+| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [353](../../src-tauri/src/commands/providers/apply.rs#L353) |
+| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [359](../../src-tauri/src/commands/providers/apply.rs#L359) |
 | format | macro invocation (unexpanded) | fetch_codex_oauth_models | [364](../../src-tauri/src/commands/providers/apply.rs#L364) |
-| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [369](../../src-tauri/src/commands/providers/apply.rs#L369) |
-| fetch_discovered_models | function_item |  | [378](../../src-tauri/src/commands/providers/apply.rs#L378) |
-| format | macro invocation (unexpanded) | fetch_discovered_models | [388](../../src-tauri/src/commands/providers/apply.rs#L388) |
-| format | macro invocation (unexpanded) | fetch_discovered_models | [428](../../src-tauri/src/commands/providers/apply.rs#L428) |
-| extract_model_ids | function_item |  | [442](../../src-tauri/src/commands/providers/apply.rs#L442) |
-| switch_to_official | function_item |  | [470](../../src-tauri/src/commands/providers/apply.rs#L470) |
-| switch_to_official_for_target | function_item |  | [479](../../src-tauri/src/commands/providers/apply.rs#L479) |
-| restore_official_for_target | function_item |  | [494](../../src-tauri/src/commands/providers/apply.rs#L494) |
-| format | macro invocation (unexpanded) | restore_official_for_target | [509](../../src-tauri/src/commands/providers/apply.rs#L509) |
-| format | macro invocation (unexpanded) | restore_official_for_target | [516](../../src-tauri/src/commands/providers/apply.rs#L516) |
-| format | macro invocation (unexpanded) | restore_official_for_target | [530](../../src-tauri/src/commands/providers/apply.rs#L530) |
-| matches | macro invocation (unexpanded) | restore_official_for_target | [556](../../src-tauri/src/commands/providers/apply.rs#L556) |
-| format | macro invocation (unexpanded) | restore_official_for_target | [572](../../src-tauri/src/commands/providers/apply.rs#L572) |
+| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [368](../../src-tauri/src/commands/providers/apply.rs#L368) |
+| format | macro invocation (unexpanded) | fetch_codex_oauth_models | [373](../../src-tauri/src/commands/providers/apply.rs#L373) |
+| fetch_discovered_catalog | function_item |  | [382](../../src-tauri/src/commands/providers/apply.rs#L382) |
+| matches | macro invocation (unexpanded) | fetch_discovered_catalog | [390](../../src-tauri/src/commands/providers/apply.rs#L390) |
+| format | macro invocation (unexpanded) | fetch_discovered_catalog | [392](../../src-tauri/src/commands/providers/apply.rs#L392) |
+| fetch_discovered_models | function_item |  | [404](../../src-tauri/src/commands/providers/apply.rs#L404) |
+| format | macro invocation (unexpanded) | fetch_discovered_models | [414](../../src-tauri/src/commands/providers/apply.rs#L414) |
+| format | macro invocation (unexpanded) | fetch_discovered_models | [454](../../src-tauri/src/commands/providers/apply.rs#L454) |
+| extract_model_metadata | function_item |  | [468](../../src-tauri/src/commands/providers/apply.rs#L468) |
+| extract_model_ids | function_item |  | [500](../../src-tauri/src/commands/providers/apply.rs#L500) |
+| switch_to_official | function_item |  | [529](../../src-tauri/src/commands/providers/apply.rs#L529) |
+| switch_to_official_for_target | function_item |  | [538](../../src-tauri/src/commands/providers/apply.rs#L538) |
+| restore_official_for_target | function_item |  | [553](../../src-tauri/src/commands/providers/apply.rs#L553) |
+| format | macro invocation (unexpanded) | restore_official_for_target | [568](../../src-tauri/src/commands/providers/apply.rs#L568) |
+| format | macro invocation (unexpanded) | restore_official_for_target | [575](../../src-tauri/src/commands/providers/apply.rs#L575) |
+| format | macro invocation (unexpanded) | restore_official_for_target | [589](../../src-tauri/src/commands/providers/apply.rs#L589) |
+| matches | macro invocation (unexpanded) | restore_official_for_target | [615](../../src-tauri/src/commands/providers/apply.rs#L615) |
+| format | macro invocation (unexpanded) | restore_official_for_target | [631](../../src-tauri/src/commands/providers/apply.rs#L631) |

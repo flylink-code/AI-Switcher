@@ -4,7 +4,7 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/gateway.rs) · page 1/7
 
-Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
+Source SHA-256: fc0a75938360e6ed61f1593f97dc48db57ef5683cf867c82df21715efc662d0d
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -81,30 +81,30 @@ Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
 | GatewayUpstreamModelRow | struct_item |  | [125](../../src-tauri/src/database/dao/gateway.rs#L125) |
 | model_id | field_declaration | GatewayUpstreamModelRow | [126](../../src-tauri/src/database/dao/gateway.rs#L126) |
 | visible | field_declaration | GatewayUpstreamModelRow | [127](../../src-tauri/src/database/dao/gateway.rs#L127) |
-| display_name | field_declaration | GatewayUpstreamModelRow | [129](../../src-tauri/src/database/dao/gateway.rs#L129) |
-| context_window | field_declaration | GatewayUpstreamModelRow | [130](../../src-tauri/src/database/dao/gateway.rs#L130) |
-| max_output_tokens | field_declaration | GatewayUpstreamModelRow | [131](../../src-tauri/src/database/dao/gateway.rs#L131) |
-| reasoning_levels | field_declaration | GatewayUpstreamModelRow | [133](../../src-tauri/src/database/dao/gateway.rs#L133) |
-| capabilities | field_declaration | GatewayUpstreamModelRow | [135](../../src-tauri/src/database/dao/gateway.rs#L135) |
-| AgentConnectionView | struct_item |  | [140](../../src-tauri/src/database/dao/gateway.rs#L140) |
-| target | field_declaration | AgentConnectionView | [141](../../src-tauri/src/database/dao/gateway.rs#L141) |
-| connection_type | field_declaration | AgentConnectionView | [142](../../src-tauri/src/database/dao/gateway.rs#L142) |
-| upstream_id | field_declaration | AgentConnectionView | [143](../../src-tauri/src/database/dao/gateway.rs#L143) |
-| profile | field_declaration | AgentConnectionView | [144](../../src-tauri/src/database/dao/gateway.rs#L144) |
-| seed_from_legacy | function_item |  | [148](../../src-tauri/src/database/dao/gateway.rs#L148) |
-| copy_providers_to_upstreams | function_item |  | [168](../../src-tauri/src/database/dao/gateway.rs#L168) |
-| format | macro invocation (unexpanded) | copy_providers_to_upstreams | [181](../../src-tauri/src/database/dao/gateway.rs#L181) |
-| format | macro invocation (unexpanded) | copy_providers_to_upstreams | [223](../../src-tauri/src/database/dao/gateway.rs#L223) |
-| params | macro invocation (unexpanded) | copy_providers_to_upstreams | [228](../../src-tauri/src/database/dao/gateway.rs#L228) |
-| copy_optional_provider_column | function_item |  | [235](../../src-tauri/src/database/dao/gateway.rs#L235) |
-| params | macro invocation (unexpanded) | copy_optional_provider_column | [238](../../src-tauri/src/database/dao/gateway.rs#L238) |
-| seed_targets | function_item |  | [247](../../src-tauri/src/database/dao/gateway.rs#L247) |
-| catalog_setting_true | function_item |  | [284](../../src-tauri/src/database/dao/gateway.rs#L284) |
-| default_profile_id | function_item |  | [293](../../src-tauri/src/database/dao/gateway.rs#L293) |
-| format | macro invocation (unexpanded) | default_profile_id | [294](../../src-tauri/src/database/dao/gateway.rs#L294) |
-| ensure_default_profile | function_item |  | [297](../../src-tauri/src/database/dao/gateway.rs#L297) |
-| params | macro invocation (unexpanded) | ensure_default_profile | [306](../../src-tauri/src/database/dao/gateway.rs#L306) |
-| params | macro invocation (unexpanded) | ensure_default_profile | [316](../../src-tauri/src/database/dao/gateway.rs#L316) |
-| format | macro invocation (unexpanded) | ensure_default_profile | [332](../../src-tauri/src/database/dao/gateway.rs#L332) |
-| params | macro invocation (unexpanded) | ensure_default_profile | [351](../../src-tauri/src/database/dao/gateway.rs#L351) |
-| ensure_external_connections | function_item |  | [370](../../src-tauri/src/database/dao/gateway.rs#L370) |
+| fast_enabled | field_declaration | GatewayUpstreamModelRow | [129](../../src-tauri/src/database/dao/gateway.rs#L129) |
+| fast_supported | field_declaration | GatewayUpstreamModelRow | [131](../../src-tauri/src/database/dao/gateway.rs#L131) |
+| display_name | field_declaration | GatewayUpstreamModelRow | [133](../../src-tauri/src/database/dao/gateway.rs#L133) |
+| context_window | field_declaration | GatewayUpstreamModelRow | [134](../../src-tauri/src/database/dao/gateway.rs#L134) |
+| max_output_tokens | field_declaration | GatewayUpstreamModelRow | [135](../../src-tauri/src/database/dao/gateway.rs#L135) |
+| reasoning_levels | field_declaration | GatewayUpstreamModelRow | [137](../../src-tauri/src/database/dao/gateway.rs#L137) |
+| capabilities | field_declaration | GatewayUpstreamModelRow | [139](../../src-tauri/src/database/dao/gateway.rs#L139) |
+| AgentConnectionView | struct_item |  | [144](../../src-tauri/src/database/dao/gateway.rs#L144) |
+| target | field_declaration | AgentConnectionView | [145](../../src-tauri/src/database/dao/gateway.rs#L145) |
+| connection_type | field_declaration | AgentConnectionView | [146](../../src-tauri/src/database/dao/gateway.rs#L146) |
+| upstream_id | field_declaration | AgentConnectionView | [147](../../src-tauri/src/database/dao/gateway.rs#L147) |
+| profile | field_declaration | AgentConnectionView | [148](../../src-tauri/src/database/dao/gateway.rs#L148) |
+| seed_from_legacy | function_item |  | [152](../../src-tauri/src/database/dao/gateway.rs#L152) |
+| copy_providers_to_upstreams | function_item |  | [172](../../src-tauri/src/database/dao/gateway.rs#L172) |
+| format | macro invocation (unexpanded) | copy_providers_to_upstreams | [185](../../src-tauri/src/database/dao/gateway.rs#L185) |
+| format | macro invocation (unexpanded) | copy_providers_to_upstreams | [227](../../src-tauri/src/database/dao/gateway.rs#L227) |
+| params | macro invocation (unexpanded) | copy_providers_to_upstreams | [232](../../src-tauri/src/database/dao/gateway.rs#L232) |
+| copy_optional_provider_column | function_item |  | [239](../../src-tauri/src/database/dao/gateway.rs#L239) |
+| params | macro invocation (unexpanded) | copy_optional_provider_column | [242](../../src-tauri/src/database/dao/gateway.rs#L242) |
+| seed_targets | function_item |  | [251](../../src-tauri/src/database/dao/gateway.rs#L251) |
+| catalog_setting_true | function_item |  | [288](../../src-tauri/src/database/dao/gateway.rs#L288) |
+| default_profile_id | function_item |  | [297](../../src-tauri/src/database/dao/gateway.rs#L297) |
+| format | macro invocation (unexpanded) | default_profile_id | [298](../../src-tauri/src/database/dao/gateway.rs#L298) |
+| ensure_default_profile | function_item |  | [301](../../src-tauri/src/database/dao/gateway.rs#L301) |
+| params | macro invocation (unexpanded) | ensure_default_profile | [310](../../src-tauri/src/database/dao/gateway.rs#L310) |
+| params | macro invocation (unexpanded) | ensure_default_profile | [320](../../src-tauri/src/database/dao/gateway.rs#L320) |
+| format | macro invocation (unexpanded) | ensure_default_profile | [336](../../src-tauri/src/database/dao/gateway.rs#L336) |

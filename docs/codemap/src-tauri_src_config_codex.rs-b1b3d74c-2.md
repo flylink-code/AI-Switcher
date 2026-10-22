@@ -4,107 +4,107 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/codex.rs) · page 2/3
 
-Source SHA-256: 4947839b8276e75dd2c5d96afc1e8b7bffad0209a234fd942c16840485778635
+Source SHA-256: 35b4ef1e217b178c306dc47c4d8b62f1375bb95caa9dab1f14c09c967b16f6b9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| set_output_profile | function_item |  | [1016](../../src-tauri/src/config/codex.rs#L1016) |
-| repair_model_catalog_file | function_item |  | [1042](../../src-tauri/src/config/codex.rs#L1042) |
-| sync_mcp_servers | function_item |  | [1055](../../src-tauri/src/config/codex.rs#L1055) |
-| read_mcp_servers | function_item |  | [1085](../../src-tauri/src/config/codex.rs#L1085) |
-| tests | mod_item |  | [1122](../../src-tauri/src/config/codex.rs#L1122) |
-| sample_codex_provider | function_item | tests | [1130](../../src-tauri/src/config/codex.rs#L1130) |
-| empty_config_accepts_fast_mode_model_without_panic | function_item | tests | [1163](../../src-tauri/src/config/codex.rs#L1163) |
-| assert_eq | macro invocation (unexpanded) | tests::empty_config_accepts_fast_mode_model_without_panic | [1170](../../src-tauri/src/config/codex.rs#L1170) |
-| assert | macro invocation (unexpanded) | tests::empty_config_accepts_fast_mode_model_without_panic | [1171](../../src-tauri/src/config/codex.rs#L1171) |
-| empty_config_accepts_standard_model_without_panic | function_item | tests | [1176](../../src-tauri/src/config/codex.rs#L1176) |
-| assert | macro invocation (unexpanded) | tests::empty_config_accepts_standard_model_without_panic | [1182](../../src-tauri/src/config/codex.rs#L1182) |
-| assert | macro invocation (unexpanded) | tests::empty_config_accepts_standard_model_without_panic | [1183](../../src-tauri/src/config/codex.rs#L1183) |
-| selects_expected_wire_api | function_item | tests | [1188](../../src-tauri/src/config/codex.rs#L1188) |
-| assert_eq | macro invocation (unexpanded) | tests::selects_expected_wire_api | [1189](../../src-tauri/src/config/codex.rs#L1189) |
-| assert_eq | macro invocation (unexpanded) | tests::selects_expected_wire_api | [1190](../../src-tauri/src/config/codex.rs#L1190) |
-| assert_eq | macro invocation (unexpanded) | tests::selects_expected_wire_api | [1191](../../src-tauri/src/config/codex.rs#L1191) |
-| pure_api_provider_uses_stable_id_without_env_key | function_item | tests | [1195](../../src-tauri/src/config/codex.rs#L1195) |
-| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1209](../../src-tauri/src/config/codex.rs#L1209) |
-| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1210](../../src-tauri/src/config/codex.rs#L1210) |
-| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1211](../../src-tauri/src/config/codex.rs#L1211) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1212](../../src-tauri/src/config/codex.rs#L1212) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1213](../../src-tauri/src/config/codex.rs#L1213) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1214](../../src-tauri/src/config/codex.rs#L1214) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1218](../../src-tauri/src/config/codex.rs#L1218) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1222](../../src-tauri/src/config/codex.rs#L1222) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1223](../../src-tauri/src/config/codex.rs#L1223) |
+| toml_bool | function_item |  | [946](../../src-tauri/src/config/codex.rs#L946) |
+| toml_str_owned | function_item |  | [950](../../src-tauri/src/config/codex.rs#L950) |
+| infer_output_profile | function_item |  | [958](../../src-tauri/src/config/codex.rs#L958) |
+| output_profile_catalog_defaults | function_item |  | [979](../../src-tauri/src/config/codex.rs#L979) |
+| apply_output_defaults_to_catalog | function_item |  | [985](../../src-tauri/src/config/codex.rs#L985) |
+| get_output_profile | function_item |  | [1010](../../src-tauri/src/config/codex.rs#L1010) |
+| set_output_profile | function_item |  | [1030](../../src-tauri/src/config/codex.rs#L1030) |
+| repair_model_catalog_file | function_item |  | [1056](../../src-tauri/src/config/codex.rs#L1056) |
+| sync_mcp_servers | function_item |  | [1069](../../src-tauri/src/config/codex.rs#L1069) |
+| read_mcp_servers | function_item |  | [1099](../../src-tauri/src/config/codex.rs#L1099) |
+| tests | mod_item |  | [1136](../../src-tauri/src/config/codex.rs#L1136) |
+| sample_codex_provider | function_item | tests | [1144](../../src-tauri/src/config/codex.rs#L1144) |
+| empty_config_accepts_fast_mode_model_without_panic | function_item | tests | [1177](../../src-tauri/src/config/codex.rs#L1177) |
+| assert_eq | macro invocation (unexpanded) | tests::empty_config_accepts_fast_mode_model_without_panic | [1184](../../src-tauri/src/config/codex.rs#L1184) |
+| assert | macro invocation (unexpanded) | tests::empty_config_accepts_fast_mode_model_without_panic | [1185](../../src-tauri/src/config/codex.rs#L1185) |
+| empty_config_accepts_standard_model_without_panic | function_item | tests | [1190](../../src-tauri/src/config/codex.rs#L1190) |
+| assert | macro invocation (unexpanded) | tests::empty_config_accepts_standard_model_without_panic | [1196](../../src-tauri/src/config/codex.rs#L1196) |
+| assert | macro invocation (unexpanded) | tests::empty_config_accepts_standard_model_without_panic | [1197](../../src-tauri/src/config/codex.rs#L1197) |
+| selects_expected_wire_api | function_item | tests | [1202](../../src-tauri/src/config/codex.rs#L1202) |
+| assert_eq | macro invocation (unexpanded) | tests::selects_expected_wire_api | [1203](../../src-tauri/src/config/codex.rs#L1203) |
+| assert_eq | macro invocation (unexpanded) | tests::selects_expected_wire_api | [1204](../../src-tauri/src/config/codex.rs#L1204) |
+| assert_eq | macro invocation (unexpanded) | tests::selects_expected_wire_api | [1205](../../src-tauri/src/config/codex.rs#L1205) |
+| pure_api_provider_uses_stable_id_without_env_key | function_item | tests | [1209](../../src-tauri/src/config/codex.rs#L1209) |
+| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1223](../../src-tauri/src/config/codex.rs#L1223) |
+| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1224](../../src-tauri/src/config/codex.rs#L1224) |
+| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1225](../../src-tauri/src/config/codex.rs#L1225) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1226](../../src-tauri/src/config/codex.rs#L1226) |
 | assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1227](../../src-tauri/src/config/codex.rs#L1227) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1231](../../src-tauri/src/config/codex.rs#L1231) |
-| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1235](../../src-tauri/src/config/codex.rs#L1235) |
-| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1241](../../src-tauri/src/config/codex.rs#L1241) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1228](../../src-tauri/src/config/codex.rs#L1228) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1232](../../src-tauri/src/config/codex.rs#L1232) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1236](../../src-tauri/src/config/codex.rs#L1236) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1237](../../src-tauri/src/config/codex.rs#L1237) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1241](../../src-tauri/src/config/codex.rs#L1241) |
 | assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1245](../../src-tauri/src/config/codex.rs#L1245) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1246](../../src-tauri/src/config/codex.rs#L1246) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1247](../../src-tauri/src/config/codex.rs#L1247) |
-| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1248](../../src-tauri/src/config/codex.rs#L1248) |
 | assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1249](../../src-tauri/src/config/codex.rs#L1249) |
-| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1250](../../src-tauri/src/config/codex.rs#L1250) |
-| independent_apply_replaces_leftover_loopback_base_url | function_item | tests | [1255](../../src-tauri/src/config/codex.rs#L1255) |
-| assert_eq | macro invocation (unexpanded) | tests::independent_apply_replaces_leftover_loopback_base_url | [1271](../../src-tauri/src/config/codex.rs#L1271) |
-| assert | macro invocation (unexpanded) | tests::independent_apply_replaces_leftover_loopback_base_url | [1272](../../src-tauri/src/config/codex.rs#L1272) |
-| third_party_catalog_uses_display_names_without_gpt_suggestions | function_item | tests | [1277](../../src-tauri/src/config/codex.rs#L1277) |
-| vec | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1281](../../src-tauri/src/config/codex.rs#L1281) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1295](../../src-tauri/src/config/codex.rs#L1295) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1296](../../src-tauri/src/config/codex.rs#L1296) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1297](../../src-tauri/src/config/codex.rs#L1297) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1298](../../src-tauri/src/config/codex.rs#L1298) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1299](../../src-tauri/src/config/codex.rs#L1299) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1300](../../src-tauri/src/config/codex.rs#L1300) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1301](../../src-tauri/src/config/codex.rs#L1301) |
-| assert | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1302](../../src-tauri/src/config/codex.rs#L1302) |
-| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1307](../../src-tauri/src/config/codex.rs#L1307) |
-| kimi_catalog_maps_display_name_without_gpt_suggestions | function_item | tests | [1312](../../src-tauri/src/config/codex.rs#L1312) |
-| vec | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1316](../../src-tauri/src/config/codex.rs#L1316) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1329](../../src-tauri/src/config/codex.rs#L1329) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1330](../../src-tauri/src/config/codex.rs#L1330) |
-| assert_eq | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1331](../../src-tauri/src/config/codex.rs#L1331) |
-| assert | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1332](../../src-tauri/src/config/codex.rs#L1332) |
-| catalog_uses_explicit_context_window | function_item | tests | [1341](../../src-tauri/src/config/codex.rs#L1341) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_uses_explicit_context_window | [1352](../../src-tauri/src/config/codex.rs#L1352) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_uses_explicit_context_window | [1353](../../src-tauri/src/config/codex.rs#L1353) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_uses_explicit_context_window | [1354](../../src-tauri/src/config/codex.rs#L1354) |
-| anthropic_upstream_catalog_disables_incompatible_codex_tools | function_item | tests | [1359](../../src-tauri/src/config/codex.rs#L1359) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_catalog_disables_incompatible_codex_tools | [1363](../../src-tauri/src/config/codex.rs#L1363) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_catalog_disables_incompatible_codex_tools | [1364](../../src-tauri/src/config/codex.rs#L1364) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_catalog_disables_incompatible_codex_tools | [1365](../../src-tauri/src/config/codex.rs#L1365) |
-| provider_can_disable_web_search_for_openai_upstream | function_item | tests | [1370](../../src-tauri/src/config/codex.rs#L1370) |
-| assert_eq | macro invocation (unexpanded) | tests::provider_can_disable_web_search_for_openai_upstream | [1381](../../src-tauri/src/config/codex.rs#L1381) |
-| assert_eq | macro invocation (unexpanded) | tests::provider_can_disable_web_search_for_openai_upstream | [1382](../../src-tauri/src/config/codex.rs#L1382) |
-| anthropic_upstream_via_proxy_keeps_responses_wire_api | function_item | tests | [1387](../../src-tauri/src/config/codex.rs#L1387) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_via_proxy_keeps_responses_wire_api | [1399](../../src-tauri/src/config/codex.rs#L1399) |
-| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_via_proxy_keeps_responses_wire_api | [1403](../../src-tauri/src/config/codex.rs#L1403) |
-| catalog_advertises_fast_mode_for_sol | function_item | tests | [1411](../../src-tauri/src/config/codex.rs#L1411) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1415](../../src-tauri/src/config/codex.rs#L1415) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1416](../../src-tauri/src/config/codex.rs#L1416) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1417](../../src-tauri/src/config/codex.rs#L1417) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1418](../../src-tauri/src/config/codex.rs#L1418) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1419](../../src-tauri/src/config/codex.rs#L1419) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1420](../../src-tauri/src/config/codex.rs#L1420) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1421](../../src-tauri/src/config/codex.rs#L1421) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1422](../../src-tauri/src/config/codex.rs#L1422) |
-| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1423](../../src-tauri/src/config/codex.rs#L1423) |
-| top_level_web_search_mode_round_trips_and_strips_legacy_features | function_item | tests | [1428](../../src-tauri/src/config/codex.rs#L1428) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1437](../../src-tauri/src/config/codex.rs#L1437) |
-| assert | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1438](../../src-tauri/src/config/codex.rs#L1438) |
-| assert | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1440](../../src-tauri/src/config/codex.rs#L1440) |
-| assert | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1441](../../src-tauri/src/config/codex.rs#L1441) |
-| assert_eq | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1443](../../src-tauri/src/config/codex.rs#L1443) |
-| output_profile_writes_official_keys_and_catalog_defaults | function_item | tests | [1448](../../src-tauri/src/config/codex.rs#L1448) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1459](../../src-tauri/src/config/codex.rs#L1459) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1460](../../src-tauri/src/config/codex.rs#L1460) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1461](../../src-tauri/src/config/codex.rs#L1461) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1462](../../src-tauri/src/config/codex.rs#L1462) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1468](../../src-tauri/src/config/codex.rs#L1468) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1469](../../src-tauri/src/config/codex.rs#L1469) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1471](../../src-tauri/src/config/codex.rs#L1471) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1472](../../src-tauri/src/config/codex.rs#L1472) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1473](../../src-tauri/src/config/codex.rs#L1473) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1478](../../src-tauri/src/config/codex.rs#L1478) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1479](../../src-tauri/src/config/codex.rs#L1479) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1482](../../src-tauri/src/config/codex.rs#L1482) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1484](../../src-tauri/src/config/codex.rs#L1484) |
+| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1255](../../src-tauri/src/config/codex.rs#L1255) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1259](../../src-tauri/src/config/codex.rs#L1259) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1260](../../src-tauri/src/config/codex.rs#L1260) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1261](../../src-tauri/src/config/codex.rs#L1261) |
+| assert_eq | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1262](../../src-tauri/src/config/codex.rs#L1262) |
+| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1263](../../src-tauri/src/config/codex.rs#L1263) |
+| assert | macro invocation (unexpanded) | tests::pure_api_provider_uses_stable_id_without_env_key | [1264](../../src-tauri/src/config/codex.rs#L1264) |
+| independent_apply_replaces_leftover_loopback_base_url | function_item | tests | [1269](../../src-tauri/src/config/codex.rs#L1269) |
+| assert_eq | macro invocation (unexpanded) | tests::independent_apply_replaces_leftover_loopback_base_url | [1285](../../src-tauri/src/config/codex.rs#L1285) |
+| assert | macro invocation (unexpanded) | tests::independent_apply_replaces_leftover_loopback_base_url | [1286](../../src-tauri/src/config/codex.rs#L1286) |
+| third_party_catalog_uses_display_names_without_gpt_suggestions | function_item | tests | [1291](../../src-tauri/src/config/codex.rs#L1291) |
+| vec | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1295](../../src-tauri/src/config/codex.rs#L1295) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1309](../../src-tauri/src/config/codex.rs#L1309) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1310](../../src-tauri/src/config/codex.rs#L1310) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1311](../../src-tauri/src/config/codex.rs#L1311) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1312](../../src-tauri/src/config/codex.rs#L1312) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1313](../../src-tauri/src/config/codex.rs#L1313) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1314](../../src-tauri/src/config/codex.rs#L1314) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1315](../../src-tauri/src/config/codex.rs#L1315) |
+| assert | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1316](../../src-tauri/src/config/codex.rs#L1316) |
+| assert_eq | macro invocation (unexpanded) | tests::third_party_catalog_uses_display_names_without_gpt_suggestions | [1321](../../src-tauri/src/config/codex.rs#L1321) |
+| kimi_catalog_maps_display_name_without_gpt_suggestions | function_item | tests | [1326](../../src-tauri/src/config/codex.rs#L1326) |
+| vec | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1330](../../src-tauri/src/config/codex.rs#L1330) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1343](../../src-tauri/src/config/codex.rs#L1343) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1344](../../src-tauri/src/config/codex.rs#L1344) |
+| assert_eq | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1345](../../src-tauri/src/config/codex.rs#L1345) |
+| assert | macro invocation (unexpanded) | tests::kimi_catalog_maps_display_name_without_gpt_suggestions | [1346](../../src-tauri/src/config/codex.rs#L1346) |
+| discovered_catalog_keeps_default_maximum_and_effective_windows_separate | function_item | tests | [1355](../../src-tauri/src/config/codex.rs#L1355) |
+| vec | macro invocation (unexpanded) | tests::discovered_catalog_keeps_default_maximum_and_effective_windows_separate | [1359](../../src-tauri/src/config/codex.rs#L1359) |
+| serde_json::json | macro invocation (unexpanded) | tests::discovered_catalog_keeps_default_maximum_and_effective_windows_separate | [1361](../../src-tauri/src/config/codex.rs#L1361) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_catalog_keeps_default_maximum_and_effective_windows_separate | [1367](../../src-tauri/src/config/codex.rs#L1367) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_catalog_keeps_default_maximum_and_effective_windows_separate | [1368](../../src-tauri/src/config/codex.rs#L1368) |
+| assert_eq | macro invocation (unexpanded) | tests::discovered_catalog_keeps_default_maximum_and_effective_windows_separate | [1369](../../src-tauri/src/config/codex.rs#L1369) |
+| catalog_uses_explicit_context_window | function_item | tests | [1374](../../src-tauri/src/config/codex.rs#L1374) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_uses_explicit_context_window | [1385](../../src-tauri/src/config/codex.rs#L1385) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_uses_explicit_context_window | [1386](../../src-tauri/src/config/codex.rs#L1386) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_uses_explicit_context_window | [1387](../../src-tauri/src/config/codex.rs#L1387) |
+| anthropic_upstream_catalog_disables_incompatible_codex_tools | function_item | tests | [1392](../../src-tauri/src/config/codex.rs#L1392) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_catalog_disables_incompatible_codex_tools | [1396](../../src-tauri/src/config/codex.rs#L1396) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_catalog_disables_incompatible_codex_tools | [1397](../../src-tauri/src/config/codex.rs#L1397) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_catalog_disables_incompatible_codex_tools | [1398](../../src-tauri/src/config/codex.rs#L1398) |
+| provider_can_disable_web_search_for_openai_upstream | function_item | tests | [1403](../../src-tauri/src/config/codex.rs#L1403) |
+| assert_eq | macro invocation (unexpanded) | tests::provider_can_disable_web_search_for_openai_upstream | [1414](../../src-tauri/src/config/codex.rs#L1414) |
+| assert_eq | macro invocation (unexpanded) | tests::provider_can_disable_web_search_for_openai_upstream | [1415](../../src-tauri/src/config/codex.rs#L1415) |
+| anthropic_upstream_via_proxy_keeps_responses_wire_api | function_item | tests | [1420](../../src-tauri/src/config/codex.rs#L1420) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_via_proxy_keeps_responses_wire_api | [1432](../../src-tauri/src/config/codex.rs#L1432) |
+| assert_eq | macro invocation (unexpanded) | tests::anthropic_upstream_via_proxy_keeps_responses_wire_api | [1436](../../src-tauri/src/config/codex.rs#L1436) |
+| catalog_advertises_fast_mode_for_sol | function_item | tests | [1444](../../src-tauri/src/config/codex.rs#L1444) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1448](../../src-tauri/src/config/codex.rs#L1448) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1449](../../src-tauri/src/config/codex.rs#L1449) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1450](../../src-tauri/src/config/codex.rs#L1450) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1451](../../src-tauri/src/config/codex.rs#L1451) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1452](../../src-tauri/src/config/codex.rs#L1452) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1453](../../src-tauri/src/config/codex.rs#L1453) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1454](../../src-tauri/src/config/codex.rs#L1454) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1455](../../src-tauri/src/config/codex.rs#L1455) |
+| assert | macro invocation (unexpanded) | tests::catalog_advertises_fast_mode_for_sol | [1456](../../src-tauri/src/config/codex.rs#L1456) |
+| top_level_web_search_mode_round_trips_and_strips_legacy_features | function_item | tests | [1461](../../src-tauri/src/config/codex.rs#L1461) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1470](../../src-tauri/src/config/codex.rs#L1470) |
+| assert | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1471](../../src-tauri/src/config/codex.rs#L1471) |
+| assert | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1473](../../src-tauri/src/config/codex.rs#L1473) |
+| assert | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1474](../../src-tauri/src/config/codex.rs#L1474) |
+| assert_eq | macro invocation (unexpanded) | tests::top_level_web_search_mode_round_trips_and_strips_legacy_features | [1476](../../src-tauri/src/config/codex.rs#L1476) |
+| output_profile_writes_official_keys_and_catalog_defaults | function_item | tests | [1481](../../src-tauri/src/config/codex.rs#L1481) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1492](../../src-tauri/src/config/codex.rs#L1492) |

@@ -8,7 +8,7 @@
 
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
-| [src-tauri/src/proxy/codex.rs](../../src-tauri/src/proxy/codex.rs) | 158 | [1](src-tauri_src_proxy_codex.rs-a82ee765-1.md) [2](src-tauri_src_proxy_codex.rs-a82ee765-2.md) |
+| [src-tauri/src/proxy/codex.rs](../../src-tauri/src/proxy/codex.rs) | 168 | [1](src-tauri_src_proxy_codex.rs-a82ee765-1.md) [2](src-tauri_src_proxy_codex.rs-a82ee765-2.md) |
 | [src-tauri/src/proxy/codex_anthropic.rs](../../src-tauri/src/proxy/codex_anthropic.rs) | 264 | [1](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-1.md) [2](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-2.md) [3](src-tauri_src_proxy_codex_anthropic.rs-a669acb7-3.md) |
 | [src-tauri/src/proxy/codex_auto_review.rs](../../src-tauri/src/proxy/codex_auto_review.rs) | 20 | [1](src-tauri_src_proxy_codex_auto_review.rs-e70a3df1-1.md) |
 | [src-tauri/src/proxy/codex_chat.rs](../../src-tauri/src/proxy/codex_chat.rs) | 196 | [1](src-tauri_src_proxy_codex_chat.rs-aa0fa258-1.md) [2](src-tauri_src_proxy_codex_chat.rs-aa0fa258-2.md) |

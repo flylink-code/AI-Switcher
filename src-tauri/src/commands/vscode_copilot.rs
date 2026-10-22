@@ -83,7 +83,7 @@ fn build_models(state: &AppState) -> AppResult<Vec<CopilotModel>> {
             pairs.push((provider.clone(), visible));
         }
         let style = crate::catalog::catalog_style_for(TARGET);
-        let entries = crate::catalog::build_catalog_with(style, &pairs, hide_official);
+        let entries = crate::catalog::build_catalog_with_cached_metadata(conn, style, &pairs, hide_official)?;
         Ok(entries
             .into_iter()
             .map(|entry| {

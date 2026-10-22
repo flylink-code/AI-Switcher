@@ -4,76 +4,88 @@
 
 [Module](rust-config.md) · [Source](../../src-tauri/src/config/codex.rs) · page 3/3
 
-Source SHA-256: 4947839b8276e75dd2c5d96afc1e8b7bffad0209a234fd942c16840485778635
+Source SHA-256: 35b4ef1e217b178c306dc47c4d8b62f1375bb95caa9dab1f14c09c967b16f6b9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1485](../../src-tauri/src/config/codex.rs#L1485) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1486](../../src-tauri/src/config/codex.rs#L1486) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1487](../../src-tauri/src/config/codex.rs#L1487) |
-| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1489](../../src-tauri/src/config/codex.rs#L1489) |
-| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1490](../../src-tauri/src/config/codex.rs#L1490) |
-| catalog_entry_follows_output_profile_verbosity | function_item | tests | [1495](../../src-tauri/src/config/codex.rs#L1495) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_entry_follows_output_profile_verbosity | [1501](../../src-tauri/src/config/codex.rs#L1501) |
-| assert_eq | macro invocation (unexpanded) | tests::catalog_entry_follows_output_profile_verbosity | [1502](../../src-tauri/src/config/codex.rs#L1502) |
-| recognizes_stable_and_legacy_managed_ids | function_item | tests | [1507](../../src-tauri/src/config/codex.rs#L1507) |
-| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1508](../../src-tauri/src/config/codex.rs#L1508) |
-| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1509](../../src-tauri/src/config/codex.rs#L1509) |
-| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1510](../../src-tauri/src/config/codex.rs#L1510) |
-| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1511](../../src-tauri/src/config/codex.rs#L1511) |
-| auth_update_preserves_login_tokens_and_mode | function_item | tests | [1515](../../src-tauri/src/config/codex.rs#L1515) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_update_preserves_login_tokens_and_mode | [1527](../../src-tauri/src/config/codex.rs#L1527) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_update_preserves_login_tokens_and_mode | [1528](../../src-tauri/src/config/codex.rs#L1528) |
-| assert_eq | macro invocation (unexpanded) | tests::auth_update_preserves_login_tokens_and_mode | [1529](../../src-tauri/src/config/codex.rs#L1529) |
-| credential_login_material_only_counts_real_credentials | function_item | tests | [1533](../../src-tauri/src/config/codex.rs#L1533) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1534](../../src-tauri/src/config/codex.rs#L1534) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1537](../../src-tauri/src/config/codex.rs#L1537) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1540](../../src-tauri/src/config/codex.rs#L1540) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1543](../../src-tauri/src/config/codex.rs#L1543) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1547](../../src-tauri/src/config/codex.rs#L1547) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1550](../../src-tauri/src/config/codex.rs#L1550) |
-| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1555](../../src-tauri/src/config/codex.rs#L1555) |
-| stale_third_party_residue_detection | function_item | tests | [1559](../../src-tauri/src/config/codex.rs#L1559) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1560](../../src-tauri/src/config/codex.rs#L1560) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1563](../../src-tauri/src/config/codex.rs#L1563) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1567](../../src-tauri/src/config/codex.rs#L1567) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1573](../../src-tauri/src/config/codex.rs#L1573) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1579](../../src-tauri/src/config/codex.rs#L1579) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1586](../../src-tauri/src/config/codex.rs#L1586) |
-| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1589](../../src-tauri/src/config/codex.rs#L1589) |
-| clears_api_key_only_auth_but_keeps_oauth | function_item | tests | [1597](../../src-tauri/src/config/codex.rs#L1597) |
-| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1605](../../src-tauri/src/config/codex.rs#L1605) |
-| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1606](../../src-tauri/src/config/codex.rs#L1606) |
-| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1614](../../src-tauri/src/config/codex.rs#L1614) |
-| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1615](../../src-tauri/src/config/codex.rs#L1615) |
-| assert_eq | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1617](../../src-tauri/src/config/codex.rs#L1617) |
-| assert_eq | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1618](../../src-tauri/src/config/codex.rs#L1618) |
-| restore_never_downgrades_live_login_to_prelogin_backup | function_item | tests | [1622](../../src-tauri/src/config/codex.rs#L1622) |
-| serde_json::json | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1623](../../src-tauri/src/config/codex.rs#L1623) |
-| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1629](../../src-tauri/src/config/codex.rs#L1629) |
-| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1635](../../src-tauri/src/config/codex.rs#L1635) |
-| serde_json::json | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1640](../../src-tauri/src/config/codex.rs#L1640) |
-| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1641](../../src-tauri/src/config/codex.rs#L1641) |
-| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1645](../../src-tauri/src/config/codex.rs#L1645) |
-| doc_with_managed_entry | function_item | tests | [1648](../../src-tauri/src/config/codex.rs#L1648) |
-| preserve_mode_injects_bearer_token_into_managed_provider | function_item | tests | [1659](../../src-tauri/src/config/codex.rs#L1659) |
-| serde_json::json | macro invocation (unexpanded) | tests::preserve_mode_injects_bearer_token_into_managed_provider | [1661](../../src-tauri/src/config/codex.rs#L1661) |
-| assert | macro invocation (unexpanded) | tests::preserve_mode_injects_bearer_token_into_managed_provider | [1669](../../src-tauri/src/config/codex.rs#L1669) |
-| assert_eq | macro invocation (unexpanded) | tests::preserve_mode_injects_bearer_token_into_managed_provider | [1673](../../src-tauri/src/config/codex.rs#L1673) |
-| preserve_mode_with_proxy_injects_proxy_managed_token | function_item | tests | [1682](../../src-tauri/src/config/codex.rs#L1682) |
-| serde_json::json | macro invocation (unexpanded) | tests::preserve_mode_with_proxy_injects_proxy_managed_token | [1684](../../src-tauri/src/config/codex.rs#L1684) |
-| assert | macro invocation (unexpanded) | tests::preserve_mode_with_proxy_injects_proxy_managed_token | [1689](../../src-tauri/src/config/codex.rs#L1689) |
-| assert_eq | macro invocation (unexpanded) | tests::preserve_mode_with_proxy_injects_proxy_managed_token | [1693](../../src-tauri/src/config/codex.rs#L1693) |
-| gateway_catalog_proxy_writes_entry_token_not_proxy_managed | function_item | tests | [1702](../../src-tauri/src/config/codex.rs#L1702) |
-| serde_json::json | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1704](../../src-tauri/src/config/codex.rs#L1704) |
-| assert | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1709](../../src-tauri/src/config/codex.rs#L1709) |
-| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1713](../../src-tauri/src/config/codex.rs#L1713) |
-| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1719](../../src-tauri/src/config/codex.rs#L1719) |
-| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1723](../../src-tauri/src/config/codex.rs#L1723) |
-| gateway_catalog_direct_uses_provider_base_url | function_item | tests | [1730](../../src-tauri/src/config/codex.rs#L1730) |
-| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_direct_uses_provider_base_url | [1742](../../src-tauri/src/config/codex.rs#L1742) |
-| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_direct_uses_provider_base_url | [1746](../../src-tauri/src/config/codex.rs#L1746) |
-| normal_mode_strips_stale_bearer_token | function_item | tests | [1751](../../src-tauri/src/config/codex.rs#L1751) |
-| serde_json::json | macro invocation (unexpanded) | tests::normal_mode_strips_stale_bearer_token | [1759](../../src-tauri/src/config/codex.rs#L1759) |
-| assert | macro invocation (unexpanded) | tests::normal_mode_strips_stale_bearer_token | [1765](../../src-tauri/src/config/codex.rs#L1765) |
-| assert | macro invocation (unexpanded) | tests::normal_mode_strips_stale_bearer_token | [1766](../../src-tauri/src/config/codex.rs#L1766) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1493](../../src-tauri/src/config/codex.rs#L1493) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1494](../../src-tauri/src/config/codex.rs#L1494) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1495](../../src-tauri/src/config/codex.rs#L1495) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1501](../../src-tauri/src/config/codex.rs#L1501) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1502](../../src-tauri/src/config/codex.rs#L1502) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1504](../../src-tauri/src/config/codex.rs#L1504) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1505](../../src-tauri/src/config/codex.rs#L1505) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1506](../../src-tauri/src/config/codex.rs#L1506) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1511](../../src-tauri/src/config/codex.rs#L1511) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1512](../../src-tauri/src/config/codex.rs#L1512) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1515](../../src-tauri/src/config/codex.rs#L1515) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1517](../../src-tauri/src/config/codex.rs#L1517) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1518](../../src-tauri/src/config/codex.rs#L1518) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1519](../../src-tauri/src/config/codex.rs#L1519) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1520](../../src-tauri/src/config/codex.rs#L1520) |
+| assert_eq | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1522](../../src-tauri/src/config/codex.rs#L1522) |
+| assert | macro invocation (unexpanded) | tests::output_profile_writes_official_keys_and_catalog_defaults | [1523](../../src-tauri/src/config/codex.rs#L1523) |
+| catalog_entry_follows_output_profile_verbosity | function_item | tests | [1528](../../src-tauri/src/config/codex.rs#L1528) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_entry_follows_output_profile_verbosity | [1534](../../src-tauri/src/config/codex.rs#L1534) |
+| assert_eq | macro invocation (unexpanded) | tests::catalog_entry_follows_output_profile_verbosity | [1535](../../src-tauri/src/config/codex.rs#L1535) |
+| recognizes_stable_and_legacy_managed_ids | function_item | tests | [1540](../../src-tauri/src/config/codex.rs#L1540) |
+| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1541](../../src-tauri/src/config/codex.rs#L1541) |
+| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1542](../../src-tauri/src/config/codex.rs#L1542) |
+| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1543](../../src-tauri/src/config/codex.rs#L1543) |
+| assert | macro invocation (unexpanded) | tests::recognizes_stable_and_legacy_managed_ids | [1544](../../src-tauri/src/config/codex.rs#L1544) |
+| auth_update_preserves_login_tokens_and_mode | function_item | tests | [1548](../../src-tauri/src/config/codex.rs#L1548) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_update_preserves_login_tokens_and_mode | [1560](../../src-tauri/src/config/codex.rs#L1560) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_update_preserves_login_tokens_and_mode | [1561](../../src-tauri/src/config/codex.rs#L1561) |
+| assert_eq | macro invocation (unexpanded) | tests::auth_update_preserves_login_tokens_and_mode | [1562](../../src-tauri/src/config/codex.rs#L1562) |
+| credential_login_material_only_counts_real_credentials | function_item | tests | [1566](../../src-tauri/src/config/codex.rs#L1566) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1567](../../src-tauri/src/config/codex.rs#L1567) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1570](../../src-tauri/src/config/codex.rs#L1570) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1573](../../src-tauri/src/config/codex.rs#L1573) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1576](../../src-tauri/src/config/codex.rs#L1576) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1580](../../src-tauri/src/config/codex.rs#L1580) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1583](../../src-tauri/src/config/codex.rs#L1583) |
+| assert | macro invocation (unexpanded) | tests::credential_login_material_only_counts_real_credentials | [1588](../../src-tauri/src/config/codex.rs#L1588) |
+| stale_third_party_residue_detection | function_item | tests | [1592](../../src-tauri/src/config/codex.rs#L1592) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1593](../../src-tauri/src/config/codex.rs#L1593) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1596](../../src-tauri/src/config/codex.rs#L1596) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1600](../../src-tauri/src/config/codex.rs#L1600) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1606](../../src-tauri/src/config/codex.rs#L1606) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1612](../../src-tauri/src/config/codex.rs#L1612) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1619](../../src-tauri/src/config/codex.rs#L1619) |
+| assert | macro invocation (unexpanded) | tests::stale_third_party_residue_detection | [1622](../../src-tauri/src/config/codex.rs#L1622) |
+| clears_api_key_only_auth_but_keeps_oauth | function_item | tests | [1630](../../src-tauri/src/config/codex.rs#L1630) |
+| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1638](../../src-tauri/src/config/codex.rs#L1638) |
+| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1639](../../src-tauri/src/config/codex.rs#L1639) |
+| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1647](../../src-tauri/src/config/codex.rs#L1647) |
+| assert | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1648](../../src-tauri/src/config/codex.rs#L1648) |
+| assert_eq | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1650](../../src-tauri/src/config/codex.rs#L1650) |
+| assert_eq | macro invocation (unexpanded) | tests::clears_api_key_only_auth_but_keeps_oauth | [1651](../../src-tauri/src/config/codex.rs#L1651) |
+| restore_never_downgrades_live_login_to_prelogin_backup | function_item | tests | [1655](../../src-tauri/src/config/codex.rs#L1655) |
+| serde_json::json | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1656](../../src-tauri/src/config/codex.rs#L1656) |
+| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1662](../../src-tauri/src/config/codex.rs#L1662) |
+| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1668](../../src-tauri/src/config/codex.rs#L1668) |
+| serde_json::json | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1673](../../src-tauri/src/config/codex.rs#L1673) |
+| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1674](../../src-tauri/src/config/codex.rs#L1674) |
+| assert | macro invocation (unexpanded) | tests::restore_never_downgrades_live_login_to_prelogin_backup | [1678](../../src-tauri/src/config/codex.rs#L1678) |
+| doc_with_managed_entry | function_item | tests | [1681](../../src-tauri/src/config/codex.rs#L1681) |
+| preserve_mode_injects_bearer_token_into_managed_provider | function_item | tests | [1692](../../src-tauri/src/config/codex.rs#L1692) |
+| serde_json::json | macro invocation (unexpanded) | tests::preserve_mode_injects_bearer_token_into_managed_provider | [1694](../../src-tauri/src/config/codex.rs#L1694) |
+| assert | macro invocation (unexpanded) | tests::preserve_mode_injects_bearer_token_into_managed_provider | [1702](../../src-tauri/src/config/codex.rs#L1702) |
+| assert_eq | macro invocation (unexpanded) | tests::preserve_mode_injects_bearer_token_into_managed_provider | [1706](../../src-tauri/src/config/codex.rs#L1706) |
+| preserve_mode_with_proxy_injects_proxy_managed_token | function_item | tests | [1715](../../src-tauri/src/config/codex.rs#L1715) |
+| serde_json::json | macro invocation (unexpanded) | tests::preserve_mode_with_proxy_injects_proxy_managed_token | [1717](../../src-tauri/src/config/codex.rs#L1717) |
+| assert | macro invocation (unexpanded) | tests::preserve_mode_with_proxy_injects_proxy_managed_token | [1722](../../src-tauri/src/config/codex.rs#L1722) |
+| assert_eq | macro invocation (unexpanded) | tests::preserve_mode_with_proxy_injects_proxy_managed_token | [1726](../../src-tauri/src/config/codex.rs#L1726) |
+| gateway_catalog_proxy_writes_entry_token_not_proxy_managed | function_item | tests | [1735](../../src-tauri/src/config/codex.rs#L1735) |
+| serde_json::json | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1737](../../src-tauri/src/config/codex.rs#L1737) |
+| assert | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1742](../../src-tauri/src/config/codex.rs#L1742) |
+| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1746](../../src-tauri/src/config/codex.rs#L1746) |
+| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1752](../../src-tauri/src/config/codex.rs#L1752) |
+| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_proxy_writes_entry_token_not_proxy_managed | [1756](../../src-tauri/src/config/codex.rs#L1756) |
+| gateway_catalog_direct_uses_provider_base_url | function_item | tests | [1763](../../src-tauri/src/config/codex.rs#L1763) |
+| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_direct_uses_provider_base_url | [1775](../../src-tauri/src/config/codex.rs#L1775) |
+| assert_eq | macro invocation (unexpanded) | tests::gateway_catalog_direct_uses_provider_base_url | [1779](../../src-tauri/src/config/codex.rs#L1779) |
+| normal_mode_strips_stale_bearer_token | function_item | tests | [1784](../../src-tauri/src/config/codex.rs#L1784) |
+| serde_json::json | macro invocation (unexpanded) | tests::normal_mode_strips_stale_bearer_token | [1792](../../src-tauri/src/config/codex.rs#L1792) |
+| assert | macro invocation (unexpanded) | tests::normal_mode_strips_stale_bearer_token | [1798](../../src-tauri/src/config/codex.rs#L1798) |
+| assert | macro invocation (unexpanded) | tests::normal_mode_strips_stale_bearer_token | [1799](../../src-tauri/src/config/codex.rs#L1799) |

@@ -126,6 +126,10 @@ pub struct GatewayUpstreamModelRow {
     pub model_id: String,
     pub visible: bool,
     #[serde(default)]
+    pub fast_enabled: bool,
+    #[serde(default)]
+    pub fast_supported: Option<bool>,
+    #[serde(default)]
     pub display_name: String,
     pub context_window: Option<i64>,
     pub max_output_tokens: Option<i64>,
@@ -1858,10 +1862,12 @@ pub fn delete_upstream(conn: &Connection, id: &str) -> AppResult<()> {
     assert_upstream_deletable(conn, id)?;
     delete_upstream_mirror(conn, id)?;
     crate::gateway::upstream_limits::delete_policy(conn, id)?;
+    crate::gateway::fast_mode::remove(conn, id)?;
     if get_provider_row_exists(conn, id)? {
         // Keep the provider card; only drop it from the shared pool.
         return Ok(());
     }
+    conn.execute("DELETE FROM provider_models WHERE provider_id = ?;", params![id])?;
     let _ = secrets::delete_key(id);
     Ok(())
 }
@@ -1926,6 +1932,9 @@ pub fn list_upstream_models(
     conn: &Connection,
     upstream_id: &str,
 ) -> AppResult<Vec<GatewayUpstreamModelRow>> {
+    let fast_models = crate::gateway::fast_mode::enabled_models(conn, upstream_id)?;
+    let metadata = super::providers::get_provider_model_cache(conn, upstream_id)?
+        .map(|cache| cache.metadata).unwrap_or_default();
     let mut stmt = conn.prepare(
         "SELECT model_id, visible, COALESCE(display_name, ''), context_window, max_output_tokens,
                 COALESCE(reasoning_levels_json, '[]'), COALESCE(capabilities_json, '{}')
@@ -1935,8 +1944,14 @@ pub fn list_upstream_models(
         let visible: i64 = row.get(1)?;
         let reasoning: String = row.get(5)?;
         let capabilities: String = row.get(6)?;
+        let model_id: String = row.get(0)?;
+        let slug = crate::provider::split_model_window_label(&model_id).0;
+        let fast_supported = metadata.iter().find(|(id, _)| id.eq_ignore_ascii_case(&slug))
+            .and_then(|(_, meta)| meta.priority_supported);
         Ok(GatewayUpstreamModelRow {
-            model_id: row.get(0)?,
+            fast_enabled: fast_models.contains(&slug.to_ascii_lowercase()) && fast_supported != Some(false),
+            fast_supported,
+            model_id,
             visible: visible != 0,
             display_name: row.get(2)?,
             context_window: row.get(3)?,
@@ -2013,6 +2028,8 @@ pub fn replace_upstream_models(
         }
         ordered.push(trimmed.to_string());
     }
+    let metadata = super::providers::get_provider_model_cache(conn, upstream_id)?
+        .map(|cache| cache.metadata).unwrap_or_default();
     for model in ordered {
         let key = model.to_ascii_lowercase();
         let visible = key == default_key
@@ -2020,7 +2037,18 @@ pub fn replace_upstream_models(
                 .get(&key)
                 .copied()
                 .unwrap_or(!hidden.contains(&key));
-        let inferred = crate::gateway::metadata::infer(&model);
+        let mut inferred = crate::gateway::metadata::infer(&model);
+        let (slug, labeled) = crate::provider::split_model_window_label(&model);
+        if let Some(meta) = metadata.get(&slug) {
+            inferred.context_window = labeled
+                .or(upstream.model_context_window.filter(|window| *window > 0))
+                .or(meta.context_window)
+                .and_then(|window| i64::try_from(window).ok())
+                .or(inferred.context_window);
+            inferred.max_output_tokens = meta.max_output_tokens
+                .and_then(|limit| i64::try_from(limit).ok())
+                .or(inferred.max_output_tokens);
+        }
         let row_id = format!("{upstream_id}:{model}");
         conn.execute(
             "INSERT INTO upstream_models (id, upstream_id, model_id, verified_status, visible, display_name, context_window, max_output_tokens, reasoning_levels_json, capabilities_json)
@@ -3677,6 +3705,70 @@ mod tests {
             thinking_config: None,
             custom_headers: None,
         }
+    }
+
+    #[test]
+    fn fast_mode_batch_is_scoped_atomic_and_survives_refresh() {
+        use crate::gateway::{fast_mode, metadata::DiscoveredModelMeta};
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let first = upsert_upstream(conn, &provider_input(
+                Some("fast_first"), ProviderTarget::Codex, ProviderKind::Standard,
+                ProtocolType::OpenAiResponses, "https://first.test/v1", "known",
+            ))?;
+            let second = upsert_upstream(conn, &provider_input(
+                Some("fast_second"), ProviderTarget::Codex, ProviderKind::Standard,
+                ProtocolType::OpenAiResponses, "https://second.test/v1", "known",
+            ))?;
+            let models = vec!["known".into(), "unknown".into(), "unsupported".into()];
+            let metadata = std::collections::BTreeMap::from([
+                ("known".into(), DiscoveredModelMeta::from_model(&serde_json::json!({"service_tiers": ["priority"]}))),
+                ("unsupported".into(), DiscoveredModelMeta::from_model(&serde_json::json!({"service_tiers": []}))),
+            ]);
+            crate::database::dao::providers::save_provider_model_cache_with_metadata(conn, &first.id, &models, &metadata, 123)?;
+            let rows = super::replace_upstream_models(conn, &first.id, &models)?;
+            assert!(rows.iter().all(|row| !row.fast_enabled));
+            assert!(fast_mode::set_models(conn, &first.id, &models, true, true).is_err());
+            assert!(fast_mode::enabled_models(conn, &first.id)?.is_empty());
+            assert!(fast_mode::set_models(conn, &first.id, &["unknown".into()], true, false).is_err());
+            fast_mode::set_models(conn, &first.id, &["known".into(), "unknown".into()], true, true)?;
+            assert!(fast_mode::is_enabled(conn, &first.id, "KNOWN")?);
+            assert!(!fast_mode::is_enabled(conn, &second.id, "known")?);
+            let refreshed = super::replace_upstream_models(conn, &first.id, &models)?;
+            assert!(refreshed.iter().find(|row| row.model_id == "unknown").unwrap().fast_enabled);
+            assert_eq!(refreshed.iter().find(|row| row.model_id == "unknown").unwrap().fast_supported, None);
+            fast_mode::set_models(conn, &first.id, &["known".into(), "unknown".into()], false, false)?;
+            assert!(fast_mode::enabled_models(conn, &first.id)?.is_empty());
+            fast_mode::set_models(conn, &first.id, &["known".into()], true, false)?;
+            fast_mode::remove(conn, &first.id)?;
+            assert!(!fast_mode::is_enabled(conn, &first.id, "known")?);
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn upstream_model_rows_use_discovered_context_metadata() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let upstream = upsert_upstream(conn, &provider_input(
+                Some("fixture_context"), ProviderTarget::Codex, ProviderKind::Standard,
+                ProtocolType::OpenAiResponses, "https://example.test/v1", "gpt-fixture",
+            ))?;
+            let models = vec!["gpt-fixture".to_string()];
+            let metadata = std::collections::BTreeMap::from([("gpt-fixture".to_string(),
+                crate::gateway::metadata::DiscoveredModelMeta::from_model(&serde_json::json!({
+                    "context_window": 400000, "max_output_tokens": 128000
+                }))) ]);
+            crate::database::dao::providers::save_provider_model_cache_with_metadata(
+                conn, &upstream.id, &models, &metadata, 123,
+            )?;
+            let rows = super::replace_upstream_models(conn, &upstream.id, &models)?;
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0].model_id, "gpt-fixture");
+            assert_eq!(rows[0].context_window, Some(400000));
+            assert_eq!(rows[0].max_output_tokens, Some(128000));
+            Ok(())
+        }).unwrap();
     }
 
     #[test]

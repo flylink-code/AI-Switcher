@@ -560,6 +560,20 @@ fn write_catalog_entries(entries: &[CatalogEntry]) -> AppResult<()> {
                 entry.web_search_enabled,
                 1 + index as i64,
             );
+            if let Some(meta) = &entry.discovered_metadata {
+                if let Some(supported) = meta.priority_supported {
+                    value["service_tiers"] = if supported {
+                        serde_json::json!([{"id": "fast", "name": "Fast", "description": "Priority processing; provider pricing applies"}])
+                    } else { serde_json::json!([]) };
+                    value["additional_speed_tiers"] = if supported { serde_json::json!(["fast"]) } else { serde_json::json!([]) };
+                }
+                if let Some(maximum) = meta.max_context_window {
+                    value["max_context_window"] = serde_json::json!(maximum.max(entry.context_window));
+                }
+                if let Some(percent) = meta.effective_context_window_percent {
+                    value["effective_context_window_percent"] = serde_json::json!(percent);
+                }
+            }
             let pretty = codex_model_display_name(&entry.upstream_slug);
             let display_name = if entry.public_id == entry.upstream_slug {
                 pretty
@@ -1334,6 +1348,25 @@ mod tests {
                     .as_str()
                     .is_some_and(|slug| slug.starts_with("gpt-"))
             }));
+        });
+    }
+
+    #[test]
+    fn discovered_catalog_keeps_default_maximum_and_effective_windows_separate() {
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            let provider = sample_codex_provider();
+            let mut entries = crate::catalog::build_catalog(crate::catalog::CatalogStyle::Codex, &[(provider, vec![])]);
+            entries[0].context_window = 272_000;
+            entries[0].discovered_metadata = Some(crate::gateway::metadata::DiscoveredModelMeta::from_model(&serde_json::json!({
+                "context_window": 272000, "max_context_window": 872000,
+                "effective_context_window_percent": 90
+            })));
+            write_catalog_entries(&entries).unwrap();
+            let value: Value = serde_json::from_slice(&fs::read(temp.path().join(MODEL_CATALOG_FILENAME)).unwrap()).unwrap();
+            assert_eq!(value["models"][0]["context_window"], 272000);
+            assert_eq!(value["models"][0]["max_context_window"], 872000);
+            assert_eq!(value["models"][0]["effective_context_window_percent"], 90);
         });
     }
 

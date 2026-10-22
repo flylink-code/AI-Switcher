@@ -58,7 +58,7 @@
 | [src/components/layout/navItems.tsx](../../src/components/layout/navItems.tsx) | 7 | [1](src_components_layout_navItems.tsx-af6da78b-1.md) |
 | [src/components/proxy/CatalogModelOptionContent.tsx](../../src/components/proxy/CatalogModelOptionContent.tsx) | 25 | [1](src_components_proxy_CatalogModelOptionContent.tsx-4cecdb8f-1.md) |
 | [src/components/proxy/GatewayLimitsCard.tsx](../../src/components/proxy/GatewayLimitsCard.tsx) | 20 | [1](src_components_proxy_GatewayLimitsCard.tsx-6a532280-1.md) |
-| [src/components/proxy/GatewayUpstreamPanel.tsx](../../src/components/proxy/GatewayUpstreamPanel.tsx) | 275 | [1](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-1.md) [2](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-2.md) [3](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-3.md) |
+| [src/components/proxy/GatewayUpstreamPanel.tsx](../../src/components/proxy/GatewayUpstreamPanel.tsx) | 279 | [1](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-1.md) [2](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-2.md) [3](src_components_proxy_GatewayUpstreamPanel.tsx-8e716d50-3.md) |
 | [src/components/proxy/ProxyRoutePanel.tsx](../../src/components/proxy/ProxyRoutePanel.tsx) | 29 | [1](src_components_proxy_ProxyRoutePanel.tsx-6e4328c6-1.md) |
 | [src/components/proxy/ResilienceSettings.tsx](../../src/components/proxy/ResilienceSettings.tsx) | 32 | [1](src_components_proxy_ResilienceSettings.tsx-252c2b42-1.md) |
 | [src/components/proxy/index.ts](../../src/components/proxy/index.ts) | 0 | [1](src_components_proxy_index.ts-b73da42c-1.md) |
@@ -70,7 +70,7 @@
 | [src/components/proxy/upstream/UpstreamImportJsonModal.tsx](../../src/components/proxy/upstream/UpstreamImportJsonModal.tsx) | 18 | [1](src_components_proxy_upstream_UpstreamImportJsonModal.tsx-b734b4e6-1.md) |
 | [src/components/proxy/upstream/UpstreamImportModal.tsx](../../src/components/proxy/upstream/UpstreamImportModal.tsx) | 28 | [1](src_components_proxy_upstream_UpstreamImportModal.tsx-722d7af5-1.md) |
 | [src/components/proxy/upstream/UpstreamLimitsModal.tsx](../../src/components/proxy/upstream/UpstreamLimitsModal.tsx) | 37 | [1](src_components_proxy_upstream_UpstreamLimitsModal.tsx-cfa47ef9-1.md) |
-| [src/components/proxy/upstream/UpstreamModelsDrawer.tsx](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx) | 19 | [1](src_components_proxy_upstream_UpstreamModelsDrawer.tsx-099f08aa-1.md) |
+| [src/components/proxy/upstream/UpstreamModelsDrawer.tsx](../../src/components/proxy/upstream/UpstreamModelsDrawer.tsx) | 39 | [1](src_components_proxy_upstream_UpstreamModelsDrawer.tsx-099f08aa-1.md) |
 | [src/components/proxy/upstream/UpstreamPoolSummary.tsx](../../src/components/proxy/upstream/UpstreamPoolSummary.tsx) | 20 | [1](src_components_proxy_upstream_UpstreamPoolSummary.tsx-952c0273-1.md) |
 | [src/components/proxy/upstream/index.ts](../../src/components/proxy/upstream/index.ts) | 0 | [1](src_components_proxy_upstream_index.ts-3b554075-1.md) |
 | [src/components/sessions/SessionBackupModal.tsx](../../src/components/sessions/SessionBackupModal.tsx) | 85 | [1](src_components_sessions_SessionBackupModal.tsx-8f5220fb-1.md) |

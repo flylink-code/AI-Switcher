@@ -220,6 +220,17 @@ export async function setGatewayUpstreamModelVisible(
   });
 }
 
+export async function setGatewayUpstreamModelsFast(
+  id: string,
+  modelIds: string[],
+  enabled: boolean,
+  confirmUnknown = false,
+): Promise<GatewayUpstreamModelRow[]> {
+  return call<GatewayUpstreamModelRow[]>("set_gateway_upstream_models_fast", {
+    id, modelIds, enabled, confirmUnknown,
+  });
+}
+
 export async function discoverGatewayUpstreamModels(id: string): Promise<ModelDiscoveryResult> {
   return call<ModelDiscoveryResult>("discover_gateway_upstream_models", { id });
 }

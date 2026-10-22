@@ -98,7 +98,7 @@ pub use gateway::{
     list_gateway_upstream_models, list_gateway_upstream_pressure, list_gateway_upstreams,
     list_smart_gateway_bindings, list_upstream_daily_usage_stats, reorder_gateway_upstreams,
     rotate_smart_gateway_api_key, set_agent_connection, set_gateway_upstream_enabled,
-    set_gateway_upstream_model_visible, set_gateway_upstream_policy, set_local_gateway_enabled,
+    set_gateway_upstream_model_visible, set_gateway_upstream_models_fast, set_gateway_upstream_policy, set_local_gateway_enabled,
     set_smart_gateway_api_key, set_smart_gateway_health_probe_secs,
     set_smart_gateway_inbound_limits, set_smart_gateway_port, start_smart_gateway,
     stop_smart_gateway, unbind_smart_gateway, upsert_gateway_upstream,

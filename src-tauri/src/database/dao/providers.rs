@@ -15,6 +15,7 @@ use crate::secrets;
 #[derive(Debug, Clone)]
 pub struct ProviderModelCache {
     pub models: Vec<String>,
+    pub metadata: std::collections::BTreeMap<String, crate::gateway::metadata::DiscoveredModelMeta>,
     pub checked_at: i64,
 }
 
@@ -329,9 +330,15 @@ pub fn get_provider_model_cache(
         return Ok(None);
     };
     let models_json: String = row.get(0)?;
-    let models = serde_json::from_str::<Vec<String>>(&models_json).unwrap_or_default();
+    let value: serde_json::Value = serde_json::from_str(&models_json).unwrap_or_default();
+    let models = serde_json::from_value(value.get("models").unwrap_or(&value).clone())
+        .unwrap_or_default();
+    let metadata = value.get("metadata").cloned()
+        .and_then(|value| serde_json::from_value(value).ok())
+        .unwrap_or_default();
     Ok(Some(ProviderModelCache {
         models,
+        metadata,
         checked_at: row.get(1)?,
     }))
 }
@@ -342,7 +349,21 @@ pub fn save_provider_model_cache(
     models: &[String],
     checked_at: i64,
 ) -> AppResult<()> {
-    let models_json = serde_json::to_string(models)?;
+    save_provider_model_cache_with_metadata(conn, provider_id, models, &Default::default(), checked_at)
+}
+
+pub fn save_provider_model_cache_with_metadata(
+    conn: &Connection,
+    provider_id: &str,
+    models: &[String],
+    metadata: &std::collections::BTreeMap<String, crate::gateway::metadata::DiscoveredModelMeta>,
+    checked_at: i64,
+) -> AppResult<()> {
+    let models_json = if metadata.is_empty() {
+        serde_json::to_string(models)?
+    } else {
+        serde_json::json!({ "models": models, "metadata": metadata }).to_string()
+    };
     conn.execute(
         "INSERT INTO provider_models (provider_id, models_json, checked_at) VALUES (?, ?, ?)
          ON CONFLICT(provider_id) DO UPDATE SET

@@ -4,107 +4,107 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/gateway.rs) · page 2/7
 
-Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
+Source SHA-256: fc0a75938360e6ed61f1593f97dc48db57ef5683cf867c82df21715efc662d0d
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| params | macro invocation (unexpanded) | ensure_external_connections | [375](../../src-tauri/src/database/dao/gateway.rs#L375) |
-| format | macro invocation (unexpanded) | ensure_external_connections | [380](../../src-tauri/src/database/dao/gateway.rs#L380) |
-| params | macro invocation (unexpanded) | ensure_external_connections | [385](../../src-tauri/src/database/dao/gateway.rs#L385) |
-| ensure_gateway_connection | function_item |  | [391](../../src-tauri/src/database/dao/gateway.rs#L391) |
-| format | macro invocation (unexpanded) | ensure_gateway_connection | [395](../../src-tauri/src/database/dao/gateway.rs#L395) |
-| params | macro invocation (unexpanded) | ensure_gateway_connection | [400](../../src-tauri/src/database/dao/gateway.rs#L400) |
+| params | macro invocation (unexpanded) | ensure_default_profile | [355](../../src-tauri/src/database/dao/gateway.rs#L355) |
+| ensure_external_connections | function_item |  | [374](../../src-tauri/src/database/dao/gateway.rs#L374) |
+| params | macro invocation (unexpanded) | ensure_external_connections | [379](../../src-tauri/src/database/dao/gateway.rs#L379) |
+| format | macro invocation (unexpanded) | ensure_external_connections | [384](../../src-tauri/src/database/dao/gateway.rs#L384) |
+| params | macro invocation (unexpanded) | ensure_external_connections | [389](../../src-tauri/src/database/dao/gateway.rs#L389) |
+| ensure_gateway_connection | function_item |  | [395](../../src-tauri/src/database/dao/gateway.rs#L395) |
+| format | macro invocation (unexpanded) | ensure_gateway_connection | [399](../../src-tauri/src/database/dao/gateway.rs#L399) |
 | params | macro invocation (unexpanded) | ensure_gateway_connection | [404](../../src-tauri/src/database/dao/gateway.rs#L404) |
-| setting_true | function_item |  | [409](../../src-tauri/src/database/dao/gateway.rs#L409) |
-| setting_or_empty | function_item |  | [416](../../src-tauri/src/database/dao/gateway.rs#L416) |
-| subagent_key | function_item |  | [428](../../src-tauri/src/database/dao/gateway.rs#L428) |
-| hide_official_key | function_item |  | [436](../../src-tauri/src/database/dao/gateway.rs#L436) |
-| has_current_non_smart_gateway_provider | function_item |  | [444](../../src-tauri/src/database/dao/gateway.rs#L444) |
-| params | macro invocation (unexpanded) | has_current_non_smart_gateway_provider | [449](../../src-tauri/src/database/dao/gateway.rs#L449) |
-| is_gateway_connection | function_item |  | [456](../../src-tauri/src/database/dao/gateway.rs#L456) |
-| params | macro invocation (unexpanded) | is_gateway_connection | [473](../../src-tauri/src/database/dao/gateway.rs#L473) |
-| params | macro invocation (unexpanded) | is_gateway_connection | [482](../../src-tauri/src/database/dao/gateway.rs#L482) |
-| current_profile | function_item |  | [499](../../src-tauri/src/database/dao/gateway.rs#L499) |
-| profile_id_for_target | function_item |  | [506](../../src-tauri/src/database/dao/gateway.rs#L506) |
-| resolve_profile_id | function_item |  | [516](../../src-tauri/src/database/dao/gateway.rs#L516) |
-| get_profile | function_item |  | [528](../../src-tauri/src/database/dao/gateway.rs#L528) |
-| params | macro invocation (unexpanded) | get_profile | [538](../../src-tauri/src/database/dao/gateway.rs#L538) |
-| list_profiles | function_item |  | [545](../../src-tauri/src/database/dao/gateway.rs#L545) |
-| params | macro invocation (unexpanded) | list_profiles | [561](../../src-tauri/src/database/dao/gateway.rs#L561) |
-| create_profile | function_item |  | [567](../../src-tauri/src/database/dao/gateway.rs#L567) |
-| format | macro invocation (unexpanded) | create_profile | [583](../../src-tauri/src/database/dao/gateway.rs#L583) |
-| format | macro invocation (unexpanded) | create_profile | [584](../../src-tauri/src/database/dao/gateway.rs#L584) |
-| delete_profile | function_item |  | [593](../../src-tauri/src/database/dao/gateway.rs#L593) |
-| format | macro invocation (unexpanded) | delete_profile | [598](../../src-tauri/src/database/dao/gateway.rs#L598) |
-| params | macro invocation (unexpanded) | delete_profile | [603](../../src-tauri/src/database/dao/gateway.rs#L603) |
+| params | macro invocation (unexpanded) | ensure_gateway_connection | [408](../../src-tauri/src/database/dao/gateway.rs#L408) |
+| setting_true | function_item |  | [413](../../src-tauri/src/database/dao/gateway.rs#L413) |
+| setting_or_empty | function_item |  | [420](../../src-tauri/src/database/dao/gateway.rs#L420) |
+| subagent_key | function_item |  | [432](../../src-tauri/src/database/dao/gateway.rs#L432) |
+| hide_official_key | function_item |  | [440](../../src-tauri/src/database/dao/gateway.rs#L440) |
+| has_current_non_smart_gateway_provider | function_item |  | [448](../../src-tauri/src/database/dao/gateway.rs#L448) |
+| params | macro invocation (unexpanded) | has_current_non_smart_gateway_provider | [453](../../src-tauri/src/database/dao/gateway.rs#L453) |
+| is_gateway_connection | function_item |  | [460](../../src-tauri/src/database/dao/gateway.rs#L460) |
+| params | macro invocation (unexpanded) | is_gateway_connection | [477](../../src-tauri/src/database/dao/gateway.rs#L477) |
+| params | macro invocation (unexpanded) | is_gateway_connection | [486](../../src-tauri/src/database/dao/gateway.rs#L486) |
+| current_profile | function_item |  | [503](../../src-tauri/src/database/dao/gateway.rs#L503) |
+| profile_id_for_target | function_item |  | [510](../../src-tauri/src/database/dao/gateway.rs#L510) |
+| resolve_profile_id | function_item |  | [520](../../src-tauri/src/database/dao/gateway.rs#L520) |
+| get_profile | function_item |  | [532](../../src-tauri/src/database/dao/gateway.rs#L532) |
+| params | macro invocation (unexpanded) | get_profile | [542](../../src-tauri/src/database/dao/gateway.rs#L542) |
+| list_profiles | function_item |  | [549](../../src-tauri/src/database/dao/gateway.rs#L549) |
+| params | macro invocation (unexpanded) | list_profiles | [565](../../src-tauri/src/database/dao/gateway.rs#L565) |
+| create_profile | function_item |  | [571](../../src-tauri/src/database/dao/gateway.rs#L571) |
+| format | macro invocation (unexpanded) | create_profile | [587](../../src-tauri/src/database/dao/gateway.rs#L587) |
+| format | macro invocation (unexpanded) | create_profile | [588](../../src-tauri/src/database/dao/gateway.rs#L588) |
+| delete_profile | function_item |  | [597](../../src-tauri/src/database/dao/gateway.rs#L597) |
+| format | macro invocation (unexpanded) | delete_profile | [602](../../src-tauri/src/database/dao/gateway.rs#L602) |
 | params | macro invocation (unexpanded) | delete_profile | [607](../../src-tauri/src/database/dao/gateway.rs#L607) |
-| params | macro invocation (unexpanded) | delete_profile | [610](../../src-tauri/src/database/dao/gateway.rs#L610) |
-| params | macro invocation (unexpanded) | delete_profile | [612](../../src-tauri/src/database/dao/gateway.rs#L612) |
-| set_binding_profile | function_item |  | [619](../../src-tauri/src/database/dao/gateway.rs#L619) |
-| format | macro invocation (unexpanded) | set_binding_profile | [626](../../src-tauri/src/database/dao/gateway.rs#L626) |
-| params | macro invocation (unexpanded) | set_binding_profile | [642](../../src-tauri/src/database/dao/gateway.rs#L642) |
-| insert_cloned_profile | function_item |  | [648](../../src-tauri/src/database/dao/gateway.rs#L648) |
-| params | macro invocation (unexpanded) | insert_cloned_profile | [664](../../src-tauri/src/database/dao/gateway.rs#L664) |
-| copy_route_modes | function_item |  | [694](../../src-tauri/src/database/dao/gateway.rs#L694) |
-| params | macro invocation (unexpanded) | copy_route_modes | [703](../../src-tauri/src/database/dao/gateway.rs#L703) |
-| copy_route_rules | function_item |  | [718](../../src-tauri/src/database/dao/gateway.rs#L718) |
-| format | macro invocation (unexpanded) | copy_route_rules | [723](../../src-tauri/src/database/dao/gateway.rs#L723) |
-| params | macro invocation (unexpanded) | copy_route_rules | [729](../../src-tauri/src/database/dao/gateway.rs#L729) |
-| row_to_profile | function_item |  | [746](../../src-tauri/src/database/dao/gateway.rs#L746) |
-| parse_string_list | function_item |  | [775](../../src-tauri/src/database/dao/gateway.rs#L775) |
-| ensure_profile_for_target | function_item |  | [784](../../src-tauri/src/database/dao/gateway.rs#L784) |
-| profile_has_slots | function_item |  | [797](../../src-tauri/src/database/dao/gateway.rs#L797) |
-| pick_legacy_profile_to_copy | function_item |  | [804](../../src-tauri/src/database/dao/gateway.rs#L804) |
-| params | macro invocation (unexpanded) | pick_legacy_profile_to_copy | [812](../../src-tauri/src/database/dao/gateway.rs#L812) |
-| insert_shared_profile | function_item |  | [829](../../src-tauri/src/database/dao/gateway.rs#L829) |
-| format | macro invocation (unexpanded) | insert_shared_profile | [837](../../src-tauri/src/database/dao/gateway.rs#L837) |
-| params | macro invocation (unexpanded) | insert_shared_profile | [867](../../src-tauri/src/database/dao/gateway.rs#L867) |
-| relink_gateway_connections_to_shared | function_item |  | [888](../../src-tauri/src/database/dao/gateway.rs#L888) |
-| params | macro invocation (unexpanded) | relink_gateway_connections_to_shared | [896](../../src-tauri/src/database/dao/gateway.rs#L896) |
-| sync_smart_gateway_provider_tokens | function_item |  | [901](../../src-tauri/src/database/dao/gateway.rs#L901) |
-| ensure_shared_profile | function_item |  | [923](../../src-tauri/src/database/dao/gateway.rs#L923) |
-| params | macro invocation (unexpanded) | ensure_shared_profile | [933](../../src-tauri/src/database/dao/gateway.rs#L933) |
-| format | macro invocation (unexpanded) | ensure_shared_profile | [940](../../src-tauri/src/database/dao/gateway.rs#L940) |
-| params | macro invocation (unexpanded) | ensure_shared_profile | [944](../../src-tauri/src/database/dao/gateway.rs#L944) |
-| patch_profile | function_item |  | [951](../../src-tauri/src/database/dao/gateway.rs#L951) |
-| format | macro invocation (unexpanded) | patch_profile | [957](../../src-tauri/src/database/dao/gateway.rs#L957) |
-| params | macro invocation (unexpanded) | patch_profile | [1019](../../src-tauri/src/database/dao/gateway.rs#L1019) |
-| format | macro invocation (unexpanded) | patch_profile | [1046](../../src-tauri/src/database/dao/gateway.rs#L1046) |
-| normalize_fallback_mode | function_item |  | [1049](../../src-tauri/src/database/dao/gateway.rs#L1049) |
-| sync_profile_legacy_settings | function_item |  | [1056](../../src-tauri/src/database/dao/gateway.rs#L1056) |
-| current_connection_view | function_item |  | [1081](../../src-tauri/src/database/dao/gateway.rs#L1081) |
-| params | macro invocation (unexpanded) | current_connection_view | [1097](../../src-tauri/src/database/dao/gateway.rs#L1097) |
-| set_current_connection_type | function_item |  | [1114](../../src-tauri/src/database/dao/gateway.rs#L1114) |
-| params | macro invocation (unexpanded) | set_current_connection_type | [1149](../../src-tauri/src/database/dao/gateway.rs#L1149) |
-| params | macro invocation (unexpanded) | set_current_connection_type | [1156](../../src-tauri/src/database/dao/gateway.rs#L1156) |
-| params | macro invocation (unexpanded) | set_current_connection_type | [1166](../../src-tauri/src/database/dao/gateway.rs#L1166) |
-| add_upstream_to_default_allowlist | function_item |  | [1174](../../src-tauri/src/database/dao/gateway.rs#L1174) |
-| params | macro invocation (unexpanded) | add_upstream_to_default_allowlist | [1193](../../src-tauri/src/database/dao/gateway.rs#L1193) |
-| assert_upstream_deletable | function_item |  | [1202](../../src-tauri/src/database/dao/gateway.rs#L1202) |
-| params | macro invocation (unexpanded) | assert_upstream_deletable | [1207](../../src-tauri/src/database/dao/gateway.rs#L1207) |
-| format | macro invocation (unexpanded) | assert_upstream_deletable | [1214](../../src-tauri/src/database/dao/gateway.rs#L1214) |
-| params | macro invocation (unexpanded) | assert_upstream_deletable | [1238](../../src-tauri/src/database/dao/gateway.rs#L1238) |
-| params | macro invocation (unexpanded) | assert_upstream_deletable | [1260](../../src-tauri/src/database/dao/gateway.rs#L1260) |
-| delete_upstream_mirror | function_item |  | [1278](../../src-tauri/src/database/dao/gateway.rs#L1278) |
-| params | macro invocation (unexpanded) | delete_upstream_mirror | [1281](../../src-tauri/src/database/dao/gateway.rs#L1281) |
-| params | macro invocation (unexpanded) | delete_upstream_mirror | [1286](../../src-tauri/src/database/dao/gateway.rs#L1286) |
-| params | macro invocation (unexpanded) | delete_upstream_mirror | [1291](../../src-tauri/src/database/dao/gateway.rs#L1291) |
-| params | macro invocation (unexpanded) | delete_upstream_mirror | [1293](../../src-tauri/src/database/dao/gateway.rs#L1293) |
-| strip_upstream_from_profiles | function_item |  | [1298](../../src-tauri/src/database/dao/gateway.rs#L1298) |
-| params | macro invocation (unexpanded) | strip_upstream_from_profiles | [1312](../../src-tauri/src/database/dao/gateway.rs#L1312) |
-| profile_entry_token | function_item |  | [1319](../../src-tauri/src/database/dao/gateway.rs#L1319) |
-| profile_allows_upstream | function_item |  | [1331](../../src-tauri/src/database/dao/gateway.rs#L1331) |
-| parse_health_latency_ms | function_item |  | [1335](../../src-tauri/src/database/dao/gateway.rs#L1335) |
-| list_upstream_providers | function_item |  | [1345](../../src-tauri/src/database/dao/gateway.rs#L1345) |
-| row_to_upstream_provider | function_item |  | [1407](../../src-tauri/src/database/dao/gateway.rs#L1407) |
-| next_upstream_sort_index | function_item |  | [1477](../../src-tauri/src/database/dao/gateway.rs#L1477) |
-| get_upstream_provider | function_item |  | [1486](../../src-tauri/src/database/dao/gateway.rs#L1486) |
-| set_upstream_enabled | function_item |  | [1492](../../src-tauri/src/database/dao/gateway.rs#L1492) |
-| format | macro invocation (unexpanded) | set_upstream_enabled | [1498](../../src-tauri/src/database/dao/gateway.rs#L1498) |
-| params | macro invocation (unexpanded) | set_upstream_enabled | [1505](../../src-tauri/src/database/dao/gateway.rs#L1505) |
-| format | macro invocation (unexpanded) | set_upstream_enabled | [1508](../../src-tauri/src/database/dao/gateway.rs#L1508) |
-| format | macro invocation (unexpanded) | set_upstream_enabled | [1510](../../src-tauri/src/database/dao/gateway.rs#L1510) |
-| LOCAL_GATEWAY_ENABLED_KEY | const_item |  | [1514](../../src-tauri/src/database/dao/gateway.rs#L1514) |
-| local_gateway_enabled_with | function_item |  | [1519](../../src-tauri/src/database/dao/gateway.rs#L1519) |
-| matches | macro invocation (unexpanded) | local_gateway_enabled_with | [1521](../../src-tauri/src/database/dao/gateway.rs#L1521) |
-| matches | macro invocation (unexpanded) | local_gateway_enabled_with | [1529](../../src-tauri/src/database/dao/gateway.rs#L1529) |
+| params | macro invocation (unexpanded) | delete_profile | [611](../../src-tauri/src/database/dao/gateway.rs#L611) |
+| params | macro invocation (unexpanded) | delete_profile | [614](../../src-tauri/src/database/dao/gateway.rs#L614) |
+| params | macro invocation (unexpanded) | delete_profile | [616](../../src-tauri/src/database/dao/gateway.rs#L616) |
+| set_binding_profile | function_item |  | [623](../../src-tauri/src/database/dao/gateway.rs#L623) |
+| format | macro invocation (unexpanded) | set_binding_profile | [630](../../src-tauri/src/database/dao/gateway.rs#L630) |
+| params | macro invocation (unexpanded) | set_binding_profile | [646](../../src-tauri/src/database/dao/gateway.rs#L646) |
+| insert_cloned_profile | function_item |  | [652](../../src-tauri/src/database/dao/gateway.rs#L652) |
+| params | macro invocation (unexpanded) | insert_cloned_profile | [668](../../src-tauri/src/database/dao/gateway.rs#L668) |
+| copy_route_modes | function_item |  | [698](../../src-tauri/src/database/dao/gateway.rs#L698) |
+| params | macro invocation (unexpanded) | copy_route_modes | [707](../../src-tauri/src/database/dao/gateway.rs#L707) |
+| copy_route_rules | function_item |  | [722](../../src-tauri/src/database/dao/gateway.rs#L722) |
+| format | macro invocation (unexpanded) | copy_route_rules | [727](../../src-tauri/src/database/dao/gateway.rs#L727) |
+| params | macro invocation (unexpanded) | copy_route_rules | [733](../../src-tauri/src/database/dao/gateway.rs#L733) |
+| row_to_profile | function_item |  | [750](../../src-tauri/src/database/dao/gateway.rs#L750) |
+| parse_string_list | function_item |  | [779](../../src-tauri/src/database/dao/gateway.rs#L779) |
+| ensure_profile_for_target | function_item |  | [788](../../src-tauri/src/database/dao/gateway.rs#L788) |
+| profile_has_slots | function_item |  | [801](../../src-tauri/src/database/dao/gateway.rs#L801) |
+| pick_legacy_profile_to_copy | function_item |  | [808](../../src-tauri/src/database/dao/gateway.rs#L808) |
+| params | macro invocation (unexpanded) | pick_legacy_profile_to_copy | [816](../../src-tauri/src/database/dao/gateway.rs#L816) |
+| insert_shared_profile | function_item |  | [833](../../src-tauri/src/database/dao/gateway.rs#L833) |
+| format | macro invocation (unexpanded) | insert_shared_profile | [841](../../src-tauri/src/database/dao/gateway.rs#L841) |
+| params | macro invocation (unexpanded) | insert_shared_profile | [871](../../src-tauri/src/database/dao/gateway.rs#L871) |
+| relink_gateway_connections_to_shared | function_item |  | [892](../../src-tauri/src/database/dao/gateway.rs#L892) |
+| params | macro invocation (unexpanded) | relink_gateway_connections_to_shared | [900](../../src-tauri/src/database/dao/gateway.rs#L900) |
+| sync_smart_gateway_provider_tokens | function_item |  | [905](../../src-tauri/src/database/dao/gateway.rs#L905) |
+| ensure_shared_profile | function_item |  | [927](../../src-tauri/src/database/dao/gateway.rs#L927) |
+| params | macro invocation (unexpanded) | ensure_shared_profile | [937](../../src-tauri/src/database/dao/gateway.rs#L937) |
+| format | macro invocation (unexpanded) | ensure_shared_profile | [944](../../src-tauri/src/database/dao/gateway.rs#L944) |
+| params | macro invocation (unexpanded) | ensure_shared_profile | [948](../../src-tauri/src/database/dao/gateway.rs#L948) |
+| patch_profile | function_item |  | [955](../../src-tauri/src/database/dao/gateway.rs#L955) |
+| format | macro invocation (unexpanded) | patch_profile | [961](../../src-tauri/src/database/dao/gateway.rs#L961) |
+| params | macro invocation (unexpanded) | patch_profile | [1023](../../src-tauri/src/database/dao/gateway.rs#L1023) |
+| format | macro invocation (unexpanded) | patch_profile | [1050](../../src-tauri/src/database/dao/gateway.rs#L1050) |
+| normalize_fallback_mode | function_item |  | [1053](../../src-tauri/src/database/dao/gateway.rs#L1053) |
+| sync_profile_legacy_settings | function_item |  | [1060](../../src-tauri/src/database/dao/gateway.rs#L1060) |
+| current_connection_view | function_item |  | [1085](../../src-tauri/src/database/dao/gateway.rs#L1085) |
+| params | macro invocation (unexpanded) | current_connection_view | [1101](../../src-tauri/src/database/dao/gateway.rs#L1101) |
+| set_current_connection_type | function_item |  | [1118](../../src-tauri/src/database/dao/gateway.rs#L1118) |
+| params | macro invocation (unexpanded) | set_current_connection_type | [1153](../../src-tauri/src/database/dao/gateway.rs#L1153) |
+| params | macro invocation (unexpanded) | set_current_connection_type | [1160](../../src-tauri/src/database/dao/gateway.rs#L1160) |
+| params | macro invocation (unexpanded) | set_current_connection_type | [1170](../../src-tauri/src/database/dao/gateway.rs#L1170) |
+| add_upstream_to_default_allowlist | function_item |  | [1178](../../src-tauri/src/database/dao/gateway.rs#L1178) |
+| params | macro invocation (unexpanded) | add_upstream_to_default_allowlist | [1197](../../src-tauri/src/database/dao/gateway.rs#L1197) |
+| assert_upstream_deletable | function_item |  | [1206](../../src-tauri/src/database/dao/gateway.rs#L1206) |
+| params | macro invocation (unexpanded) | assert_upstream_deletable | [1211](../../src-tauri/src/database/dao/gateway.rs#L1211) |
+| format | macro invocation (unexpanded) | assert_upstream_deletable | [1218](../../src-tauri/src/database/dao/gateway.rs#L1218) |
+| params | macro invocation (unexpanded) | assert_upstream_deletable | [1242](../../src-tauri/src/database/dao/gateway.rs#L1242) |
+| params | macro invocation (unexpanded) | assert_upstream_deletable | [1264](../../src-tauri/src/database/dao/gateway.rs#L1264) |
+| delete_upstream_mirror | function_item |  | [1282](../../src-tauri/src/database/dao/gateway.rs#L1282) |
+| params | macro invocation (unexpanded) | delete_upstream_mirror | [1285](../../src-tauri/src/database/dao/gateway.rs#L1285) |
+| params | macro invocation (unexpanded) | delete_upstream_mirror | [1290](../../src-tauri/src/database/dao/gateway.rs#L1290) |
+| params | macro invocation (unexpanded) | delete_upstream_mirror | [1295](../../src-tauri/src/database/dao/gateway.rs#L1295) |
+| params | macro invocation (unexpanded) | delete_upstream_mirror | [1297](../../src-tauri/src/database/dao/gateway.rs#L1297) |
+| strip_upstream_from_profiles | function_item |  | [1302](../../src-tauri/src/database/dao/gateway.rs#L1302) |
+| params | macro invocation (unexpanded) | strip_upstream_from_profiles | [1316](../../src-tauri/src/database/dao/gateway.rs#L1316) |
+| profile_entry_token | function_item |  | [1323](../../src-tauri/src/database/dao/gateway.rs#L1323) |
+| profile_allows_upstream | function_item |  | [1335](../../src-tauri/src/database/dao/gateway.rs#L1335) |
+| parse_health_latency_ms | function_item |  | [1339](../../src-tauri/src/database/dao/gateway.rs#L1339) |
+| list_upstream_providers | function_item |  | [1349](../../src-tauri/src/database/dao/gateway.rs#L1349) |
+| row_to_upstream_provider | function_item |  | [1411](../../src-tauri/src/database/dao/gateway.rs#L1411) |
+| next_upstream_sort_index | function_item |  | [1481](../../src-tauri/src/database/dao/gateway.rs#L1481) |
+| get_upstream_provider | function_item |  | [1490](../../src-tauri/src/database/dao/gateway.rs#L1490) |
+| set_upstream_enabled | function_item |  | [1496](../../src-tauri/src/database/dao/gateway.rs#L1496) |
+| format | macro invocation (unexpanded) | set_upstream_enabled | [1502](../../src-tauri/src/database/dao/gateway.rs#L1502) |
+| params | macro invocation (unexpanded) | set_upstream_enabled | [1509](../../src-tauri/src/database/dao/gateway.rs#L1509) |
+| format | macro invocation (unexpanded) | set_upstream_enabled | [1512](../../src-tauri/src/database/dao/gateway.rs#L1512) |
+| format | macro invocation (unexpanded) | set_upstream_enabled | [1514](../../src-tauri/src/database/dao/gateway.rs#L1514) |
+| LOCAL_GATEWAY_ENABLED_KEY | const_item |  | [1518](../../src-tauri/src/database/dao/gateway.rs#L1518) |
+| local_gateway_enabled_with | function_item |  | [1523](../../src-tauri/src/database/dao/gateway.rs#L1523) |

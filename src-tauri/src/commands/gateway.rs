@@ -254,6 +254,20 @@ pub async fn set_gateway_upstream_model_visible(
 }
 
 #[tauri::command]
+pub async fn set_gateway_upstream_models_fast(
+    id: String,
+    model_ids: Vec<String>,
+    enabled: bool,
+    confirm_unknown: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<GatewayUpstreamModelRow>> {
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+    state.db.with_conn(|conn| {
+        crate::gateway::fast_mode::set_models(conn, &id, &model_ids, enabled, confirm_unknown)
+    })
+}
+
+#[tauri::command]
 pub async fn discover_gateway_upstream_models(
     id: String,
     state: tauri::State<'_, AppState>,
@@ -310,7 +324,7 @@ async fn discover_one_upstream(id: &str, state: &AppState) -> AppResult<ModelDis
         .with_conn(|conn| crate::database::dao::providers::resolve_api_key(conn, &provider.id))?
         .unwrap_or_default();
     let result =
-        crate::commands::providers::discover_provider_models_with_key(&provider, key, state, false)
+        crate::commands::providers::discover_provider_models_with_key(&provider, key, state, true)
             .await?;
     if result.error.is_none() {
         state.db.with_conn(|conn| {

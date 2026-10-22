@@ -4,107 +4,107 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/gateway.rs) · page 3/7
 
-Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
+Source SHA-256: fc0a75938360e6ed61f1593f97dc48db57ef5683cf867c82df21715efc662d0d
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| reorder_upstreams | function_item |  | [1539](../../src-tauri/src/database/dao/gateway.rs#L1539) |
-| params | macro invocation (unexpanded) | reorder_upstreams | [1565](../../src-tauri/src/database/dao/gateway.rs#L1565) |
-| AGENT_DIRECT_MAPPING_KEY_PREFIX | const_item |  | [1571](../../src-tauri/src/database/dao/gateway.rs#L1571) |
-| agent_direct_mapping_key | function_item |  | [1573](../../src-tauri/src/database/dao/gateway.rs#L1573) |
-| format | macro invocation (unexpanded) | agent_direct_mapping_key | [1574](../../src-tauri/src/database/dao/gateway.rs#L1574) |
-| trim_model_mapping | function_item |  | [1577](../../src-tauri/src/database/dao/gateway.rs#L1577) |
-| overlay_model_mapping | function_item |  | [1588](../../src-tauri/src/database/dao/gateway.rs#L1588) |
-| get_agent_direct_model_mapping | function_item |  | [1609](../../src-tauri/src/database/dao/gateway.rs#L1609) |
-| set_agent_direct_model_mapping | function_item |  | [1622](../../src-tauri/src/database/dao/gateway.rs#L1622) |
-| format | macro invocation (unexpanded) | set_agent_direct_model_mapping | [1631](../../src-tauri/src/database/dao/gateway.rs#L1631) |
-| params | macro invocation (unexpanded) | set_agent_direct_model_mapping | [1634](../../src-tauri/src/database/dao/gateway.rs#L1634) |
-| provider_from_upstream | function_item |  | [1639](../../src-tauri/src/database/dao/gateway.rs#L1639) |
-| format | macro invocation (unexpanded) | provider_from_upstream | [1645](../../src-tauri/src/database/dao/gateway.rs#L1645) |
-| upsert_upstream | function_item |  | [1659](../../src-tauri/src/database/dao/gateway.rs#L1659) |
-| format | macro invocation (unexpanded) | upsert_upstream | [1702](../../src-tauri/src/database/dao/gateway.rs#L1702) |
-| params | macro invocation (unexpanded) | upsert_upstream | [1768](../../src-tauri/src/database/dao/gateway.rs#L1768) |
-| params | macro invocation (unexpanded) | upsert_upstream | [1818](../../src-tauri/src/database/dao/gateway.rs#L1818) |
-| params | macro invocation (unexpanded) | upsert_upstream | [1845](../../src-tauri/src/database/dao/gateway.rs#L1845) |
-| delete_upstream | function_item |  | [1851](../../src-tauri/src/database/dao/gateway.rs#L1851) |
-| format | macro invocation (unexpanded) | delete_upstream | [1853](../../src-tauri/src/database/dao/gateway.rs#L1853) |
-| get_provider_row_exists | function_item |  | [1869](../../src-tauri/src/database/dao/gateway.rs#L1869) |
-| params | macro invocation (unexpanded) | get_provider_row_exists | [1872](../../src-tauri/src/database/dao/gateway.rs#L1872) |
-| normalize_upstream_url_for_dedup | function_item |  | [1878](../../src-tauri/src/database/dao/gateway.rs#L1878) |
-| format | macro invocation (unexpanded) | normalize_upstream_url_for_dedup | [1887](../../src-tauri/src/database/dao/gateway.rs#L1887) |
-| format | macro invocation (unexpanded) | normalize_upstream_url_for_dedup | [1889](../../src-tauri/src/database/dao/gateway.rs#L1889) |
-| upstream_endpoint_key | function_item |  | [1896](../../src-tauri/src/database/dao/gateway.rs#L1896) |
-| format | macro invocation (unexpanded) | upstream_endpoint_key | [1897](../../src-tauri/src/database/dao/gateway.rs#L1897) |
-| upstream_identity_dedup_key | function_item |  | [1904](../../src-tauri/src/database/dao/gateway.rs#L1904) |
-| format | macro invocation (unexpanded) | upstream_identity_dedup_key | [1914](../../src-tauri/src/database/dao/gateway.rs#L1914) |
-| format | macro invocation (unexpanded) | upstream_identity_dedup_key | [1915](../../src-tauri/src/database/dao/gateway.rs#L1915) |
-| list_upstream_models | function_item |  | [1925](../../src-tauri/src/database/dao/gateway.rs#L1925) |
-| params | macro invocation (unexpanded) | list_upstream_models | [1934](../../src-tauri/src/database/dao/gateway.rs#L1934) |
-| serde_json::json | macro invocation (unexpanded) | list_upstream_models | [1946](../../src-tauri/src/database/dao/gateway.rs#L1946) |
-| list_visible_upstream_model_ids | function_item |  | [1952](../../src-tauri/src/database/dao/gateway.rs#L1952) |
-| sync_hidden_models_from_rows | function_item |  | [1963](../../src-tauri/src/database/dao/gateway.rs#L1963) |
-| params | macro invocation (unexpanded) | sync_hidden_models_from_rows | [1971](../../src-tauri/src/database/dao/gateway.rs#L1971) |
-| replace_upstream_models | function_item |  | [1976](../../src-tauri/src/database/dao/gateway.rs#L1976) |
-| format | macro invocation (unexpanded) | replace_upstream_models | [1982](../../src-tauri/src/database/dao/gateway.rs#L1982) |
-| params | macro invocation (unexpanded) | replace_upstream_models | [1997](../../src-tauri/src/database/dao/gateway.rs#L1997) |
-| format | macro invocation (unexpanded) | replace_upstream_models | [2024](../../src-tauri/src/database/dao/gateway.rs#L2024) |
-| params | macro invocation (unexpanded) | replace_upstream_models | [2028](../../src-tauri/src/database/dao/gateway.rs#L2028) |
-| set_upstream_model_visible | function_item |  | [2045](../../src-tauri/src/database/dao/gateway.rs#L2045) |
-| format | macro invocation (unexpanded) | set_upstream_model_visible | [2052](../../src-tauri/src/database/dao/gateway.rs#L2052) |
-| format | macro invocation (unexpanded) | set_upstream_model_visible | [2060](../../src-tauri/src/database/dao/gateway.rs#L2060) |
-| params | macro invocation (unexpanded) | set_upstream_model_visible | [2063](../../src-tauri/src/database/dao/gateway.rs#L2063) |
-| params | macro invocation (unexpanded) | set_upstream_model_visible | [2069](../../src-tauri/src/database/dao/gateway.rs#L2069) |
-| append_upstream_to_restricted_allowlist | function_item |  | [2076](../../src-tauri/src/database/dao/gateway.rs#L2076) |
-| import_providers_as_upstreams | function_item |  | [2091](../../src-tauri/src/database/dao/gateway.rs#L2091) |
-| params | macro invocation (unexpanded) | import_providers_as_upstreams | [2215](../../src-tauri/src/database/dao/gateway.rs#L2215) |
-| merge_provider_models_into_upstream | function_item |  | [2241](../../src-tauri/src/database/dao/gateway.rs#L2241) |
-| params | macro invocation (unexpanded) | merge_provider_models_into_upstream | [2296](../../src-tauri/src/database/dao/gateway.rs#L2296) |
-| params | macro invocation (unexpanded) | merge_provider_models_into_upstream | [2306](../../src-tauri/src/database/dao/gateway.rs#L2306) |
-| migration_api_key | function_item |  | [2313](../../src-tauri/src/database/dao/gateway.rs#L2313) |
-| import_all_providers_as_upstreams | function_item |  | [2323](../../src-tauri/src/database/dao/gateway.rs#L2323) |
-| matches | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2390](../../src-tauri/src/database/dao/gateway.rs#L2390) |
-| params | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2457](../../src-tauri/src/database/dao/gateway.rs#L2457) |
-| format | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2475](../../src-tauri/src/database/dao/gateway.rs#L2475) |
-| format | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2478](../../src-tauri/src/database/dao/gateway.rs#L2478) |
-| params | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2516](../../src-tauri/src/database/dao/gateway.rs#L2516) |
-| MIGRATION_DONE_MARKER | const_item |  | [2540](../../src-tauri/src/database/dao/gateway.rs#L2540) |
-| SNAPSHOT_PREFIX | const_item |  | [2541](../../src-tauri/src/database/dao/gateway.rs#L2541) |
-| MIGRATION_TARGETS | const_item |  | [2543](../../src-tauri/src/database/dao/gateway.rs#L2543) |
-| is_v34_migration_done | function_item |  | [2551](../../src-tauri/src/database/dao/gateway.rs#L2551) |
-| params | macro invocation (unexpanded) | is_v34_migration_done | [2557](../../src-tauri/src/database/dao/gateway.rs#L2557) |
-| migrate_v33_to_v34 | function_item |  | [2564](../../src-tauri/src/database/dao/gateway.rs#L2564) |
-| initialize_fresh_v34 | function_item |  | [2568](../../src-tauri/src/database/dao/gateway.rs#L2568) |
-| migrate_to_v34 | function_item |  | [2572](../../src-tauri/src/database/dao/gateway.rs#L2572) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2595](../../src-tauri/src/database/dao/gateway.rs#L2595) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2599](../../src-tauri/src/database/dao/gateway.rs#L2599) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2604](../../src-tauri/src/database/dao/gateway.rs#L2604) |
-| matches | macro invocation (unexpanded) | migrate_to_v34 | [2631](../../src-tauri/src/database/dao/gateway.rs#L2631) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2637](../../src-tauri/src/database/dao/gateway.rs#L2637) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2652](../../src-tauri/src/database/dao/gateway.rs#L2652) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2662](../../src-tauri/src/database/dao/gateway.rs#L2662) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2677](../../src-tauri/src/database/dao/gateway.rs#L2677) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2681](../../src-tauri/src/database/dao/gateway.rs#L2681) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2682](../../src-tauri/src/database/dao/gateway.rs#L2682) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2687](../../src-tauri/src/database/dao/gateway.rs#L2687) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2697](../../src-tauri/src/database/dao/gateway.rs#L2697) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2708](../../src-tauri/src/database/dao/gateway.rs#L2708) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2712](../../src-tauri/src/database/dao/gateway.rs#L2712) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2713](../../src-tauri/src/database/dao/gateway.rs#L2713) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2718](../../src-tauri/src/database/dao/gateway.rs#L2718) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2728](../../src-tauri/src/database/dao/gateway.rs#L2728) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2748](../../src-tauri/src/database/dao/gateway.rs#L2748) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2751](../../src-tauri/src/database/dao/gateway.rs#L2751) |
-| format | macro invocation (unexpanded) | migrate_to_v34 | [2752](../../src-tauri/src/database/dao/gateway.rs#L2752) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2757](../../src-tauri/src/database/dao/gateway.rs#L2757) |
-| params | macro invocation (unexpanded) | migrate_to_v34 | [2768](../../src-tauri/src/database/dao/gateway.rs#L2768) |
-| rollback_v34 | function_item |  | [2776](../../src-tauri/src/database/dao/gateway.rs#L2776) |
-| format | macro invocation (unexpanded) | rollback_v34 | [2786](../../src-tauri/src/database/dao/gateway.rs#L2786) |
-| params | macro invocation (unexpanded) | rollback_v34 | [2789](../../src-tauri/src/database/dao/gateway.rs#L2789) |
-| format | macro invocation (unexpanded) | rollback_v34 | [2794](../../src-tauri/src/database/dao/gateway.rs#L2794) |
-| format | macro invocation (unexpanded) | rollback_v34 | [2806](../../src-tauri/src/database/dao/gateway.rs#L2806) |
-| params | macro invocation (unexpanded) | rollback_v34 | [2811](../../src-tauri/src/database/dao/gateway.rs#L2811) |
-| params | macro invocation (unexpanded) | rollback_v34 | [2827](../../src-tauri/src/database/dao/gateway.rs#L2827) |
-| ProvMig | struct_item | rollback_v34 | [2837](../../src-tauri/src/database/dao/gateway.rs#L2837) |
-| old_provider_id | field_declaration | rollback_v34::ProvMig | [2838](../../src-tauri/src/database/dao/gateway.rs#L2838) |
-| target_app | field_declaration | rollback_v34::ProvMig | [2840](../../src-tauri/src/database/dao/gateway.rs#L2840) |
-| was_current | field_declaration | rollback_v34::ProvMig | [2841](../../src-tauri/src/database/dao/gateway.rs#L2841) |
+| matches | macro invocation (unexpanded) | local_gateway_enabled_with | [1525](../../src-tauri/src/database/dao/gateway.rs#L1525) |
+| matches | macro invocation (unexpanded) | local_gateway_enabled_with | [1533](../../src-tauri/src/database/dao/gateway.rs#L1533) |
+| reorder_upstreams | function_item |  | [1543](../../src-tauri/src/database/dao/gateway.rs#L1543) |
+| params | macro invocation (unexpanded) | reorder_upstreams | [1569](../../src-tauri/src/database/dao/gateway.rs#L1569) |
+| AGENT_DIRECT_MAPPING_KEY_PREFIX | const_item |  | [1575](../../src-tauri/src/database/dao/gateway.rs#L1575) |
+| agent_direct_mapping_key | function_item |  | [1577](../../src-tauri/src/database/dao/gateway.rs#L1577) |
+| format | macro invocation (unexpanded) | agent_direct_mapping_key | [1578](../../src-tauri/src/database/dao/gateway.rs#L1578) |
+| trim_model_mapping | function_item |  | [1581](../../src-tauri/src/database/dao/gateway.rs#L1581) |
+| overlay_model_mapping | function_item |  | [1592](../../src-tauri/src/database/dao/gateway.rs#L1592) |
+| get_agent_direct_model_mapping | function_item |  | [1613](../../src-tauri/src/database/dao/gateway.rs#L1613) |
+| set_agent_direct_model_mapping | function_item |  | [1626](../../src-tauri/src/database/dao/gateway.rs#L1626) |
+| format | macro invocation (unexpanded) | set_agent_direct_model_mapping | [1635](../../src-tauri/src/database/dao/gateway.rs#L1635) |
+| params | macro invocation (unexpanded) | set_agent_direct_model_mapping | [1638](../../src-tauri/src/database/dao/gateway.rs#L1638) |
+| provider_from_upstream | function_item |  | [1643](../../src-tauri/src/database/dao/gateway.rs#L1643) |
+| format | macro invocation (unexpanded) | provider_from_upstream | [1649](../../src-tauri/src/database/dao/gateway.rs#L1649) |
+| upsert_upstream | function_item |  | [1663](../../src-tauri/src/database/dao/gateway.rs#L1663) |
+| format | macro invocation (unexpanded) | upsert_upstream | [1706](../../src-tauri/src/database/dao/gateway.rs#L1706) |
+| params | macro invocation (unexpanded) | upsert_upstream | [1772](../../src-tauri/src/database/dao/gateway.rs#L1772) |
+| params | macro invocation (unexpanded) | upsert_upstream | [1822](../../src-tauri/src/database/dao/gateway.rs#L1822) |
+| params | macro invocation (unexpanded) | upsert_upstream | [1849](../../src-tauri/src/database/dao/gateway.rs#L1849) |
+| delete_upstream | function_item |  | [1855](../../src-tauri/src/database/dao/gateway.rs#L1855) |
+| format | macro invocation (unexpanded) | delete_upstream | [1857](../../src-tauri/src/database/dao/gateway.rs#L1857) |
+| params | macro invocation (unexpanded) | delete_upstream | [1870](../../src-tauri/src/database/dao/gateway.rs#L1870) |
+| get_provider_row_exists | function_item |  | [1875](../../src-tauri/src/database/dao/gateway.rs#L1875) |
+| params | macro invocation (unexpanded) | get_provider_row_exists | [1878](../../src-tauri/src/database/dao/gateway.rs#L1878) |
+| normalize_upstream_url_for_dedup | function_item |  | [1884](../../src-tauri/src/database/dao/gateway.rs#L1884) |
+| format | macro invocation (unexpanded) | normalize_upstream_url_for_dedup | [1893](../../src-tauri/src/database/dao/gateway.rs#L1893) |
+| format | macro invocation (unexpanded) | normalize_upstream_url_for_dedup | [1895](../../src-tauri/src/database/dao/gateway.rs#L1895) |
+| upstream_endpoint_key | function_item |  | [1902](../../src-tauri/src/database/dao/gateway.rs#L1902) |
+| format | macro invocation (unexpanded) | upstream_endpoint_key | [1903](../../src-tauri/src/database/dao/gateway.rs#L1903) |
+| upstream_identity_dedup_key | function_item |  | [1910](../../src-tauri/src/database/dao/gateway.rs#L1910) |
+| format | macro invocation (unexpanded) | upstream_identity_dedup_key | [1920](../../src-tauri/src/database/dao/gateway.rs#L1920) |
+| format | macro invocation (unexpanded) | upstream_identity_dedup_key | [1921](../../src-tauri/src/database/dao/gateway.rs#L1921) |
+| list_upstream_models | function_item |  | [1931](../../src-tauri/src/database/dao/gateway.rs#L1931) |
+| params | macro invocation (unexpanded) | list_upstream_models | [1943](../../src-tauri/src/database/dao/gateway.rs#L1943) |
+| serde_json::json | macro invocation (unexpanded) | list_upstream_models | [1961](../../src-tauri/src/database/dao/gateway.rs#L1961) |
+| list_visible_upstream_model_ids | function_item |  | [1967](../../src-tauri/src/database/dao/gateway.rs#L1967) |
+| sync_hidden_models_from_rows | function_item |  | [1978](../../src-tauri/src/database/dao/gateway.rs#L1978) |
+| params | macro invocation (unexpanded) | sync_hidden_models_from_rows | [1986](../../src-tauri/src/database/dao/gateway.rs#L1986) |
+| replace_upstream_models | function_item |  | [1991](../../src-tauri/src/database/dao/gateway.rs#L1991) |
+| format | macro invocation (unexpanded) | replace_upstream_models | [1997](../../src-tauri/src/database/dao/gateway.rs#L1997) |
+| params | macro invocation (unexpanded) | replace_upstream_models | [2012](../../src-tauri/src/database/dao/gateway.rs#L2012) |
+| format | macro invocation (unexpanded) | replace_upstream_models | [2052](../../src-tauri/src/database/dao/gateway.rs#L2052) |
+| params | macro invocation (unexpanded) | replace_upstream_models | [2056](../../src-tauri/src/database/dao/gateway.rs#L2056) |
+| set_upstream_model_visible | function_item |  | [2073](../../src-tauri/src/database/dao/gateway.rs#L2073) |
+| format | macro invocation (unexpanded) | set_upstream_model_visible | [2080](../../src-tauri/src/database/dao/gateway.rs#L2080) |
+| format | macro invocation (unexpanded) | set_upstream_model_visible | [2088](../../src-tauri/src/database/dao/gateway.rs#L2088) |
+| params | macro invocation (unexpanded) | set_upstream_model_visible | [2091](../../src-tauri/src/database/dao/gateway.rs#L2091) |
+| params | macro invocation (unexpanded) | set_upstream_model_visible | [2097](../../src-tauri/src/database/dao/gateway.rs#L2097) |
+| append_upstream_to_restricted_allowlist | function_item |  | [2104](../../src-tauri/src/database/dao/gateway.rs#L2104) |
+| import_providers_as_upstreams | function_item |  | [2119](../../src-tauri/src/database/dao/gateway.rs#L2119) |
+| params | macro invocation (unexpanded) | import_providers_as_upstreams | [2243](../../src-tauri/src/database/dao/gateway.rs#L2243) |
+| merge_provider_models_into_upstream | function_item |  | [2269](../../src-tauri/src/database/dao/gateway.rs#L2269) |
+| params | macro invocation (unexpanded) | merge_provider_models_into_upstream | [2324](../../src-tauri/src/database/dao/gateway.rs#L2324) |
+| params | macro invocation (unexpanded) | merge_provider_models_into_upstream | [2334](../../src-tauri/src/database/dao/gateway.rs#L2334) |
+| migration_api_key | function_item |  | [2341](../../src-tauri/src/database/dao/gateway.rs#L2341) |
+| import_all_providers_as_upstreams | function_item |  | [2351](../../src-tauri/src/database/dao/gateway.rs#L2351) |
+| matches | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2418](../../src-tauri/src/database/dao/gateway.rs#L2418) |
+| params | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2485](../../src-tauri/src/database/dao/gateway.rs#L2485) |
+| format | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2503](../../src-tauri/src/database/dao/gateway.rs#L2503) |
+| format | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2506](../../src-tauri/src/database/dao/gateway.rs#L2506) |
+| params | macro invocation (unexpanded) | import_all_providers_as_upstreams | [2544](../../src-tauri/src/database/dao/gateway.rs#L2544) |
+| MIGRATION_DONE_MARKER | const_item |  | [2568](../../src-tauri/src/database/dao/gateway.rs#L2568) |
+| SNAPSHOT_PREFIX | const_item |  | [2569](../../src-tauri/src/database/dao/gateway.rs#L2569) |
+| MIGRATION_TARGETS | const_item |  | [2571](../../src-tauri/src/database/dao/gateway.rs#L2571) |
+| is_v34_migration_done | function_item |  | [2579](../../src-tauri/src/database/dao/gateway.rs#L2579) |
+| params | macro invocation (unexpanded) | is_v34_migration_done | [2585](../../src-tauri/src/database/dao/gateway.rs#L2585) |
+| migrate_v33_to_v34 | function_item |  | [2592](../../src-tauri/src/database/dao/gateway.rs#L2592) |
+| initialize_fresh_v34 | function_item |  | [2596](../../src-tauri/src/database/dao/gateway.rs#L2596) |
+| migrate_to_v34 | function_item |  | [2600](../../src-tauri/src/database/dao/gateway.rs#L2600) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2623](../../src-tauri/src/database/dao/gateway.rs#L2623) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2627](../../src-tauri/src/database/dao/gateway.rs#L2627) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2632](../../src-tauri/src/database/dao/gateway.rs#L2632) |
+| matches | macro invocation (unexpanded) | migrate_to_v34 | [2659](../../src-tauri/src/database/dao/gateway.rs#L2659) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2665](../../src-tauri/src/database/dao/gateway.rs#L2665) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2680](../../src-tauri/src/database/dao/gateway.rs#L2680) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2690](../../src-tauri/src/database/dao/gateway.rs#L2690) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2705](../../src-tauri/src/database/dao/gateway.rs#L2705) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2709](../../src-tauri/src/database/dao/gateway.rs#L2709) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2710](../../src-tauri/src/database/dao/gateway.rs#L2710) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2715](../../src-tauri/src/database/dao/gateway.rs#L2715) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2725](../../src-tauri/src/database/dao/gateway.rs#L2725) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2736](../../src-tauri/src/database/dao/gateway.rs#L2736) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2740](../../src-tauri/src/database/dao/gateway.rs#L2740) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2741](../../src-tauri/src/database/dao/gateway.rs#L2741) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2746](../../src-tauri/src/database/dao/gateway.rs#L2746) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2756](../../src-tauri/src/database/dao/gateway.rs#L2756) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2776](../../src-tauri/src/database/dao/gateway.rs#L2776) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2779](../../src-tauri/src/database/dao/gateway.rs#L2779) |
+| format | macro invocation (unexpanded) | migrate_to_v34 | [2780](../../src-tauri/src/database/dao/gateway.rs#L2780) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2785](../../src-tauri/src/database/dao/gateway.rs#L2785) |
+| params | macro invocation (unexpanded) | migrate_to_v34 | [2796](../../src-tauri/src/database/dao/gateway.rs#L2796) |
+| rollback_v34 | function_item |  | [2804](../../src-tauri/src/database/dao/gateway.rs#L2804) |
+| format | macro invocation (unexpanded) | rollback_v34 | [2814](../../src-tauri/src/database/dao/gateway.rs#L2814) |
+| params | macro invocation (unexpanded) | rollback_v34 | [2817](../../src-tauri/src/database/dao/gateway.rs#L2817) |
+| format | macro invocation (unexpanded) | rollback_v34 | [2822](../../src-tauri/src/database/dao/gateway.rs#L2822) |
+| format | macro invocation (unexpanded) | rollback_v34 | [2834](../../src-tauri/src/database/dao/gateway.rs#L2834) |
+| params | macro invocation (unexpanded) | rollback_v34 | [2839](../../src-tauri/src/database/dao/gateway.rs#L2839) |
+| params | macro invocation (unexpanded) | rollback_v34 | [2855](../../src-tauri/src/database/dao/gateway.rs#L2855) |
+| ProvMig | struct_item | rollback_v34 | [2865](../../src-tauri/src/database/dao/gateway.rs#L2865) |

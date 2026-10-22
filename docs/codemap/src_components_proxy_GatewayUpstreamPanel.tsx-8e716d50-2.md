@@ -4,107 +4,107 @@
 
 [Module](web-components.md) · [Source](../../src/components/proxy/GatewayUpstreamPanel.tsx) · page 2/3
 
-Source SHA-256: 1e49752a9422d730d9506f7b679b53ba79776a82717c5e5be35918dbb3496374
+Source SHA-256: 089d4650885b5ce13b44cde08d3ba82187dec07bd716eff2461aaf6ea2ee019f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| [batchSpeedtesting, setBatchSpeedtesting] | VariableDeclaration | GatewayUpstreamPanel | [199](../../src/components/proxy/GatewayUpstreamPanel.tsx#L199) |
-| batchSpeedtesting | BindingElement | GatewayUpstreamPanel.[batchSpeedtesting, setBatchSpeedtesting] | [199](../../src/components/proxy/GatewayUpstreamPanel.tsx#L199) |
-| setBatchSpeedtesting | BindingElement | GatewayUpstreamPanel.[batchSpeedtesting, setBatchSpeedtesting] | [199](../../src/components/proxy/GatewayUpstreamPanel.tsx#L199) |
-| [speedtestResults, setSpeedtestResults] | VariableDeclaration | GatewayUpstreamPanel | [200](../../src/components/proxy/GatewayUpstreamPanel.tsx#L200) |
-| speedtestResults | BindingElement | GatewayUpstreamPanel.[speedtestResults, setSpeedtestResults] | [200](../../src/components/proxy/GatewayUpstreamPanel.tsx#L200) |
-| setSpeedtestResults | BindingElement | GatewayUpstreamPanel.[speedtestResults, setSpeedtestResults] | [200](../../src/components/proxy/GatewayUpstreamPanel.tsx#L200) |
-| cancelled | PropertySignature | GatewayUpstreamPanel.[speedtestResults, setSpeedtestResults] | [201](../../src/components/proxy/GatewayUpstreamPanel.tsx#L201) |
-| [resultsModalOpen, setResultsModalOpen] | VariableDeclaration | GatewayUpstreamPanel | [203](../../src/components/proxy/GatewayUpstreamPanel.tsx#L203) |
-| resultsModalOpen | BindingElement | GatewayUpstreamPanel.[resultsModalOpen, setResultsModalOpen] | [203](../../src/components/proxy/GatewayUpstreamPanel.tsx#L203) |
-| setResultsModalOpen | BindingElement | GatewayUpstreamPanel.[resultsModalOpen, setResultsModalOpen] | [203](../../src/components/proxy/GatewayUpstreamPanel.tsx#L203) |
-| [lastBatchResult, setLastBatchResult] | VariableDeclaration | GatewayUpstreamPanel | [204](../../src/components/proxy/GatewayUpstreamPanel.tsx#L204) |
-| lastBatchResult | BindingElement | GatewayUpstreamPanel.[lastBatchResult, setLastBatchResult] | [204](../../src/components/proxy/GatewayUpstreamPanel.tsx#L204) |
-| setLastBatchResult | BindingElement | GatewayUpstreamPanel.[lastBatchResult, setLastBatchResult] | [204](../../src/components/proxy/GatewayUpstreamPanel.tsx#L204) |
-| activeBatchRef | VariableDeclaration | GatewayUpstreamPanel | [205](../../src/components/proxy/GatewayUpstreamPanel.tsx#L205) |
-| batchId | PropertySignature | GatewayUpstreamPanel.activeBatchRef | [205](../../src/components/proxy/GatewayUpstreamPanel.tsx#L205) |
-| abortController | PropertySignature | GatewayUpstreamPanel.activeBatchRef | [205](../../src/components/proxy/GatewayUpstreamPanel.tsx#L205) |
-| mountedRef | VariableDeclaration | GatewayUpstreamPanel | [206](../../src/components/proxy/GatewayUpstreamPanel.tsx#L206) |
-| [importJsonOpen, setImportJsonOpen] | VariableDeclaration | GatewayUpstreamPanel | [220](../../src/components/proxy/GatewayUpstreamPanel.tsx#L220) |
-| importJsonOpen | BindingElement | GatewayUpstreamPanel.[importJsonOpen, setImportJsonOpen] | [220](../../src/components/proxy/GatewayUpstreamPanel.tsx#L220) |
-| setImportJsonOpen | BindingElement | GatewayUpstreamPanel.[importJsonOpen, setImportJsonOpen] | [220](../../src/components/proxy/GatewayUpstreamPanel.tsx#L220) |
-| [importJsonText, setImportJsonText] | VariableDeclaration | GatewayUpstreamPanel | [221](../../src/components/proxy/GatewayUpstreamPanel.tsx#L221) |
-| importJsonText | BindingElement | GatewayUpstreamPanel.[importJsonText, setImportJsonText] | [221](../../src/components/proxy/GatewayUpstreamPanel.tsx#L221) |
-| setImportJsonText | BindingElement | GatewayUpstreamPanel.[importJsonText, setImportJsonText] | [221](../../src/components/proxy/GatewayUpstreamPanel.tsx#L221) |
-| [importJsonLoading, setImportJsonLoading] | VariableDeclaration | GatewayUpstreamPanel | [222](../../src/components/proxy/GatewayUpstreamPanel.tsx#L222) |
-| importJsonLoading | BindingElement | GatewayUpstreamPanel.[importJsonLoading, setImportJsonLoading] | [222](../../src/components/proxy/GatewayUpstreamPanel.tsx#L222) |
-| setImportJsonLoading | BindingElement | GatewayUpstreamPanel.[importJsonLoading, setImportJsonLoading] | [222](../../src/components/proxy/GatewayUpstreamPanel.tsx#L222) |
-| upstreamsQuery | VariableDeclaration | GatewayUpstreamPanel | [224](../../src/components/proxy/GatewayUpstreamPanel.tsx#L224) |
-| localGatewayQuery | VariableDeclaration | GatewayUpstreamPanel | [228](../../src/components/proxy/GatewayUpstreamPanel.tsx#L228) |
-| healthQuery | VariableDeclaration | GatewayUpstreamPanel | [232](../../src/components/proxy/GatewayUpstreamPanel.tsx#L232) |
-| importProvidersQuery | VariableDeclaration | GatewayUpstreamPanel | [237](../../src/components/proxy/GatewayUpstreamPanel.tsx#L237) |
-| queryFn | PropertyAssignment | GatewayUpstreamPanel.importProvidersQuery | [239](../../src/components/proxy/GatewayUpstreamPanel.tsx#L239) |
-| modelsQuery | VariableDeclaration | GatewayUpstreamPanel | [242](../../src/components/proxy/GatewayUpstreamPanel.tsx#L242) |
-| queryFn | PropertyAssignment | GatewayUpstreamPanel.modelsQuery | [244](../../src/components/proxy/GatewayUpstreamPanel.tsx#L244) |
-| dailyStatsQuery | VariableDeclaration | GatewayUpstreamPanel | [249](../../src/components/proxy/GatewayUpstreamPanel.tsx#L249) |
-| queryFn | PropertyAssignment | GatewayUpstreamPanel.dailyStatsQuery | [251](../../src/components/proxy/GatewayUpstreamPanel.tsx#L251) |
-| onRefresh | PropertyAssignment | GatewayUpstreamPanel | [256](../../src/components/proxy/GatewayUpstreamPanel.tsx#L256) |
-| dailyStatsMap | VariableDeclaration | GatewayUpstreamPanel | [259](../../src/components/proxy/GatewayUpstreamPanel.tsx#L259) |
-| map | VariableDeclaration | GatewayUpstreamPanel.dailyStatsMap | [260](../../src/components/proxy/GatewayUpstreamPanel.tsx#L260) |
-| item | VariableDeclaration | GatewayUpstreamPanel.dailyStatsMap | [262](../../src/components/proxy/GatewayUpstreamPanel.tsx#L262) |
-| importableProviders | VariableDeclaration | GatewayUpstreamPanel | [269](../../src/components/proxy/GatewayUpstreamPanel.tsx#L269) |
-| urlOptions | VariableDeclaration | GatewayUpstreamPanel | [274](../../src/components/proxy/GatewayUpstreamPanel.tsx#L274) |
-| seen | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [275](../../src/components/proxy/GatewayUpstreamPanel.tsx#L275) |
-| options | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [276](../../src/components/proxy/GatewayUpstreamPanel.tsx#L276) |
-| value | PropertySignature | GatewayUpstreamPanel.urlOptions.options | [276](../../src/components/proxy/GatewayUpstreamPanel.tsx#L276) |
-| url | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [277](../../src/components/proxy/GatewayUpstreamPanel.tsx#L277) |
-| value | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [281](../../src/components/proxy/GatewayUpstreamPanel.tsx#L281) |
-| disposed | VariableDeclaration | GatewayUpstreamPanel | [290](../../src/components/proxy/GatewayUpstreamPanel.tsx#L290) |
-| unlisten | VariableDeclaration | GatewayUpstreamPanel | [291](../../src/components/proxy/GatewayUpstreamPanel.tsx#L291) |
-| invalidatePool | VariableDeclaration | GatewayUpstreamPanel | [309](../../src/components/proxy/GatewayUpstreamPanel.tsx#L309) |
-| handleToggleEnabled | VariableDeclaration | GatewayUpstreamPanel | [317](../../src/components/proxy/GatewayUpstreamPanel.tsx#L317) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleToggleEnabled | [322](../../src/components/proxy/GatewayUpstreamPanel.tsx#L322) |
-| openCreate | VariableDeclaration | GatewayUpstreamPanel | [329](../../src/components/proxy/GatewayUpstreamPanel.tsx#L329) |
-| openEdit | VariableDeclaration | GatewayUpstreamPanel | [346](../../src/components/proxy/GatewayUpstreamPanel.tsx#L346) |
-| applyPreset | VariableDeclaration | GatewayUpstreamPanel | [364](../../src/components/proxy/GatewayUpstreamPanel.tsx#L364) |
-| clearPreset | VariableDeclaration | GatewayUpstreamPanel | [375](../../src/components/proxy/GatewayUpstreamPanel.tsx#L375) |
-| normalizeBaseUrlField | VariableDeclaration | GatewayUpstreamPanel | [386](../../src/components/proxy/GatewayUpstreamPanel.tsx#L386) |
-| value | VariableDeclaration | GatewayUpstreamPanel.normalizeBaseUrlField | [387](../../src/components/proxy/GatewayUpstreamPanel.tsx#L387) |
-| next | VariableDeclaration | GatewayUpstreamPanel.normalizeBaseUrlField | [390](../../src/components/proxy/GatewayUpstreamPanel.tsx#L390) |
-| protocol | VariableDeclaration | GatewayUpstreamPanel.normalizeBaseUrlField | [391](../../src/components/proxy/GatewayUpstreamPanel.tsx#L391) |
-| appendV1Suffix | VariableDeclaration | GatewayUpstreamPanel | [401](../../src/components/proxy/GatewayUpstreamPanel.tsx#L401) |
-| value | VariableDeclaration | GatewayUpstreamPanel.appendV1Suffix | [402](../../src/components/proxy/GatewayUpstreamPanel.tsx#L402) |
-| handleFetchModels | VariableDeclaration | GatewayUpstreamPanel | [411](../../src/components/proxy/GatewayUpstreamPanel.tsx#L411) |
-| values | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [412](../../src/components/proxy/GatewayUpstreamPanel.tsx#L412) |
-| rawUrl | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [413](../../src/components/proxy/GatewayUpstreamPanel.tsx#L413) |
-| baseUrl | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [420](../../src/components/proxy/GatewayUpstreamPanel.tsx#L420) |
-| result | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [424](../../src/components/proxy/GatewayUpstreamPanel.tsx#L424) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [446](../../src/components/proxy/GatewayUpstreamPanel.tsx#L446) |
-| handleSave | VariableDeclaration | GatewayUpstreamPanel | [453](../../src/components/proxy/GatewayUpstreamPanel.tsx#L453) |
-| values | VariableDeclaration | GatewayUpstreamPanel.handleSave | [454](../../src/components/proxy/GatewayUpstreamPanel.tsx#L454) |
-| baseUrl | VariableDeclaration | GatewayUpstreamPanel.handleSave | [457](../../src/components/proxy/GatewayUpstreamPanel.tsx#L457) |
-| saved | VariableDeclaration | GatewayUpstreamPanel.handleSave | [464](../../src/components/proxy/GatewayUpstreamPanel.tsx#L464) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleSave | [491](../../src/components/proxy/GatewayUpstreamPanel.tsx#L491) |
-| handleDelete | VariableDeclaration | GatewayUpstreamPanel | [498](../../src/components/proxy/GatewayUpstreamPanel.tsx#L498) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleDelete | [507](../../src/components/proxy/GatewayUpstreamPanel.tsx#L507) |
-| handleAddAg | VariableDeclaration | GatewayUpstreamPanel | [514](../../src/components/proxy/GatewayUpstreamPanel.tsx#L514) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleAddAg | [521](../../src/components/proxy/GatewayUpstreamPanel.tsx#L521) |
-| handleAddKiro | VariableDeclaration | GatewayUpstreamPanel | [528](../../src/components/proxy/GatewayUpstreamPanel.tsx#L528) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleAddKiro | [535](../../src/components/proxy/GatewayUpstreamPanel.tsx#L535) |
-| runAccountLogin | VariableDeclaration | GatewayUpstreamPanel | [542](../../src/components/proxy/GatewayUpstreamPanel.tsx#L542) |
-| _exhaustive | VariableDeclaration | GatewayUpstreamPanel.runAccountLogin | [554](../../src/components/proxy/GatewayUpstreamPanel.tsx#L554) |
-| requestAccountLogin | VariableDeclaration | GatewayUpstreamPanel | [561](../../src/components/proxy/GatewayUpstreamPanel.tsx#L561) |
-| handleEnableLocalGateway | VariableDeclaration | GatewayUpstreamPanel | [569](../../src/components/proxy/GatewayUpstreamPanel.tsx#L569) |
-| kind | VariableDeclaration | GatewayUpstreamPanel.handleEnableLocalGateway | [571](../../src/components/proxy/GatewayUpstreamPanel.tsx#L571) |
-| error | VariableDeclaration | GatewayUpstreamPanel.handleEnableLocalGateway | [578](../../src/components/proxy/GatewayUpstreamPanel.tsx#L578) |
-| applyOrder | VariableDeclaration | GatewayUpstreamPanel | [586](../../src/components/proxy/GatewayUpstreamPanel.tsx#L586) |
-| previous | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [587](../../src/components/proxy/GatewayUpstreamPanel.tsx#L587) |
-| byId | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [588](../../src/components/proxy/GatewayUpstreamPanel.tsx#L588) |
-| optimistic | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [589](../../src/components/proxy/GatewayUpstreamPanel.tsx#L589) |
-| next | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [596](../../src/components/proxy/GatewayUpstreamPanel.tsx#L596) |
-| error | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [600](../../src/components/proxy/GatewayUpstreamPanel.tsx#L600) |
-| handleMove | VariableDeclaration | GatewayUpstreamPanel | [608](../../src/components/proxy/GatewayUpstreamPanel.tsx#L608) |
-| ids | VariableDeclaration | GatewayUpstreamPanel.handleMove | [609](../../src/components/proxy/GatewayUpstreamPanel.tsx#L609) |
-| from | VariableDeclaration | GatewayUpstreamPanel.handleMove | [610](../../src/components/proxy/GatewayUpstreamPanel.tsx#L610) |
-| to | VariableDeclaration | GatewayUpstreamPanel.handleMove | [611](../../src/components/proxy/GatewayUpstreamPanel.tsx#L611) |
-| sensors | VariableDeclaration | GatewayUpstreamPanel | [617](../../src/components/proxy/GatewayUpstreamPanel.tsx#L617) |
-| handleDragEnd | VariableDeclaration | GatewayUpstreamPanel | [619](../../src/components/proxy/GatewayUpstreamPanel.tsx#L619) |
-| { active, over } | VariableDeclaration | GatewayUpstreamPanel.handleDragEnd | [620](../../src/components/proxy/GatewayUpstreamPanel.tsx#L620) |
-| active | BindingElement | GatewayUpstreamPanel.handleDragEnd.{ active, over } | [620](../../src/components/proxy/GatewayUpstreamPanel.tsx#L620) |
-| over | BindingElement | GatewayUpstreamPanel.handleDragEnd.{ active, over } | [620](../../src/components/proxy/GatewayUpstreamPanel.tsx#L620) |
-| ids | VariableDeclaration | GatewayUpstreamPanel.handleDragEnd | [622](../../src/components/proxy/GatewayUpstreamPanel.tsx#L622) |
+| [batchSpeedtesting, setBatchSpeedtesting] | VariableDeclaration | GatewayUpstreamPanel | [200](../../src/components/proxy/GatewayUpstreamPanel.tsx#L200) |
+| batchSpeedtesting | BindingElement | GatewayUpstreamPanel.[batchSpeedtesting, setBatchSpeedtesting] | [200](../../src/components/proxy/GatewayUpstreamPanel.tsx#L200) |
+| setBatchSpeedtesting | BindingElement | GatewayUpstreamPanel.[batchSpeedtesting, setBatchSpeedtesting] | [200](../../src/components/proxy/GatewayUpstreamPanel.tsx#L200) |
+| [speedtestResults, setSpeedtestResults] | VariableDeclaration | GatewayUpstreamPanel | [201](../../src/components/proxy/GatewayUpstreamPanel.tsx#L201) |
+| speedtestResults | BindingElement | GatewayUpstreamPanel.[speedtestResults, setSpeedtestResults] | [201](../../src/components/proxy/GatewayUpstreamPanel.tsx#L201) |
+| setSpeedtestResults | BindingElement | GatewayUpstreamPanel.[speedtestResults, setSpeedtestResults] | [201](../../src/components/proxy/GatewayUpstreamPanel.tsx#L201) |
+| cancelled | PropertySignature | GatewayUpstreamPanel.[speedtestResults, setSpeedtestResults] | [202](../../src/components/proxy/GatewayUpstreamPanel.tsx#L202) |
+| [resultsModalOpen, setResultsModalOpen] | VariableDeclaration | GatewayUpstreamPanel | [204](../../src/components/proxy/GatewayUpstreamPanel.tsx#L204) |
+| resultsModalOpen | BindingElement | GatewayUpstreamPanel.[resultsModalOpen, setResultsModalOpen] | [204](../../src/components/proxy/GatewayUpstreamPanel.tsx#L204) |
+| setResultsModalOpen | BindingElement | GatewayUpstreamPanel.[resultsModalOpen, setResultsModalOpen] | [204](../../src/components/proxy/GatewayUpstreamPanel.tsx#L204) |
+| [lastBatchResult, setLastBatchResult] | VariableDeclaration | GatewayUpstreamPanel | [205](../../src/components/proxy/GatewayUpstreamPanel.tsx#L205) |
+| lastBatchResult | BindingElement | GatewayUpstreamPanel.[lastBatchResult, setLastBatchResult] | [205](../../src/components/proxy/GatewayUpstreamPanel.tsx#L205) |
+| setLastBatchResult | BindingElement | GatewayUpstreamPanel.[lastBatchResult, setLastBatchResult] | [205](../../src/components/proxy/GatewayUpstreamPanel.tsx#L205) |
+| activeBatchRef | VariableDeclaration | GatewayUpstreamPanel | [206](../../src/components/proxy/GatewayUpstreamPanel.tsx#L206) |
+| batchId | PropertySignature | GatewayUpstreamPanel.activeBatchRef | [206](../../src/components/proxy/GatewayUpstreamPanel.tsx#L206) |
+| abortController | PropertySignature | GatewayUpstreamPanel.activeBatchRef | [206](../../src/components/proxy/GatewayUpstreamPanel.tsx#L206) |
+| mountedRef | VariableDeclaration | GatewayUpstreamPanel | [207](../../src/components/proxy/GatewayUpstreamPanel.tsx#L207) |
+| [importJsonOpen, setImportJsonOpen] | VariableDeclaration | GatewayUpstreamPanel | [221](../../src/components/proxy/GatewayUpstreamPanel.tsx#L221) |
+| importJsonOpen | BindingElement | GatewayUpstreamPanel.[importJsonOpen, setImportJsonOpen] | [221](../../src/components/proxy/GatewayUpstreamPanel.tsx#L221) |
+| setImportJsonOpen | BindingElement | GatewayUpstreamPanel.[importJsonOpen, setImportJsonOpen] | [221](../../src/components/proxy/GatewayUpstreamPanel.tsx#L221) |
+| [importJsonText, setImportJsonText] | VariableDeclaration | GatewayUpstreamPanel | [222](../../src/components/proxy/GatewayUpstreamPanel.tsx#L222) |
+| importJsonText | BindingElement | GatewayUpstreamPanel.[importJsonText, setImportJsonText] | [222](../../src/components/proxy/GatewayUpstreamPanel.tsx#L222) |
+| setImportJsonText | BindingElement | GatewayUpstreamPanel.[importJsonText, setImportJsonText] | [222](../../src/components/proxy/GatewayUpstreamPanel.tsx#L222) |
+| [importJsonLoading, setImportJsonLoading] | VariableDeclaration | GatewayUpstreamPanel | [223](../../src/components/proxy/GatewayUpstreamPanel.tsx#L223) |
+| importJsonLoading | BindingElement | GatewayUpstreamPanel.[importJsonLoading, setImportJsonLoading] | [223](../../src/components/proxy/GatewayUpstreamPanel.tsx#L223) |
+| setImportJsonLoading | BindingElement | GatewayUpstreamPanel.[importJsonLoading, setImportJsonLoading] | [223](../../src/components/proxy/GatewayUpstreamPanel.tsx#L223) |
+| upstreamsQuery | VariableDeclaration | GatewayUpstreamPanel | [225](../../src/components/proxy/GatewayUpstreamPanel.tsx#L225) |
+| localGatewayQuery | VariableDeclaration | GatewayUpstreamPanel | [229](../../src/components/proxy/GatewayUpstreamPanel.tsx#L229) |
+| healthQuery | VariableDeclaration | GatewayUpstreamPanel | [233](../../src/components/proxy/GatewayUpstreamPanel.tsx#L233) |
+| importProvidersQuery | VariableDeclaration | GatewayUpstreamPanel | [238](../../src/components/proxy/GatewayUpstreamPanel.tsx#L238) |
+| queryFn | PropertyAssignment | GatewayUpstreamPanel.importProvidersQuery | [240](../../src/components/proxy/GatewayUpstreamPanel.tsx#L240) |
+| modelsQuery | VariableDeclaration | GatewayUpstreamPanel | [243](../../src/components/proxy/GatewayUpstreamPanel.tsx#L243) |
+| queryFn | PropertyAssignment | GatewayUpstreamPanel.modelsQuery | [245](../../src/components/proxy/GatewayUpstreamPanel.tsx#L245) |
+| dailyStatsQuery | VariableDeclaration | GatewayUpstreamPanel | [250](../../src/components/proxy/GatewayUpstreamPanel.tsx#L250) |
+| queryFn | PropertyAssignment | GatewayUpstreamPanel.dailyStatsQuery | [252](../../src/components/proxy/GatewayUpstreamPanel.tsx#L252) |
+| onRefresh | PropertyAssignment | GatewayUpstreamPanel | [257](../../src/components/proxy/GatewayUpstreamPanel.tsx#L257) |
+| dailyStatsMap | VariableDeclaration | GatewayUpstreamPanel | [260](../../src/components/proxy/GatewayUpstreamPanel.tsx#L260) |
+| map | VariableDeclaration | GatewayUpstreamPanel.dailyStatsMap | [261](../../src/components/proxy/GatewayUpstreamPanel.tsx#L261) |
+| item | VariableDeclaration | GatewayUpstreamPanel.dailyStatsMap | [263](../../src/components/proxy/GatewayUpstreamPanel.tsx#L263) |
+| importableProviders | VariableDeclaration | GatewayUpstreamPanel | [270](../../src/components/proxy/GatewayUpstreamPanel.tsx#L270) |
+| urlOptions | VariableDeclaration | GatewayUpstreamPanel | [275](../../src/components/proxy/GatewayUpstreamPanel.tsx#L275) |
+| seen | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [276](../../src/components/proxy/GatewayUpstreamPanel.tsx#L276) |
+| options | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [277](../../src/components/proxy/GatewayUpstreamPanel.tsx#L277) |
+| value | PropertySignature | GatewayUpstreamPanel.urlOptions.options | [277](../../src/components/proxy/GatewayUpstreamPanel.tsx#L277) |
+| url | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [278](../../src/components/proxy/GatewayUpstreamPanel.tsx#L278) |
+| value | VariableDeclaration | GatewayUpstreamPanel.urlOptions | [282](../../src/components/proxy/GatewayUpstreamPanel.tsx#L282) |
+| disposed | VariableDeclaration | GatewayUpstreamPanel | [291](../../src/components/proxy/GatewayUpstreamPanel.tsx#L291) |
+| unlisten | VariableDeclaration | GatewayUpstreamPanel | [292](../../src/components/proxy/GatewayUpstreamPanel.tsx#L292) |
+| invalidatePool | VariableDeclaration | GatewayUpstreamPanel | [310](../../src/components/proxy/GatewayUpstreamPanel.tsx#L310) |
+| handleToggleEnabled | VariableDeclaration | GatewayUpstreamPanel | [318](../../src/components/proxy/GatewayUpstreamPanel.tsx#L318) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleToggleEnabled | [323](../../src/components/proxy/GatewayUpstreamPanel.tsx#L323) |
+| openCreate | VariableDeclaration | GatewayUpstreamPanel | [330](../../src/components/proxy/GatewayUpstreamPanel.tsx#L330) |
+| openEdit | VariableDeclaration | GatewayUpstreamPanel | [347](../../src/components/proxy/GatewayUpstreamPanel.tsx#L347) |
+| applyPreset | VariableDeclaration | GatewayUpstreamPanel | [365](../../src/components/proxy/GatewayUpstreamPanel.tsx#L365) |
+| clearPreset | VariableDeclaration | GatewayUpstreamPanel | [376](../../src/components/proxy/GatewayUpstreamPanel.tsx#L376) |
+| normalizeBaseUrlField | VariableDeclaration | GatewayUpstreamPanel | [387](../../src/components/proxy/GatewayUpstreamPanel.tsx#L387) |
+| value | VariableDeclaration | GatewayUpstreamPanel.normalizeBaseUrlField | [388](../../src/components/proxy/GatewayUpstreamPanel.tsx#L388) |
+| next | VariableDeclaration | GatewayUpstreamPanel.normalizeBaseUrlField | [391](../../src/components/proxy/GatewayUpstreamPanel.tsx#L391) |
+| protocol | VariableDeclaration | GatewayUpstreamPanel.normalizeBaseUrlField | [392](../../src/components/proxy/GatewayUpstreamPanel.tsx#L392) |
+| appendV1Suffix | VariableDeclaration | GatewayUpstreamPanel | [402](../../src/components/proxy/GatewayUpstreamPanel.tsx#L402) |
+| value | VariableDeclaration | GatewayUpstreamPanel.appendV1Suffix | [403](../../src/components/proxy/GatewayUpstreamPanel.tsx#L403) |
+| handleFetchModels | VariableDeclaration | GatewayUpstreamPanel | [412](../../src/components/proxy/GatewayUpstreamPanel.tsx#L412) |
+| values | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [413](../../src/components/proxy/GatewayUpstreamPanel.tsx#L413) |
+| rawUrl | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [414](../../src/components/proxy/GatewayUpstreamPanel.tsx#L414) |
+| baseUrl | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [421](../../src/components/proxy/GatewayUpstreamPanel.tsx#L421) |
+| result | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [425](../../src/components/proxy/GatewayUpstreamPanel.tsx#L425) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleFetchModels | [447](../../src/components/proxy/GatewayUpstreamPanel.tsx#L447) |
+| handleSave | VariableDeclaration | GatewayUpstreamPanel | [454](../../src/components/proxy/GatewayUpstreamPanel.tsx#L454) |
+| values | VariableDeclaration | GatewayUpstreamPanel.handleSave | [455](../../src/components/proxy/GatewayUpstreamPanel.tsx#L455) |
+| baseUrl | VariableDeclaration | GatewayUpstreamPanel.handleSave | [458](../../src/components/proxy/GatewayUpstreamPanel.tsx#L458) |
+| saved | VariableDeclaration | GatewayUpstreamPanel.handleSave | [465](../../src/components/proxy/GatewayUpstreamPanel.tsx#L465) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleSave | [492](../../src/components/proxy/GatewayUpstreamPanel.tsx#L492) |
+| handleDelete | VariableDeclaration | GatewayUpstreamPanel | [499](../../src/components/proxy/GatewayUpstreamPanel.tsx#L499) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleDelete | [508](../../src/components/proxy/GatewayUpstreamPanel.tsx#L508) |
+| handleAddAg | VariableDeclaration | GatewayUpstreamPanel | [515](../../src/components/proxy/GatewayUpstreamPanel.tsx#L515) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleAddAg | [522](../../src/components/proxy/GatewayUpstreamPanel.tsx#L522) |
+| handleAddKiro | VariableDeclaration | GatewayUpstreamPanel | [529](../../src/components/proxy/GatewayUpstreamPanel.tsx#L529) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleAddKiro | [536](../../src/components/proxy/GatewayUpstreamPanel.tsx#L536) |
+| runAccountLogin | VariableDeclaration | GatewayUpstreamPanel | [543](../../src/components/proxy/GatewayUpstreamPanel.tsx#L543) |
+| _exhaustive | VariableDeclaration | GatewayUpstreamPanel.runAccountLogin | [555](../../src/components/proxy/GatewayUpstreamPanel.tsx#L555) |
+| requestAccountLogin | VariableDeclaration | GatewayUpstreamPanel | [562](../../src/components/proxy/GatewayUpstreamPanel.tsx#L562) |
+| handleEnableLocalGateway | VariableDeclaration | GatewayUpstreamPanel | [570](../../src/components/proxy/GatewayUpstreamPanel.tsx#L570) |
+| kind | VariableDeclaration | GatewayUpstreamPanel.handleEnableLocalGateway | [572](../../src/components/proxy/GatewayUpstreamPanel.tsx#L572) |
+| error | VariableDeclaration | GatewayUpstreamPanel.handleEnableLocalGateway | [579](../../src/components/proxy/GatewayUpstreamPanel.tsx#L579) |
+| applyOrder | VariableDeclaration | GatewayUpstreamPanel | [587](../../src/components/proxy/GatewayUpstreamPanel.tsx#L587) |
+| previous | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [588](../../src/components/proxy/GatewayUpstreamPanel.tsx#L588) |
+| byId | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [589](../../src/components/proxy/GatewayUpstreamPanel.tsx#L589) |
+| optimistic | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [590](../../src/components/proxy/GatewayUpstreamPanel.tsx#L590) |
+| next | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [597](../../src/components/proxy/GatewayUpstreamPanel.tsx#L597) |
+| error | VariableDeclaration | GatewayUpstreamPanel.applyOrder | [601](../../src/components/proxy/GatewayUpstreamPanel.tsx#L601) |
+| handleMove | VariableDeclaration | GatewayUpstreamPanel | [609](../../src/components/proxy/GatewayUpstreamPanel.tsx#L609) |
+| ids | VariableDeclaration | GatewayUpstreamPanel.handleMove | [610](../../src/components/proxy/GatewayUpstreamPanel.tsx#L610) |
+| from | VariableDeclaration | GatewayUpstreamPanel.handleMove | [611](../../src/components/proxy/GatewayUpstreamPanel.tsx#L611) |
+| to | VariableDeclaration | GatewayUpstreamPanel.handleMove | [612](../../src/components/proxy/GatewayUpstreamPanel.tsx#L612) |
+| sensors | VariableDeclaration | GatewayUpstreamPanel | [618](../../src/components/proxy/GatewayUpstreamPanel.tsx#L618) |
+| handleDragEnd | VariableDeclaration | GatewayUpstreamPanel | [620](../../src/components/proxy/GatewayUpstreamPanel.tsx#L620) |
+| { active, over } | VariableDeclaration | GatewayUpstreamPanel.handleDragEnd | [621](../../src/components/proxy/GatewayUpstreamPanel.tsx#L621) |
+| active | BindingElement | GatewayUpstreamPanel.handleDragEnd.{ active, over } | [621](../../src/components/proxy/GatewayUpstreamPanel.tsx#L621) |
+| over | BindingElement | GatewayUpstreamPanel.handleDragEnd.{ active, over } | [621](../../src/components/proxy/GatewayUpstreamPanel.tsx#L621) |
+| ids | VariableDeclaration | GatewayUpstreamPanel.handleDragEnd | [623](../../src/components/proxy/GatewayUpstreamPanel.tsx#L623) |

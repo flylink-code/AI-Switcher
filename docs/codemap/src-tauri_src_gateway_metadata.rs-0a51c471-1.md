@@ -4,39 +4,58 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/metadata.rs) · page 1/1
 
-Source SHA-256: 999303d8b40be4bbff4d48b7c433b47a3613efcf8985ba35a30d7994cbcb77c5
+Source SHA-256: f055ddc3700779ab4d9262345905592276228c0b714dc715789564a6c5826285
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| InferredMeta | struct_item |  | [7](../../src-tauri/src/gateway/metadata.rs#L7) |
-| display_name | field_declaration | InferredMeta | [8](../../src-tauri/src/gateway/metadata.rs#L8) |
-| context_window | field_declaration | InferredMeta | [9](../../src-tauri/src/gateway/metadata.rs#L9) |
-| max_output_tokens | field_declaration | InferredMeta | [10](../../src-tauri/src/gateway/metadata.rs#L10) |
-| reasoning_levels | field_declaration | InferredMeta | [11](../../src-tauri/src/gateway/metadata.rs#L11) |
-| capabilities | field_declaration | InferredMeta | [12](../../src-tauri/src/gateway/metadata.rs#L12) |
-| infer | function_item |  | [15](../../src-tauri/src/gateway/metadata.rs#L15) |
-| vec | macro invocation (unexpanded) | infer | [23](../../src-tauri/src/gateway/metadata.rs#L23) |
-| json | macro invocation (unexpanded) | infer | [24](../../src-tauri/src/gateway/metadata.rs#L24) |
-| json | macro invocation (unexpanded) | infer | [33](../../src-tauri/src/gateway/metadata.rs#L33) |
-| json | macro invocation (unexpanded) | infer | [40](../../src-tauri/src/gateway/metadata.rs#L40) |
-| vec | macro invocation (unexpanded) | infer | [48](../../src-tauri/src/gateway/metadata.rs#L48) |
-| vec | macro invocation (unexpanded) | infer | [59](../../src-tauri/src/gateway/metadata.rs#L59) |
-| strip_gateway_routing_prefix | function_item |  | [66](../../src-tauri/src/gateway/metadata.rs#L66) |
-| has_window_token | function_item |  | [82](../../src-tauri/src/gateway/metadata.rs#L82) |
-| context_window_for | function_item |  | [88](../../src-tauri/src/gateway/metadata.rs#L88) |
-| max_output_for | function_item |  | [95](../../src-tauri/src/gateway/metadata.rs#L95) |
-| tests | mod_item |  | [105](../../src-tauri/src/gateway/metadata.rs#L105) |
-| window_marker_must_be_a_whole_token | function_item | tests | [109](../../src-tauri/src/gateway/metadata.rs#L109) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [110](../../src-tauri/src/gateway/metadata.rs#L110) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [111](../../src-tauri/src/gateway/metadata.rs#L111) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [112](../../src-tauri/src/gateway/metadata.rs#L112) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [114](../../src-tauri/src/gateway/metadata.rs#L114) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [115](../../src-tauri/src/gateway/metadata.rs#L115) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [116](../../src-tauri/src/gateway/metadata.rs#L116) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [117](../../src-tauri/src/gateway/metadata.rs#L117) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [118](../../src-tauri/src/gateway/metadata.rs#L118) |
-| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [119](../../src-tauri/src/gateway/metadata.rs#L119) |
-| gemini_flash_and_argon_infer_full_reasoning_levels | function_item | tests | [126](../../src-tauri/src/gateway/metadata.rs#L126) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_flash_and_argon_infer_full_reasoning_levels | [128](../../src-tauri/src/gateway/metadata.rs#L128) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_flash_and_argon_infer_full_reasoning_levels | [138](../../src-tauri/src/gateway/metadata.rs#L138) |
-| assert_eq | macro invocation (unexpanded) | tests::gemini_flash_and_argon_infer_full_reasoning_levels | [149](../../src-tauri/src/gateway/metadata.rs#L149) |
+| DiscoveredModelMeta | struct_item |  | [8](../../src-tauri/src/gateway/metadata.rs#L8) |
+| priority_supported | field_declaration | DiscoveredModelMeta | [10](../../src-tauri/src/gateway/metadata.rs#L10) |
+| context_window | field_declaration | DiscoveredModelMeta | [11](../../src-tauri/src/gateway/metadata.rs#L11) |
+| max_output_tokens | field_declaration | DiscoveredModelMeta | [12](../../src-tauri/src/gateway/metadata.rs#L12) |
+| max_context_window | field_declaration | DiscoveredModelMeta | [13](../../src-tauri/src/gateway/metadata.rs#L13) |
+| effective_context_window_percent | field_declaration | DiscoveredModelMeta | [14](../../src-tauri/src/gateway/metadata.rs#L14) |
+| DiscoveredModelMeta | impl |  | [17](../../src-tauri/src/gateway/metadata.rs#L17) |
+| from_model | function_item | DiscoveredModelMeta | [18](../../src-tauri/src/gateway/metadata.rs#L18) |
+| matches | macro invocation (unexpanded) | DiscoveredModelMeta::from_model | [29](../../src-tauri/src/gateway/metadata.rs#L29) |
+| InferredMeta | struct_item |  | [45](../../src-tauri/src/gateway/metadata.rs#L45) |
+| display_name | field_declaration | InferredMeta | [46](../../src-tauri/src/gateway/metadata.rs#L46) |
+| context_window | field_declaration | InferredMeta | [47](../../src-tauri/src/gateway/metadata.rs#L47) |
+| max_output_tokens | field_declaration | InferredMeta | [48](../../src-tauri/src/gateway/metadata.rs#L48) |
+| reasoning_levels | field_declaration | InferredMeta | [49](../../src-tauri/src/gateway/metadata.rs#L49) |
+| capabilities | field_declaration | InferredMeta | [50](../../src-tauri/src/gateway/metadata.rs#L50) |
+| infer | function_item |  | [53](../../src-tauri/src/gateway/metadata.rs#L53) |
+| vec | macro invocation (unexpanded) | infer | [61](../../src-tauri/src/gateway/metadata.rs#L61) |
+| json | macro invocation (unexpanded) | infer | [62](../../src-tauri/src/gateway/metadata.rs#L62) |
+| json | macro invocation (unexpanded) | infer | [71](../../src-tauri/src/gateway/metadata.rs#L71) |
+| json | macro invocation (unexpanded) | infer | [78](../../src-tauri/src/gateway/metadata.rs#L78) |
+| vec | macro invocation (unexpanded) | infer | [86](../../src-tauri/src/gateway/metadata.rs#L86) |
+| vec | macro invocation (unexpanded) | infer | [97](../../src-tauri/src/gateway/metadata.rs#L97) |
+| strip_gateway_routing_prefix | function_item |  | [104](../../src-tauri/src/gateway/metadata.rs#L104) |
+| has_window_token | function_item |  | [120](../../src-tauri/src/gateway/metadata.rs#L120) |
+| context_window_for | function_item |  | [126](../../src-tauri/src/gateway/metadata.rs#L126) |
+| max_output_for | function_item |  | [133](../../src-tauri/src/gateway/metadata.rs#L133) |
+| tests | mod_item |  | [143](../../src-tauri/src/gateway/metadata.rs#L143) |
+| fast_mode_capability_requires_upstream_evidence | function_item | tests | [147](../../src-tauri/src/gateway/metadata.rs#L147) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [149](../../src-tauri/src/gateway/metadata.rs#L149) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [150](../../src-tauri/src/gateway/metadata.rs#L150) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [151](../../src-tauri/src/gateway/metadata.rs#L151) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [152](../../src-tauri/src/gateway/metadata.rs#L152) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [153](../../src-tauri/src/gateway/metadata.rs#L153) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [154](../../src-tauri/src/gateway/metadata.rs#L154) |
+| assert_eq | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [156](../../src-tauri/src/gateway/metadata.rs#L156) |
+| json | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [158](../../src-tauri/src/gateway/metadata.rs#L158) |
+| assert_eq | macro invocation (unexpanded) | tests::fast_mode_capability_requires_upstream_evidence | [159](../../src-tauri/src/gateway/metadata.rs#L159) |
+| window_marker_must_be_a_whole_token | function_item | tests | [163](../../src-tauri/src/gateway/metadata.rs#L163) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [164](../../src-tauri/src/gateway/metadata.rs#L164) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [165](../../src-tauri/src/gateway/metadata.rs#L165) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [166](../../src-tauri/src/gateway/metadata.rs#L166) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [168](../../src-tauri/src/gateway/metadata.rs#L168) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [169](../../src-tauri/src/gateway/metadata.rs#L169) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [170](../../src-tauri/src/gateway/metadata.rs#L170) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [171](../../src-tauri/src/gateway/metadata.rs#L171) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [172](../../src-tauri/src/gateway/metadata.rs#L172) |
+| assert_eq | macro invocation (unexpanded) | tests::window_marker_must_be_a_whole_token | [173](../../src-tauri/src/gateway/metadata.rs#L173) |
+| gemini_flash_and_argon_infer_full_reasoning_levels | function_item | tests | [180](../../src-tauri/src/gateway/metadata.rs#L180) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_flash_and_argon_infer_full_reasoning_levels | [182](../../src-tauri/src/gateway/metadata.rs#L182) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_flash_and_argon_infer_full_reasoning_levels | [192](../../src-tauri/src/gateway/metadata.rs#L192) |
+| assert_eq | macro invocation (unexpanded) | tests::gemini_flash_and_argon_infer_full_reasoning_levels | [203](../../src-tauri/src/gateway/metadata.rs#L203) |

@@ -4,33 +4,34 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/mod.rs) · page 2/2
 
-Source SHA-256: 961b068ded6ae7ae450a8de989ed02d1eea67d1e3237409394f4c4f379d498e3
+Source SHA-256: 2a911ae0b4ff71660dabc1ddb317778663962966504946b65912bdd9d9b9b24a
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
 | vec | macro invocation (unexpanded) | tests::model_chain_uses_role_fallback_not_global_list | [481](../../src-tauri/src/gateway/mod.rs#L481) |
 | vec | macro invocation (unexpanded) | tests::model_chain_uses_role_fallback_not_global_list | [482](../../src-tauri/src/gateway/mod.rs#L482) |
-| assert_eq | macro invocation (unexpanded) | tests::model_chain_uses_role_fallback_not_global_list | [491](../../src-tauri/src/gateway/mod.rs#L491) |
+| vec | macro invocation (unexpanded) | tests::model_chain_uses_role_fallback_not_global_list | [483](../../src-tauri/src/gateway/mod.rs#L483) |
 | assert_eq | macro invocation (unexpanded) | tests::model_chain_uses_role_fallback_not_global_list | [492](../../src-tauri/src/gateway/mod.rs#L492) |
-| live_auto_id_is_claude_prefixed_for_code | function_item | tests | [496](../../src-tauri/src/gateway/mod.rs#L496) |
-| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [497](../../src-tauri/src/gateway/mod.rs#L497) |
-| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [501](../../src-tauri/src/gateway/mod.rs#L501) |
-| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [505](../../src-tauri/src/gateway/mod.rs#L505) |
-| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [512](../../src-tauri/src/gateway/mod.rs#L512) |
-| assert | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [513](../../src-tauri/src/gateway/mod.rs#L513) |
+| assert_eq | macro invocation (unexpanded) | tests::model_chain_uses_role_fallback_not_global_list | [493](../../src-tauri/src/gateway/mod.rs#L493) |
+| live_auto_id_is_claude_prefixed_for_code | function_item | tests | [497](../../src-tauri/src/gateway/mod.rs#L497) |
+| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [498](../../src-tauri/src/gateway/mod.rs#L498) |
+| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [502](../../src-tauri/src/gateway/mod.rs#L502) |
+| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [506](../../src-tauri/src/gateway/mod.rs#L506) |
+| assert_eq | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [513](../../src-tauri/src/gateway/mod.rs#L513) |
 | assert | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [514](../../src-tauri/src/gateway/mod.rs#L514) |
 | assert | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [515](../../src-tauri/src/gateway/mod.rs#L515) |
-| estimate_tokens_counts_cjk_near_one_per_char | function_item | tests | [519](../../src-tauri/src/gateway/mod.rs#L519) |
-| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_counts_cjk_near_one_per_char | [520](../../src-tauri/src/gateway/mod.rs#L520) |
-| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_counts_cjk_near_one_per_char | [523](../../src-tauri/src/gateway/mod.rs#L523) |
-| estimate_tokens_uses_ascii_four_chars_per_token | function_item | tests | [527](../../src-tauri/src/gateway/mod.rs#L527) |
-| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [528](../../src-tauri/src/gateway/mod.rs#L528) |
-| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [531](../../src-tauri/src/gateway/mod.rs#L531) |
-| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [532](../../src-tauri/src/gateway/mod.rs#L532) |
-| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [535](../../src-tauri/src/gateway/mod.rs#L535) |
-| estimate_tokens_mixed_cjk_and_ascii | function_item | tests | [539](../../src-tauri/src/gateway/mod.rs#L539) |
-| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_mixed_cjk_and_ascii | [540](../../src-tauri/src/gateway/mod.rs#L540) |
-| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_mixed_cjk_and_ascii | [543](../../src-tauri/src/gateway/mod.rs#L543) |
-| estimate_tokens_ignores_structural_keys | function_item | tests | [547](../../src-tauri/src/gateway/mod.rs#L547) |
-| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_ignores_structural_keys | [548](../../src-tauri/src/gateway/mod.rs#L548) |
-| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_ignores_structural_keys | [556](../../src-tauri/src/gateway/mod.rs#L556) |
+| assert | macro invocation (unexpanded) | tests::live_auto_id_is_claude_prefixed_for_code | [516](../../src-tauri/src/gateway/mod.rs#L516) |
+| estimate_tokens_counts_cjk_near_one_per_char | function_item | tests | [520](../../src-tauri/src/gateway/mod.rs#L520) |
+| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_counts_cjk_near_one_per_char | [521](../../src-tauri/src/gateway/mod.rs#L521) |
+| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_counts_cjk_near_one_per_char | [524](../../src-tauri/src/gateway/mod.rs#L524) |
+| estimate_tokens_uses_ascii_four_chars_per_token | function_item | tests | [528](../../src-tauri/src/gateway/mod.rs#L528) |
+| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [529](../../src-tauri/src/gateway/mod.rs#L529) |
+| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [532](../../src-tauri/src/gateway/mod.rs#L532) |
+| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [533](../../src-tauri/src/gateway/mod.rs#L533) |
+| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_uses_ascii_four_chars_per_token | [536](../../src-tauri/src/gateway/mod.rs#L536) |
+| estimate_tokens_mixed_cjk_and_ascii | function_item | tests | [540](../../src-tauri/src/gateway/mod.rs#L540) |
+| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_mixed_cjk_and_ascii | [541](../../src-tauri/src/gateway/mod.rs#L541) |
+| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_mixed_cjk_and_ascii | [544](../../src-tauri/src/gateway/mod.rs#L544) |
+| estimate_tokens_ignores_structural_keys | function_item | tests | [548](../../src-tauri/src/gateway/mod.rs#L548) |
+| serde_json::json | macro invocation (unexpanded) | tests::estimate_tokens_ignores_structural_keys | [549](../../src-tauri/src/gateway/mod.rs#L549) |
+| assert_eq | macro invocation (unexpanded) | tests::estimate_tokens_ignores_structural_keys | [557](../../src-tauri/src/gateway/mod.rs#L557) |

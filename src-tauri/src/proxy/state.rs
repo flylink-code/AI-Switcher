@@ -617,7 +617,7 @@ pub(crate) fn load_gateway_catalog(
                     .unwrap_or_default();
             pairs.push((provider.clone(), cached));
         }
-        let entries = crate::catalog::build_catalog_with(style, &pairs, hide_official);
+        let entries = crate::catalog::build_catalog_with_cached_metadata(conn, style, &pairs, hide_official)?;
         Ok((providers, entries))
     })
 }

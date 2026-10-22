@@ -346,11 +346,21 @@ fn prepare_upstream_request(
         protocol_endpoint_path_for_provider(provider)
     };
     let target_url = api_endpoint_url(&provider.base_url, endpoint_path)?;
-    let (outgoing_body, translated) = if image_gen {
+    let (mut outgoing_body, translated) = if image_gen {
         (body_bytes.clone(), false)
     } else {
         encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers)
     };
+    if !image_gen && !provider.is_smart_gateway()
+        && crate::gateway::fast_mode::supports_protocol(provider.protocol_type)
+    {
+        let enabled = state.db.with_read_conn(|conn| {
+            crate::gateway::fast_mode::is_enabled(conn, &provider.id, &provider.model)
+        })?;
+        let mut outgoing: Value = serde_json::from_slice(&outgoing_body)?;
+        crate::gateway::fast_mode::apply_request(&mut outgoing, incoming, enabled);
+        outgoing_body = Bytes::from(serde_json::to_vec(&outgoing)?);
+    }
     if state.target == ProviderTarget::ClaudeDesktop && provider.is_smart_gateway() {
         if let Ok((_, entries)) = load_gateway_catalog(state, CatalogStyle::Claude) {
             let last_selected = desktop_alias::last_selected(&state.db);

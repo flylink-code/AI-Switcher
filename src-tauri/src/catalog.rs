@@ -202,6 +202,7 @@ pub struct CatalogEntry {
     pub upstream_slug: String,
     pub provider_id: String,
     pub context_window: u64,
+    pub discovered_metadata: Option<crate::gateway::metadata::DiscoveredModelMeta>,
     pub anthropic_upstream: bool,
     pub web_search_enabled: bool,
 }
@@ -325,11 +326,55 @@ pub fn build_catalog_with(
             upstream_slug: slug_id,
             provider_id: provider.id.clone(),
             context_window,
+            discovered_metadata: None,
             anthropic_upstream,
             web_search_enabled,
         });
     }
     entries
+}
+
+pub fn build_catalog_with_cached_metadata(
+    conn: &rusqlite::Connection,
+    style: CatalogStyle,
+    providers: &[(Provider, Vec<String>)],
+    hide_official: bool,
+) -> crate::error::AppResult<Vec<CatalogEntry>> {
+    let mut entries = build_catalog_with(style, providers, hide_official);
+    for (provider, cached) in providers {
+        let Some(cache) = crate::database::dao::providers::get_provider_model_cache(conn, &provider.id)? else {
+            continue;
+        };
+        let labeled: BTreeSet<String> = collect_provider_slugs_with(provider, cached, hide_official)
+            .iter().filter_map(|model| {
+                let (slug, window) = crate::provider::split_model_window_label(model);
+                window.map(|_| slug)
+            }).collect();
+        for entry in entries.iter_mut().filter(|entry| entry.provider_id == provider.id) {
+            let Some(meta) = cache.metadata.get(&entry.upstream_slug) else { continue };
+            let explicit_window = labeled.contains(&entry.upstream_slug)
+                || provider.model_context_window.filter(|window| *window > 0).is_some();
+            if !explicit_window {
+                if let Some(window) = meta.context_window.filter(|window| *window > 0) {
+                    entry.context_window = window;
+                }
+            }
+            let mut meta = meta.clone();
+            if explicit_window {
+                meta.max_context_window = None;
+            }
+            entry.discovered_metadata = Some(meta);
+        }
+    }
+    Ok(entries)
+}
+
+fn catalog_max_output(entry: &CatalogEntry, slug: &str) -> u64 {
+    entry.discovered_metadata.as_ref()
+        .and_then(|meta| meta.max_output_tokens)
+        .filter(|value| *value > 0)
+        .unwrap_or_else(|| crate::gateway::metadata::max_output_for(slug, entry.context_window))
+        .min(entry.context_window.max(1))
 }
 
 /// Picker label. Claude Code's `/model` shows `display_name` verbatim, so a model
@@ -871,9 +916,12 @@ pub fn catalog_revision(style: CatalogStyle, entries: &[CatalogEntry]) -> String
         let inferred = crate::gateway::metadata::infer(slug);
         hasher.update(inferred.capabilities.to_string().as_bytes());
         hasher.update(inferred.reasoning_levels.join(",").as_bytes());
-        hasher.update(
-            crate::gateway::metadata::max_output_for(slug, entry.context_window).to_le_bytes(),
-        );
+        hasher.update(catalog_max_output(entry, slug).to_le_bytes());
+        if let Some(meta) = &entry.discovered_metadata {
+            hasher.update(meta.max_context_window.unwrap_or(entry.context_window).to_le_bytes());
+            hasher.update(meta.effective_context_window_percent.unwrap_or(95).to_le_bytes());
+            hasher.update([match meta.priority_supported { None => 0, Some(false) => 1, Some(true) => 2 }]);
+        }
     }
     let digest = hasher.finalize();
     digest[..12]
@@ -891,7 +939,7 @@ pub fn claude_discovery_model(entry: &CatalogEntry) -> Value {
     } else {
         entry.upstream_slug.as_str()
     };
-    let max_output = crate::gateway::metadata::max_output_for(slug, entry.context_window);
+    let max_output = catalog_max_output(entry, slug);
     json!({
         "type": "model",
         "id": entry.public_id,
@@ -963,7 +1011,7 @@ pub fn openai_discovery_model(entry: &CatalogEntry) -> Value {
     } else {
         entry.upstream_slug.as_str()
     };
-    let max_output = crate::gateway::metadata::max_output_for(slug, entry.context_window);
+    let max_output = catalog_max_output(entry, slug);
     let inferred = crate::gateway::metadata::infer(slug);
     let flag = |key: &str, fallback: bool| {
         inferred
@@ -1394,6 +1442,54 @@ mod tests {
             health_latency_ms: None,
             enabled: true,
         }
+    }
+
+    #[test]
+    fn discovered_windows_survive_cache_and_remain_provider_specific() {
+        use crate::database::dao::providers::{save_provider_model_cache, save_provider_model_cache_with_metadata};
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let mut a = provider("a", "Relay A", "gpt-fixture");
+            a.model_context_window = None;
+            let mut b = provider("b", "Relay B", "gpt-fixture");
+            b.model_context_window = None;
+            let models = vec!["gpt-fixture".to_string()];
+            for (id, window) in [("a", 400_000), ("b", 1_050_000)] {
+                let meta = crate::gateway::metadata::DiscoveredModelMeta::from_model(&json!({
+                    "context_window": window, "max_output_tokens": 128000
+                }));
+                save_provider_model_cache_with_metadata(conn, id, &models,
+                    &std::collections::BTreeMap::from([("gpt-fixture".to_string(), meta)]), 123)?;
+            }
+            for style in [CatalogStyle::Claude, CatalogStyle::Codex] {
+                let entries = build_catalog_with_cached_metadata(conn, style,
+                    &[(a.clone(), models.clone()), (b.clone(), models.clone())], false)?;
+                let a_entry = entries.iter().find(|entry| entry.provider_id == "a").unwrap();
+                let b_entry = entries.iter().find(|entry| entry.provider_id == "b").unwrap();
+                assert_eq!(a_entry.context_window, 400_000);
+                assert_eq!(b_entry.context_window, 1_050_000);
+                assert_eq!(a_entry.upstream_slug, "gpt-fixture");
+                assert_eq!(claude_discovery_model(a_entry)["max_input_tokens"], 400000);
+                assert_eq!(openai_discovery_model(b_entry)["context_window"], 1050000);
+                assert_eq!(claude_discovery_model(a_entry)["max_output_tokens"], 128000);
+            }
+            a.model_context_window = Some(64_000);
+            let entries = build_catalog_with_cached_metadata(conn, CatalogStyle::Codex,
+                &[(a.clone(), vec![])], false)?;
+            assert_eq!(entries[0].context_window, 64_000);
+            a.model = "gpt-fixture[128k]".into();
+            let entries = build_catalog_with_cached_metadata(conn, CatalogStyle::Codex,
+                &[(a.clone(), vec![])], false)?;
+            assert_eq!(entries[0].context_window, 128_000);
+            a.model = "gpt-fixture".into();
+            a.model_context_window = None;
+            save_provider_model_cache(conn, "a", &models, 456)?;
+            let entries = build_catalog_with_cached_metadata(conn, CatalogStyle::Codex,
+                &[(a, models)], false)?;
+            assert_eq!(entries[0].context_window, crate::provider::CODEX_DEFAULT_CONTEXT_WINDOW);
+            assert!(entries[0].discovered_metadata.is_none());
+            Ok(())
+        }).unwrap();
     }
 
     #[test]

@@ -8,30 +8,30 @@ Read AGENTS.md → choose module → file/symbol page → source. [Method, comma
 | --- | ---: | ---: | --- |
 | rust-antigravity | 30 | 3374 | [open](docs/codemap/rust-antigravity.md) |
 | rust-coding | 9 | 187 | [open](docs/codemap/rust-coding.md) |
-| rust-commands | 48 | 3326 | [open](docs/codemap/rust-commands.md) |
-| rust-config | 11 | 1406 | [open](docs/codemap/rust-config.md) |
-| rust-database | 10 | 1587 | [open](docs/codemap/rust-database.md) |
+| rust-commands | 48 | 3365 | [open](docs/codemap/rust-commands.md) |
+| rust-config | 11 | 1418 | [open](docs/codemap/rust-config.md) |
+| rust-database | 10 | 1614 | [open](docs/codemap/rust-database.md) |
 | rust-deeplink | 1 | 94 | [open](docs/codemap/rust-deeplink.md) |
-| rust-gateway | 10 | 882 | [open](docs/codemap/rust-gateway.md) |
+| rust-gateway | 11 | 935 | [open](docs/codemap/rust-gateway.md) |
 | rust-kiro | 16 | 1035 | [open](docs/codemap/rust-kiro.md) |
-| rust-proxy | 26 | 2542 | [open](docs/codemap/rust-proxy.md) |
+| rust-proxy | 26 | 2552 | [open](docs/codemap/rust-proxy.md) |
 | rust-quota | 7 | 220 | [open](docs/codemap/rust-quota.md) |
-| rust-root | 33 | 2825 | [open](docs/codemap/rust-root.md) |
+| rust-root | 33 | 2843 | [open](docs/codemap/rust-root.md) |
 | rust-session_manager | 8 | 432 | [open](docs/codemap/rust-session_manager.md) |
 | rust-usage | 8 | 326 | [open](docs/codemap/rust-usage.md) |
 | scripts-root | 17 | 155 | [open](docs/codemap/scripts-root.md) |
 | scripts-system-test | 21 | 337 | [open](docs/codemap/scripts-system-test.md) |
 | tooling | 7 | 218 | [open](docs/codemap/tooling.md) |
-| web-components | 85 | 2689 | [open](docs/codemap/web-components.md) |
+| web-components | 85 | 2713 | [open](docs/codemap/web-components.md) |
 | web-i18n | 1 | 6 | [open](docs/codemap/web-i18n.md) |
 | web-lib | 17 | 360 | [open](docs/codemap/web-lib.md) |
 | web-pages | 23 | 2307 | [open](docs/codemap/web-pages.md) |
 | web-root | 3 | 128 | [open](docs/codemap/web-root.md) |
-| web-services | 15 | 507 | [open](docs/codemap/web-services.md) |
+| web-services | 15 | 508 | [open](docs/codemap/web-services.md) |
 | web-stores | 5 | 183 | [open](docs/codemap/web-stores.md) |
-| web-types | 2 | 1221 | [open](docs/codemap/web-types.md) |
+| web-types | 2 | 1223 | [open](docs/codemap/web-types.md) |
 | web-utils | 5 | 88 | [open](docs/codemap/web-utils.md) |
 
-Total: 418 source files, 26435 extracted symbols, 0 parser diagnostics.
+Total: 419 source files, 26621 extracted symbols, 0 parser diagnostics.
 
 Scope includes local declarations; excludes imports, parameters, runtime/macro-generated symbols. PowerShell/BAT use lexical navigation only.

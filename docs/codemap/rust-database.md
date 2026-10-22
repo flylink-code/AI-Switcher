@@ -8,11 +8,11 @@
 
 | File | Symbols | Symbol pages |
 | --- | ---: | --- |
-| [src-tauri/src/database/dao/gateway.rs](../../src-tauri/src/database/dao/gateway.rs) | 611 | [1](src-tauri_src_database_dao_gateway.rs-61cd430a-1.md) [2](src-tauri_src_database_dao_gateway.rs-61cd430a-2.md) [3](src-tauri_src_database_dao_gateway.rs-61cd430a-3.md) [4](src-tauri_src_database_dao_gateway.rs-61cd430a-4.md) [5](src-tauri_src_database_dao_gateway.rs-61cd430a-5.md) [6](src-tauri_src_database_dao_gateway.rs-61cd430a-6.md) [7](src-tauri_src_database_dao_gateway.rs-61cd430a-7.md) |
+| [src-tauri/src/database/dao/gateway.rs](../../src-tauri/src/database/dao/gateway.rs) | 635 | [1](src-tauri_src_database_dao_gateway.rs-61cd430a-1.md) [2](src-tauri_src_database_dao_gateway.rs-61cd430a-2.md) [3](src-tauri_src_database_dao_gateway.rs-61cd430a-3.md) [4](src-tauri_src_database_dao_gateway.rs-61cd430a-4.md) [5](src-tauri_src_database_dao_gateway.rs-61cd430a-5.md) [6](src-tauri_src_database_dao_gateway.rs-61cd430a-6.md) [7](src-tauri_src_database_dao_gateway.rs-61cd430a-7.md) |
 | [src-tauri/src/database/dao/mcp.rs](../../src-tauri/src/database/dao/mcp.rs) | 48 | [1](src-tauri_src_database_dao_mcp.rs-513c9297-1.md) |
 | [src-tauri/src/database/dao/mod.rs](../../src-tauri/src/database/dao/mod.rs) | 6 | [1](src-tauri_src_database_dao_mod.rs-41d7a2d6-1.md) |
 | [src-tauri/src/database/dao/profiles.rs](../../src-tauri/src/database/dao/profiles.rs) | 73 | [1](src-tauri_src_database_dao_profiles.rs-a6209bb4-1.md) |
-| [src-tauri/src/database/dao/providers.rs](../../src-tauri/src/database/dao/providers.rs) | 99 | [1](src-tauri_src_database_dao_providers.rs-b272014e-1.md) |
+| [src-tauri/src/database/dao/providers.rs](../../src-tauri/src/database/dao/providers.rs) | 102 | [1](src-tauri_src_database_dao_providers.rs-b272014e-1.md) [2](src-tauri_src_database_dao_providers.rs-b272014e-2.md) |
 | [src-tauri/src/database/dao/proxy_logs.rs](../../src-tauri/src/database/dao/proxy_logs.rs) | 508 | [1](src-tauri_src_database_dao_proxy_logs.rs-ac1a7f25-1.md) [2](src-tauri_src_database_dao_proxy_logs.rs-ac1a7f25-2.md) [3](src-tauri_src_database_dao_proxy_logs.rs-ac1a7f25-3.md) [4](src-tauri_src_database_dao_proxy_logs.rs-ac1a7f25-4.md) [5](src-tauri_src_database_dao_proxy_logs.rs-ac1a7f25-5.md) [6](src-tauri_src_database_dao_proxy_logs.rs-ac1a7f25-6.md) |
 | [src-tauri/src/database/dao/settings.rs](../../src-tauri/src/database/dao/settings.rs) | 4 | [1](src-tauri_src_database_dao_settings.rs-a34ed21f-1.md) |
 | [src-tauri/src/database/mod.rs](../../src-tauri/src/database/mod.rs) | 83 | [1](src-tauri_src_database_mod.rs-47db7b11-1.md) |

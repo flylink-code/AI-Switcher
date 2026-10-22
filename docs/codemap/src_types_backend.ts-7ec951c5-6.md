@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 6/12
 
-Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
+Source SHA-256: 44a8497cfa06ab7a03c4c3543fa59d712f4520672485a28d4cf2415a3b2a034b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| name | PropertySignature | McpServer | [689](../../src/types/backend.ts#L689) |
-| serverConfig | PropertySignature | McpServer | [691](../../src/types/backend.ts#L691) |
-| enabledClaudeCode | PropertySignature | McpServer | [692](../../src/types/backend.ts#L692) |
-| enabledClaudeDesktop | PropertySignature | McpServer | [693](../../src/types/backend.ts#L693) |
-| enabledCodex | PropertySignature | McpServer | [694](../../src/types/backend.ts#L694) |
-| enabledOpencode | PropertySignature | McpServer | [695](../../src/types/backend.ts#L695) |
-| enabledPi | PropertySignature | McpServer | [696](../../src/types/backend.ts#L696) |
-| enabledCline | PropertySignature | McpServer | [697](../../src/types/backend.ts#L697) |
-| sortIndex | PropertySignature | McpServer | [698](../../src/types/backend.ts#L698) |
-| createdAt | PropertySignature | McpServer | [699](../../src/types/backend.ts#L699) |
-| McpServerInput | InterfaceDeclaration |  | [703](../../src/types/backend.ts#L703) |
-| id | PropertySignature | McpServerInput | [704](../../src/types/backend.ts#L704) |
-| name | PropertySignature | McpServerInput | [705](../../src/types/backend.ts#L705) |
-| serverConfig | PropertySignature | McpServerInput | [706](../../src/types/backend.ts#L706) |
-| enabledClaudeCode | PropertySignature | McpServerInput | [707](../../src/types/backend.ts#L707) |
-| enabledClaudeDesktop | PropertySignature | McpServerInput | [708](../../src/types/backend.ts#L708) |
-| enabledCodex | PropertySignature | McpServerInput | [709](../../src/types/backend.ts#L709) |
-| enabledOpencode | PropertySignature | McpServerInput | [710](../../src/types/backend.ts#L710) |
-| enabledPi | PropertySignature | McpServerInput | [711](../../src/types/backend.ts#L711) |
-| enabledCline | PropertySignature | McpServerInput | [712](../../src/types/backend.ts#L712) |
-| McpTarget | TypeAliasDeclaration |  | [715](../../src/types/backend.ts#L715) |
-| CodexAuthStatus | InterfaceDeclaration |  | [717](../../src/types/backend.ts#L717) |
-| configPath | PropertySignature | CodexAuthStatus | [718](../../src/types/backend.ts#L718) |
-| authPath | PropertySignature | CodexAuthStatus | [719](../../src/types/backend.ts#L719) |
-| configExists | PropertySignature | CodexAuthStatus | [720](../../src/types/backend.ts#L720) |
-| loggedIn | PropertySignature | CodexAuthStatus | [721](../../src/types/backend.ts#L721) |
-| loginCommand | PropertySignature | CodexAuthStatus | [722](../../src/types/backend.ts#L722) |
-| CodexOauthDeviceStart | InterfaceDeclaration |  | [725](../../src/types/backend.ts#L725) |
-| deviceCode | PropertySignature | CodexOauthDeviceStart | [726](../../src/types/backend.ts#L726) |
-| userCode | PropertySignature | CodexOauthDeviceStart | [727](../../src/types/backend.ts#L727) |
-| verificationUri | PropertySignature | CodexOauthDeviceStart | [728](../../src/types/backend.ts#L728) |
-| interval | PropertySignature | CodexOauthDeviceStart | [729](../../src/types/backend.ts#L729) |
-| expiresIn | PropertySignature | CodexOauthDeviceStart | [730](../../src/types/backend.ts#L730) |
-| CodexOauthAccount | InterfaceDeclaration |  | [733](../../src/types/backend.ts#L733) |
-| accountId | PropertySignature | CodexOauthAccount | [734](../../src/types/backend.ts#L734) |
-| email | PropertySignature | CodexOauthAccount | [735](../../src/types/backend.ts#L735) |
-| authenticatedAt | PropertySignature | CodexOauthAccount | [736](../../src/types/backend.ts#L736) |
-| CodexOauthPollResult | InterfaceDeclaration |  | [739](../../src/types/backend.ts#L739) |
-| status | PropertySignature | CodexOauthPollResult | [740](../../src/types/backend.ts#L740) |
-| account | PropertySignature | CodexOauthPollResult | [741](../../src/types/backend.ts#L741) |
-| message | PropertySignature | CodexOauthPollResult | [742](../../src/types/backend.ts#L742) |
-| McpImportSummary | InterfaceDeclaration |  | [745](../../src/types/backend.ts#L745) |
-| imported | PropertySignature | McpImportSummary | [746](../../src/types/backend.ts#L746) |
-| updated | PropertySignature | McpImportSummary | [747](../../src/types/backend.ts#L747) |
-| McpOauthStatus | InterfaceDeclaration |  | [750](../../src/types/backend.ts#L750) |
-| storage | PropertySignature | McpOauthStatus | [751](../../src/types/backend.ts#L751) |
-| path | PropertySignature | McpOauthStatus | [752](../../src/types/backend.ts#L752) |
-| serverNames | PropertySignature | McpOauthStatus | [753](../../src/types/backend.ts#L753) |
-| entryCount | PropertySignature | McpOauthStatus | [754](../../src/types/backend.ts#L754) |
-| clearable | PropertySignature | McpOauthStatus | [755](../../src/types/backend.ts#L755) |
-| note | PropertySignature | McpOauthStatus | [756](../../src/types/backend.ts#L756) |
-| McpDesktopConflictStatus | InterfaceDeclaration |  | [759](../../src/types/backend.ts#L759) |
-| desktopInstalled | PropertySignature | McpDesktopConflictStatus | [760](../../src/types/backend.ts#L760) |
-| managedDesktopServers | PropertySignature | McpDesktopConflictStatus | [761](../../src/types/backend.ts#L761) |
-| liveDesktopServers | PropertySignature | McpDesktopConflictStatus | [762](../../src/types/backend.ts#L762) |
-| extensionArtifacts | PropertySignature | McpDesktopConflictStatus | [763](../../src/types/backend.ts#L763) |
-| conflictLikely | PropertySignature | McpDesktopConflictStatus | [764](../../src/types/backend.ts#L764) |
-| message | PropertySignature | McpDesktopConflictStatus | [765](../../src/types/backend.ts#L765) |
-| RegistryMcpServer | InterfaceDeclaration |  | [768](../../src/types/backend.ts#L768) |
-| name | PropertySignature | RegistryMcpServer | [769](../../src/types/backend.ts#L769) |
-| title | PropertySignature | RegistryMcpServer | [770](../../src/types/backend.ts#L770) |
-| description | PropertySignature | RegistryMcpServer | [771](../../src/types/backend.ts#L771) |
-| version | PropertySignature | RegistryMcpServer | [772](../../src/types/backend.ts#L772) |
-| installable | PropertySignature | RegistryMcpServer | [773](../../src/types/backend.ts#L773) |
-| supportNote | PropertySignature | RegistryMcpServer | [774](../../src/types/backend.ts#L774) |
-| PromptInfo | InterfaceDeclaration |  | [778](../../src/types/backend.ts#L778) |
-| name | PropertySignature | PromptInfo | [779](../../src/types/backend.ts#L779) |
-| updatedAt | PropertySignature | PromptInfo | [780](../../src/types/backend.ts#L780) |
-| PromptTarget | TypeAliasDeclaration |  | [783](../../src/types/backend.ts#L783) |
-| PromptDetail | InterfaceDeclaration |  | [785](../../src/types/backend.ts#L785) |
-| content | PropertySignature | PromptDetail | [786](../../src/types/backend.ts#L786) |
-| LivePrompt | InterfaceDeclaration |  | [789](../../src/types/backend.ts#L789) |
-| path | PropertySignature | LivePrompt | [790](../../src/types/backend.ts#L790) |
-| content | PropertySignature | LivePrompt | [791](../../src/types/backend.ts#L791) |
-| updatedAt | PropertySignature | LivePrompt | [792](../../src/types/backend.ts#L792) |
-| Skill | InterfaceDeclaration |  | [795](../../src/types/backend.ts#L795) |
-| name | PropertySignature | Skill | [796](../../src/types/backend.ts#L796) |
-| path | PropertySignature | Skill | [797](../../src/types/backend.ts#L797) |
-| enabled | PropertySignature | Skill | [798](../../src/types/backend.ts#L798) |
-| description | PropertySignature | Skill | [799](../../src/types/backend.ts#L799) |
-| descriptionZh | PropertySignature | Skill | [800](../../src/types/backend.ts#L800) |
-| source | PropertySignature | Skill | [801](../../src/types/backend.ts#L801) |
-| UnmanagedSkill | InterfaceDeclaration |  | [804](../../src/types/backend.ts#L804) |
-| directory | PropertySignature | UnmanagedSkill | [805](../../src/types/backend.ts#L805) |
-| name | PropertySignature | UnmanagedSkill | [806](../../src/types/backend.ts#L806) |
-| description | PropertySignature | UnmanagedSkill | [807](../../src/types/backend.ts#L807) |
-| foundIn | PropertySignature | UnmanagedSkill | [808](../../src/types/backend.ts#L808) |
-| path | PropertySignature | UnmanagedSkill | [809](../../src/types/backend.ts#L809) |
-| SkillTarget | TypeAliasDeclaration |  | [812](../../src/types/backend.ts#L812) |
-| Agent | InterfaceDeclaration |  | [814](../../src/types/backend.ts#L814) |
-| name | PropertySignature | Agent | [815](../../src/types/backend.ts#L815) |
-| path | PropertySignature | Agent | [816](../../src/types/backend.ts#L816) |
-| enabled | PropertySignature | Agent | [817](../../src/types/backend.ts#L817) |
-| description | PropertySignature | Agent | [818](../../src/types/backend.ts#L818) |
-| body | PropertySignature | Agent | [819](../../src/types/backend.ts#L819) |
-| model | PropertySignature | Agent | [820](../../src/types/backend.ts#L820) |
-| tools | PropertySignature | Agent | [821](../../src/types/backend.ts#L821) |
-| disallowedTools | PropertySignature | Agent | [822](../../src/types/backend.ts#L822) |
-| permissionMode | PropertySignature | Agent | [823](../../src/types/backend.ts#L823) |
-| maxTurns | PropertySignature | Agent | [824](../../src/types/backend.ts#L824) |
+| McpServer | InterfaceDeclaration |  | [689](../../src/types/backend.ts#L689) |
+| id | PropertySignature | McpServer | [690](../../src/types/backend.ts#L690) |
+| name | PropertySignature | McpServer | [691](../../src/types/backend.ts#L691) |
+| serverConfig | PropertySignature | McpServer | [693](../../src/types/backend.ts#L693) |
+| enabledClaudeCode | PropertySignature | McpServer | [694](../../src/types/backend.ts#L694) |
+| enabledClaudeDesktop | PropertySignature | McpServer | [695](../../src/types/backend.ts#L695) |
+| enabledCodex | PropertySignature | McpServer | [696](../../src/types/backend.ts#L696) |
+| enabledOpencode | PropertySignature | McpServer | [697](../../src/types/backend.ts#L697) |
+| enabledPi | PropertySignature | McpServer | [698](../../src/types/backend.ts#L698) |
+| enabledCline | PropertySignature | McpServer | [699](../../src/types/backend.ts#L699) |
+| sortIndex | PropertySignature | McpServer | [700](../../src/types/backend.ts#L700) |
+| createdAt | PropertySignature | McpServer | [701](../../src/types/backend.ts#L701) |
+| McpServerInput | InterfaceDeclaration |  | [705](../../src/types/backend.ts#L705) |
+| id | PropertySignature | McpServerInput | [706](../../src/types/backend.ts#L706) |
+| name | PropertySignature | McpServerInput | [707](../../src/types/backend.ts#L707) |
+| serverConfig | PropertySignature | McpServerInput | [708](../../src/types/backend.ts#L708) |
+| enabledClaudeCode | PropertySignature | McpServerInput | [709](../../src/types/backend.ts#L709) |
+| enabledClaudeDesktop | PropertySignature | McpServerInput | [710](../../src/types/backend.ts#L710) |
+| enabledCodex | PropertySignature | McpServerInput | [711](../../src/types/backend.ts#L711) |
+| enabledOpencode | PropertySignature | McpServerInput | [712](../../src/types/backend.ts#L712) |
+| enabledPi | PropertySignature | McpServerInput | [713](../../src/types/backend.ts#L713) |
+| enabledCline | PropertySignature | McpServerInput | [714](../../src/types/backend.ts#L714) |
+| McpTarget | TypeAliasDeclaration |  | [717](../../src/types/backend.ts#L717) |
+| CodexAuthStatus | InterfaceDeclaration |  | [719](../../src/types/backend.ts#L719) |
+| configPath | PropertySignature | CodexAuthStatus | [720](../../src/types/backend.ts#L720) |
+| authPath | PropertySignature | CodexAuthStatus | [721](../../src/types/backend.ts#L721) |
+| configExists | PropertySignature | CodexAuthStatus | [722](../../src/types/backend.ts#L722) |
+| loggedIn | PropertySignature | CodexAuthStatus | [723](../../src/types/backend.ts#L723) |
+| loginCommand | PropertySignature | CodexAuthStatus | [724](../../src/types/backend.ts#L724) |
+| CodexOauthDeviceStart | InterfaceDeclaration |  | [727](../../src/types/backend.ts#L727) |
+| deviceCode | PropertySignature | CodexOauthDeviceStart | [728](../../src/types/backend.ts#L728) |
+| userCode | PropertySignature | CodexOauthDeviceStart | [729](../../src/types/backend.ts#L729) |
+| verificationUri | PropertySignature | CodexOauthDeviceStart | [730](../../src/types/backend.ts#L730) |
+| interval | PropertySignature | CodexOauthDeviceStart | [731](../../src/types/backend.ts#L731) |
+| expiresIn | PropertySignature | CodexOauthDeviceStart | [732](../../src/types/backend.ts#L732) |
+| CodexOauthAccount | InterfaceDeclaration |  | [735](../../src/types/backend.ts#L735) |
+| accountId | PropertySignature | CodexOauthAccount | [736](../../src/types/backend.ts#L736) |
+| email | PropertySignature | CodexOauthAccount | [737](../../src/types/backend.ts#L737) |
+| authenticatedAt | PropertySignature | CodexOauthAccount | [738](../../src/types/backend.ts#L738) |
+| CodexOauthPollResult | InterfaceDeclaration |  | [741](../../src/types/backend.ts#L741) |
+| status | PropertySignature | CodexOauthPollResult | [742](../../src/types/backend.ts#L742) |
+| account | PropertySignature | CodexOauthPollResult | [743](../../src/types/backend.ts#L743) |
+| message | PropertySignature | CodexOauthPollResult | [744](../../src/types/backend.ts#L744) |
+| McpImportSummary | InterfaceDeclaration |  | [747](../../src/types/backend.ts#L747) |
+| imported | PropertySignature | McpImportSummary | [748](../../src/types/backend.ts#L748) |
+| updated | PropertySignature | McpImportSummary | [749](../../src/types/backend.ts#L749) |
+| McpOauthStatus | InterfaceDeclaration |  | [752](../../src/types/backend.ts#L752) |
+| storage | PropertySignature | McpOauthStatus | [753](../../src/types/backend.ts#L753) |
+| path | PropertySignature | McpOauthStatus | [754](../../src/types/backend.ts#L754) |
+| serverNames | PropertySignature | McpOauthStatus | [755](../../src/types/backend.ts#L755) |
+| entryCount | PropertySignature | McpOauthStatus | [756](../../src/types/backend.ts#L756) |
+| clearable | PropertySignature | McpOauthStatus | [757](../../src/types/backend.ts#L757) |
+| note | PropertySignature | McpOauthStatus | [758](../../src/types/backend.ts#L758) |
+| McpDesktopConflictStatus | InterfaceDeclaration |  | [761](../../src/types/backend.ts#L761) |
+| desktopInstalled | PropertySignature | McpDesktopConflictStatus | [762](../../src/types/backend.ts#L762) |
+| managedDesktopServers | PropertySignature | McpDesktopConflictStatus | [763](../../src/types/backend.ts#L763) |
+| liveDesktopServers | PropertySignature | McpDesktopConflictStatus | [764](../../src/types/backend.ts#L764) |
+| extensionArtifacts | PropertySignature | McpDesktopConflictStatus | [765](../../src/types/backend.ts#L765) |
+| conflictLikely | PropertySignature | McpDesktopConflictStatus | [766](../../src/types/backend.ts#L766) |
+| message | PropertySignature | McpDesktopConflictStatus | [767](../../src/types/backend.ts#L767) |
+| RegistryMcpServer | InterfaceDeclaration |  | [770](../../src/types/backend.ts#L770) |
+| name | PropertySignature | RegistryMcpServer | [771](../../src/types/backend.ts#L771) |
+| title | PropertySignature | RegistryMcpServer | [772](../../src/types/backend.ts#L772) |
+| description | PropertySignature | RegistryMcpServer | [773](../../src/types/backend.ts#L773) |
+| version | PropertySignature | RegistryMcpServer | [774](../../src/types/backend.ts#L774) |
+| installable | PropertySignature | RegistryMcpServer | [775](../../src/types/backend.ts#L775) |
+| supportNote | PropertySignature | RegistryMcpServer | [776](../../src/types/backend.ts#L776) |
+| PromptInfo | InterfaceDeclaration |  | [780](../../src/types/backend.ts#L780) |
+| name | PropertySignature | PromptInfo | [781](../../src/types/backend.ts#L781) |
+| updatedAt | PropertySignature | PromptInfo | [782](../../src/types/backend.ts#L782) |
+| PromptTarget | TypeAliasDeclaration |  | [785](../../src/types/backend.ts#L785) |
+| PromptDetail | InterfaceDeclaration |  | [787](../../src/types/backend.ts#L787) |
+| content | PropertySignature | PromptDetail | [788](../../src/types/backend.ts#L788) |
+| LivePrompt | InterfaceDeclaration |  | [791](../../src/types/backend.ts#L791) |
+| path | PropertySignature | LivePrompt | [792](../../src/types/backend.ts#L792) |
+| content | PropertySignature | LivePrompt | [793](../../src/types/backend.ts#L793) |
+| updatedAt | PropertySignature | LivePrompt | [794](../../src/types/backend.ts#L794) |
+| Skill | InterfaceDeclaration |  | [797](../../src/types/backend.ts#L797) |
+| name | PropertySignature | Skill | [798](../../src/types/backend.ts#L798) |
+| path | PropertySignature | Skill | [799](../../src/types/backend.ts#L799) |
+| enabled | PropertySignature | Skill | [800](../../src/types/backend.ts#L800) |
+| description | PropertySignature | Skill | [801](../../src/types/backend.ts#L801) |
+| descriptionZh | PropertySignature | Skill | [802](../../src/types/backend.ts#L802) |
+| source | PropertySignature | Skill | [803](../../src/types/backend.ts#L803) |
+| UnmanagedSkill | InterfaceDeclaration |  | [806](../../src/types/backend.ts#L806) |
+| directory | PropertySignature | UnmanagedSkill | [807](../../src/types/backend.ts#L807) |
+| name | PropertySignature | UnmanagedSkill | [808](../../src/types/backend.ts#L808) |
+| description | PropertySignature | UnmanagedSkill | [809](../../src/types/backend.ts#L809) |
+| foundIn | PropertySignature | UnmanagedSkill | [810](../../src/types/backend.ts#L810) |
+| path | PropertySignature | UnmanagedSkill | [811](../../src/types/backend.ts#L811) |
+| SkillTarget | TypeAliasDeclaration |  | [814](../../src/types/backend.ts#L814) |
+| Agent | InterfaceDeclaration |  | [816](../../src/types/backend.ts#L816) |
+| name | PropertySignature | Agent | [817](../../src/types/backend.ts#L817) |
+| path | PropertySignature | Agent | [818](../../src/types/backend.ts#L818) |
+| enabled | PropertySignature | Agent | [819](../../src/types/backend.ts#L819) |
+| description | PropertySignature | Agent | [820](../../src/types/backend.ts#L820) |
+| body | PropertySignature | Agent | [821](../../src/types/backend.ts#L821) |
+| model | PropertySignature | Agent | [822](../../src/types/backend.ts#L822) |
+| tools | PropertySignature | Agent | [823](../../src/types/backend.ts#L823) |
+| disallowedTools | PropertySignature | Agent | [824](../../src/types/backend.ts#L824) |

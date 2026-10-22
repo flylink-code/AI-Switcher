@@ -4,7 +4,7 @@
 
 [Module](web-services.md) · [Source](../../src/services/providers.ts) · page 1/1
 
-Source SHA-256: 715e59a62fbe4b4578e9dffef6b452a5bd8163e321eea239aa030ac6785e3d8f
+Source SHA-256: b0acc26d454005fd29bd0ffb08a1c6f0f5e9315367618ab881b78d66de914bd9
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -47,40 +47,41 @@ Source SHA-256: 715e59a62fbe4b4578e9dffef6b452a5bd8163e321eea239aa030ac6785e3d8f
 | importGatewayUpstreamsFromProviders | FunctionDeclaration |  | [195](../../src/services/providers.ts#L195) |
 | listGatewayUpstreamModels | FunctionDeclaration |  | [207](../../src/services/providers.ts#L207) |
 | setGatewayUpstreamModelVisible | FunctionDeclaration |  | [211](../../src/services/providers.ts#L211) |
-| discoverGatewayUpstreamModels | FunctionDeclaration |  | [223](../../src/services/providers.ts#L223) |
-| discoverGatewayUpstreamModelsBatch | FunctionDeclaration |  | [227](../../src/services/providers.ts#L227) |
-| ensureSmartGatewayProvider | FunctionDeclaration |  | [233](../../src/services/providers.ts#L233) |
-| listGatewayCatalogEntries | FunctionDeclaration |  | [237](../../src/services/providers.ts#L237) |
-| getClaudeCodeDefaultPermissionMode | FunctionDeclaration |  | [243](../../src/services/providers.ts#L243) |
-| setClaudeCodeDefaultPermissionMode | FunctionDeclaration |  | [247](../../src/services/providers.ts#L247) |
-| getClaudeDesktopAutoMode | FunctionDeclaration |  | [251](../../src/services/providers.ts#L251) |
-| setClaudeDesktopAutoMode | FunctionDeclaration |  | [255](../../src/services/providers.ts#L255) |
-| getClaudeCodeAgentSettings | FunctionDeclaration |  | [259](../../src/services/providers.ts#L259) |
-| setClaudeCodeAgentSettings | FunctionDeclaration |  | [263](../../src/services/providers.ts#L263) |
-| getOpenCodePermissionMode | FunctionDeclaration |  | [269](../../src/services/providers.ts#L269) |
-| setOpenCodePermissionMode | FunctionDeclaration |  | [273](../../src/services/providers.ts#L273) |
-| switchToOfficial | FunctionDeclaration |  | [277](../../src/services/providers.ts#L277) |
-| batchSpeedtestUpstreamEndpoints | FunctionDeclaration |  | [281](../../src/services/providers.ts#L281) |
-| effectiveBatchId | VariableDeclaration | batchSpeedtestUpstreamEndpoints | [287](../../src/services/providers.ts#L287) |
-| cancel | VariableDeclaration | batchSpeedtestUpstreamEndpoints | [314](../../src/services/providers.ts#L314) |
-| cancelBatchSpeedtest | FunctionDeclaration |  | [330](../../src/services/providers.ts#L330) |
-| previewImportText | FunctionDeclaration |  | [334](../../src/services/providers.ts#L334) |
-| confirmImportPreview | FunctionDeclaration |  | [338](../../src/services/providers.ts#L338) |
-| getSmartGatewayStatus | FunctionDeclaration |  | [342](../../src/services/providers.ts#L342) |
-| setSmartGatewayPort | FunctionDeclaration |  | [346](../../src/services/providers.ts#L346) |
-| setSmartGatewayApiKey | FunctionDeclaration |  | [350](../../src/services/providers.ts#L350) |
-| rotateSmartGatewayApiKey | FunctionDeclaration |  | [354](../../src/services/providers.ts#L354) |
-| startSmartGateway | FunctionDeclaration |  | [358](../../src/services/providers.ts#L358) |
-| stopSmartGateway | FunctionDeclaration |  | [362](../../src/services/providers.ts#L362) |
-| listSmartGatewayBindings | FunctionDeclaration |  | [366](../../src/services/providers.ts#L366) |
-| bindSmartGateway | FunctionDeclaration |  | [370](../../src/services/providers.ts#L370) |
-| unbindSmartGateway | FunctionDeclaration |  | [374](../../src/services/providers.ts#L374) |
-| listUpstreamDailyUsageStats | FunctionDeclaration |  | [378](../../src/services/providers.ts#L378) |
-| listGatewayUpstreamHealth | FunctionDeclaration |  | [384](../../src/services/providers.ts#L384) |
-| getGatewayUpstreamPolicy | FunctionDeclaration |  | [388](../../src/services/providers.ts#L388) |
-| setGatewayUpstreamPolicy | FunctionDeclaration |  | [392](../../src/services/providers.ts#L392) |
-| listGatewayUpstreamPressure | FunctionDeclaration |  | [399](../../src/services/providers.ts#L399) |
-| getSmartGatewayInboundLimits | FunctionDeclaration |  | [405](../../src/services/providers.ts#L405) |
-| setSmartGatewayInboundLimits | FunctionDeclaration |  | [409](../../src/services/providers.ts#L409) |
-| getSmartGatewayHealthProbeSecs | FunctionDeclaration |  | [415](../../src/services/providers.ts#L415) |
-| setSmartGatewayHealthProbeSecs | FunctionDeclaration |  | [419](../../src/services/providers.ts#L419) |
+| setGatewayUpstreamModelsFast | FunctionDeclaration |  | [223](../../src/services/providers.ts#L223) |
+| discoverGatewayUpstreamModels | FunctionDeclaration |  | [234](../../src/services/providers.ts#L234) |
+| discoverGatewayUpstreamModelsBatch | FunctionDeclaration |  | [238](../../src/services/providers.ts#L238) |
+| ensureSmartGatewayProvider | FunctionDeclaration |  | [244](../../src/services/providers.ts#L244) |
+| listGatewayCatalogEntries | FunctionDeclaration |  | [248](../../src/services/providers.ts#L248) |
+| getClaudeCodeDefaultPermissionMode | FunctionDeclaration |  | [254](../../src/services/providers.ts#L254) |
+| setClaudeCodeDefaultPermissionMode | FunctionDeclaration |  | [258](../../src/services/providers.ts#L258) |
+| getClaudeDesktopAutoMode | FunctionDeclaration |  | [262](../../src/services/providers.ts#L262) |
+| setClaudeDesktopAutoMode | FunctionDeclaration |  | [266](../../src/services/providers.ts#L266) |
+| getClaudeCodeAgentSettings | FunctionDeclaration |  | [270](../../src/services/providers.ts#L270) |
+| setClaudeCodeAgentSettings | FunctionDeclaration |  | [274](../../src/services/providers.ts#L274) |
+| getOpenCodePermissionMode | FunctionDeclaration |  | [280](../../src/services/providers.ts#L280) |
+| setOpenCodePermissionMode | FunctionDeclaration |  | [284](../../src/services/providers.ts#L284) |
+| switchToOfficial | FunctionDeclaration |  | [288](../../src/services/providers.ts#L288) |
+| batchSpeedtestUpstreamEndpoints | FunctionDeclaration |  | [292](../../src/services/providers.ts#L292) |
+| effectiveBatchId | VariableDeclaration | batchSpeedtestUpstreamEndpoints | [298](../../src/services/providers.ts#L298) |
+| cancel | VariableDeclaration | batchSpeedtestUpstreamEndpoints | [325](../../src/services/providers.ts#L325) |
+| cancelBatchSpeedtest | FunctionDeclaration |  | [341](../../src/services/providers.ts#L341) |
+| previewImportText | FunctionDeclaration |  | [345](../../src/services/providers.ts#L345) |
+| confirmImportPreview | FunctionDeclaration |  | [349](../../src/services/providers.ts#L349) |
+| getSmartGatewayStatus | FunctionDeclaration |  | [353](../../src/services/providers.ts#L353) |
+| setSmartGatewayPort | FunctionDeclaration |  | [357](../../src/services/providers.ts#L357) |
+| setSmartGatewayApiKey | FunctionDeclaration |  | [361](../../src/services/providers.ts#L361) |
+| rotateSmartGatewayApiKey | FunctionDeclaration |  | [365](../../src/services/providers.ts#L365) |
+| startSmartGateway | FunctionDeclaration |  | [369](../../src/services/providers.ts#L369) |
+| stopSmartGateway | FunctionDeclaration |  | [373](../../src/services/providers.ts#L373) |
+| listSmartGatewayBindings | FunctionDeclaration |  | [377](../../src/services/providers.ts#L377) |
+| bindSmartGateway | FunctionDeclaration |  | [381](../../src/services/providers.ts#L381) |
+| unbindSmartGateway | FunctionDeclaration |  | [385](../../src/services/providers.ts#L385) |
+| listUpstreamDailyUsageStats | FunctionDeclaration |  | [389](../../src/services/providers.ts#L389) |
+| listGatewayUpstreamHealth | FunctionDeclaration |  | [395](../../src/services/providers.ts#L395) |
+| getGatewayUpstreamPolicy | FunctionDeclaration |  | [399](../../src/services/providers.ts#L399) |
+| setGatewayUpstreamPolicy | FunctionDeclaration |  | [403](../../src/services/providers.ts#L403) |
+| listGatewayUpstreamPressure | FunctionDeclaration |  | [410](../../src/services/providers.ts#L410) |
+| getSmartGatewayInboundLimits | FunctionDeclaration |  | [416](../../src/services/providers.ts#L416) |
+| setSmartGatewayInboundLimits | FunctionDeclaration |  | [420](../../src/services/providers.ts#L420) |
+| getSmartGatewayHealthProbeSecs | FunctionDeclaration |  | [426](../../src/services/providers.ts#L426) |
+| setSmartGatewayHealthProbeSecs | FunctionDeclaration |  | [430](../../src/services/providers.ts#L430) |

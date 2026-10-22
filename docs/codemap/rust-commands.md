@@ -27,7 +27,7 @@
 | [src-tauri/src/commands/desktop_localization_parts/state.rs](../../src-tauri/src/commands/desktop_localization_parts/state.rs) | 29 | [1](src-tauri_src_commands_desktop_localization_parts_state.rs-d1400a2e-1.md) |
 | [src-tauri/src/commands/desktop_localization_parts/tests.rs](../../src-tauri/src/commands/desktop_localization_parts/tests.rs) | 240 | [1](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-1.md) [2](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-2.md) [3](src-tauri_src_commands_desktop_localization_parts_tests.rs-4220c9f7-3.md) |
 | [src-tauri/src/commands/doctor.rs](../../src-tauri/src/commands/doctor.rs) | 89 | [1](src-tauri_src_commands_doctor.rs-2917bcc1-1.md) |
-| [src-tauri/src/commands/gateway.rs](../../src-tauri/src/commands/gateway.rs) | 48 | [1](src-tauri_src_commands_gateway.rs-6deaa692-1.md) |
+| [src-tauri/src/commands/gateway.rs](../../src-tauri/src/commands/gateway.rs) | 49 | [1](src-tauri_src_commands_gateway.rs-6deaa692-1.md) |
 | [src-tauri/src/commands/kiro.rs](../../src-tauri/src/commands/kiro.rs) | 27 | [1](src-tauri_src_commands_kiro.rs-1c6825b3-1.md) |
 | [src-tauri/src/commands/localization.rs](../../src-tauri/src/commands/localization.rs) | 239 | [1](src-tauri_src_commands_localization.rs-412be93b-1.md) [2](src-tauri_src_commands_localization.rs-412be93b-2.md) [3](src-tauri_src_commands_localization.rs-412be93b-3.md) |
 | [src-tauri/src/commands/mcp.rs](../../src-tauri/src/commands/mcp.rs) | 12 | [1](src-tauri_src_commands_mcp.rs-cb75e6fa-1.md) |
@@ -37,9 +37,9 @@
 | [src-tauri/src/commands/pi.rs](../../src-tauri/src/commands/pi.rs) | 19 | [1](src-tauri_src_commands_pi.rs-3391dead-1.md) |
 | [src-tauri/src/commands/profiles.rs](../../src-tauri/src/commands/profiles.rs) | 62 | [1](src-tauri_src_commands_profiles.rs-a71a33a3-1.md) |
 | [src-tauri/src/commands/prompts.rs](../../src-tauri/src/commands/prompts.rs) | 8 | [1](src-tauri_src_commands_prompts.rs-1f40b7a1-1.md) |
-| [src-tauri/src/commands/providers/apply.rs](../../src-tauri/src/commands/providers/apply.rs) | 42 | [1](src-tauri_src_commands_providers_apply.rs-5bab3885-1.md) |
+| [src-tauri/src/commands/providers/apply.rs](../../src-tauri/src/commands/providers/apply.rs) | 46 | [1](src-tauri_src_commands_providers_apply.rs-5bab3885-1.md) |
 | [src-tauri/src/commands/providers/config_drift.rs](../../src-tauri/src/commands/providers/config_drift.rs) | 35 | [1](src-tauri_src_commands_providers_config_drift.rs-e174c7a8-1.md) |
-| [src-tauri/src/commands/providers/copy_across_agents.rs](../../src-tauri/src/commands/providers/copy_across_agents.rs) | 97 | [1](src-tauri_src_commands_providers_copy_across_agents.rs-98691f49-1.md) |
+| [src-tauri/src/commands/providers/copy_across_agents.rs](../../src-tauri/src/commands/providers/copy_across_agents.rs) | 131 | [1](src-tauri_src_commands_providers_copy_across_agents.rs-98691f49-1.md) [2](src-tauri_src_commands_providers_copy_across_agents.rs-98691f49-2.md) |
 | [src-tauri/src/commands/providers/crud.rs](../../src-tauri/src/commands/providers/crud.rs) | 105 | [1](src-tauri_src_commands_providers_crud.rs-275dda51-1.md) [2](src-tauri_src_commands_providers_crud.rs-275dda51-2.md) |
 | [src-tauri/src/commands/providers/gateway_binding.rs](../../src-tauri/src/commands/providers/gateway_binding.rs) | 37 | [1](src-tauri_src_commands_providers_gateway_binding.rs-d0fea96d-1.md) |
 | [src-tauri/src/commands/providers/live_sync.rs](../../src-tauri/src/commands/providers/live_sync.rs) | 120 | [1](src-tauri_src_commands_providers_live_sync.rs-a2b12a95-1.md) [2](src-tauri_src_commands_providers_live_sync.rs-a2b12a95-2.md) |

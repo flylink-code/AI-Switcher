@@ -345,6 +345,8 @@ export interface GatewayUpstreamImportResult {
 export interface GatewayUpstreamModelRow {
   modelId: string;
   visible: boolean;
+  fastEnabled: boolean;
+  fastSupported: boolean | null;
   displayName?: string;
   contextWindow?: number | null;
   maxOutputTokens?: number | null;

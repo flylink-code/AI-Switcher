@@ -4,7 +4,7 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 3/12
 
-Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
+Source SHA-256: 44a8497cfa06ab7a03c4c3543fa59d712f4520672485a28d4cf2415a3b2a034b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -67,44 +67,44 @@ Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
 | GatewayUpstreamModelRow | InterfaceDeclaration |  | [345](../../src/types/backend.ts#L345) |
 | modelId | PropertySignature | GatewayUpstreamModelRow | [346](../../src/types/backend.ts#L346) |
 | visible | PropertySignature | GatewayUpstreamModelRow | [347](../../src/types/backend.ts#L347) |
-| displayName | PropertySignature | GatewayUpstreamModelRow | [348](../../src/types/backend.ts#L348) |
-| contextWindow | PropertySignature | GatewayUpstreamModelRow | [349](../../src/types/backend.ts#L349) |
-| maxOutputTokens | PropertySignature | GatewayUpstreamModelRow | [350](../../src/types/backend.ts#L350) |
-| reasoningLevels | PropertySignature | GatewayUpstreamModelRow | [351](../../src/types/backend.ts#L351) |
-| capabilities | PropertySignature | GatewayUpstreamModelRow | [352](../../src/types/backend.ts#L352) |
-| SmartGatewayStatus | InterfaceDeclaration |  | [355](../../src/types/backend.ts#L355) |
-| running | PropertySignature | SmartGatewayStatus | [356](../../src/types/backend.ts#L356) |
-| port | PropertySignature | SmartGatewayStatus | [357](../../src/types/backend.ts#L357) |
-| phase | PropertySignature | SmartGatewayStatus | [358](../../src/types/backend.ts#L358) |
-| lastError | PropertySignature | SmartGatewayStatus | [359](../../src/types/backend.ts#L359) |
-| baseUrl | PropertySignature | SmartGatewayStatus | [360](../../src/types/backend.ts#L360) |
-| apiKey | PropertySignature | SmartGatewayStatus | [361](../../src/types/backend.ts#L361) |
-| bindingCount | PropertySignature | SmartGatewayStatus | [362](../../src/types/backend.ts#L362) |
-| checkedAt | PropertySignature | SmartGatewayStatus | [363](../../src/types/backend.ts#L363) |
-| RouteModePatch | InterfaceDeclaration |  | [369](../../src/types/backend.ts#L369) |
-| enabled | PropertySignature | RouteModePatch | [370](../../src/types/backend.ts#L370) |
-| model | PropertySignature | RouteModePatch | [371](../../src/types/backend.ts#L371) |
-| thinkingConfigJson | PropertySignature | RouteModePatch | [372](../../src/types/backend.ts#L372) |
-| fallbackModels | PropertySignature | RouteModePatch | [373](../../src/types/backend.ts#L373) |
-| threshold | PropertySignature | RouteModePatch | [374](../../src/types/backend.ts#L374) |
-| RouteModeUsageStat | InterfaceDeclaration |  | [379](../../src/types/backend.ts#L379) |
-| modeId | PropertySignature | RouteModeUsageStat | [380](../../src/types/backend.ts#L380) |
-| requestCount | PropertySignature | RouteModeUsageStat | [381](../../src/types/backend.ts#L381) |
-| estimatedCost | PropertySignature | RouteModeUsageStat | [382](../../src/types/backend.ts#L382) |
-| UpstreamDailyUsageStat | InterfaceDeclaration |  | [385](../../src/types/backend.ts#L385) |
-| upstreamId | PropertySignature | UpstreamDailyUsageStat | [386](../../src/types/backend.ts#L386) |
-| requestCount | PropertySignature | UpstreamDailyUsageStat | [387](../../src/types/backend.ts#L387) |
-| successfulRequestCount | PropertySignature | UpstreamDailyUsageStat | [388](../../src/types/backend.ts#L388) |
-| successRate | PropertySignature | UpstreamDailyUsageStat | [389](../../src/types/backend.ts#L389) |
-| estimatedCost | PropertySignature | UpstreamDailyUsageStat | [390](../../src/types/backend.ts#L390) |
-| estimatedCostCurrency | PropertySignature | UpstreamDailyUsageStat | [391](../../src/types/backend.ts#L391) |
-| estimatedCostsByCurrency | PropertySignature | UpstreamDailyUsageStat | [392](../../src/types/backend.ts#L392) |
-| GatewayUpstreamDiscoverItem | InterfaceDeclaration |  | [395](../../src/types/backend.ts#L395) |
-| id | PropertySignature | GatewayUpstreamDiscoverItem | [396](../../src/types/backend.ts#L396) |
-| name | PropertySignature | GatewayUpstreamDiscoverItem | [397](../../src/types/backend.ts#L397) |
-| result | PropertySignature | GatewayUpstreamDiscoverItem | [398](../../src/types/backend.ts#L398) |
-| ProviderImportResult | InterfaceDeclaration |  | [401](../../src/types/backend.ts#L401) |
-| imported | PropertySignature | ProviderImportResult | [402](../../src/types/backend.ts#L402) |
-| skipped | PropertySignature | ProviderImportResult | [403](../../src/types/backend.ts#L403) |
-| ImportResource | TypeAliasDeclaration |  | [406](../../src/types/backend.ts#L406) |
-| ImportPreviewItem | InterfaceDeclaration |  | [408](../../src/types/backend.ts#L408) |
+| fastEnabled | PropertySignature | GatewayUpstreamModelRow | [348](../../src/types/backend.ts#L348) |
+| fastSupported | PropertySignature | GatewayUpstreamModelRow | [349](../../src/types/backend.ts#L349) |
+| displayName | PropertySignature | GatewayUpstreamModelRow | [350](../../src/types/backend.ts#L350) |
+| contextWindow | PropertySignature | GatewayUpstreamModelRow | [351](../../src/types/backend.ts#L351) |
+| maxOutputTokens | PropertySignature | GatewayUpstreamModelRow | [352](../../src/types/backend.ts#L352) |
+| reasoningLevels | PropertySignature | GatewayUpstreamModelRow | [353](../../src/types/backend.ts#L353) |
+| capabilities | PropertySignature | GatewayUpstreamModelRow | [354](../../src/types/backend.ts#L354) |
+| SmartGatewayStatus | InterfaceDeclaration |  | [357](../../src/types/backend.ts#L357) |
+| running | PropertySignature | SmartGatewayStatus | [358](../../src/types/backend.ts#L358) |
+| port | PropertySignature | SmartGatewayStatus | [359](../../src/types/backend.ts#L359) |
+| phase | PropertySignature | SmartGatewayStatus | [360](../../src/types/backend.ts#L360) |
+| lastError | PropertySignature | SmartGatewayStatus | [361](../../src/types/backend.ts#L361) |
+| baseUrl | PropertySignature | SmartGatewayStatus | [362](../../src/types/backend.ts#L362) |
+| apiKey | PropertySignature | SmartGatewayStatus | [363](../../src/types/backend.ts#L363) |
+| bindingCount | PropertySignature | SmartGatewayStatus | [364](../../src/types/backend.ts#L364) |
+| checkedAt | PropertySignature | SmartGatewayStatus | [365](../../src/types/backend.ts#L365) |
+| RouteModePatch | InterfaceDeclaration |  | [371](../../src/types/backend.ts#L371) |
+| enabled | PropertySignature | RouteModePatch | [372](../../src/types/backend.ts#L372) |
+| model | PropertySignature | RouteModePatch | [373](../../src/types/backend.ts#L373) |
+| thinkingConfigJson | PropertySignature | RouteModePatch | [374](../../src/types/backend.ts#L374) |
+| fallbackModels | PropertySignature | RouteModePatch | [375](../../src/types/backend.ts#L375) |
+| threshold | PropertySignature | RouteModePatch | [376](../../src/types/backend.ts#L376) |
+| RouteModeUsageStat | InterfaceDeclaration |  | [381](../../src/types/backend.ts#L381) |
+| modeId | PropertySignature | RouteModeUsageStat | [382](../../src/types/backend.ts#L382) |
+| requestCount | PropertySignature | RouteModeUsageStat | [383](../../src/types/backend.ts#L383) |
+| estimatedCost | PropertySignature | RouteModeUsageStat | [384](../../src/types/backend.ts#L384) |
+| UpstreamDailyUsageStat | InterfaceDeclaration |  | [387](../../src/types/backend.ts#L387) |
+| upstreamId | PropertySignature | UpstreamDailyUsageStat | [388](../../src/types/backend.ts#L388) |
+| requestCount | PropertySignature | UpstreamDailyUsageStat | [389](../../src/types/backend.ts#L389) |
+| successfulRequestCount | PropertySignature | UpstreamDailyUsageStat | [390](../../src/types/backend.ts#L390) |
+| successRate | PropertySignature | UpstreamDailyUsageStat | [391](../../src/types/backend.ts#L391) |
+| estimatedCost | PropertySignature | UpstreamDailyUsageStat | [392](../../src/types/backend.ts#L392) |
+| estimatedCostCurrency | PropertySignature | UpstreamDailyUsageStat | [393](../../src/types/backend.ts#L393) |
+| estimatedCostsByCurrency | PropertySignature | UpstreamDailyUsageStat | [394](../../src/types/backend.ts#L394) |
+| GatewayUpstreamDiscoverItem | InterfaceDeclaration |  | [397](../../src/types/backend.ts#L397) |
+| id | PropertySignature | GatewayUpstreamDiscoverItem | [398](../../src/types/backend.ts#L398) |
+| name | PropertySignature | GatewayUpstreamDiscoverItem | [399](../../src/types/backend.ts#L399) |
+| result | PropertySignature | GatewayUpstreamDiscoverItem | [400](../../src/types/backend.ts#L400) |
+| ProviderImportResult | InterfaceDeclaration |  | [403](../../src/types/backend.ts#L403) |
+| imported | PropertySignature | ProviderImportResult | [404](../../src/types/backend.ts#L404) |
+| skipped | PropertySignature | ProviderImportResult | [405](../../src/types/backend.ts#L405) |

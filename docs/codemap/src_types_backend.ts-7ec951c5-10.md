@@ -4,107 +4,107 @@
 
 [Module](web-types.md) · [Source](../../src/types/backend.ts) · page 10/12
 
-Source SHA-256: b8c7f68d547a617e6d57470f447ded876a68234173c437b168ea44da171becff
+Source SHA-256: 44a8497cfa06ab7a03c4c3543fa59d712f4520672485a28d4cf2415a3b2a034b
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| error | PropertySignature | OpenCodeCliVersionInfo | [1238](../../src/types/backend.ts#L1238) |
-| executablePath | PropertySignature | OpenCodeCliVersionInfo | [1239](../../src/types/backend.ts#L1239) |
-| source | PropertySignature | OpenCodeCliVersionInfo | [1240](../../src/types/backend.ts#L1240) |
-| environment | PropertySignature | OpenCodeCliVersionInfo | [1241](../../src/types/backend.ts#L1241) |
-| installedButBroken | PropertySignature | OpenCodeCliVersionInfo | [1242](../../src/types/backend.ts#L1242) |
-| PiCliVersionInfo | InterfaceDeclaration |  | [1245](../../src/types/backend.ts#L1245) |
-| installed | PropertySignature | PiCliVersionInfo | [1246](../../src/types/backend.ts#L1246) |
-| currentVersion | PropertySignature | PiCliVersionInfo | [1247](../../src/types/backend.ts#L1247) |
-| latestVersion | PropertySignature | PiCliVersionInfo | [1248](../../src/types/backend.ts#L1248) |
-| updateAvailable | PropertySignature | PiCliVersionInfo | [1249](../../src/types/backend.ts#L1249) |
-| installCommand | PropertySignature | PiCliVersionInfo | [1250](../../src/types/backend.ts#L1250) |
-| updateCommand | PropertySignature | PiCliVersionInfo | [1251](../../src/types/backend.ts#L1251) |
-| error | PropertySignature | PiCliVersionInfo | [1252](../../src/types/backend.ts#L1252) |
-| executablePath | PropertySignature | PiCliVersionInfo | [1253](../../src/types/backend.ts#L1253) |
-| source | PropertySignature | PiCliVersionInfo | [1254](../../src/types/backend.ts#L1254) |
-| environment | PropertySignature | PiCliVersionInfo | [1255](../../src/types/backend.ts#L1255) |
-| installedButBroken | PropertySignature | PiCliVersionInfo | [1256](../../src/types/backend.ts#L1256) |
-| DshCliVersionInfo | InterfaceDeclaration |  | [1259](../../src/types/backend.ts#L1259) |
-| installed | PropertySignature | DshCliVersionInfo | [1260](../../src/types/backend.ts#L1260) |
-| currentVersion | PropertySignature | DshCliVersionInfo | [1261](../../src/types/backend.ts#L1261) |
-| latestVersion | PropertySignature | DshCliVersionInfo | [1262](../../src/types/backend.ts#L1262) |
-| updateAvailable | PropertySignature | DshCliVersionInfo | [1263](../../src/types/backend.ts#L1263) |
-| installCommand | PropertySignature | DshCliVersionInfo | [1264](../../src/types/backend.ts#L1264) |
-| updateCommand | PropertySignature | DshCliVersionInfo | [1265](../../src/types/backend.ts#L1265) |
-| error | PropertySignature | DshCliVersionInfo | [1266](../../src/types/backend.ts#L1266) |
-| executablePath | PropertySignature | DshCliVersionInfo | [1267](../../src/types/backend.ts#L1267) |
-| source | PropertySignature | DshCliVersionInfo | [1268](../../src/types/backend.ts#L1268) |
-| environment | PropertySignature | DshCliVersionInfo | [1269](../../src/types/backend.ts#L1269) |
-| installedButBroken | PropertySignature | DshCliVersionInfo | [1270](../../src/types/backend.ts#L1270) |
-| ClaudeDesktopAppInfo | InterfaceDeclaration |  | [1273](../../src/types/backend.ts#L1273) |
-| installed | PropertySignature | ClaudeDesktopAppInfo | [1274](../../src/types/backend.ts#L1274) |
-| currentVersion | PropertySignature | ClaudeDesktopAppInfo | [1275](../../src/types/backend.ts#L1275) |
-| latestVersion | PropertySignature | ClaudeDesktopAppInfo | [1276](../../src/types/backend.ts#L1276) |
-| updateAvailable | PropertySignature | ClaudeDesktopAppInfo | [1277](../../src/types/backend.ts#L1277) |
-| installCommand | PropertySignature | ClaudeDesktopAppInfo | [1278](../../src/types/backend.ts#L1278) |
-| updateCommand | PropertySignature | ClaudeDesktopAppInfo | [1279](../../src/types/backend.ts#L1279) |
-| error | PropertySignature | ClaudeDesktopAppInfo | [1280](../../src/types/backend.ts#L1280) |
-| executablePath | PropertySignature | ClaudeDesktopAppInfo | [1281](../../src/types/backend.ts#L1281) |
-| source | PropertySignature | ClaudeDesktopAppInfo | [1282](../../src/types/backend.ts#L1282) |
-| environment | PropertySignature | ClaudeDesktopAppInfo | [1283](../../src/types/backend.ts#L1283) |
-| installedButBroken | PropertySignature | ClaudeDesktopAppInfo | [1284](../../src/types/backend.ts#L1284) |
-| canInstallInApp | PropertySignature | ClaudeDesktopAppInfo | [1285](../../src/types/backend.ts#L1285) |
-| OpenCodeDesktopStatus | InterfaceDeclaration |  | [1288](../../src/types/backend.ts#L1288) |
-| installed | PropertySignature | OpenCodeDesktopStatus | [1289](../../src/types/backend.ts#L1289) |
-| version | PropertySignature | OpenCodeDesktopStatus | [1290](../../src/types/backend.ts#L1290) |
-| installPath | PropertySignature | OpenCodeDesktopStatus | [1291](../../src/types/backend.ts#L1291) |
-| source | PropertySignature | OpenCodeDesktopStatus | [1292](../../src/types/backend.ts#L1292) |
-| NodeRuntimeStatus | InterfaceDeclaration |  | [1295](../../src/types/backend.ts#L1295) |
-| installed | PropertySignature | NodeRuntimeStatus | [1296](../../src/types/backend.ts#L1296) |
-| version | PropertySignature | NodeRuntimeStatus | [1297](../../src/types/backend.ts#L1297) |
-| meetsMinimum | PropertySignature | NodeRuntimeStatus | [1298](../../src/types/backend.ts#L1298) |
-| npmPath | PropertySignature | NodeRuntimeStatus | [1299](../../src/types/backend.ts#L1299) |
-| nodePath | PropertySignature | NodeRuntimeStatus | [1300](../../src/types/backend.ts#L1300) |
-| source | PropertySignature | NodeRuntimeStatus | [1301](../../src/types/backend.ts#L1301) |
-| fnmInstalled | PropertySignature | NodeRuntimeStatus | [1302](../../src/types/backend.ts#L1302) |
-| installHint | PropertySignature | NodeRuntimeStatus | [1303](../../src/types/backend.ts#L1303) |
-| SessionProvider | TypeAliasDeclaration |  | [1306](../../src/types/backend.ts#L1306) |
-| SessionProviderStatus | InterfaceDeclaration |  | [1308](../../src/types/backend.ts#L1308) |
-| provider | PropertySignature | SessionProviderStatus | [1309](../../src/types/backend.ts#L1309) |
-| status | PropertySignature | SessionProviderStatus | [1310](../../src/types/backend.ts#L1310) |
-| detail | PropertySignature | SessionProviderStatus | [1311](../../src/types/backend.ts#L1311) |
-| rootPath | PropertySignature | SessionProviderStatus | [1312](../../src/types/backend.ts#L1312) |
-| SessionMeta | InterfaceDeclaration |  | [1315](../../src/types/backend.ts#L1315) |
-| provider | PropertySignature | SessionMeta | [1316](../../src/types/backend.ts#L1316) |
-| sessionId | PropertySignature | SessionMeta | [1317](../../src/types/backend.ts#L1317) |
-| title | PropertySignature | SessionMeta | [1318](../../src/types/backend.ts#L1318) |
-| summary | PropertySignature | SessionMeta | [1319](../../src/types/backend.ts#L1319) |
-| projectDir | PropertySignature | SessionMeta | [1320](../../src/types/backend.ts#L1320) |
-| createdAt | PropertySignature | SessionMeta | [1321](../../src/types/backend.ts#L1321) |
-| lastActiveAt | PropertySignature | SessionMeta | [1322](../../src/types/backend.ts#L1322) |
-| sourcePath | PropertySignature | SessionMeta | [1323](../../src/types/backend.ts#L1323) |
-| resumeCommand | PropertySignature | SessionMeta | [1324](../../src/types/backend.ts#L1324) |
-| pinned | PropertySignature | SessionMeta | [1326](../../src/types/backend.ts#L1326) |
-| SessionMessage | InterfaceDeclaration |  | [1329](../../src/types/backend.ts#L1329) |
-| role | PropertySignature | SessionMessage | [1330](../../src/types/backend.ts#L1330) |
-| content | PropertySignature | SessionMessage | [1331](../../src/types/backend.ts#L1331) |
-| timestamp | PropertySignature | SessionMessage | [1332](../../src/types/backend.ts#L1332) |
-| SessionScanResult | InterfaceDeclaration |  | [1335](../../src/types/backend.ts#L1335) |
-| sessions | PropertySignature | SessionScanResult | [1336](../../src/types/backend.ts#L1336) |
-| providers | PropertySignature | SessionScanResult | [1337](../../src/types/backend.ts#L1337) |
-| total | PropertySignature | SessionScanResult | [1338](../../src/types/backend.ts#L1338) |
-| offset | PropertySignature | SessionScanResult | [1339](../../src/types/backend.ts#L1339) |
-| limit | PropertySignature | SessionScanResult | [1340](../../src/types/backend.ts#L1340) |
-| SessionArchiveInfo | InterfaceDeclaration |  | [1343](../../src/types/backend.ts#L1343) |
-| archivePath | PropertySignature | SessionArchiveInfo | [1344](../../src/types/backend.ts#L1344) |
-| sessionId | PropertySignature | SessionArchiveInfo | [1345](../../src/types/backend.ts#L1345) |
-| createdAt | PropertySignature | SessionArchiveInfo | [1346](../../src/types/backend.ts#L1346) |
-| SessionMigrateResult | InterfaceDeclaration |  | [1349](../../src/types/backend.ts#L1349) |
-| session | PropertySignature | SessionMigrateResult | [1350](../../src/types/backend.ts#L1350) |
-| sourceSessionId | PropertySignature | SessionMigrateResult | [1351](../../src/types/backend.ts#L1351) |
-| targetModel | PropertySignature | SessionMigrateResult | [1352](../../src/types/backend.ts#L1352) |
-| linesCopied | PropertySignature | SessionMigrateResult | [1353](../../src/types/backend.ts#L1353) |
-| linesTrimmed | PropertySignature | SessionMigrateResult | [1354](../../src/types/backend.ts#L1354) |
-| previousModel | PropertySignature | SessionMigrateResult | [1355](../../src/types/backend.ts#L1355) |
-| thinkingBlocksStripped | PropertySignature | SessionMigrateResult | [1356](../../src/types/backend.ts#L1356) |
-| errorTurnsRemoved | PropertySignature | SessionMigrateResult | [1357](../../src/types/backend.ts#L1357) |
-| historyLinesCompacted | PropertySignature | SessionMigrateResult | [1358](../../src/types/backend.ts#L1358) |
-| SessionBatchBackupInfo | InterfaceDeclaration |  | [1361](../../src/types/backend.ts#L1361) |
-| archives | PropertySignature | SessionBatchBackupInfo | [1362](../../src/types/backend.ts#L1362) |
-| SessionBatchExportInfo | InterfaceDeclaration |  | [1365](../../src/types/backend.ts#L1365) |
+| installCommand | PropertySignature | OpenCodeCliVersionInfo | [1238](../../src/types/backend.ts#L1238) |
+| updateCommand | PropertySignature | OpenCodeCliVersionInfo | [1239](../../src/types/backend.ts#L1239) |
+| error | PropertySignature | OpenCodeCliVersionInfo | [1240](../../src/types/backend.ts#L1240) |
+| executablePath | PropertySignature | OpenCodeCliVersionInfo | [1241](../../src/types/backend.ts#L1241) |
+| source | PropertySignature | OpenCodeCliVersionInfo | [1242](../../src/types/backend.ts#L1242) |
+| environment | PropertySignature | OpenCodeCliVersionInfo | [1243](../../src/types/backend.ts#L1243) |
+| installedButBroken | PropertySignature | OpenCodeCliVersionInfo | [1244](../../src/types/backend.ts#L1244) |
+| PiCliVersionInfo | InterfaceDeclaration |  | [1247](../../src/types/backend.ts#L1247) |
+| installed | PropertySignature | PiCliVersionInfo | [1248](../../src/types/backend.ts#L1248) |
+| currentVersion | PropertySignature | PiCliVersionInfo | [1249](../../src/types/backend.ts#L1249) |
+| latestVersion | PropertySignature | PiCliVersionInfo | [1250](../../src/types/backend.ts#L1250) |
+| updateAvailable | PropertySignature | PiCliVersionInfo | [1251](../../src/types/backend.ts#L1251) |
+| installCommand | PropertySignature | PiCliVersionInfo | [1252](../../src/types/backend.ts#L1252) |
+| updateCommand | PropertySignature | PiCliVersionInfo | [1253](../../src/types/backend.ts#L1253) |
+| error | PropertySignature | PiCliVersionInfo | [1254](../../src/types/backend.ts#L1254) |
+| executablePath | PropertySignature | PiCliVersionInfo | [1255](../../src/types/backend.ts#L1255) |
+| source | PropertySignature | PiCliVersionInfo | [1256](../../src/types/backend.ts#L1256) |
+| environment | PropertySignature | PiCliVersionInfo | [1257](../../src/types/backend.ts#L1257) |
+| installedButBroken | PropertySignature | PiCliVersionInfo | [1258](../../src/types/backend.ts#L1258) |
+| DshCliVersionInfo | InterfaceDeclaration |  | [1261](../../src/types/backend.ts#L1261) |
+| installed | PropertySignature | DshCliVersionInfo | [1262](../../src/types/backend.ts#L1262) |
+| currentVersion | PropertySignature | DshCliVersionInfo | [1263](../../src/types/backend.ts#L1263) |
+| latestVersion | PropertySignature | DshCliVersionInfo | [1264](../../src/types/backend.ts#L1264) |
+| updateAvailable | PropertySignature | DshCliVersionInfo | [1265](../../src/types/backend.ts#L1265) |
+| installCommand | PropertySignature | DshCliVersionInfo | [1266](../../src/types/backend.ts#L1266) |
+| updateCommand | PropertySignature | DshCliVersionInfo | [1267](../../src/types/backend.ts#L1267) |
+| error | PropertySignature | DshCliVersionInfo | [1268](../../src/types/backend.ts#L1268) |
+| executablePath | PropertySignature | DshCliVersionInfo | [1269](../../src/types/backend.ts#L1269) |
+| source | PropertySignature | DshCliVersionInfo | [1270](../../src/types/backend.ts#L1270) |
+| environment | PropertySignature | DshCliVersionInfo | [1271](../../src/types/backend.ts#L1271) |
+| installedButBroken | PropertySignature | DshCliVersionInfo | [1272](../../src/types/backend.ts#L1272) |
+| ClaudeDesktopAppInfo | InterfaceDeclaration |  | [1275](../../src/types/backend.ts#L1275) |
+| installed | PropertySignature | ClaudeDesktopAppInfo | [1276](../../src/types/backend.ts#L1276) |
+| currentVersion | PropertySignature | ClaudeDesktopAppInfo | [1277](../../src/types/backend.ts#L1277) |
+| latestVersion | PropertySignature | ClaudeDesktopAppInfo | [1278](../../src/types/backend.ts#L1278) |
+| updateAvailable | PropertySignature | ClaudeDesktopAppInfo | [1279](../../src/types/backend.ts#L1279) |
+| installCommand | PropertySignature | ClaudeDesktopAppInfo | [1280](../../src/types/backend.ts#L1280) |
+| updateCommand | PropertySignature | ClaudeDesktopAppInfo | [1281](../../src/types/backend.ts#L1281) |
+| error | PropertySignature | ClaudeDesktopAppInfo | [1282](../../src/types/backend.ts#L1282) |
+| executablePath | PropertySignature | ClaudeDesktopAppInfo | [1283](../../src/types/backend.ts#L1283) |
+| source | PropertySignature | ClaudeDesktopAppInfo | [1284](../../src/types/backend.ts#L1284) |
+| environment | PropertySignature | ClaudeDesktopAppInfo | [1285](../../src/types/backend.ts#L1285) |
+| installedButBroken | PropertySignature | ClaudeDesktopAppInfo | [1286](../../src/types/backend.ts#L1286) |
+| canInstallInApp | PropertySignature | ClaudeDesktopAppInfo | [1287](../../src/types/backend.ts#L1287) |
+| OpenCodeDesktopStatus | InterfaceDeclaration |  | [1290](../../src/types/backend.ts#L1290) |
+| installed | PropertySignature | OpenCodeDesktopStatus | [1291](../../src/types/backend.ts#L1291) |
+| version | PropertySignature | OpenCodeDesktopStatus | [1292](../../src/types/backend.ts#L1292) |
+| installPath | PropertySignature | OpenCodeDesktopStatus | [1293](../../src/types/backend.ts#L1293) |
+| source | PropertySignature | OpenCodeDesktopStatus | [1294](../../src/types/backend.ts#L1294) |
+| NodeRuntimeStatus | InterfaceDeclaration |  | [1297](../../src/types/backend.ts#L1297) |
+| installed | PropertySignature | NodeRuntimeStatus | [1298](../../src/types/backend.ts#L1298) |
+| version | PropertySignature | NodeRuntimeStatus | [1299](../../src/types/backend.ts#L1299) |
+| meetsMinimum | PropertySignature | NodeRuntimeStatus | [1300](../../src/types/backend.ts#L1300) |
+| npmPath | PropertySignature | NodeRuntimeStatus | [1301](../../src/types/backend.ts#L1301) |
+| nodePath | PropertySignature | NodeRuntimeStatus | [1302](../../src/types/backend.ts#L1302) |
+| source | PropertySignature | NodeRuntimeStatus | [1303](../../src/types/backend.ts#L1303) |
+| fnmInstalled | PropertySignature | NodeRuntimeStatus | [1304](../../src/types/backend.ts#L1304) |
+| installHint | PropertySignature | NodeRuntimeStatus | [1305](../../src/types/backend.ts#L1305) |
+| SessionProvider | TypeAliasDeclaration |  | [1308](../../src/types/backend.ts#L1308) |
+| SessionProviderStatus | InterfaceDeclaration |  | [1310](../../src/types/backend.ts#L1310) |
+| provider | PropertySignature | SessionProviderStatus | [1311](../../src/types/backend.ts#L1311) |
+| status | PropertySignature | SessionProviderStatus | [1312](../../src/types/backend.ts#L1312) |
+| detail | PropertySignature | SessionProviderStatus | [1313](../../src/types/backend.ts#L1313) |
+| rootPath | PropertySignature | SessionProviderStatus | [1314](../../src/types/backend.ts#L1314) |
+| SessionMeta | InterfaceDeclaration |  | [1317](../../src/types/backend.ts#L1317) |
+| provider | PropertySignature | SessionMeta | [1318](../../src/types/backend.ts#L1318) |
+| sessionId | PropertySignature | SessionMeta | [1319](../../src/types/backend.ts#L1319) |
+| title | PropertySignature | SessionMeta | [1320](../../src/types/backend.ts#L1320) |
+| summary | PropertySignature | SessionMeta | [1321](../../src/types/backend.ts#L1321) |
+| projectDir | PropertySignature | SessionMeta | [1322](../../src/types/backend.ts#L1322) |
+| createdAt | PropertySignature | SessionMeta | [1323](../../src/types/backend.ts#L1323) |
+| lastActiveAt | PropertySignature | SessionMeta | [1324](../../src/types/backend.ts#L1324) |
+| sourcePath | PropertySignature | SessionMeta | [1325](../../src/types/backend.ts#L1325) |
+| resumeCommand | PropertySignature | SessionMeta | [1326](../../src/types/backend.ts#L1326) |
+| pinned | PropertySignature | SessionMeta | [1328](../../src/types/backend.ts#L1328) |
+| SessionMessage | InterfaceDeclaration |  | [1331](../../src/types/backend.ts#L1331) |
+| role | PropertySignature | SessionMessage | [1332](../../src/types/backend.ts#L1332) |
+| content | PropertySignature | SessionMessage | [1333](../../src/types/backend.ts#L1333) |
+| timestamp | PropertySignature | SessionMessage | [1334](../../src/types/backend.ts#L1334) |
+| SessionScanResult | InterfaceDeclaration |  | [1337](../../src/types/backend.ts#L1337) |
+| sessions | PropertySignature | SessionScanResult | [1338](../../src/types/backend.ts#L1338) |
+| providers | PropertySignature | SessionScanResult | [1339](../../src/types/backend.ts#L1339) |
+| total | PropertySignature | SessionScanResult | [1340](../../src/types/backend.ts#L1340) |
+| offset | PropertySignature | SessionScanResult | [1341](../../src/types/backend.ts#L1341) |
+| limit | PropertySignature | SessionScanResult | [1342](../../src/types/backend.ts#L1342) |
+| SessionArchiveInfo | InterfaceDeclaration |  | [1345](../../src/types/backend.ts#L1345) |
+| archivePath | PropertySignature | SessionArchiveInfo | [1346](../../src/types/backend.ts#L1346) |
+| sessionId | PropertySignature | SessionArchiveInfo | [1347](../../src/types/backend.ts#L1347) |
+| createdAt | PropertySignature | SessionArchiveInfo | [1348](../../src/types/backend.ts#L1348) |
+| SessionMigrateResult | InterfaceDeclaration |  | [1351](../../src/types/backend.ts#L1351) |
+| session | PropertySignature | SessionMigrateResult | [1352](../../src/types/backend.ts#L1352) |
+| sourceSessionId | PropertySignature | SessionMigrateResult | [1353](../../src/types/backend.ts#L1353) |
+| targetModel | PropertySignature | SessionMigrateResult | [1354](../../src/types/backend.ts#L1354) |
+| linesCopied | PropertySignature | SessionMigrateResult | [1355](../../src/types/backend.ts#L1355) |
+| linesTrimmed | PropertySignature | SessionMigrateResult | [1356](../../src/types/backend.ts#L1356) |
+| previousModel | PropertySignature | SessionMigrateResult | [1357](../../src/types/backend.ts#L1357) |
+| thinkingBlocksStripped | PropertySignature | SessionMigrateResult | [1358](../../src/types/backend.ts#L1358) |
+| errorTurnsRemoved | PropertySignature | SessionMigrateResult | [1359](../../src/types/backend.ts#L1359) |
+| historyLinesCompacted | PropertySignature | SessionMigrateResult | [1360](../../src/types/backend.ts#L1360) |
+| SessionBatchBackupInfo | InterfaceDeclaration |  | [1363](../../src/types/backend.ts#L1363) |

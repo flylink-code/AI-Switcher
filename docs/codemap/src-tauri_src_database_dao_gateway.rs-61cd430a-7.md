@@ -4,18 +4,42 @@
 
 [Module](rust-database.md) · [Source](../../src-tauri/src/database/dao/gateway.rs) · page 7/7
 
-Source SHA-256: c2efa5afdf617ef70d9f3e0456f0fc8c5cf36d688c6bf5bf4ad4a6989fb4ce62
+Source SHA-256: fc0a75938360e6ed61f1593f97dc48db57ef5683cf867c82df21715efc662d0d
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4819](../../src-tauri/src/database/dao/gateway.rs#L4819) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4823](../../src-tauri/src/database/dao/gateway.rs#L4823) |
-| assert | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4830](../../src-tauri/src/database/dao/gateway.rs#L4830) |
-| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4835](../../src-tauri/src/database/dao/gateway.rs#L4835) |
-| stale_profile_allowlist_does_not_hide_new_upstreams | function_item | tests | [4842](../../src-tauri/src/database/dao/gateway.rs#L4842) |
-| params | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4848](../../src-tauri/src/database/dao/gateway.rs#L4848) |
-| assert_eq | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4851](../../src-tauri/src/database/dao/gateway.rs#L4851) |
-| assert | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4852](../../src-tauri/src/database/dao/gateway.rs#L4852) |
-| assert | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4853](../../src-tauri/src/database/dao/gateway.rs#L4853) |
-| corrupt_agent_direct_mapping_is_treated_as_unset | function_item | tests | [4860](../../src-tauri/src/database/dao/gateway.rs#L4860) |
-| assert | macro invocation (unexpanded) | tests::corrupt_agent_direct_mapping_is_treated_as_unset | [4865](../../src-tauri/src/database/dao/gateway.rs#L4865) |
+| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4824](../../src-tauri/src/database/dao/gateway.rs#L4824) |
+| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4831](../../src-tauri/src/database/dao/gateway.rs#L4831) |
+| assert_eq | macro invocation (unexpanded) | tests::reorder_upstreams_rewrites_priority_and_new_ones_go_last | [4834](../../src-tauri/src/database/dao/gateway.rs#L4834) |
+| paused_upstream_leaves_routing_and_blocks_new_direct | function_item | tests | [4841](../../src-tauri/src/database/dao/gateway.rs#L4841) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4845](../../src-tauri/src/database/dao/gateway.rs#L4845) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4846](../../src-tauri/src/database/dao/gateway.rs#L4846) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4849](../../src-tauri/src/database/dao/gateway.rs#L4849) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4850](../../src-tauri/src/database/dao/gateway.rs#L4850) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4852](../../src-tauri/src/database/dao/gateway.rs#L4852) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4853](../../src-tauri/src/database/dao/gateway.rs#L4853) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4856](../../src-tauri/src/database/dao/gateway.rs#L4856) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4857](../../src-tauri/src/database/dao/gateway.rs#L4857) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4858](../../src-tauri/src/database/dao/gateway.rs#L4858) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4861](../../src-tauri/src/database/dao/gateway.rs#L4861) |
+| assert_eq | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4862](../../src-tauri/src/database/dao/gateway.rs#L4862) |
+| assert | macro invocation (unexpanded) | tests::paused_upstream_leaves_routing_and_blocks_new_direct | [4863](../../src-tauri/src/database/dao/gateway.rs#L4863) |
+| agent_direct_mapping_overlays_upstream_mapping_per_role | function_item | tests | [4870](../../src-tauri/src/database/dao/gateway.rs#L4870) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4889](../../src-tauri/src/database/dao/gateway.rs#L4889) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4890](../../src-tauri/src/database/dao/gateway.rs#L4890) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4901](../../src-tauri/src/database/dao/gateway.rs#L4901) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4904](../../src-tauri/src/database/dao/gateway.rs#L4904) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4905](../../src-tauri/src/database/dao/gateway.rs#L4905) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4906](../../src-tauri/src/database/dao/gateway.rs#L4906) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4907](../../src-tauri/src/database/dao/gateway.rs#L4907) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4911](../../src-tauri/src/database/dao/gateway.rs#L4911) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4915](../../src-tauri/src/database/dao/gateway.rs#L4915) |
+| assert | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4922](../../src-tauri/src/database/dao/gateway.rs#L4922) |
+| assert_eq | macro invocation (unexpanded) | tests::agent_direct_mapping_overlays_upstream_mapping_per_role | [4927](../../src-tauri/src/database/dao/gateway.rs#L4927) |
+| stale_profile_allowlist_does_not_hide_new_upstreams | function_item | tests | [4934](../../src-tauri/src/database/dao/gateway.rs#L4934) |
+| params | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4940](../../src-tauri/src/database/dao/gateway.rs#L4940) |
+| assert_eq | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4943](../../src-tauri/src/database/dao/gateway.rs#L4943) |
+| assert | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4944](../../src-tauri/src/database/dao/gateway.rs#L4944) |
+| assert | macro invocation (unexpanded) | tests::stale_profile_allowlist_does_not_hide_new_upstreams | [4945](../../src-tauri/src/database/dao/gateway.rs#L4945) |
+| corrupt_agent_direct_mapping_is_treated_as_unset | function_item | tests | [4952](../../src-tauri/src/database/dao/gateway.rs#L4952) |
+| assert | macro invocation (unexpanded) | tests::corrupt_agent_direct_mapping_is_treated_as_unset | [4957](../../src-tauri/src/database/dao/gateway.rs#L4957) |

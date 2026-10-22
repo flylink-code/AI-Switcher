@@ -60,6 +60,7 @@ import {
   pollCodexOauthLogin,
   setGatewayUpstreamEnabled,
   setGatewayUpstreamModelVisible,
+  setGatewayUpstreamModelsFast,
   startCodexOauthLogin,
   testUpstreamConnection,
   upsertGatewayUpstream,
@@ -699,6 +700,20 @@ export function GatewayUpstreamPanel({
     }
   };
 
+  const handleModelsFast = async (modelIds: string[], enabled: boolean, confirmUnknown: boolean) => {
+    if (!modelsUpstream) return;
+    const upstreamId = modelsUpstream.id;
+    setModelsSaving(true);
+    try {
+      const rows = await setGatewayUpstreamModelsFast(upstreamId, modelIds, enabled, confirmUnknown);
+      queryClient.setQueryData(["gateway-upstream-models", upstreamId], rows);
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setModelsSaving(false);
+    }
+  };
+
   const handleRefreshDrawer = async () => {
     if (!modelsUpstream) return;
     setModelsSaving(true);
@@ -1326,12 +1341,14 @@ export function GatewayUpstreamPanel({
       />
 
       <UpstreamModelsDrawer
+        key={modelsUpstream?.id ?? "closed"}
         upstream={modelsUpstream}
         models={modelsQuery.data ?? []}
         saving={modelsSaving}
         onClose={() => setModelsUpstream(null)}
         onRefresh={() => void handleRefreshDrawer()}
         onToggleModel={(modelId, visible) => void handleToggleModel(modelId, visible)}
+        onSetFast={(modelIds, enabled, confirmed) => void handleModelsFast(modelIds, enabled, confirmed)}
       />
 
       <Modal

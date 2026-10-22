@@ -320,7 +320,9 @@ fn gateway_live_entry(
     };
     let hide = catalog::hide_official(state.db.as_ref(), target);
     let style = catalog::catalog_style_for(target);
-    let catalog = build_catalog_with(style, &pairs, hide);
+    let catalog = state.db.with_read_conn(|conn| {
+        catalog::build_catalog_with_cached_metadata(conn, style, &pairs, hide)
+    })?;
     let extra: Vec<String> = catalog
         .iter()
         .map(|entry| entry.public_id.clone())
@@ -939,7 +941,9 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     let pairs = load_gateway_pairs(state, ProviderTarget::Codex)?;
                     let hide_official =
                         catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
-                    let catalog = build_catalog_with(CatalogStyle::Codex, &pairs, hide_official);
+                    let catalog = state.db.with_read_conn(|conn| {
+                        catalog::build_catalog_with_cached_metadata(conn, CatalogStyle::Codex, &pairs, hide_official)
+                    })?;
                     tauri::async_runtime::spawn_blocking(move || {
                         codex::apply_provider_with_catalog(
                             &provider,

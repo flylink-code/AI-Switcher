@@ -4,7 +4,7 @@
 
 [Module](rust-commands.md) · [Source](../../src-tauri/src/commands/providers/mod.rs) · page 1/1
 
-Source SHA-256: 9b71bddc2770aac93db1f3e199fd15d4565f6a6be6c722f1b18eabe89604b8dc
+Source SHA-256: 655a2e880c5f038318f49a19da7f350c9a173e3b83ef755fa842fa4ea3df518f
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
@@ -44,11 +44,11 @@ Source SHA-256: 9b71bddc2770aac93db1f3e199fd15d4565f6a6be6c722f1b18eabe89604b8dc
 | target_starts_agent_proxy | function_item |  | [209](../../src-tauri/src/commands/providers/mod.rs#L209) |
 | live_uses_gateway_catalog | function_item |  | [225](../../src-tauri/src/commands/providers/mod.rs#L225) |
 | list_gateway_catalog_entries | function_item |  | [234](../../src-tauri/src/commands/providers/mod.rs#L234) |
-| vec | macro invocation (unexpanded) | list_gateway_catalog_entries | [266](../../src-tauri/src/commands/providers/mod.rs#L266) |
-| include | macro invocation (unexpanded) |  | [275](../../src-tauri/src/commands/providers/mod.rs#L275) |
-| include | macro invocation (unexpanded) |  | [276](../../src-tauri/src/commands/providers/mod.rs#L276) |
+| vec | macro invocation (unexpanded) | list_gateway_catalog_entries | [268](../../src-tauri/src/commands/providers/mod.rs#L268) |
 | include | macro invocation (unexpanded) |  | [277](../../src-tauri/src/commands/providers/mod.rs#L277) |
 | include | macro invocation (unexpanded) |  | [278](../../src-tauri/src/commands/providers/mod.rs#L278) |
 | include | macro invocation (unexpanded) |  | [279](../../src-tauri/src/commands/providers/mod.rs#L279) |
 | include | macro invocation (unexpanded) |  | [280](../../src-tauri/src/commands/providers/mod.rs#L280) |
 | include | macro invocation (unexpanded) |  | [281](../../src-tauri/src/commands/providers/mod.rs#L281) |
+| include | macro invocation (unexpanded) |  | [282](../../src-tauri/src/commands/providers/mod.rs#L282) |
+| include | macro invocation (unexpanded) |  | [283](../../src-tauri/src/commands/providers/mod.rs#L283) |

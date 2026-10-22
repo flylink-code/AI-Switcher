@@ -5,6 +5,7 @@
 
 pub mod correlation;
 pub mod count_tokens;
+pub mod fast_mode;
 pub mod health;
 pub mod inbound;
 pub mod metadata;

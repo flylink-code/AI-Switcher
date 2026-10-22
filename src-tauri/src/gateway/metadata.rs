@@ -1,7 +1,45 @@
 //! Default model metadata inferred from well-known id prefixes.
 //! Only fills missing fields; never overwrites user-edited values.
 
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiscoveredModelMeta {
+    #[serde(default)]
+    pub priority_supported: Option<bool>,
+    pub context_window: Option<u64>,
+    pub max_output_tokens: Option<u64>,
+    pub max_context_window: Option<u64>,
+    pub effective_context_window_percent: Option<u64>,
+}
+
+impl DiscoveredModelMeta {
+    pub fn from_model(value: &Value) -> Self {
+        let positive = |value: Option<&Value>| value.and_then(Value::as_u64).filter(|v| *v > 0);
+        let context = positive(value.get("context_window"))
+            .or_else(|| positive(value.get("context_length")))
+            .or_else(|| positive(value.pointer("/limit/context")));
+        let input = positive(value.get("max_input_tokens"))
+            .or_else(|| positive(value.pointer("/limit/input")));
+        Self {
+            priority_supported: value.get("service_tiers").and_then(Value::as_array)
+                .or_else(|| value.get("additional_speed_tiers").and_then(Value::as_array))
+                .map(|tiers| tiers.iter().any(|tier| {
+                    matches!(tier.as_str().or_else(|| tier.get("id").and_then(Value::as_str)), Some("priority" | "fast"))
+                })),
+            context_window: match (input, context) {
+                (Some(input), Some(context)) => Some(input.min(context)),
+                _ => input.or(context),
+            },
+            max_output_tokens: positive(value.get("max_output_tokens"))
+                .or_else(|| positive(value.pointer("/limit/output"))),
+            max_context_window: positive(value.get("max_context_window")),
+            effective_context_window_percent: positive(value.get("effective_context_window_percent"))
+                .filter(|value| *value <= 100),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct InferredMeta {
@@ -104,6 +142,22 @@ pub fn max_output_for(model_id: &str, context: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fast_mode_capability_requires_upstream_evidence() {
+        for (value, expected) in [
+            (json!({"id": "gpt-5.5"}), None),
+            (json!({"service_tiers": []}), Some(false)),
+            (json!({"service_tiers": [{"id": "priority"}]}), Some(true)),
+            (json!({"service_tiers": ["fast"]}), Some(true)),
+            (json!({"additional_speed_tiers": ["fast"]}), Some(true)),
+            (json!({"service_tiers": ["flex"]}), Some(false)),
+        ] {
+            assert_eq!(DiscoveredModelMeta::from_model(&value).priority_supported, expected);
+        }
+        let old: DiscoveredModelMeta = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(old.priority_supported, None);
+    }
 
     #[test]
     fn window_marker_must_be_a_whole_token() {
