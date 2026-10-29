@@ -79,9 +79,9 @@ pub fn apply_request(outgoing: &mut Value, incoming: &Value, enabled: bool) {
         if tier != "standard_only" {
             outgoing["service_tier"] = if tier == "fast" { Value::String("priority".into()) } else { tier.clone() };
         }
-    } else if incoming.get("speed").and_then(Value::as_str) == Some("fast") {
-        outgoing["service_tier"] = Value::String("priority".into());
-    } else if enabled && incoming.get("speed").is_none() {
+    } else if incoming.get("speed").and_then(Value::as_str) == Some("fast")
+        || (enabled && incoming.get("speed").is_none())
+    {
         outgoing["service_tier"] = Value::String("priority".into());
     }
 }

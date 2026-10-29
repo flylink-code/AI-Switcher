@@ -4,7 +4,7 @@
 
 [Module](rust-gateway.md) · [Source](../../src-tauri/src/gateway/fast_mode.rs) · page 1/1
 
-Source SHA-256: c7e8e8d3b3fa55356b027112213832c60001670676c7e6326fed8d7f807dac23
+Source SHA-256: f7e546683f4d2272933f64af06977a98407c68fdbed48cebcf25bd058291ce1c
 
 | Symbol | Kind | Scope | Line |
 | --- | --- | --- | ---: |
