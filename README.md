@@ -1,6 +1,15 @@
 # AI-Switcher
 
-面向 **Claude Code**、**Claude Desktop**、**Codex**、**VS Code Copilot**、**OpenCode**、**Pi** 的本地 AI 配置、统一供应商与智能网关工作台。**v1.6.5**
+面向 **Claude Code**、**Claude Desktop**、**Codex**、**VS Code Copilot**、**OpenCode**、**Pi** 的本地 AI 配置、统一供应商与智能网关工作台。**v1.6.6**
+
+## 项目后续计划
+
+发布 **v1.6.6** 后，作者将主要切换使用 [Magpie](https://github.com/yetone/magpie)，AI-Switcher 后续大概率不再新增功能。仓库和现有版本继续保留，供有需要的用户使用、参考与自行维护；后续修复和版本发布视实际情况而定，不承诺持续更新。感谢大家的使用、反馈与支持。
+
+## v1.6.6 更新
+
+- 新增托盘快捷悬浮窗：左击托盘图标即可切换 Claude Code / Codex 的智能网关或官方模式，查看今日用量和网关状态；支持失焦隐藏、一键打开主窗口与托盘双击唤起。
+- 新增模型级 OpenAI Priority 快速模式，可按上游模型单独或批量设置；优先保留客户端显式档位，实际支持情况与费用以供应商为准。
 
 所有 Agent 共用一份全局上游池（`upstreams`），连接方式统一为 **智能网关（推荐）**、**直连** 或 **官方**。内置 Antigravity / Kiro 反代网关默认以独立 Sidecar 子进程（`--gateway-sidecar`）运行，与主界面进程隔离并自动守护。
 

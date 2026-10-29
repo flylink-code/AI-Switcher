@@ -1,6 +1,15 @@
 # AI-Switcher
 
-Local AI configuration, unified provider pool, and smart gateway workbench for **Claude Code**, **Claude Desktop**, **Codex**, **VS Code Copilot**, **OpenCode**, and **Pi**. **v1.6.5**
+Local AI configuration, unified provider pool, and smart gateway workbench for **Claude Code**, **Claude Desktop**, **Codex**, **VS Code Copilot**, **OpenCode**, and **Pi**. **v1.6.6**
+
+## Project Outlook
+
+After releasing **v1.6.6**, the author is moving primarily to [Magpie](https://github.com/yetone/magpie), so AI-Switcher is unlikely to receive new features. The repository and existing releases will remain available for use, reference, and community maintenance. Future fixes and releases will depend on actual needs; continued updates are not guaranteed. Thank you for your usage, feedback, and support.
+
+## What's New in v1.6.6
+
+- Added a tray Quick Panel: left-click the tray icon to switch Claude Code / Codex between Smart Gateway and Official modes and view today's usage and gateway status. Includes focus-lost auto-hide, one-click main-window access, and tray double-click activation.
+- Added per-model OpenAI Priority fast mode with individual and batch controls for upstream models. Explicit client tiers take precedence; availability and pricing depend on the provider.
 
 Every agent shares a single global upstream pool (`upstreams`) with unified connection modes: **Smart Gateway (recommended)**, **Direct**, or **Official**. Built-in Antigravity and Kiro reverse-proxy gateways run in an isolated Sidecar child process (`--gateway-sidecar`) by default with automatic supervision.
 

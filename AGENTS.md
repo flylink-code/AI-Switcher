@@ -49,7 +49,8 @@
 
 - **AI-Switcher**（原 Claude Switcher）：Windows 优先桌面端，统一配置各 Agent 的供应商、智能网关、Antigravity 反代、本地代理、MCP、会话、用量。
 - 仓库 `flylink-code/AI-Switcher`。Tauri 2 + Rust + React + Vite；Corepack **pnpm**。
-- 版本 **1.6.4**（`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` 必须对齐；MSI 数字版本 `1.6.4.4`，高于 beta.3 的 `1.6.4.3`）。Schema **37**（`SCHEMA_VERSION`）。
+- 版本 **1.6.6**（`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` 必须对齐；MSI 数字版本 `1.6.6.2`，高于 beta.1 的 `1.6.6.1`）。Schema **37**（`SCHEMA_VERSION`）。
+- v1.6.6 后作者主要转用 [Magpie](https://github.com/yetone/magpie)，后续大概率不再新增功能；保留仓库与既有版本，修复及发版视实际需要，不承诺持续更新。
 - 后续开发走 **main**。1.4.xx 热修走 `release/1.4.x`（Schema 28），禁止把 Schema 33 回写进 1.4 线。
 - 不要把 `release/`、`src-tauri/target/`、`dist/` 纳入提交。本地 `bug.md` / `task.md` 不提交。不要安装或替换本机正式程序。
 

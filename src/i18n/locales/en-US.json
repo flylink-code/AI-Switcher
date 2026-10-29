@@ -2146,6 +2146,7 @@
     "changelogEmpty": "No release notes are bundled for this build.",
     "changelog": {
       "1_6_6": [
+        "Added per-model OpenAI Priority fast mode with individual and batch controls for upstream models, preserving explicitly requested client service tiers; availability and pricing depend on the provider.",
         "Added system tray left-click Quick Panel: inspired by magpie, featuring bottom-right taskbar auto-docking and focus-lost auto-hide for quickly switching Claude Code and Codex modes.",
         "Integrated today's usage overview (requests, token volume, estimated cost) and gateway status cards into the quick panel, displaying smart gateway, Antigravity, and Kiro health and account counts on demand.",
         "Enhanced panel-to-main window transitions with one-click full console access and tray double-click activation."
