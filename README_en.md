@@ -4,7 +4,7 @@ Local AI configuration, unified provider pool, and smart gateway workbench for *
 
 ## Project Outlook
 
-After releasing **v1.6.6**, the author is moving primarily to [Magpie](https://github.com/yetone/magpie), so AI-Switcher will not receive new features. **v1.6.6 is the final feature release and this repository is archived (read-only)**; the code, discussions, and existing release installers stay available for use, reference, and self-maintenance. To make changes, fork the repository and publish your own builds; continued updates are not guaranteed. Thank you for your usage, feedback, and support.
+After releasing **v1.6.6**, the author is moving primarily to [Magpie](https://github.com/yetone/magpie), so AI-Switcher receives no further features. **v1.6.6 is the final feature release and this repository is archived (read-only)**; the code, discussions, and existing release installers stay available for use, reference, and self-maintenance. To make changes, fork the repository and publish your own builds. Thank you for your usage, feedback, and support.
 
 ## What's New in v1.6.6
 
